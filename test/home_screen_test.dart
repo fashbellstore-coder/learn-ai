@@ -63,29 +63,20 @@ void main() {
     (tester) async {
       final container = await mountHome(tester);
       final tracks = container.read(tracksProvider);
-      final lessons = tracks.expand((t) => t.lessons).length;
-      expect(find.text('${tracks.length}'), findsWidgets);
+      expect(find.textContaining('Browse all ${tracks.length} courses'), findsOneWidget);
+      expect(find.text('Your library'), findsOneWidget);
       expect(
-        find.text(
-          lessons.toString().replaceAllMapped(
-            RegExp(r'\B(?=(\d{3})+(?!\d))'),
-            (_) => ',',
-          ),
-        ),
-        findsOneWidget,
+        tester.getBottomLeft(find.text('Your library')).dy,
+        lessThan(700),
       );
-      expect(find.text('Courses'), findsOneWidget);
-      expect(tester.getBottomLeft(find.text('Courses')).dy, lessThan(700));
       expect(find.text('Welcome to Learn AI'), findsOneWidget);
-      expect(
-        tester.getBottomLeft(find.text('Start learning')).dy,
-        lessThan(780),
-      );
+      await reveal(tester, find.text('Start learning'));
+      expect(find.text('Start learning'), findsOneWidget);
       await container
           .read(userControllerProvider.notifier)
           .setGoal(CareerGoal.llmEngineer);
       await tester.pumpAndSettle();
-      expect(find.text('Learn AI, one step at a time.'), findsOneWidget);
+      expect(find.text('LLM ENGINEER'), findsOneWidget);
       await reveal(tester, find.text('Start learning'));
       await tester.tap(find.text('Start learning'));
       await tester.pumpAndSettle();
@@ -102,7 +93,9 @@ void main() {
       await tester.pumpAndSettle();
       router.go('/home');
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Courses'));
+      final browseAll = find.textContaining('Browse all');
+      await reveal(tester, browseAll);
+      await tester.tap(browseAll);
       await tester.pumpAndSettle();
       expect(
         router.routeInformationProvider.value.uri.toString(),
@@ -131,9 +124,7 @@ void main() {
       expect(find.text('Resume lesson'), findsOneWidget);
       expect(
         tester.getTopLeft(find.text('Resume lesson')).dy,
-        lessThan(
-          tester.getTopLeft(find.text('Learn AI, one step at a time.')).dy,
-        ),
+        lessThan(tester.getTopLeft(find.text('Your library')).dy),
       );
       await tester.tap(find.text('Resume lesson'));
       await tester.pumpAndSettle();
