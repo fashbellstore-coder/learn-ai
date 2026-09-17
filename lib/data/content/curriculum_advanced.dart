@@ -687,13 +687,12 @@ RoadmapTrack _langgraph() {
   return RoadmapTrack(
     id: id,
     levelNumber: 15,
-    title: 'LangGraph',
-    tagline: 'Graphs, state, checkpoints, human-in-the-loop',
+    title: 'LangChain & LangGraph',
+    tagline: 'Chains, graphs, checkpoints, human-in-the-loop',
     icon: '🕸️',
     colorHex: '#00ACC1',
-    description:
-        'Cyclic graphs you can debug in production. For LCEL chains, runnables, tools and memory, see the LangChain specialist course.',
-    keySkills: const ['StateGraph', 'Checkpoints', 'HITL', 'Observability', 'Persistence'],
+    description: 'From LCEL chains to cyclic graphs you can debug in production.',
+    keySkills: const ['LCEL', 'StateGraph', 'Checkpoints', 'HITL', 'Observability'],
     prerequisiteTrackIds: const ['track_agents'],
     modules: [
       LearningModule(
