@@ -60,6 +60,10 @@ class HomeScreen extends ConsumerWidget {
               style: type.titleMedium,
             ),
           );
+    final libraryTracks = ordered
+        .where((t) => current == null || t.id != current.id)
+        .take(4)
+        .toList();
     return SafeArea(
       bottom: false,
       child: CustomScrollView(
@@ -75,10 +79,11 @@ class HomeScreen extends ConsumerWidget {
                       child: Text(
                         name.isEmpty || name == 'Learner'
                             ? 'Welcome to Learn AI'
-                            : 'Hello, $name',
+                            : 'Welcome back, $name',
                         style: type.titleLarge,
                       ),
                     ),
+                    _StreakChip(days: profile.streakDays),
                     IconButton(
                       tooltip: 'Search the library',
                       onPressed: () => context.push('/search'),
@@ -86,14 +91,29 @@ class HomeScreen extends ConsumerWidget {
                     ),
                   ],
                 ),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    MonoChip(label: 'LEVEL ${profile.level}'),
+                    MonoChip(label: '${profile.xp} XP'),
+                    if (profile.hasSelectedPath)
+                      MonoChip(label: profile.goal.title.toUpperCase()),
+                  ],
+                ),
                 if (profile.hasSelectedPath) ...[
                   const SizedBox(height: 8),
-                  Text(profile.goal.title, style: type.titleMedium),
                   Text(profile.goal.subtitle, style: type.bodySmall),
                 ],
-                const SizedBox(height: 16),
-                if (!fresh) ...[lessonCard, const SizedBox(height: 16)],
-                _LibraryHero(courses: tracks.length, lessons: lessons.length),
+                const SizedBox(height: 18),
+                if (!fresh) ...[lessonCard, const SizedBox(height: 20)],
+                _LibrarySection(
+                  courses: tracks.length,
+                  lessons: lessons.length,
+                  tracks: libraryTracks,
+                  completed: profile.completedLessonIds,
+                ),
                 const SizedBox(height: 16),
                 if (fresh) ...[lessonCard, const SizedBox(height: 24)],
               ],
@@ -105,124 +125,156 @@ class HomeScreen extends ConsumerWidget {
   }
 }
 
-class _LibraryHero extends StatelessWidget {
-  const _LibraryHero({required this.courses, required this.lessons});
-  final int courses;
-  final int lessons;
+class _StreakChip extends StatelessWidget {
+  const _StreakChip({required this.days});
+  final int days;
 
   @override
   Widget build(BuildContext context) {
-    final type = Theme.of(context).textTheme;
     final palette = context.palette;
-    return FeaturePanel(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.auto_awesome_rounded, color: palette.accent, size: 17),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'ONE LIBRARY. ROOM TO GROW.',
-                  style: type.labelSmall?.copyWith(
-                    color: palette.accent,
-                    letterSpacing: 1.2,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text(
-            'Learn AI, one step at a time.',
-            style: type.headlineLarge?.copyWith(
-              fontSize: 32,
-              height: 1.12,
-              letterSpacing: -1,
+    return Padding(
+      padding: const EdgeInsets.only(right: 4),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: palette.warning.withValues(alpha: 0.14),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: palette.warning.withValues(alpha: 0.4)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.local_fire_department_rounded, size: 14, color: palette.warning),
+            const SizedBox(width: 4),
+            Text(
+              '$days',
+              style: Theme.of(context).textTheme.labelMedium
+                  ?.copyWith(color: palette.warning),
             ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            'From your first Python program to building AI agents.',
-            style: type.bodyMedium,
-          ),
-          const SizedBox(height: 22),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final narrow =
-                  constraints.maxWidth < 260 ||
-                  MediaQuery.textScalerOf(context).scale(14) > 20;
-              final metrics = [
-                _LibraryMetric(
-                  value: courses,
-                  label: 'Courses',
-                  onTap: () => context.go('/learn?view=all'),
-                ),
-                _LibraryMetric(
-                  value: lessons,
-                  label: 'Lessons',
-                  onTap: () => context.go('/learn?view=all'),
-                ),
-              ];
-              return narrow
-                  ? Wrap(spacing: 24, runSpacing: 12, children: metrics)
-                  : Row(
-                      children: [
-                        for (final metric in metrics) Expanded(child: metric),
-                      ],
-                    );
-            },
-          ),
-          const SizedBox(height: 14),
-          TextButton.icon(
-            onPressed: () => context.go('/learn?view=all'),
-            icon: const Icon(Icons.arrow_forward_rounded, size: 18),
-            label: const Text('Browse all courses'),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 }
 
-class _LibraryMetric extends StatelessWidget {
-  const _LibraryMetric({
-    required this.value,
-    required this.label,
-    required this.onTap,
+/// The compact "Your library" list — a course-list card per track showing
+/// its subject, the next lesson due (or completion state), and progress,
+/// matching design_inspire's Home Dashboard mockup.
+class _LibrarySection extends StatelessWidget {
+  const _LibrarySection({
+    required this.courses,
+    required this.lessons,
+    required this.tracks,
+    required this.completed,
   });
-  final int value;
-  final String label;
-  final VoidCallback onTap;
+
+  final int courses;
+  final int lessons;
+  final List<RoadmapTrack> tracks;
+  final Set<String> completed;
 
   @override
-  Widget build(BuildContext context) => Semantics(
-    label: '$value $label',
-    button: true,
-    child: InkWell(
-      borderRadius: BorderRadius.circular(10),
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+  Widget build(BuildContext context) {
+    final type = Theme.of(context).textTheme;
+    final palette = context.palette;
+    const calc = ProgressCalculator();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
           children: [
+            Expanded(child: Text('Your library', style: type.titleMedium)),
             Text(
-              value.toString().replaceAllMapped(
-                RegExp(r'\B(?=(\d{3})+(?!\d))'),
-                (_) => ',',
-              ),
-              style: Theme.of(context).textTheme.headlineMedium
-                  ?.copyWith(fontWeight: FontWeight.w700),
+              '$courses COURSES',
+              style: type.labelMedium?.copyWith(color: palette.success),
             ),
-            const SizedBox(height: 3),
-            Text(label, style: Theme.of(context).textTheme.bodySmall),
           ],
         ),
+        const SizedBox(height: 10),
+        for (final track in tracks) ...[
+          _CourseRow(
+            track: track,
+            done: calc.isCourseComplete(track, completed),
+            completedCount: track.lessons
+                .where((l) => completed.contains(l.id))
+                .length,
+          ),
+          const SizedBox(height: 10),
+        ],
+        TextButton.icon(
+          onPressed: () => context.go('/learn?view=all'),
+          icon: const Icon(Icons.arrow_forward_rounded, size: 18),
+          label: Text('Browse all $courses courses ($lessons lessons)'),
+        ),
+      ],
+    );
+  }
+}
+
+class _CourseRow extends StatelessWidget {
+  const _CourseRow({
+    required this.track,
+    required this.done,
+    required this.completedCount,
+  });
+
+  final RoadmapTrack track;
+  final bool done;
+  final int completedCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final type = Theme.of(context).textTheme;
+    final total = track.lessons.length;
+    return AppCard(
+      padding: const EdgeInsets.all(14),
+      onTap: () => context.push('/course/${track.id}'),
+      child: Row(
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: done ? palette.success : palette.elevated,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              done ? Icons.check_rounded : Icons.menu_book_outlined,
+              size: 17,
+              color: done ? palette.onAccent : palette.textSecondary,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  track.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: type.titleMedium,
+                ),
+                if (done) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    'COMPLETE',
+                    style: type.labelSmall?.copyWith(color: palette.success),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          Text(
+            '$completedCount/$total',
+            style: type.labelMedium?.copyWith(color: palette.textMuted),
+          ),
+        ],
       ),
-    ),
-  );
+    );
+  }
 }
 
 class _NextLesson extends StatelessWidget {
@@ -241,36 +293,55 @@ class _NextLesson extends StatelessWidget {
   Widget build(BuildContext context) {
     final type = Theme.of(context).textTheme;
     final palette = context.palette;
+    final index = track.lessons.indexWhere((l) => l.id == lesson.id);
     return AppCard(
       accent: palette.accent.withValues(alpha: 0.35),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            fresh
-                ? 'YOUR FIRST STEP · ${track.title}'
-                : 'CONTINUE LEARNING · ${track.title}',
-            style: type.labelSmall?.copyWith(
-              color: palette.accent,
-              letterSpacing: 0.8,
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  fresh ? 'YOUR FIRST STEP' : 'CONTINUE LEARNING',
+                  style: type.labelMedium?.copyWith(color: palette.success),
+                ),
+              ),
+              if (!fresh && index >= 0)
+                Text(
+                  'LESSON ${index + 1} / ${track.lessons.length}',
+                  style: type.labelMedium?.copyWith(color: palette.textMuted),
+                ),
+            ],
           ),
           const SizedBox(height: 10),
-          Text(lesson.title, style: type.titleLarge),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 18,
-            runSpacing: 8,
-            crossAxisAlignment: WrapCrossAlignment.center,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              AppButton(
-                label: fresh ? 'Start learning' : 'Resume lesson',
-                icon: Icons.play_arrow_rounded,
-                onPressed: () => context.push('/lesson/${lesson.id}'),
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: palette.accent.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(Icons.bolt_rounded, color: palette.accent),
               ),
-              Text(
-                '${lesson.readTimeMinutes} min · +${lesson.xpReward} XP',
-                style: type.bodySmall,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      track.title,
+                      style: type.bodySmall,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(lesson.title, style: type.titleLarge),
+                  ],
+                ),
               ),
             ],
           ),
@@ -283,6 +354,24 @@ class _NextLesson extends StatelessWidget {
               ),
             ),
           ],
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 18,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              AppButton(
+                label: fresh ? 'Start learning' : 'Resume lesson',
+                icon: Icons.play_arrow_rounded,
+                expand: false,
+                onPressed: () => context.push('/lesson/${lesson.id}'),
+              ),
+              Text(
+                '${lesson.readTimeMinutes} min · +${lesson.xpReward} XP',
+                style: type.bodySmall,
+              ),
+            ],
+          ),
         ],
       ),
     );

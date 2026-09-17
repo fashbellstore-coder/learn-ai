@@ -1,74 +1,83 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import 'app_colors.dart';
 
-/// Nebula: Space Grotesk for headings, IBM Plex Sans for body copy (both via
-/// google_fonts — cached after first fetch, falls back to the platform font
-/// if offline), IBM Plex Mono for labels/code (bundled locally, unchanged).
+/// Nebula: Space Grotesk for headings, IBM Plex Sans for body copy, IBM Plex
+/// Mono for labels/code — all bundled as local variable-font assets (see
+/// pubspec.yaml), so rendering never depends on network access at runtime.
 class AppTypography {
   AppTypography._();
 
   static TextTheme textTheme(AppPalette palette) {
     return TextTheme(
-      displayLarge: GoogleFonts.spaceGrotesk(
+      displayLarge: TextStyle(
+        fontFamily: 'SpaceGrotesk',
         fontWeight: FontWeight.w700,
         fontSize: 34,
         height: 1.15,
         letterSpacing: -0.8,
         color: palette.textPrimary,
       ),
-      headlineLarge: GoogleFonts.spaceGrotesk(
+      headlineLarge: TextStyle(
+        fontFamily: 'SpaceGrotesk',
         fontWeight: FontWeight.w700,
         fontSize: 28,
         height: 1.2,
         letterSpacing: -0.5,
         color: palette.textPrimary,
       ),
-      headlineMedium: GoogleFonts.spaceGrotesk(
+      headlineMedium: TextStyle(
+        fontFamily: 'SpaceGrotesk',
         fontWeight: FontWeight.w600,
         fontSize: 22,
         height: 1.25,
         letterSpacing: -0.3,
         color: palette.textPrimary,
       ),
-      headlineSmall: GoogleFonts.spaceGrotesk(
+      headlineSmall: TextStyle(
+        fontFamily: 'SpaceGrotesk',
         fontWeight: FontWeight.w600,
         fontSize: 18,
         height: 1.3,
         color: palette.textPrimary,
       ),
-      titleLarge: GoogleFonts.spaceGrotesk(
+      titleLarge: TextStyle(
+        fontFamily: 'SpaceGrotesk',
         fontWeight: FontWeight.w700,
         fontSize: 16,
         height: 1.35,
         color: palette.textPrimary,
       ),
-      titleMedium: GoogleFonts.spaceGrotesk(
+      titleMedium: TextStyle(
+        fontFamily: 'SpaceGrotesk',
         fontWeight: FontWeight.w600,
         fontSize: 14,
         height: 1.4,
         color: palette.textPrimary,
       ),
-      bodyLarge: GoogleFonts.ibmPlexSans(
+      bodyLarge: TextStyle(
+        fontFamily: 'IBMPlexSans',
         fontWeight: FontWeight.w400,
         fontSize: 16,
         height: 1.55,
         color: palette.textPrimary,
       ),
-      bodyMedium: GoogleFonts.ibmPlexSans(
+      bodyMedium: TextStyle(
+        fontFamily: 'IBMPlexSans',
         fontWeight: FontWeight.w400,
         fontSize: 14,
         height: 1.5,
         color: palette.textSecondary,
       ),
-      bodySmall: GoogleFonts.ibmPlexSans(
+      bodySmall: TextStyle(
+        fontFamily: 'IBMPlexSans',
         fontWeight: FontWeight.w400,
         fontSize: 12,
         height: 1.45,
         color: palette.textSecondary,
       ),
-      labelLarge: GoogleFonts.ibmPlexSans(
+      labelLarge: TextStyle(
+        fontFamily: 'IBMPlexSans',
         fontWeight: FontWeight.w600,
         fontSize: 14,
         height: 1.2,
