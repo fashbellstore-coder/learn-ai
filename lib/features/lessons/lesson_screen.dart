@@ -533,14 +533,53 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
       children: [
         for (final s in sections) ...[
           if (s.title.isNotEmpty) ...[
-            Text(s.title, style: Theme.of(context).textTheme.titleLarge),
+            _sectionLabel(s.title),
             const SizedBox(height: 8),
           ],
-          _richBody(s.content),
+          _isCallout(s.title)
+              ? Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: context.palette.input,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border(
+                      left: BorderSide(color: context.palette.warning, width: 3),
+                    ),
+                  ),
+                  child: _richBody(s.content),
+                )
+              : _richBody(s.content),
           const SizedBox(height: 28),
         ],
       ],
     );
+  }
+
+  /// A small colored, tracked label above each section — teal for the core
+  /// concept, accent (lavender) for why it matters, gold for the plain-
+  /// language explanation — instead of one flat heading style for all of
+  /// them.
+  Widget _sectionLabel(String title) {
+    final lower = title.toLowerCase();
+    final palette = context.palette;
+    final color = lower.contains('concept')
+        ? palette.success
+        : lower.contains('why')
+        ? palette.accent
+        : _isCallout(title)
+        ? palette.warning
+        : lower.contains('mistake')
+        ? palette.danger
+        : palette.textSecondary;
+    return Text(
+      title.toUpperCase(),
+      style: Theme.of(context).textTheme.labelMedium?.copyWith(color: color),
+    );
+  }
+
+  bool _isCallout(String title) {
+    final lower = title.toLowerCase();
+    return lower.contains('eli5') || lower.contains('simple explanation');
   }
 
   Widget _richBody(String text) {

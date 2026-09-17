@@ -20,7 +20,7 @@ class AppTheme {
       secondary: palette.violet,
       onSecondary: Colors.white,
       tertiary: palette.success,
-      onTertiary: isDark ? AppColors.deepSpace : Colors.white,
+      onTertiary: palette.onAccent,
       error: palette.danger,
       onError: Colors.white,
       surface: palette.card,

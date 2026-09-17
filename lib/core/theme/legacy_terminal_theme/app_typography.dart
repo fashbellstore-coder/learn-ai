@@ -1,74 +1,84 @@
+// LEGACY BACKUP — see README.md in this folder. Not imported anywhere.
+// This is the "Terminal Noir" typography (PlusJakartaSans + IBMPlexMono)
+// that shipped before the Nebula redesign.
+
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import 'app_colors.dart';
 
-/// Nebula: Space Grotesk for headings, IBM Plex Sans for body copy (both via
-/// google_fonts — cached after first fetch, falls back to the platform font
-/// if offline), IBM Plex Mono for labels/code (bundled locally, unchanged).
 class AppTypography {
   AppTypography._();
 
   static TextTheme textTheme(AppPalette palette) {
     return TextTheme(
-      displayLarge: GoogleFonts.spaceGrotesk(
+      displayLarge: TextStyle(
+        fontFamily: 'PlusJakartaSans',
         fontWeight: FontWeight.w700,
         fontSize: 34,
         height: 1.15,
         letterSpacing: -0.8,
         color: palette.textPrimary,
       ),
-      headlineLarge: GoogleFonts.spaceGrotesk(
+      headlineLarge: TextStyle(
+        fontFamily: 'PlusJakartaSans',
         fontWeight: FontWeight.w700,
         fontSize: 28,
         height: 1.2,
         letterSpacing: -0.5,
         color: palette.textPrimary,
       ),
-      headlineMedium: GoogleFonts.spaceGrotesk(
+      headlineMedium: TextStyle(
+        fontFamily: 'PlusJakartaSans',
         fontWeight: FontWeight.w600,
         fontSize: 22,
         height: 1.25,
         letterSpacing: -0.3,
         color: palette.textPrimary,
       ),
-      headlineSmall: GoogleFonts.spaceGrotesk(
+      headlineSmall: TextStyle(
+        fontFamily: 'PlusJakartaSans',
         fontWeight: FontWeight.w600,
         fontSize: 18,
         height: 1.3,
         color: palette.textPrimary,
       ),
-      titleLarge: GoogleFonts.spaceGrotesk(
+      titleLarge: TextStyle(
+        fontFamily: 'PlusJakartaSans',
         fontWeight: FontWeight.w700,
         fontSize: 16,
         height: 1.35,
         color: palette.textPrimary,
       ),
-      titleMedium: GoogleFonts.spaceGrotesk(
+      titleMedium: TextStyle(
+        fontFamily: 'PlusJakartaSans',
         fontWeight: FontWeight.w600,
         fontSize: 14,
         height: 1.4,
         color: palette.textPrimary,
       ),
-      bodyLarge: GoogleFonts.ibmPlexSans(
+      bodyLarge: TextStyle(
+        fontFamily: 'PlusJakartaSans',
         fontWeight: FontWeight.w400,
         fontSize: 16,
         height: 1.55,
         color: palette.textPrimary,
       ),
-      bodyMedium: GoogleFonts.ibmPlexSans(
+      bodyMedium: TextStyle(
+        fontFamily: 'PlusJakartaSans',
         fontWeight: FontWeight.w400,
         fontSize: 14,
         height: 1.5,
         color: palette.textSecondary,
       ),
-      bodySmall: GoogleFonts.ibmPlexSans(
+      bodySmall: TextStyle(
+        fontFamily: 'PlusJakartaSans',
         fontWeight: FontWeight.w400,
         fontSize: 12,
         height: 1.45,
         color: palette.textSecondary,
       ),
-      labelLarge: GoogleFonts.ibmPlexSans(
+      labelLarge: TextStyle(
+        fontFamily: 'PlusJakartaSans',
         fontWeight: FontWeight.w600,
         fontSize: 14,
         height: 1.2,
@@ -79,7 +89,6 @@ class AppTypography {
         fontWeight: FontWeight.w500,
         fontSize: 12,
         height: 1.3,
-        letterSpacing: 1.1,
         color: palette.textSecondary,
       ),
       labelSmall: TextStyle(
@@ -87,7 +96,7 @@ class AppTypography {
         fontWeight: FontWeight.w500,
         fontSize: 10,
         height: 1.3,
-        letterSpacing: 1.0,
+        letterSpacing: 0.4,
         color: palette.textSecondary,
       ),
     );

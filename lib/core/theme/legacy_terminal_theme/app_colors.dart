@@ -1,27 +1,29 @@
+// LEGACY BACKUP — see README.md in this folder. Not imported anywhere.
+// This is the "Terminal Noir" palette that shipped before the Nebula redesign.
+
 import 'package:flutter/material.dart';
 
 class AppColors {
   AppColors._();
 
-  // Nebula — dark-mode identity (see design_inspire/ for the source mockups).
-  static const nebulaBase = Color(0xFF0A0716);
-  static const nebulaLavender = Color(0xFFB79CFF);
-  static const nebulaTeal = Color(0xFF2DD4BF);
-  static const nebulaGold = Color(0xFFFBBF6B);
-  static const nebulaPurple = Color(0xFF7B3FE4);
-  static const nebulaDanger = Color(0xFFFF6B81);
-  static const nebulaOnAccent = Color(0xFF180B2E);
-  static const nebulaTextPrimary = Color(0xFFF1EEFB);
-  static const nebulaTextSecondary = Color(0xFFB2A7D6);
-  static const nebulaTextMuted = Color(0xFF7A6E9C);
-  static const nebulaCode = Color(0xFF140B26);
+  static const cyberCyan = Color(0xFF00F0FF);
+  static const auroraGold = Color(0xFFF4B942);
+  static const neonEmerald = Color(0xFF00E676);
+  static const solarAmber = Color(0xFFFFAB00);
+  static const cyberPink = Color(0xFFFF3D71);
+  static const neuralBlue = Color(0xFF2979FF);
 
-  // Frosted-glass surfaces: translucent white over the base, so they pick up
-  // whatever glow sits behind them instead of a flat opaque panel.
-  static const nebulaGlassCard = Color(0x0EFFFFFF); // ~5.5% white
-  static const nebulaGlassElevated = Color(0x1FFFFFFF); // ~12% white
-  static const nebulaGlassBorder = Color(0x24FFFFFF); // ~14% white
-  static const nebulaGlassInput = Color(0x09FFFFFF); // ~3.5% white
+  static const deepSpace = Color(0xFF0A0E1A);
+  static const surfaceCard = Color(0xFF131B2E);
+  static const surfaceElevated = Color(0xFF1C2742);
+  static const surfaceBorder = Color(0xFF263554);
+  static const surfaceInput = Color(0xFF0E1524);
+  static const codeBackground = Color(0xFF080C16);
+  static const terminalGreen = Color(0xFF4AF626);
+
+  static const textPrimary = Color(0xFFF8FAFC);
+  static const textSecondary = Color(0xFF94A3B8);
+  static const textMuted = Color(0xFF64748B);
 
   static const lightCanvas = Color(0xFFF1F5F9);
   static const lightSurface = Color(0xFFFFFFFF);
@@ -82,26 +84,25 @@ class AppPalette {
   final Color violet;
   final Color danger;
 
-  /// Nebula: deep-space base, frosted-glass cards, lavender/teal/gold accents.
   static const dark = AppPalette(
-    canvas: AppColors.nebulaBase,
-    card: AppColors.nebulaGlassCard,
-    elevated: AppColors.nebulaGlassElevated,
-    border: AppColors.nebulaGlassBorder,
-    input: AppColors.nebulaGlassInput,
-    code: AppColors.nebulaCode,
-    textPrimary: AppColors.nebulaTextPrimary,
-    textSecondary: AppColors.nebulaTextSecondary,
-    textMuted: AppColors.nebulaTextMuted,
-    accent: AppColors.nebulaLavender,
-    onAccent: AppColors.nebulaOnAccent,
-    onCode: AppColors.nebulaTextPrimary,
-    codeAccent: AppColors.nebulaTeal,
-    success: AppColors.nebulaTeal,
-    warning: AppColors.nebulaGold,
-    info: AppColors.nebulaTeal,
-    violet: AppColors.nebulaPurple,
-    danger: AppColors.nebulaDanger,
+    canvas: AppColors.deepSpace,
+    card: AppColors.surfaceCard,
+    elevated: AppColors.surfaceElevated,
+    border: AppColors.surfaceBorder,
+    input: AppColors.surfaceInput,
+    code: AppColors.codeBackground,
+    textPrimary: AppColors.textPrimary,
+    textSecondary: AppColors.textSecondary,
+    textMuted: AppColors.textMuted,
+    accent: AppColors.cyberCyan,
+    onAccent: AppColors.deepSpace,
+    onCode: AppColors.textPrimary,
+    codeAccent: AppColors.terminalGreen,
+    success: AppColors.neonEmerald,
+    warning: AppColors.solarAmber,
+    info: AppColors.cyberCyan,
+    violet: AppColors.auroraGold,
+    danger: AppColors.cyberPink,
   );
 
   static const light = AppPalette(
