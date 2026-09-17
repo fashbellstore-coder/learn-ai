@@ -1,0 +1,547 @@
+{
+  "id": "module_3",
+  "title": "BERT and Encoder-Only Models",
+  "description": "How BERT learns language understanding through masked language modeling, fine-tuning it for real tasks, notable variants like RoBERTa and DistilBERT, and sentence embeddings for semantic search.",
+  "icon": "📘",
+  "color": "#00BCD4",
+  "order": 3,
+  "estimatedHours": 2,
+  "difficulty": "Intermediate",
+  "prerequisites": [
+    "module_2"
+  ],
+  "lessons": [
+    {
+      "id": "tf_bert_pretraining",
+      "title": "BERT: Pretraining with Masked Language Modeling",
+      "description": "Learn how BERT learns rich language understanding before ever seeing a specific downstream task.",
+      "duration": "9 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain what masked language modeling is and why it's an effective pretraining task."
+          },
+          {
+            "title": "🔍 What BERT is",
+            "content": "**BERT (Bidirectional Encoder Representations from Transformers)** is an encoder-only Transformer (module 2), pretrained on a massive amount of unlabeled text before being adapted to specific tasks. Recall self-supervised learning from the deep learning course's autoencoder lesson: BERT's pretraining is self-supervised too — it doesn't need human-provided labels, since it generates its own training signal directly from raw text."
+          },
+          {
+            "title": "🎭 Masked Language Modeling (MLM)",
+            "content": "BERT's core pretraining task: randomly **mask** (hide) some percentage of tokens in the input text, and train the model to predict what the masked tokens originally were, using the full bidirectional context around them (recall bidirectional attention from module 2).\n\n```\nOriginal:  \"The cat sat on the mat\"\nMasked:    \"The cat [MASK] on the mat\"\nTask: predict \"[MASK]\" = \"sat\", using context from BOTH directions\n          (\"The cat\" before, \"on the mat\" after)\n```\n\nThis differs meaningfully from the language modeling task from the NLP course, which predicts the *next* word using only *prior* context — MLM predicts a *masked* word using context from *both* directions simultaneously, which is exactly why BERT's bidirectional encoder architecture (rather than a masked decoder) is the right fit for this specific pretraining task."
+          },
+          {
+            "title": "🎯 Why this pretraining task works so well",
+            "content": "To reliably fill in a masked word correctly, the model has to implicitly learn grammar, common word relationships, and a great deal of world knowledge — very similar in spirit to how next-word prediction (NLP course) forces a language model to learn far more than the literal prediction task alone would suggest. The key difference is that MLM's bidirectional nature is specifically well-suited to producing rich token representations for *understanding* tasks, rather than for open-ended generation."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Confusing masked language modeling with the next-word-prediction language modeling from the NLP course.** They're related self-supervised pretraining ideas, but MLM predicts masked tokens using bidirectional context, while standard language modeling predicts the next token using only prior (left) context — this distinction is exactly why BERT and GPT use different architectures (encoder vs. decoder).\n\n**Assuming BERT is pretrained with human-labeled data.** MLM is self-supervised — masked tokens are automatically hidden and the original tokens serve as their own labels, requiring no manual annotation for pretraining.\n\n**Underestimating how much a seemingly simple 'fill in the blank' task can teach a model.** Just like the NLP course's language modeling lesson, this deceptively simple objective forces the model to implicitly learn grammar, semantics, and substantial world knowledge."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "tf_bert_pretraining_quiz",
+        "questions": [
+          {
+            "question": "What does BERT's masked language modeling (MLM) pretraining task involve?",
+            "options": [
+              "Predicting the next word in a sequence using only prior context",
+              "Randomly hiding some tokens in the input and training the model to predict them using context from both directions",
+              "Translating text from one language to another",
+              "Classifying an entire document into a fixed category"
+            ],
+            "correctAnswer": 1,
+            "explanation": "MLM masks a percentage of input tokens and trains the model to reconstruct them using the full bidirectional context surrounding each masked position — a task well suited to BERT's encoder architecture.",
+            "id": "q1"
+          },
+          {
+            "question": "How does masked language modeling differ from the next-word-prediction language modeling covered in the NLP course?",
+            "options": [
+              "They are actually the exact same task with different names",
+              "MLM predicts masked tokens using context from both directions simultaneously, while standard language modeling predicts the next token using only prior (left) context",
+              "MLM requires human-labeled training data, while language modeling does not",
+              "MLM can only be applied to single-word sentences"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The key distinction is directionality — MLM leverages bidirectional context (both before and after the masked token) to predict it, while standard next-word language modeling only looks at prior context, which is exactly why they pair naturally with encoder and decoder architectures respectively.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is BERT's masked language modeling task considered self-supervised, similar to the deep learning course's autoencoder lesson?",
+            "options": [
+              "It requires extensive human-provided labels for every training example",
+              "The training signal (the original identity of masked tokens) comes directly from the raw text itself, with no manual labeling needed",
+              "Self-supervised learning is unrelated to BERT's training process",
+              "BERT cannot actually be trained without a labeled dataset"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Just as an autoencoder uses its own input as its training target, BERT's MLM automatically masks tokens and uses their known original values as labels — generating its own supervision signal directly from unlabeled text, without requiring human annotation.",
+            "id": "q3"
+          },
+          {
+            "question": "What kind of Transformer architecture is BERT built on?",
+            "options": [
+              "Decoder-only",
+              "Encoder-only",
+              "Encoder-decoder with cross-attention",
+              "BERT does not use a Transformer architecture"
+            ],
+            "correctAnswer": 1,
+            "explanation": "BERT (Bidirectional Encoder Representations from Transformers) is an encoder-only Transformer, pretrained on a massive amount of unlabeled text before adaptation to specific tasks.",
+            "id": "q4"
+          },
+          {
+            "question": "What does BERT's masked language modeling (MLM) task involve?",
+            "options": [
+              "Predicting the next word using only prior context",
+              "Randomly masking some tokens and training the model to predict them using bidirectional context",
+              "Translating a sentence into a different language",
+              "Classifying a whole document into a category"
+            ],
+            "correctAnswer": 1,
+            "explanation": "MLM randomly masks a percentage of tokens in the input and trains the model to predict what they originally were, using the full bidirectional context surrounding each masked position.",
+            "id": "q5"
+          },
+          {
+            "question": "How does MLM differ from the next-word-prediction language modeling covered in the NLP course?",
+            "options": [
+              "They are the exact same task with a different name",
+              "MLM predicts masked tokens using context from both directions, while standard language modeling predicts the next token using only prior context",
+              "MLM requires human-labeled data, while language modeling does not",
+              "MLM can only be applied to a single word at a time"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The key difference is directionality — MLM leverages bidirectional context to predict masked tokens, while standard language modeling relies only on prior (left) context, matching encoder and decoder architectures respectively.",
+            "id": "q6"
+          },
+          {
+            "question": "Why is BERT's MLM pretraining considered self-supervised, echoing the deep learning course's autoencoder lesson?",
+            "options": [
+              "It requires extensive human-provided labels for every example",
+              "The training signal comes directly from the raw text itself — masked tokens' original identities serve as their own labels",
+              "Self-supervised learning is unrelated to how BERT is trained",
+              "BERT cannot be trained without a separately labeled dataset"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Just as an autoencoder uses its own input as its training target, BERT automatically masks tokens and uses their known original values as labels, generating its own supervision signal without manual annotation.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does BERT's bidirectional encoder architecture, rather than a masked decoder, suit the MLM pretraining task?",
+            "options": [
+              "Bidirectional architecture is irrelevant to the MLM task",
+              "MLM specifically needs context from both directions around a masked token, which only a bidirectional architecture like an encoder can provide",
+              "MLM only ever uses context from before the masked token",
+              "A masked decoder would actually work identically well for MLM"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since MLM predicts a masked word using context from both directions simultaneously, an encoder's bidirectional self-attention (rather than a masked decoder's left-to-right constraint) is exactly the right architectural fit.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "tf_bert_finetuning",
+      "title": "Fine-Tuning BERT for Downstream Tasks",
+      "description": "Learn how a pretrained BERT model gets adapted to solve specific, real-world tasks.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can describe the process of fine-tuning BERT for a specific downstream task."
+          },
+          {
+            "title": "🔁 A familiar pattern from earlier courses",
+            "content": "Recall transfer learning from the deep learning and computer vision courses: start from a model already pretrained on a large, general task, then adapt it to your specific task. Fine-tuning BERT follows exactly this same pattern — pretraining (previous lesson) is the general phase; fine-tuning adapts it to a specific **downstream task**."
+          },
+          {
+            "title": "🛠️ Adding a task-specific head",
+            "content": "To fine-tune BERT for a specific task, a small, new **task-specific head** — usually just one or two additional layers — is added on top of BERT's pretrained output, and the whole model (BERT's pretrained weights plus the new head) is then further trained on labeled examples for that specific task.\n\n```python\n# Conceptual: fine-tuning BERT for sentiment classification\n# bert_output = pretrained_bert(input_tokens)\n# — use the representation for BERT's special [CLS] token,\n#   which is trained to summarize the whole input sequence\n# sentiment_logits = classification_head(bert_output[\"CLS\"])\n```\n\nBERT's input format includes a special `[CLS]` token at the start, whose final representation is specifically designed to be used as a summary of the entire input — convenient for classification-style tasks."
+          },
+          {
+            "title": "🎯 What kinds of tasks this enables",
+            "content": "This same fine-tuning pattern adapts BERT to a wide range of tasks covered in the NLP course: sentiment analysis (classification head on `[CLS]`), named entity recognition (a per-token classification head, since NER needs a label for every token, recall the BIO tagging scheme), and more. The core, expensive pretraining (learning general language understanding) happens once; fine-tuning for each specific task is comparatively fast and requires far less labeled data than training a comparable model from scratch."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming fine-tuning requires as much data as pretraining did.** Fine-tuning benefits enormously from BERT's already-learned general language understanding — it typically needs far less task-specific labeled data than training from scratch, following the same logic as transfer learning generally.\n\n**Using a mismatched task-specific head for the task at hand.** A sentence-level classification task (like sentiment) needs a different head structure than a per-token task (like NER) — matching the head to the task's actual output structure matters.\n\n**Forgetting the fine-tuning learning rate guidance from the deep learning course still applies.** Fine-tuning BERT typically uses a smaller learning rate than training from scratch, to avoid destroying its valuable pretrained language understanding too abruptly."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "tf_bert_finetuning_quiz",
+        "questions": [
+          {
+            "question": "What is added to a pretrained BERT model to adapt it for a specific downstream task?",
+            "options": [
+              "An entirely new, unrelated model trained from scratch",
+              "A small task-specific head — usually one or two additional layers — added on top of BERT's pretrained output",
+              "A completely different tokenizer",
+              "Nothing — BERT is used completely unchanged for every task"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Fine-tuning BERT involves adding a small task-specific head (like a classification layer) on top of its pretrained representations, then further training the combined model on labeled examples for the specific task.",
+            "id": "q1"
+          },
+          {
+            "question": "Why does fine-tuning BERT typically require much less labeled data than training a comparable model completely from scratch?",
+            "options": [
+              "Fine-tuning doesn't actually require any labeled data at all",
+              "BERT's pretraining has already learned substantial general language understanding, so fine-tuning only needs to adapt that existing knowledge to the specific task, rather than learning language from zero",
+              "Labeled data has no actual effect on fine-tuning performance",
+              "Fine-tuning always uses exactly the same amount of data as pretraining"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This follows the same logic as transfer learning generally — since BERT already understands language broadly from its pretraining, fine-tuning just needs to adapt that existing knowledge to a specific task, requiring far less task-specific labeled data than learning everything from scratch.",
+            "id": "q2"
+          },
+          {
+            "question": "Why might a task-specific head for named entity recognition differ structurally from one for sentiment classification?",
+            "options": [
+              "NER and sentiment classification always use identical head structures",
+              "NER requires a label for every individual token (a per-token head), while sentiment classification typically needs just one label for the whole sequence (often using the [CLS] token's representation)",
+              "NER cannot be performed using BERT at all",
+              "Sentiment classification requires more layers than any other task"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since NER (recall the NLP course's BIO tagging) needs a prediction at every token position, while sentiment classification needs just one overall label, their task-specific heads are structured differently to match each task's actual output requirements.",
+            "id": "q3"
+          },
+          {
+            "question": "What earlier concept from the deep learning and computer vision courses does BERT fine-tuning directly follow the pattern of?",
+            "options": [
+              "Data augmentation",
+              "Transfer learning — starting from a model pretrained on a general task, then adapting it to a specific task",
+              "Batch normalization",
+              "Convolutional pooling"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Fine-tuning BERT follows exactly the transfer learning pattern from the deep learning and computer vision courses: start from a pretrained model, then adapt it to a specific downstream task.",
+            "id": "q4"
+          },
+          {
+            "question": "What is typically added to a pretrained BERT model to adapt it for a specific downstream task?",
+            "options": [
+              "An entirely new, unrelated model trained completely from scratch",
+              "A small task-specific head — usually one or two additional layers — on top of BERT's pretrained output",
+              "A completely different tokenizer with a new vocabulary",
+              "Nothing is added; BERT is used entirely unchanged"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Fine-tuning adds a small task-specific head, typically one or two additional layers, on top of BERT's pretrained output, then trains the combined model on labeled examples for the specific task.",
+            "id": "q5"
+          },
+          {
+            "question": "What is BERT's special [CLS] token used for, as described in this lesson?",
+            "options": [
+              "It marks the end of every sentence",
+              "Its final representation is designed to summarize the entire input sequence, useful for classification-style tasks",
+              "It replaces the need for any positional encoding",
+              "It is only used during pretraining and discarded before fine-tuning"
+            ],
+            "correctAnswer": 1,
+            "explanation": "BERT's input format includes a special [CLS] token at the start, whose final representation is specifically designed to summarize the whole input sequence — convenient for classification-style tasks.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does named entity recognition need a differently structured task-specific head than sentiment classification?",
+            "options": [
+              "NER and sentiment classification always use identical head structures",
+              "NER requires a label for every individual token (a per-token head), while sentiment classification typically needs just one label for the whole sequence",
+              "NER cannot be performed using BERT at all",
+              "Sentiment classification always requires more layers than any other task"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since NER needs a prediction at every token position (recall BIO tagging from the NLP course), while sentiment classification needs just one overall label, their task-specific heads are structured differently to match each task's output requirements.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does fine-tuning BERT typically require far less labeled data than training a comparable model completely from scratch?",
+            "options": [
+              "Fine-tuning does not actually require any labeled data at all",
+              "BERT's pretraining has already learned substantial general language understanding, so fine-tuning only needs to adapt that knowledge to a specific task",
+              "Labeled data amount has no actual effect on fine-tuning performance",
+              "Fine-tuning always uses exactly the same amount of data as pretraining did"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since BERT already understands language broadly from pretraining, fine-tuning just needs to adapt that existing knowledge to a specific task, requiring far less task-specific labeled data than learning everything from scratch.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "tf_bert_variants",
+      "title": "BERT Variants: RoBERTa, DistilBERT, and the Family Tree",
+      "description": "Learn how researchers refined BERT's original recipe along different dimensions after its release.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can describe what a few notable BERT variants changed and why."
+          },
+          {
+            "title": "📈 RoBERTa: better pretraining, same architecture",
+            "content": "**RoBERTa (Robustly Optimized BERT)** kept BERT's core architecture unchanged but improved the pretraining *process* — training on significantly more data, for longer, with refined choices around the masking procedure and other training details. This produced meaningfully better performance without inventing a new architecture at all — a reminder that training recipe and data quality/quantity (echoing the data science course's emphasis on data) can matter just as much as architectural novelty."
+          },
+          {
+            "title": "⚡ DistilBERT: smaller and faster, via distillation",
+            "content": "**DistilBERT** addresses a different concern entirely: BERT is fairly large and can be slow or expensive to run, especially for resource-constrained deployment (recall the computer vision course's discussion of mobile-friendly backbones). DistilBERT uses **knowledge distillation** — training a smaller \"student\" model to mimic a larger, already-trained \"teacher\" model's (BERT's) outputs — producing a substantially smaller, faster model that retains most of the original's performance, trading a small amount of accuracy for significant efficiency gains."
+          },
+          {
+            "title": "🌳 Why so many variants exist",
+            "content": "Each variant optimizes along a different axis of the same underlying tradeoffs covered throughout this course: RoBERTa pushes for more raw performance (more/better training data and process); DistilBERT pushes for efficiency (smaller, faster, cheaper to run); and many other variants exist optimizing for other specific goals (different languages, specific domains like biomedical or legal text, longer input sequences, and more)."
+          },
+          {
+            "title": "🎯 Choosing a variant in practice",
+            "content": "Similar to the computer vision course's backbone selection guidance: check what pretrained variants are actually available for your specific need, consider your accuracy vs. speed/size requirements, and — when in doubt — a well-established option (original BERT or RoBERTa) is a very reasonable default starting point, with room to switch to a more specialized variant later if a clear, specific reason emerges."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming newer variants are always strictly better in every respect.** Each variant makes different tradeoffs — DistilBERT trades some accuracy for speed and size, which is a genuine downside if your application doesn't actually need that efficiency gain.\n\n**Overlooking that RoBERTa's improvements came primarily from training process, not architecture.** This is a valuable, generalizable lesson: sometimes the biggest gains come from better data and training recipes, not a fundamentally new design.\n\n**Not checking pretrained variant availability for your specific language or domain.** Just as with vision backbones, the practical availability of a well-suited pretrained model for your exact use case often matters more than a purely theoretical comparison between variants."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "tf_bert_variants_quiz",
+        "questions": [
+          {
+            "question": "What did RoBERTa primarily change compared to the original BERT?",
+            "options": [
+              "A completely different underlying architecture",
+              "The pretraining process — more data, longer training, and refined training details — while keeping the core architecture the same",
+              "It replaced masked language modeling with next-word prediction",
+              "It removed the need for any fine-tuning"
+            ],
+            "correctAnswer": 1,
+            "explanation": "RoBERTa's improvements came from refining BERT's training recipe (more data, longer training, tuned details) rather than changing the underlying architecture — showing that training process alone can meaningfully improve performance.",
+            "id": "q1"
+          },
+          {
+            "question": "What technique does DistilBERT use to become smaller and faster than BERT?",
+            "options": [
+              "Removing all of BERT's training data",
+              "Knowledge distillation — training a smaller 'student' model to mimic a larger, already-trained 'teacher' model's outputs",
+              "Increasing the number of layers significantly",
+              "Retraining BERT from scratch with random weights"
+            ],
+            "correctAnswer": 1,
+            "explanation": "DistilBERT uses knowledge distillation, where a smaller model learns to reproduce the behavior of a larger pretrained model (BERT), resulting in a more compact, faster model that retains much of the original's performance.",
+            "id": "q2"
+          },
+          {
+            "question": "What tradeoff does DistilBERT typically make compared to full BERT?",
+            "options": [
+              "It has no tradeoffs at all — it's strictly better in every way",
+              "It trades a small amount of accuracy for significant gains in speed and reduced model size",
+              "It requires significantly more computational resources than BERT",
+              "It cannot be fine-tuned for any downstream task"
+            ],
+            "correctAnswer": 1,
+            "explanation": "DistilBERT is smaller and faster, making it well suited to resource-constrained deployment, but this efficiency typically comes at the cost of a modest reduction in accuracy compared to the full-sized BERT model.",
+            "id": "q3"
+          },
+          {
+            "question": "What did RoBERTa primarily change compared to the original BERT?",
+            "options": [
+              "A completely different underlying architecture",
+              "The pretraining process — more data, longer training, and refined training details — while keeping the same core architecture",
+              "It replaced masked language modeling with next-word prediction entirely",
+              "It removed the need for any fine-tuning on downstream tasks"
+            ],
+            "correctAnswer": 1,
+            "explanation": "RoBERTa's improvements came specifically from refining BERT's training recipe — more and better data, longer training, tuned masking details — rather than inventing a new architecture.",
+            "id": "q4"
+          },
+          {
+            "question": "What technique does DistilBERT use to become smaller and faster than the original BERT?",
+            "options": [
+              "Removing all of BERT's training data entirely",
+              "Knowledge distillation — training a smaller 'student' model to mimic a larger, already-trained 'teacher' model's outputs",
+              "Significantly increasing the number of layers in the model",
+              "Retraining BERT completely from scratch with random weights"
+            ],
+            "correctAnswer": 1,
+            "explanation": "DistilBERT uses knowledge distillation, training a smaller student model to reproduce the behavior of a larger pretrained teacher model (BERT), resulting in a more compact, faster model.",
+            "id": "q5"
+          },
+          {
+            "question": "What tradeoff does DistilBERT typically make compared to the full-sized BERT?",
+            "options": [
+              "It has no tradeoffs at all — it is strictly better in every respect",
+              "It trades a small amount of accuracy for significant gains in speed and reduced model size",
+              "It requires significantly more computational resources than full BERT",
+              "It cannot be fine-tuned for any downstream task"
+            ],
+            "correctAnswer": 1,
+            "explanation": "DistilBERT is smaller and faster, well suited to resource-constrained deployment, but this efficiency typically comes at the cost of a modest reduction in accuracy compared to full-sized BERT.",
+            "id": "q6"
+          },
+          {
+            "question": "According to this lesson, what lesson does RoBERTa's success teach that generalizes beyond just BERT?",
+            "options": [
+              "That architectural novelty is always more important than training data or process",
+              "That better training recipes and more/better data can matter just as much as architectural novelty",
+              "That pretraining is never useful and should be skipped",
+              "That model size is completely irrelevant to performance"
+            ],
+            "correctAnswer": 1,
+            "explanation": "RoBERTa's meaningfully better performance from just improving the training process (not the architecture) is a reminder that training recipe and data quality/quantity can matter just as much as architectural novelty.",
+            "id": "q7"
+          },
+          {
+            "question": "What guidance does this lesson give for choosing a BERT variant in practice, echoing the computer vision course's backbone selection advice?",
+            "options": [
+              "Always pick the newest variant regardless of its actual availability or fit",
+              "Check what pretrained variants are actually available for your need, weigh accuracy vs. speed/size, and start with a well-established default like BERT or RoBERTa if in doubt",
+              "Never use any pretrained variant; always train entirely from scratch",
+              "Variant choice has no practical impact on a real project"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Similar to the computer vision course's backbone selection guidance, this lesson recommends checking available pretrained variants, weighing your accuracy/speed/size needs, and defaulting to a well-established option like BERT or RoBERTa absent a specific reason to switch.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "tf_sentence_embeddings",
+      "title": "Sentence Embeddings and Semantic Search",
+      "description": "Learn how BERT-style models produce embeddings for entire sentences, enabling powerful semantic search.",
+      "duration": "9 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain how sentence embeddings are produced and how they enable semantic search."
+          },
+          {
+            "title": "🔁 From word embeddings to sentence embeddings",
+            "content": "Recall word embeddings and cosine similarity from the NLP course. A natural extension: what if you could get a single vector representing an *entire sentence's* meaning, not just individual words — allowing you to compare whole sentences or documents for semantic similarity, the same way individual words were compared?"
+          },
+          {
+            "title": "📏 Getting a sentence-level representation from BERT",
+            "content": "One straightforward approach: use BERT's `[CLS]` token representation (module 3's fine-tuning lesson) as a stand-in for the whole sentence's meaning. In practice, naively using a raw pretrained BERT's `[CLS]` output this way doesn't produce especially high-quality similarity comparisons — specialized approaches (like **Sentence-BERT**) specifically fine-tune BERT-style models using objectives designed to make sentence-level embeddings genuinely useful for direct similarity comparison via cosine similarity.\n\n```python\n# Conceptual sentence embedding usage\n# embedding_1 = sentence_embedding_model(\"How do I reset my password?\")\n# embedding_2 = sentence_embedding_model(\"I forgot my password, help!\")\n# cosine_similarity(embedding_1, embedding_2)  → high — these are semantically similar\n```"
+          },
+          {
+            "title": "🔍 Semantic search: search by meaning, not just keywords",
+            "content": "Traditional search (recall TF-IDF from the NLP course) largely matches based on shared keywords or phrasing. **Semantic search** instead compares sentence embeddings, finding results that are meaningfully *similar* even when they don't share many of the same exact words.\n\n```\nQuery:  \"How do I reset my password?\"\nTraditional keyword search: might miss a document phrased as\n  \"steps to recover a forgotten login\" — no shared keywords!\nSemantic search: correctly finds it — the sentence embeddings\n  are close together despite very different wording\n```\n\nThis is exactly why semantic search has become such a valuable, widely deployed application — it captures meaning-based similarity that keyword matching (TF-IDF, bag-of-words) fundamentally cannot."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming any pretrained BERT's raw [CLS] output works well for direct similarity comparison out of the box.** Specialized fine-tuning (like Sentence-BERT's specific training objective) is typically needed to produce genuinely useful sentence-level embeddings for this purpose.\n\n**Confusing semantic search with traditional keyword-based search (TF-IDF).** They solve a related problem differently — keyword search matches shared terms directly; semantic search compares meaning via embeddings, catching similarity even with completely different wording.\n\n**Forgetting cosine similarity (from the NLP course) is exactly the same comparison tool used here, just applied to sentence-level embeddings instead of individual word embeddings.**"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "tf_sentence_embeddings_quiz",
+        "questions": [
+          {
+            "question": "Why doesn't a raw, pretrained BERT's [CLS] token typically produce high-quality sentence embeddings for similarity comparison out of the box?",
+            "options": [
+              "BERT cannot process the [CLS] token at all",
+              "The original pretraining objective (masked language modeling) wasn't specifically designed to make [CLS] representations good for direct similarity comparison — specialized fine-tuning (like Sentence-BERT) is typically needed for that purpose",
+              "Sentence embeddings are technically impossible to compute",
+              "BERT can only process single words, never full sentences"
+            ],
+            "correctAnswer": 1,
+            "explanation": "BERT's original masked language modeling objective doesn't specifically optimize the [CLS] representation for similarity comparison — approaches like Sentence-BERT apply additional, specialized fine-tuning specifically to produce embeddings well-suited for that purpose.",
+            "id": "q1"
+          },
+          {
+            "question": "How does semantic search differ from traditional keyword-based search like TF-IDF?",
+            "options": [
+              "They are identical techniques with different names",
+              "Semantic search compares sentence-level embeddings to find results that are meaningfully similar even without shared exact keywords, while keyword search relies on matching shared terms",
+              "Semantic search can only be used on single words, not full sentences",
+              "TF-IDF always outperforms semantic search on every task"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Semantic search leverages embeddings to capture similarity in meaning, which can catch relevant results phrased very differently from the query — something purely keyword-based approaches like TF-IDF, which rely on shared terms, would miss.",
+            "id": "q2"
+          },
+          {
+            "question": "What comparison technique from the NLP course is directly reused here, now applied to whole-sentence embeddings?",
+            "options": [
+              "Bag of words",
+              "Cosine similarity",
+              "TF-IDF weighting",
+              "Stemming"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Cosine similarity, originally introduced for comparing word embeddings in the NLP course, is the same standard tool used to compare sentence-level embeddings for semantic search and similarity tasks.",
+            "id": "q3"
+          },
+          {
+            "question": "What natural extension of word embeddings and cosine similarity from the NLP course does this lesson introduce?",
+            "options": [
+              "Extending word embeddings to represent an entire sentence's meaning in a single vector",
+              "Removing the need for embeddings entirely",
+              "Using embeddings only for single-character comparison",
+              "Replacing cosine similarity with a completely different, unrelated metric"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This lesson extends the idea of word embeddings and cosine similarity from the NLP course to sentence embeddings — a single vector representing an entire sentence's meaning, comparable via similarity.",
+            "id": "q4"
+          },
+          {
+            "question": "Why doesn't a raw, pretrained BERT's [CLS] token typically produce high-quality sentence embeddings for similarity comparison out of the box?",
+            "options": [
+              "BERT cannot process the [CLS] token under any circumstances",
+              "The original masked language modeling objective wasn't specifically designed to optimize [CLS] for similarity comparison — specialized fine-tuning like Sentence-BERT is typically needed",
+              "Sentence embeddings are technically impossible to compute at all",
+              "BERT can only process individual words, never full sentences"
+            ],
+            "correctAnswer": 1,
+            "explanation": "BERT's original MLM pretraining objective doesn't specifically optimize the [CLS] representation for direct similarity comparison — approaches like Sentence-BERT apply additional, specialized fine-tuning for that specific purpose.",
+            "id": "q5"
+          },
+          {
+            "question": "What specialized approach does this lesson name as fine-tuning BERT-style models specifically to produce useful sentence embeddings?",
+            "options": [
+              "RoBERTa",
+              "Sentence-BERT",
+              "DistilBERT",
+              "GPT"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Sentence-BERT is named as the specialized approach that fine-tunes BERT-style models using objectives designed to make sentence-level embeddings genuinely useful for direct similarity comparison.",
+            "id": "q6"
+          },
+          {
+            "question": "How does semantic search differ from traditional keyword-based search such as TF-IDF?",
+            "options": [
+              "They are identical techniques under two different names",
+              "Semantic search compares sentence-level embeddings to find meaningfully similar results even without shared exact keywords, while keyword search relies on matching shared terms",
+              "Semantic search can only ever be applied to single words, not full sentences",
+              "TF-IDF always outperforms semantic search on every possible task"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Semantic search leverages embeddings to capture similarity in meaning, catching relevant results phrased very differently from the query — something purely keyword-based approaches like TF-IDF would miss.",
+            "id": "q7"
+          },
+          {
+            "question": "What comparison technique from the NLP course is reused in this lesson, now applied to whole-sentence embeddings?",
+            "options": [
+              "Bag of words",
+              "Cosine similarity",
+              "TF-IDF weighting",
+              "Stemming"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Cosine similarity, originally introduced for comparing word embeddings in the NLP course, is the same standard tool reused here to compare sentence-level embeddings for semantic search.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

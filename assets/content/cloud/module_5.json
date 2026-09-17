@@ -1,0 +1,563 @@
+{
+  "id": "cld_production_practices",
+  "title": "Production Infrastructure Practices",
+  "description": "How load balancing, autoscaling, and health checks work together in production, what real secrets protection and rotation require beyond basic encoding, how Infrastructure as Code brings reproducibility and review to infrastructure changes, and how to monitor infrastructure health and correlate alerts across layers.",
+  "icon": "🩺",
+  "color": "#37474F",
+  "order": 5,
+  "estimatedHours": 4,
+  "difficulty": "advanced",
+  "prerequisites": [
+    "cld_providers_and_gpu"
+  ],
+  "lessons": [
+    {
+      "id": "cld_load_balancers_and_autoscaling_in_practice",
+      "title": "Load Balancers and Autoscaling in Practice",
+      "description": "How load balancing and autoscaling work together in production, why health checks are the mechanism connecting them, and what multi-region deployment adds — and costs in complexity — beyond a solid single-region setup.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson you should be able to explain how load balancers and autoscaling work together in production, describe why health checks are what ties them together, and explain what multi-region deployment adds on top of both.\n"
+          },
+          {
+            "title": "⚖️🔁 Two mechanisms, working together",
+            "content": "A load balancer distributes incoming traffic across a set of instances; autoscaling changes how many instances exist based on load. Neither is complete without the other in production: a load balancer with a fixed instance count can't absorb a traffic spike beyond that fixed capacity, and autoscaling with no load balancer has no way to actually route traffic to the new instances it creates. Together, autoscaling adjusts capacity and the load balancer continuously spreads traffic across whatever capacity currently exists.\n"
+          },
+          {
+            "title": "🩺 Health checks tie them together",
+            "content": "A load balancer only routes traffic to instances that pass its **health check** — a periodic probe (often an HTTP request to a `/health` endpoint) confirming the instance is actually able to serve traffic, not just powered on. This is the same mechanism, applied at the infrastructure level, as the readiness probes covered in the Kubernetes module: an instance that's running but not yet ready (still starting up, or degraded) is excluded from traffic until it passes. Without health checks, a load balancer would route traffic to broken instances just because they exist.\n"
+          },
+          {
+            "title": "🌍 Multi-region considerations",
+            "content": "Deploying across multiple geographic regions adds two things a single-region deployment doesn't need to handle: routing users to the nearest or healthiest region (via DNS-based or anycast routing), and surviving an entire region going down, not just an individual instance or availability zone. This adds real complexity — data replication across regions, handling requests that must be region-consistent — so it's typically adopted only once single-region reliability and latency needs are already well understood, not as a default starting point.\n"
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "Here's a simplified simulation of a load balancer routing only to instances that pass a health check, while autoscaling adjusts the instance pool:\n\n```python\nclass Instance:\n    def __init__(self, name, healthy=True):\n        self.name = name\n        self.healthy = healthy\n\nclass LoadBalancer:\n    def route(self, instances):\n        # only ever route to instances that pass the health check\n        return [i.name for i in instances if i.healthy]\n\ndef autoscale(instances, target_count):\n    instances = [i for i in instances if i.healthy]  # drop unhealthy instances\n    next_id = len(instances) + 1\n    while len(instances) < target_count:\n        instances.append(Instance(f\"instance-{next_id}\"))\n        next_id += 1\n    return instances\n\nlb = LoadBalancer()\ninstances = [Instance(\"instance-1\"), Instance(\"instance-2\", healthy=False), Instance(\"instance-3\")]\n\nprint(\"routable before autoscale:\", lb.route(instances))  # instance-2 excluded, unhealthy\n\ninstances = autoscale(instances, target_count=4)\nprint(\"pool after autoscale:\", [i.name for i in instances])\nprint(\"routable after autoscale:\", lb.route(instances))\n```\n\nBefore autoscaling, `lb.route(instances)` returns `[\"instance-1\", \"instance-3\"]` — `instance-2` is excluded purely because `healthy=False`, even though it exists. `autoscale` first drops that unhealthy instance, leaving 2, then creates new instances (`instance-3`, `instance-4`, using `next_id = len(instances) + 1 = 3`) until the pool reaches `target_count=4`; the final pool is `[\"instance-1\", \"instance-3\", \"instance-3\", \"instance-4\"]` — note the naming reuses \"instance-3\" since the original healthy `instance-3` survived and `next_id` started counting from the post-filter length. All 4 instances in the final pool are healthy by construction, so `lb.route` after autoscaling returns all 4 names.\n"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Deploying autoscaling without health checks.** As the code example shows, a load balancer that routes to every instance regardless of health will send traffic to broken instances the moment autoscaling creates one that isn't fully ready yet, or fails to notice one that's degraded.\n\n**Setting health check intervals too infrequent or too lenient.** A health check that only runs every few minutes, or that just checks \"is the process running\" rather than \"can it actually serve a request,\" can leave a broken instance receiving traffic for far longer than necessary.\n\n**Reaching for multi-region deployment before single-region reliability is solid.** Multi-region adds real complexity (data replication, region-consistent routing) — adopting it before the fundamentals of health checks and autoscaling are working reliably in one region just adds failure modes on top of unsolved ones.\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "cld_load_balancers_and_autoscaling_in_practice_quiz",
+        "questions": [
+          {
+            "question": "Per the \"⚖️🔁 Two mechanisms\" section, why are load balancing and autoscaling described as incomplete without each other?",
+            "options": [
+              "Because they are actually the same mechanism under different names",
+              "A load balancer with a fixed instance count can't absorb spikes beyond that capacity, and autoscaling with no load balancer has no way to route traffic to the new instances it creates",
+              "Because load balancers cannot function without a database",
+              "Because autoscaling requires manual load balancer reconfiguration every time it runs"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson states this complementary relationship directly: autoscaling changes available capacity, and the load balancer is what actually distributes traffic across whatever capacity currently exists.",
+            "id": "q1"
+          },
+          {
+            "question": "According to the \"🩺 Health checks\" section, how does a load balancer's health check relate to Kubernetes readiness probes covered earlier?",
+            "options": [
+              "They are unrelated mechanisms that happen to share a name",
+              "They're the same underlying mechanism applied at the infrastructure level — excluding an instance that's running but not actually able to serve traffic from receiving requests",
+              "Health checks replace readiness probes entirely and make them obsolete",
+              "Readiness probes only apply to databases, not load balancers"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson explicitly draws this connection: health checks are the same concept as readiness probes, just applied at the load balancer/infrastructure level instead of within Kubernetes.",
+            "id": "q2"
+          },
+          {
+            "question": "In the code example, why does `lb.route(instances)` exclude `instance-2` before autoscaling runs?",
+            "options": [
+              "Because `instance-2` doesn't exist in the `instances` list",
+              "Because `route()` filters for `i.healthy`, and `instance-2` was constructed with `healthy=False`",
+              "Because `route()` only returns the first and third instances by position",
+              "Because `instance-2`'s name is invalid"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`route()` is `[i.name for i in instances if i.healthy]`; `instance-2` was explicitly created with `healthy=False`, so it's filtered out regardless of position in the list.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, what does `autoscale()` do to the instance pool before adding new instances?",
+            "options": [
+              "It doubles the pool size immediately",
+              "It filters out unhealthy instances first (`instances = [i for i in instances if i.healthy]`), then adds new ones until reaching `target_count`",
+              "It deletes all instances and starts from zero",
+              "It marks all instances as healthy without removing any"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The first line of `autoscale` filters to only healthy instances before the `while` loop tops the pool back up to `target_count` — mirroring the reconciliation pattern from the Kubernetes module.",
+            "id": "q4"
+          },
+          {
+            "question": "In the code example, after `autoscale(instances, target_count=4)` runs, how many instances are in the final pool and are they all routable?",
+            "options": [
+              "3 instances, with 1 unroutable",
+              "4 instances, and since every instance in the pool at that point is healthy (unhealthy ones were dropped first), `lb.route` returns all 4 names",
+              "2 instances, both unroutable",
+              "4 instances, but only 2 are routable"
+            ],
+            "correctAnswer": 1,
+            "explanation": "After filtering out `instance-2`, 2 healthy instances remain; the `while` loop adds new instances until the pool reaches 4, and since all surviving/added instances default to `healthy=True`, every one of the 4 is routable.",
+            "id": "q5"
+          },
+          {
+            "question": "Per the \"🌍 Multi-region\" section, what does multi-region deployment add beyond single-region deployment?",
+            "options": [
+              "Nothing — it behaves identically to single-region deployment",
+              "Routing users to the nearest/healthiest region and surviving an entire region going down, at the cost of added complexity like data replication",
+              "It removes the need for load balancers entirely",
+              "It automatically reduces total infrastructure cost"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson lists cross-region routing and region-level failure resilience as the specific additions, alongside the added complexity (data replication, region-consistent routing) that comes with them.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does the lesson warn against deploying autoscaling without health checks?",
+            "options": [
+              "Because autoscaling technically requires health checks to be enabled by the cloud provider",
+              "Because, as the code example shows, a load balancer routing to every instance regardless of health will send traffic to broken or not-yet-ready instances the moment autoscaling creates or exposes one",
+              "Because health checks make autoscaling run faster",
+              "Because autoscaling without health checks is disabled by default in all cloud providers"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The common mistakes section states this directly, and the code example demonstrates the mechanism: `route()`'s health filter is what prevents traffic from reaching a broken instance.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does the lesson warn against adopting multi-region deployment before single-region reliability is solid?",
+            "options": [
+              "Because multi-region deployment is always more expensive regardless of reliability",
+              "Because multi-region adds real complexity (data replication, region-consistent routing) on top of fundamentals — adopting it before health checks and autoscaling work reliably in one region just adds new failure modes on top of unsolved ones",
+              "Because cloud providers do not support multi-region deployments for new accounts",
+              "Because multi-region deployment disables autoscaling automatically"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The common mistakes section is explicit that multi-region should follow, not precede, solid single-region fundamentals — otherwise its added complexity compounds on top of existing gaps.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "cld_secrets_management_in_production",
+      "title": "Secrets Management in Production",
+      "description": "What real secrets protection requires beyond base64 encoding — encryption at rest, access control, and dedicated secrets managers — why rotation needs to be automated, and why secrets leaking into source code or logs is one of the most common and preventable failure modes.",
+      "duration": 11,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson you should be able to explain what real secrets protection requires beyond base64 encoding, describe why secret rotation matters, and explain why secrets should never appear in source code or logs.\n"
+          },
+          {
+            "title": "🔐 Beyond base64: real encryption and access control",
+            "content": "As covered in the Kubernetes module, a Secret object being base64-encoded provides no real confidentiality on its own. Production-grade secrets management adds: **encryption at rest** (so the underlying storage is unreadable without a separate decryption key), fine-grained **access control** (only the specific services or people that need a given secret can read it, enforced and audited), and often a dedicated secrets manager (like a cloud provider's secrets manager service or a tool like Vault) rather than relying solely on the orchestration platform's built-in Secret objects.\n"
+          },
+          {
+            "title": "🔄 Rotation: secrets shouldn't live forever unchanged",
+            "content": "**Rotation** means periodically replacing a secret's value — an API key, a database password — with a new one, even if there's no known compromise. This limits the damage window: if a secret does leak undetected, rotation means it eventually stops working anyway, rather than remaining valid indefinitely. Rotation needs to be automated to be sustainable; a manual rotation process tends to get skipped under time pressure, which defeats the purpose.\n"
+          },
+          {
+            "title": "🚫 Never in source code, never in logs",
+            "content": "Two of the most common ways secrets actually leak in practice: committed directly into source code (even briefly, since version control history retains it even after a later commit removes it), and printed into application logs (often accidentally, via a debug statement that logs a full request or config object without redacting sensitive fields). Both require deliberate practices to avoid: secrets loaded from a secrets manager at runtime rather than hardcoded, and logging code that explicitly redacts known-sensitive fields before anything is written out.\n"
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "Here's a simplified simulation contrasting an unsafe logging path that leaks a secret with a safe one that redacts it:\n\n```python\ndef log_request_unsafe(request):\n    # logs the entire request object, including sensitive fields\n    print(f\"LOG: {request}\")\n\nSENSITIVE_FIELDS = {\"api_key\", \"password\", \"auth_token\"}\n\ndef log_request_safe(request):\n    redacted = {k: (\"***REDACTED***\" if k in SENSITIVE_FIELDS else v) for k, v in request.items()}\n    print(f\"LOG: {redacted}\")\n\nrequest = {\"user_id\": \"u_42\", \"api_key\": \"sk-live-abc123xyz\", \"action\": \"purchase\"}\n\nlog_request_unsafe(request)\nlog_request_safe(request)\n```\n\n`log_request_unsafe` prints the entire `request` dict verbatim, including `\"api_key\": \"sk-live-abc123xyz\"` in plain text — anyone with log access now has a live API key. `log_request_safe` builds `redacted` with a dict comprehension that checks each key against `SENSITIVE_FIELDS`: `\"api_key\"` is in that set, so its value becomes `\"***REDACTED***\"`, while `\"user_id\"` and `\"action\"` aren't in the set and pass through unchanged. The printed output shows the real user ID and action but never the actual key value.\n"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Logging entire request or config objects without redaction.** As the code example shows, this is one of the most common accidental leak paths — a debug statement meant to help troubleshooting ends up writing live credentials into logs that many more people can read than the credential's actual access list.\n\n**Committing a secret to source control \"just to test it quickly.\"** Removing it in a later commit doesn't remove it from version control history — the secret should be treated as compromised and rotated, not just deleted from the current file.\n\n**Making rotation a manual, occasional process.** Manual rotation tends to get deprioritized under time pressure and quietly stops happening — automated rotation is what actually keeps the damage window from a leaked secret bounded in practice.\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "cld_secrets_management_in_production_quiz",
+        "questions": [
+          {
+            "question": "Per the \"🔐 Beyond base64\" section, what does production-grade secrets management add beyond a base64-encoded Secret object?",
+            "options": [
+              "Nothing — base64 encoding is already sufficient protection",
+              "Encryption at rest, fine-grained access control, and often a dedicated secrets manager rather than relying solely on the orchestration platform's built-in Secret objects",
+              "Only a longer base64 string",
+              "A requirement that secrets be stored in plaintext for easier debugging"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson lists these three specific additions — encryption at rest, access control, dedicated secrets managers — as what actually provides real protection beyond bare base64 encoding.",
+            "id": "q1"
+          },
+          {
+            "question": "According to the \"🔄 Rotation\" section, why does rotation need to be automated rather than manual?",
+            "options": [
+              "Because automated rotation is required by law in most jurisdictions",
+              "Because a manual rotation process tends to get skipped under time pressure, which defeats the purpose of limiting the damage window from an undetected leak",
+              "Because manual rotation is technically impossible with modern secrets managers",
+              "Because automated rotation is always faster to configure than manual rotation"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson states manual processes tend to get deprioritized and skipped, undermining the entire point of rotation — bounding how long a leaked secret stays valid.",
+            "id": "q2"
+          },
+          {
+            "question": "In the code example, what does `log_request_unsafe(request)` actually print, and why is that a problem?",
+            "options": [
+              "Only the `user_id` field, safely",
+              "The entire `request` dict verbatim, including the real `api_key` value in plain text, exposing a live credential to anyone with log access",
+              "A redacted version of the request, identical to the safe function's output",
+              "Nothing — the function doesn't have a print statement"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`log_request_unsafe` does `print(f\"LOG: {request}\")` with no filtering at all, so the actual `\"sk-live-abc123xyz\"` value is written straight into the log output.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, why does `redacted[\"api_key\"]` become `\"***REDACTED***\"` while `redacted[\"user_id\"]` stays unchanged?",
+            "options": [
+              "Because `\"api_key\"` is a longer string than `\"user_id\"`",
+              "Because the dict comprehension checks `k in SENSITIVE_FIELDS`, and `\"api_key\"` is in that set while `\"user_id\"` is not",
+              "Because `log_request_safe` deletes all keys except `user_id`",
+              "Because `api_key` values are always numeric"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`SENSITIVE_FIELDS = {\"api_key\", \"password\", \"auth_token\"}`; the comprehension replaces the value only when the key is in that set, which is true for `\"api_key\"` but not `\"user_id\"`.",
+            "id": "q4"
+          },
+          {
+            "question": "What does the contrast between `log_request_unsafe` and `log_request_safe` in the code example illustrate?",
+            "options": [
+              "That redaction always removes every field from the log output",
+              "That a small, deliberate filtering step (checking each field against a known-sensitive set) is what prevents a routine debug log from leaking a live credential",
+              "That logging is inherently unsafe and should never be used",
+              "That `api_key` values cannot be logged under any implementation"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The two functions differ only in whether they apply the `SENSITIVE_FIELDS` check — a small code difference with a large consequence for whether a credential ends up in plaintext logs.",
+            "id": "q5"
+          },
+          {
+            "question": "Per the \"🚫 Never in source code, never in logs\" section, why is committing a secret to source control dangerous even if it's removed in a later commit?",
+            "options": [
+              "Because later commits are ignored by version control systems",
+              "Because version control history retains the secret even after a later commit removes it from the current file",
+              "Because removing a secret in a later commit automatically notifies attackers",
+              "Because source control systems automatically publish deleted content publicly"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson is explicit that history retains the value regardless of later deletions — the secret must be treated as compromised and rotated, not just removed from the current file state.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does the lesson warn against logging entire request or config objects without redaction?",
+            "options": [
+              "Because it makes logs too large to store",
+              "Because, as the code example shows, this is one of the most common accidental leak paths — a debug statement can write live credentials into logs readable by far more people than the credential's actual access list",
+              "Because unredacted logs cause application crashes",
+              "Because logging frameworks reject unredacted objects automatically"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The common mistakes section names this directly as a common accidental leak path, matching the code example's demonstration of `log_request_unsafe` exposing a real API key.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does the lesson say a secret committed to source code \"just to test it quickly\" should be treated as compromised and rotated?",
+            "options": [
+              "Because testing always corrupts secret values",
+              "Because removing it from the current file doesn't erase it from version control history, so it must be assumed exposed and replaced rather than merely deleted",
+              "Because test secrets are functionally different from production secrets",
+              "Because source code commits are publicly readable by default on every platform"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This follows directly from the history-retention point: deleting the line later doesn't undo the exposure already baked into version control history, so rotation — not just deletion — is required.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "cld_infrastructure_as_code",
+      "title": "Infrastructure as Code",
+      "description": "Why manually configuring infrastructure through a console leads to undetectable drift, how Infrastructure as Code applies the same declarative desired-state pattern as Kubernetes and Helm, what it enables for reproducibility and disaster recovery, and why infrastructure changes should be reviewed like code changes.",
+      "duration": 13,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson you should be able to explain the problem with manually configuring infrastructure through a cloud console, describe what Infrastructure as Code provides, and explain why infrastructure changes should be reviewed the same way code changes are.\n"
+          },
+          {
+            "title": "📝 The problem: manually clicking through a cloud console",
+            "content": "Manually creating and configuring cloud resources by clicking through a provider's web console has no record of *how* something was configured — only the resulting state, and even that isn't version controlled. Two environments meant to be identical can silently drift apart because someone clicked a slightly different setting in one of them, with no way to detect or explain the difference after the fact.\n"
+          },
+          {
+            "title": "🏗️ IaC: defining infrastructure in version-controlled files",
+            "content": "**Infrastructure as Code (IaC)** means defining infrastructure — networks, compute instances, databases, permissions — in version-controlled configuration files (tools like Terraform, CloudFormation, or Pulumi), and applying those files to actually create or update the real infrastructure, rather than clicking through a console. This mirrors exactly the same declarative desired-state pattern covered for Kubernetes and Helm earlier in this course: you describe the state you want, and a tool reconciles the real infrastructure toward it.\n"
+          },
+          {
+            "title": "♻️ Reproducibility and disaster recovery",
+            "content": "Because the entire infrastructure definition lives in files, standing up a new environment — a second region, a staging environment that mirrors production, or recovering from a catastrophic failure — means re-applying the same configuration rather than manually reconstructing what existed from memory or incomplete documentation. This turns disaster recovery from \"hope someone remembers the exact configuration\" into \"run the IaC apply again.\"\n"
+          },
+          {
+            "title": "🔍 Review infrastructure changes like code changes",
+            "content": "Because IaC definitions are just files in version control, they can go through the same pull request and code review process as application code — a teammate can see exactly what infrastructure change is being proposed before it's applied, catching a misconfiguration (an overly permissive security group, an oversized instance) before it reaches real infrastructure rather than after.\n"
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "Here's a simplified simulation of an IaC \"plan\" step, comparing declared configuration against current state and showing exactly what would change before anything is applied:\n\n```python\ncurrent_state = {\n    \"instance_type\": \"t3.medium\",\n    \"replica_count\": 2,\n    \"security_group\": {\"allow_ssh_from\": \"10.0.0.0/8\"},\n}\n\ndesired_state = {\n    \"instance_type\": \"t3.medium\",\n    \"replica_count\": 4,\n    \"security_group\": {\"allow_ssh_from\": \"0.0.0.0/0\"},  # a teammate should catch this in review\n}\n\ndef plan(current, desired):\n    changes = {}\n    for key in desired:\n        if current.get(key) != desired[key]:\n            changes[key] = {\"from\": current.get(key), \"to\": desired[key]}\n    return changes\n\ndiff = plan(current_state, desired_state)\nfor key, change in diff.items():\n    print(f\"{key}: {change['from']} -> {change['to']}\")\n```\n\n`plan()` compares each key in `desired_state` against `current_state`. `instance_type` matches (`\"t3.medium\"` both times), so it's excluded from `changes`. `replica_count` differs (`2` vs. `4`) and is included. `security_group` differs (`allow_ssh_from` going from a private range `10.0.0.0/8` to the entire internet `0.0.0.0/0`) and is included. The printed diff shows exactly these two changes — critically, surfacing the security group widening as an explicit, reviewable line *before* it's applied, which is precisely the kind of change a teammate reviewing the pull request should catch.\n"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Manually editing infrastructure that's managed by IaC.** This creates the exact drift IaC is meant to prevent — the next IaC apply may either silently overwrite the manual change or fail with a confusing conflict, since the tool's recorded state no longer matches reality.\n\n**Applying IaC changes without reviewing the plan output first.** As the code example shows, the plan step is what surfaces a change like an overly permissive security group before it takes effect — skipping straight to apply throws away that safety check.\n\n**Treating IaC files as write-only, never reviewed like application code.** The value of catching a misconfiguration in review only exists if changes actually go through review — IaC in a repository nobody looks at before merging provides little more safety than clicking through a console.\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "cld_infrastructure_as_code_quiz",
+        "questions": [
+          {
+            "question": "Per the \"📝 The problem\" section, what's the core issue with manually configuring infrastructure through a cloud console?",
+            "options": [
+              "Consoles are always slower to use than command-line tools",
+              "There's no record of how something was configured, only the resulting state (and not even that is version controlled), so environments can silently drift apart with no way to detect why",
+              "Console access requires a paid subscription",
+              "Consoles cannot create compute instances, only storage"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson's stated problem is the lack of any versioned record of configuration decisions, which allows environments to drift apart undetectably over time.",
+            "id": "q1"
+          },
+          {
+            "question": "According to the \"🏗️ IaC\" section, what pattern does Infrastructure as Code share with Kubernetes and Helm covered earlier in this course?",
+            "options": [
+              "IaC has nothing in common with Kubernetes or Helm",
+              "The same declarative desired-state pattern — you describe the state you want and a tool reconciles real infrastructure toward it",
+              "IaC only works inside Kubernetes clusters",
+              "IaC replaces the need for Helm charts entirely"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson explicitly draws this parallel: IaC's describe-desired-state-and-reconcile approach mirrors the pattern already covered for Kubernetes Deployments and Helm releases.",
+            "id": "q2"
+          },
+          {
+            "question": "In the code example, why does `changes` NOT include `\"instance_type\"`?",
+            "options": [
+              "Because `instance_type` is not present in `desired_state`",
+              "Because `current_state[\"instance_type\"]` and `desired_state[\"instance_type\"]` are both `\"t3.medium\"`, so `current.get(key) != desired[key]` is `False` for that key",
+              "Because `plan()` ignores string-valued fields",
+              "Because `instance_type` changes are never tracked"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`plan()` only adds a key to `changes` when `current.get(key) != desired[key]`; since both states agree on `\"t3.medium\"` for `instance_type`, that condition is `False` and it's skipped.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, what does the `security_group` entry in `diff` reveal, and why does it matter?",
+            "options": [
+              "That `allow_ssh_from` is unchanged between current and desired state",
+              "That `allow_ssh_from` would change from the private range `10.0.0.0/8` to the fully open `0.0.0.0/0`, surfacing a risky widening of SSH access as an explicit, reviewable line before it's applied",
+              "That the security group is being deleted entirely",
+              "That `replica_count` is bundled into the same change as `security_group`"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`plan()` detects `current[\"security_group\"] != desired[\"security_group\"]` and records the from/to values, exposing the SSH access change from a private CIDR range to the entire internet before it takes effect.",
+            "id": "q4"
+          },
+          {
+            "question": "In the code example, what is `diff[\"replica_count\"]`?",
+            "options": [
+              "`{\"from\": 4, \"to\": 2}`",
+              "`{\"from\": 2, \"to\": 4}`",
+              "An empty dict, because replica_count didn't change",
+              "It's not present in `diff` at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`current_state[\"replica_count\"]` is 2 and `desired_state[\"replica_count\"]` is 4; since they differ, `plan()` records `{\"from\": current.get(key), \"to\": desired[key]} = {\"from\": 2, \"to\": 4}`.",
+            "id": "q5"
+          },
+          {
+            "question": "Per the \"♻️ Reproducibility and disaster recovery\" section, how does IaC change disaster recovery?",
+            "options": [
+              "It makes disaster recovery impossible since files can be lost too",
+              "It turns disaster recovery from relying on someone remembering the exact configuration into re-applying the same version-controlled configuration files",
+              "It eliminates the need for backups entirely",
+              "It only helps with recovering application code, not infrastructure"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson frames this exactly as the benefit: recovery becomes \"run the IaC apply again\" instead of manually reconstructing configuration from memory or incomplete docs.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does the lesson warn against manually editing infrastructure that's managed by IaC?",
+            "options": [
+              "Because manual edits are always technically impossible in a cloud console",
+              "Because it creates the exact drift IaC is meant to prevent — the tool's recorded state no longer matches reality, and the next apply may silently overwrite the change or fail with a confusing conflict",
+              "Because manual edits are more expensive than IaC-driven changes",
+              "Because manual edits automatically trigger an IaC rollback"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The common mistakes section states this directly — manual edits desynchronize the tool's state from reality, reintroducing the drift problem IaC exists to solve.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does the lesson warn against applying IaC changes without reviewing the plan output first?",
+            "options": [
+              "Because plan output is only cosmetic and has no bearing on what actually gets applied",
+              "Because, as the code example shows, the plan step is what surfaces a risky change (like an overly permissive security group) before it takes effect — skipping it throws away that safety check",
+              "Because reviewing plan output is required by every cloud provider's terms of service",
+              "Because plan output cannot detect security group changes"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The common mistakes section connects directly to the code example's `security_group` diff, which specifically exists to be caught during plan review before an unsafe change is applied.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "cld_monitoring_infrastructure_health",
+      "title": "Monitoring Infrastructure Health",
+      "description": "The infrastructure-layer metrics worth tracking, how infrastructure monitoring fits alongside the application- and model-level observability layers covered elsewhere in this curriculum, and why correlating alerts across layers is what turns a flood of symptoms into one actionable incident.",
+      "duration": 13,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson you should be able to list the infrastructure-layer metrics worth monitoring, connect them to the other observability layers already covered in this curriculum, and explain why alerts need to be correlated across layers rather than treated independently.\n"
+          },
+          {
+            "title": "🏗️ Infrastructure-layer metrics",
+            "content": "At the infrastructure layer specifically, the metrics worth tracking include: node-level CPU, memory, and disk utilization; network throughput and error rates; pod/container restart counts and reasons; and, for GPU infrastructure, GPU utilization and memory specifically (since, as covered earlier in this module, CPU metrics alone can be misleading for GPU-bound workloads). These are distinct from — but connect to — application-level metrics like request latency or error rate.\n"
+          },
+          {
+            "title": "📚 Layers already covered elsewhere in this curriculum",
+            "content": "This course's monitoring picture is one layer of several this curriculum covers: application-level observability (logs, traces, request metrics) is its own topic, and model-level monitoring (prediction quality, drift) is another. Infrastructure monitoring specifically answers \"is the platform underneath the application healthy\" — a distinct question from \"is the application behaving correctly\" or \"is the model still accurate,\" even though a problem in one layer often shows up as symptoms in another.\n"
+          },
+          {
+            "title": "🚨 Alerting across layers, correlated",
+            "content": "A single incident often produces symptoms at multiple layers simultaneously — a node running out of memory (infrastructure) causes pod restarts (infrastructure) which causes elevated request latency (application) which might even look like a model regression if predictions start timing out (model/application boundary). Alerting that treats each layer's signals in isolation can flood an on-call engineer with a dozen alerts for what's actually a single root cause; correlating alerts across layers — recognizing that several symptoms trace back to one infrastructure event — is what turns a flood of alerts into an actionable, single incident.\n"
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "Here's a simplified simulation of correlating symptoms across layers back to a single root-cause event, rather than treating them as separate incidents:\n\n```python\nevents = [\n    {\"time\": 100, \"layer\": \"infrastructure\", \"signal\": \"node memory > 95%\", \"node\": \"node-7\"},\n    {\"time\": 101, \"layer\": \"infrastructure\", \"signal\": \"pod restart\", \"node\": \"node-7\"},\n    {\"time\": 102, \"layer\": \"application\", \"signal\": \"p99 latency spike\", \"node\": \"node-7\"},\n    {\"time\": 103, \"layer\": \"application\", \"signal\": \"prediction timeouts\", \"node\": \"node-7\"},\n    {\"time\": 150, \"layer\": \"infrastructure\", \"signal\": \"disk usage > 90%\", \"node\": \"node-2\"},\n]\n\ndef correlate_by_node_and_window(events, window_seconds):\n    groups = {}\n    for e in events:\n        key = (e[\"node\"], e[\"time\"] // window_seconds)\n        groups.setdefault(key, []).append(e[\"signal\"])\n    return groups\n\nincidents = correlate_by_node_and_window(events, window_seconds=10)\nfor (node, window), signals in incidents.items():\n    print(f\"node={node}, window={window}: {len(signals)} correlated signal(s) -> {signals}\")\n```\n\nWith `window_seconds=10`, the first four events all fall in the same `(node, window)` bucket: times 100-103 all have `100 // 10 == 101 // 10 == 102 // 10 == 103 // 10 == 10`, and all share `node=\"node-7\"`, so they're grouped into one entry with 4 correlated signals — the memory spike, pod restart, latency spike, and prediction timeouts are recognized as one incident, not four. The fifth event (`node-2`, time 150) falls in a different window (`150 // 10 = 15`) and a different node, so it forms its own separate one-signal group — correctly kept as an unrelated incident.\n"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Alerting on every individual signal without correlation.** As the code example shows, a single root cause (a node running low on memory) can cascade into several distinct-looking alerts — treating each one as a separate page can overwhelm on-call response and obscure the actual root cause.\n\n**Only monitoring the application layer and assuming infrastructure is someone else's problem.** Since infrastructure issues frequently manifest as application-level symptoms first (as in the code example's latency spike and timeouts), application-only monitoring can miss the actual root cause entirely and lead to debugging the wrong layer.\n\n**Using CPU-only metrics for GPU infrastructure monitoring.** Consistent with the autoscaling lesson earlier in this module, CPU utilization alone can look healthy while a GPU is saturated — infrastructure monitoring for GPU workloads needs GPU-specific metrics to be meaningful.\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "cld_monitoring_infrastructure_health_quiz",
+        "questions": [
+          {
+            "question": "Per the \"🏗️ Infrastructure-layer metrics\" section, why does the lesson specifically call out GPU utilization and memory as infrastructure metrics worth tracking?",
+            "options": [
+              "Because GPU metrics are irrelevant to infrastructure monitoring",
+              "Because, consistent with the autoscaling lesson earlier in this module, CPU metrics alone can be misleading for GPU-bound workloads",
+              "Because GPU metrics replace the need for CPU metrics entirely",
+              "Because only GPU infrastructure needs any monitoring at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson explicitly ties this back to the earlier point in the course about CPU metrics being a poor proxy for GPU-bound workload health.",
+            "id": "q1"
+          },
+          {
+            "question": "According to the \"📚 Layers already covered elsewhere in this curriculum\" section, what distinct question does infrastructure monitoring answer compared to application or model monitoring?",
+            "options": [
+              "\"Is the model still accurate\" — the same question model monitoring answers",
+              "\"Is the platform underneath the application healthy\" — distinct from whether the application is behaving correctly or the model is still accurate",
+              "\"Is the code well-documented\"",
+              "\"Is the CI pipeline passing\""
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson draws this specific distinction between the three layers, even while noting a problem in one can show up as symptoms in another.",
+            "id": "q2"
+          },
+          {
+            "question": "In the code example, why do the first four events all end up in the same correlated group?",
+            "options": [
+              "Because they all have the same `signal` value",
+              "Because they share the same `node` (\"node-7\") and their `time` values (100-103) all fall into the same `time // window_seconds` bucket (10) given `window_seconds=10`",
+              "Because `correlate_by_node_and_window` ignores time entirely",
+              "Because there are exactly four events in the `events` list"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The grouping key is `(e[\"node\"], e[\"time\"] // window_seconds)`; all four share `node=\"node-7\"` and integer-divide to the same window value `10`, landing in one bucket.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, why does the fifth event (node-2, time 150) form its own separate group?",
+            "options": [
+              "Because it has a different `node` (\"node-2\" vs. \"node-7\") and a different time window (`150 // 10 = 15`, vs. `10` for the others), so its grouping key doesn't match any of the first four",
+              "Because `correlate_by_node_and_window` only accepts 4 events maximum",
+              "Because its `signal` field is empty",
+              "Because it occurred before the other four events"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The key `(\"node-2\", 15)` shares neither the node nor the window value with `(\"node-7\", 10)`, so it cannot merge with the first group and forms its own single-signal group.",
+            "id": "q4"
+          },
+          {
+            "question": "What does the code example's output — 4 correlated signals for node-7, 1 for node-2 — demonstrate about alerting?",
+            "options": [
+              "That every signal should always be treated as an independent incident regardless of node or time",
+              "That grouping signals by shared node and time window can reveal that several distinct-looking symptoms trace back to a single incident, rather than four separate ones",
+              "That node-2's event is actually part of the same incident as node-7's",
+              "That correlation only works when there's exactly one event per node"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The whole point of the correlation function is exactly this: it turns four raw signals sharing a node and time window into one recognized incident, while correctly keeping the unrelated node-2 event separate.",
+            "id": "q5"
+          },
+          {
+            "question": "Per the \"🚨 Alerting across layers\" section, what can happen if alerting treats each layer's signals independently?",
+            "options": [
+              "It always produces fewer alerts than correlated alerting",
+              "It can flood an on-call engineer with a dozen alerts for what's actually a single root cause",
+              "It automatically resolves incidents without human intervention",
+              "It has no effect on how incidents are perceived"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson states this directly — uncorrelated, per-layer alerting can overwhelm on-call response with what is actually one cascading incident from a single root cause.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does the lesson warn against only monitoring the application layer and assuming infrastructure is someone else's problem?",
+            "options": [
+              "Because infrastructure issues never affect application behavior",
+              "Because infrastructure issues frequently manifest as application-level symptoms first, so application-only monitoring can miss the actual root cause and lead to debugging the wrong layer",
+              "Because application monitoring tools cannot detect any bugs",
+              "Because infrastructure monitoring is always handled automatically by cloud providers"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The common mistakes section makes this point directly, reinforced by the code example where a memory issue on node-7 cascades into application-level latency and timeout symptoms.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does the lesson warn against using CPU-only metrics for GPU infrastructure monitoring?",
+            "options": [
+              "Because CPU metrics are always inaccurate regardless of workload type",
+              "Because, consistent with the earlier autoscaling lesson, CPU utilization can look healthy while a GPU is actually saturated, making CPU-only monitoring not meaningful for GPU workloads",
+              "Because GPU metrics are automatically derived from CPU metrics",
+              "Because CPU-only monitoring is disabled by default on GPU instances"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This ties back to the same CPU-vs-GPU utilization mismatch covered in the autoscaling lesson earlier in this module — the common mistakes section reiterates it specifically for monitoring.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,559 @@
+{
+  "id": "app_realtime_streaming",
+  "title": "Real-Time & Streaming",
+  "description": "WebSockets fundamentals, streaming LLM tokens, SSE vs. WebSockets, and handling client disconnects gracefully.",
+  "icon": "📡",
+  "color": "#E65100",
+  "order": 2,
+  "estimatedHours": 4,
+  "difficulty": "intermediate",
+  "prerequisites": [
+    "app_auth_and_security"
+  ],
+  "lessons": [
+    {
+      "id": "app_websockets_fundamentals",
+      "title": "WebSockets Fundamentals",
+      "description": "A persistent, two-way connection, for when request-response doesn't fit the interaction anymore.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain how a WebSocket connection differs from the typical HTTP request-response cycle."
+          },
+          {
+            "title": "🔁 Request-response's limitation",
+            "content": "A normal HTTP request opens a connection, gets one response, and closes — fine for most APIs, but awkward for anything requiring the server to push data to the client without the client asking again and again (polling), or for a genuinely two-way, ongoing conversation."
+          },
+          {
+            "title": "🔌 A persistent, bidirectional connection",
+            "content": "A WebSocket starts as an HTTP request but 'upgrades' to a persistent connection that both client and server can send messages over at any time, in either direction, without the overhead of establishing a new connection for every message — well suited to a chat interface, live updates, or collaborative features."
+          },
+          {
+            "title": "⚖️ When it's worth the added complexity",
+            "content": "WebSockets require more server-side state management than a stateless REST endpoint (the connection itself is state that must be tracked and cleaned up), so they're worth adopting specifically when the interaction genuinely needs push-based, ongoing, two-way communication — not as a default replacement for REST endpoints that are simply slow."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "Here's the structural difference between the two models, simulated without a real network connection: one exchange per call versus many exchanges over one persistent connection.\n\n```python\n# --- REST: one request, one response, connection closes ---\n\ndef rest_request(path):\n    print(f\"open connection -> GET {path}\")\n    response = f\"response for {path}\"\n    print(f\"received: {response!r} -> connection closes\")\n    return response\n\nfor path in [\"/status\", \"/status\", \"/status\"]:\n    rest_request(path)  # a brand new connection every single time\n\n# --- WebSocket: one persistent connection, many messages, either direction ---\n\nclass SimulatedWebSocket:\n    def __init__(self):\n        self.open = False\n\n    def connect(self):\n        self.open = True\n        print(\"connection upgraded -> persistent, bidirectional channel open\")\n\n    def send_from_client(self, message):\n        print(f\"client -> server: {message!r}  (same connection, no new handshake)\")\n\n    def push_from_server(self, message):\n        print(f\"server -> client: {message!r}  (server-initiated, unprompted)\")\n\n    def close(self):\n        self.open = False\n        print(\"connection closed after multiple exchanges\")\n\nws = SimulatedWebSocket()\nws.connect()\nws.send_from_client(\"hello\")\nws.push_from_server(\"live update: new message\")   # server pushes without being asked\nws.send_from_client(\"got it, thanks\")\nws.close()\n```\n\n`rest_request` opens and closes a new connection for every single call — three calls, three separate connections. `SimulatedWebSocket` instead opens one connection with `connect()` and then exchanges several messages over it in both directions — including `push_from_server`, a message the server sends without the client asking first, which is exactly the push capability plain request-response can't do — before finally closing once, after all the exchanges are done."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Reaching for WebSockets to fix a REST endpoint that's simply slow.** A slow endpoint needs caching, optimization, or async handling — a WebSocket doesn't make a single request faster, it changes the connection model for ongoing, bidirectional exchange, which is a different problem entirely.\n\n**Forgetting that a WebSocket connection is server-side state that needs cleanup.** Unlike a stateless REST request that vanishes the moment it's handled, an open WebSocket connection consumes server resources for as long as it's open, including after a client silently disappears without a clean close.\n\n**Using polling when a WebSocket (or the simpler SSE from the next lesson) would fit better.** Frequent polling for updates that rarely change wastes requests and adds latency between an update happening and the client noticing — a push-based connection solves exactly this, when the interaction shape actually calls for it.\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "app_websockets_fundamentals_quiz",
+        "questions": [
+          {
+            "question": "What limitation of typical HTTP request-response does a WebSocket address?",
+            "options": [
+              "The inability for the server to push data to the client without the client repeatedly asking (polling), or to sustain a genuinely two-way ongoing exchange",
+              "The inability to send any data from client to server at all",
+              "The requirement that every HTTP request must use the POST method",
+              "The inability to use JSON as a data format"
+            ],
+            "correctAnswer": 0,
+            "explanation": "WebSockets solve exactly the push/ongoing-exchange problem that a one-shot request-response cycle handles poorly.",
+            "id": "q1"
+          },
+          {
+            "question": "What happens structurally when a WebSocket connection is established?",
+            "options": [
+              "An HTTP request 'upgrades' to a persistent connection that both sides can send messages over at any time",
+              "A completely separate protocol unrelated to HTTP is used from the very first request",
+              "The client must re-authenticate before every single message",
+              "The connection automatically closes after each message is sent"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The WebSocket handshake begins as HTTP and then upgrades to a persistent, bidirectional channel, rather than replacing HTTP as the initial connection mechanism.",
+            "id": "q2"
+          },
+          {
+            "question": "Why shouldn't WebSockets be adopted as a default replacement for every REST endpoint?",
+            "options": [
+              "Because they require more server-side state management, and are worth their complexity specifically for genuinely push-based, two-way interactions",
+              "Because WebSockets cannot be secured with authentication",
+              "Because REST endpoints are always faster than WebSockets for every use case",
+              "Because WebSockets can only be used with a single client at a time"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The added connection-state complexity is a real cost that should be justified by a genuine need for ongoing, bidirectional communication, not adopted reflexively.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, how many separate connections does `rest_request` open across the three calls in the loop?",
+            "options": [
+              "One connection shared across all three calls",
+              "Three separate connections, one for each call",
+              "Zero connections, since REST doesn't use connections",
+              "It depends on the server's configuration"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Each call to `rest_request` prints \"open connection\" and then \"connection closes\", so the loop over three paths opens and closes three entirely separate connections.",
+            "id": "q4"
+          },
+          {
+            "question": "What does `ws.push_from_server(\"live update: new message\")` demonstrate that a plain REST call cannot?",
+            "options": [
+              "The server sending a message to the client without the client asking for it first, over the already-open connection",
+              "The client closing the connection prematurely",
+              "A brand new connection being opened for that single message",
+              "An error being raised because servers cannot send messages"
+            ],
+            "correctAnswer": 0,
+            "explanation": "`push_from_server` is called by the server side without any preceding client request for that specific message, which is exactly the server-initiated push capability that a request-response model structurally cannot provide.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is reaching for WebSockets to fix a REST endpoint that's simply slow considered a mistake?",
+            "options": [
+              "Because a WebSocket doesn't make a single request faster — it changes the connection model for ongoing exchange, which is a different problem than raw endpoint speed",
+              "Because WebSockets are always technically impossible to implement in FastAPI",
+              "Because slow REST endpoints cannot be optimized under any circumstances",
+              "Because WebSockets automatically fix all performance problems"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's common mistakes distinguish between the connection-model problem WebSockets solve and a raw speed problem, which needs caching, optimization, or async handling instead.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does forgetting that a WebSocket connection is server-side state matter?",
+            "options": [
+              "Because an open connection consumes server resources for as long as it's open, including after a client silently disappears without a clean close",
+              "Because WebSocket connections never consume any server resources",
+              "Because server-side state is automatically cleaned up with no possible issues",
+              "Because WebSockets cannot be closed once opened"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Unlike a stateless REST request that disappears the moment it's handled, an open WebSocket connection is ongoing state the server must track and eventually clean up, even when a client vanishes without closing cleanly.",
+            "id": "q7"
+          },
+          {
+            "question": "Why is frequent polling flagged as a mistake when a push-based connection would fit better?",
+            "options": [
+              "Because polling for updates that rarely change wastes requests and adds latency between an update happening and the client noticing",
+              "Because polling is technically impossible to implement",
+              "Because polling always uses less bandwidth than a WebSocket connection",
+              "Because WebSockets cannot coexist with any form of REST API"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson notes that repeated polling wastes requests checking for updates that haven't happened yet, and introduces a delay bounded by the polling interval — exactly what a push-based connection avoids when the interaction shape calls for it.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "app_streaming_llm_tokens_to_the_client",
+      "title": "Streaming LLM Tokens to the Client",
+      "description": "Why every modern chat interface shows text appearing word by word, instead of waiting for the whole answer.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain why streaming tokens improves perceived latency and how it connects to the autoregressive decoding covered in the Inference course."
+          },
+          {
+            "title": "⏳ The perceived-latency problem",
+            "content": "An LLM response might take several seconds to fully generate. Waiting for the entire response before showing anything to the user makes the whole interaction feel slow, even if the total generation time is unavoidable — the user experiences dead air for the full duration."
+          },
+          {
+            "title": "📡 Streaming: showing tokens as they're generated",
+            "content": "Because the model generates tokens one at a time (the autoregressive decoding loop from the Inference course), the server can forward each token to the client as soon as it's produced, rather than waiting for the full response — this is exactly what a streaming API response, over either WebSockets or the server-sent events covered next, makes possible."
+          },
+          {
+            "title": "😌 Perceived latency vs. actual latency",
+            "content": "Streaming doesn't reduce the total time to generate the full response — that's still bound by the decode-phase throughput from the Inference course — but it dramatically improves the perceived latency, since the user sees progress immediately instead of a blank wait. This distinction between actual and perceived performance is worth remembering whenever a fix seems to improve user experience without changing any underlying throughput number."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "Timing both approaches side by side shows why the total elapsed time is identical, even though the user's experience is not.\n\n```python\nimport time\n\ntokens = [\"The\", \" answer\", \" is\", \" forty\", \"-two\", \".\"]\n\ndef generate_token(prev_tokens):\n    time.sleep(0.02)  # simulates the per-token generation cost\n    return tokens[len(prev_tokens)]\n\n# --- Non-streaming: nothing shown until generation is fully done ---\n\nstart = time.perf_counter()\nfull_response = []\nwhile len(full_response) < len(tokens):\n    full_response.append(generate_token(full_response))\nnon_stream_elapsed = time.perf_counter() - start\nprint(f\"[non-streaming] user sees nothing for {non_stream_elapsed:.3f}s, then all at once:\")\nprint(\"\".join(full_response))\n\n# --- Streaming: each token shown the instant it's generated ---\n\nstart = time.perf_counter()\nstreamed = []\nwhile len(streamed) < len(tokens):\n    tok = generate_token(streamed)\n    streamed.append(tok)\n    elapsed_so_far = time.perf_counter() - start\n    print(f\"  [t={elapsed_so_far:.3f}s] token appears: {tok!r}\")\nstream_elapsed = time.perf_counter() - start\n\nprint(f\"total generation time -- non-streaming: {non_stream_elapsed:.3f}s, streaming: {stream_elapsed:.3f}s\")\nprint(\"same total time, but streaming showed the FIRST token far earlier than the last one\")\n```\n\nBoth loops call `generate_token` the same number of times with the same per-token delay, so `non_stream_elapsed` and `stream_elapsed` come out essentially equal — the *actual* total latency is unchanged, exactly as the lesson says. The difference is entirely in what the user sees along the way: the non-streaming version prints nothing until every token exists, while the streaming version prints each token the moment it's generated, so the first token appears after roughly one token's worth of delay (about 0.02s) instead of after the full response's worth (about 0.12s for six tokens)."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming streaming reduces the total time to generate a response.** Streaming changes when the user sees output, not how long the underlying decode loop takes to finish — conflating the two misrepresents what the optimization actually buys.\n\n**Buffering tokens server-side before forwarding them, defeating the point of streaming.** If the server accumulates several tokens before sending anything to the client, it reintroduces exactly the dead-air problem streaming is meant to solve, just with a smaller delay.\n\n**Forgetting that a streamed response still needs to handle a mid-stream failure.** If generation errors out partway through, the client has already received a partial response — the UI needs to handle that gracefully rather than assuming a stream either fully succeeds or never starts.\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "app_streaming_llm_tokens_to_the_client_quiz",
+        "questions": [
+          {
+            "question": "Why does streaming improve a user's experience of an LLM response, even without changing total generation time?",
+            "options": [
+              "Because the user sees tokens appearing immediately instead of experiencing a blank wait for the full response, improving perceived latency",
+              "Because streaming makes the model generate tokens faster",
+              "Because streaming eliminates the need for the decode phase entirely",
+              "Because streaming always reduces the actual total generation time"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Streaming addresses perceived latency — the user's experience of waiting — separately from the actual total time the underlying generation takes.",
+            "id": "q1"
+          },
+          {
+            "question": "What underlying property of LLM generation makes token streaming technically possible?",
+            "options": [
+              "The autoregressive decoding loop produces tokens one at a time, which can each be forwarded to the client as soon as they're generated",
+              "LLMs generate the entire response instantly and then artificially delay sending it",
+              "Streaming requires the model to generate all tokens in a single non-sequential batch",
+              "Tokens are generated in a random, non-sequential order"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Because tokens are produced sequentially during decode, each one becomes available to forward to the client as soon as it exists, which is exactly what enables streaming.",
+            "id": "q2"
+          },
+          {
+            "question": "What is the key distinction this lesson draws between streaming's benefit and total generation time?",
+            "options": [
+              "Streaming improves perceived latency without necessarily reducing the actual total time bound by decode-phase throughput",
+              "Streaming always reduces both perceived and actual latency equally",
+              "Streaming has no effect on either perceived or actual latency",
+              "Streaming only affects total generation time, not user perception"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly separates the user-facing perception of speed from the underlying, unchanged throughput constraint covered in the Inference course.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, why do `non_stream_elapsed` and `stream_elapsed` come out roughly equal?",
+            "options": [
+              "Because both loops call generate_token the same number of times with the same per-token delay -- the actual total generation work is identical",
+              "Because streaming skips generating some of the tokens",
+              "Because non-streaming generates tokens twice as fast",
+              "Because the two loops generate a different number of tokens"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Both the streaming and non-streaming loops call `generate_token` exactly `len(tokens)` times with the same simulated per-token delay, so their total elapsed time is essentially the same, illustrating that streaming doesn't change actual total latency.",
+            "id": "q4"
+          },
+          {
+            "question": "What is the key difference in output timing between the two loops in the code example?",
+            "options": [
+              "The streaming loop prints each token as it's generated, so the first token appears after about one token's delay, while the non-streaming loop prints nothing until all tokens are generated",
+              "The non-streaming loop prints tokens faster than the streaming loop",
+              "Both loops print output at exactly the same moments",
+              "The streaming loop never prints any output at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The streaming loop's `print` statement runs inside the `while` loop after each token is appended, so output appears incrementally starting around 0.02s in, while the non-streaming loop only prints after the entire `while` loop finishes, around 0.12s in.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is assuming streaming reduces total generation time flagged as a common mistake?",
+            "options": [
+              "Because streaming changes when the user sees output, not how long the underlying decode loop takes to finish",
+              "Because streaming actually increases total generation time in every case",
+              "Because total generation time is not affected by any factor at all",
+              "Because streaming and non-streaming always take different total times"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's common mistakes clarify that conflating perceived speed with actual generation speed misrepresents what streaming actually changes.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does buffering tokens server-side before forwarding them defeat the point of streaming?",
+            "options": [
+              "Because it reintroduces the dead-air problem streaming is meant to solve, just with a smaller delay",
+              "Because buffering makes the total generation time longer",
+              "Because buffering is technically impossible to implement",
+              "Because buffered tokens are always generated out of order"
+            ],
+            "correctAnswer": 0,
+            "explanation": "If tokens accumulate server-side before being sent, the client still experiences a wait before seeing anything, undermining the immediate-feedback benefit that streaming is supposed to provide.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does the lesson warn that a streamed response still needs to handle a mid-stream failure?",
+            "options": [
+              "Because if generation errors out partway through, the client has already received a partial response, and the UI needs to handle that gracefully",
+              "Because streamed responses can never fail once started",
+              "Because mid-stream failures are impossible to detect",
+              "Because streaming eliminates all possible generation errors"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Unlike a non-streaming response that either fully succeeds or never starts, a streaming response can fail after the client has already received part of the output, which the client-side handling needs to account for.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "app_server_sent_events_vs_websockets",
+      "title": "Server-Sent Events vs. WebSockets",
+      "description": "For streaming a one-directional LLM response, a simpler tool than a full WebSocket connection often suffices.",
+      "duration": 11,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain when server-sent events (SSE) are a simpler, sufficient alternative to WebSockets for streaming."
+          },
+          {
+            "title": "➡️ SSE: a simpler, one-directional stream",
+            "content": "Server-sent events let a server push a stream of messages to a client over a single, plain HTTP connection, without the client needing to send anything back over that same channel. For a use case like streaming an LLM's response — server to client only, with the client's original request already sent — SSE avoids the extra complexity of a full bidirectional WebSocket connection."
+          },
+          {
+            "title": "⚖️ Choosing between them",
+            "content": "If the interaction is fundamentally one-directional after the initial request (streaming a response, live server-side updates), SSE is simpler to implement and works over plain HTTP infrastructure most systems already support. If the interaction genuinely needs the client to send more messages over the same ongoing connection (a live chat where either side can speak at any time), WebSockets are the better fit."
+          },
+          {
+            "title": "🔗 Matching tool to interaction shape, again",
+            "content": "This is the same 'match the tool to the actual shape of the interaction' discipline behind choosing a data structure in the Software Engineering course, or a distance metric in the Vector Databases course — SSE and WebSockets solve overlapping but distinct problems, and picking the simpler tool that still fits avoids unnecessary complexity."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "A simulation of both channel shapes makes the one-directional-vs-bidirectional distinction concrete.\n\n```python\n# --- SSE-style: a plain, one-directional stream from server to client ---\n\ndef sse_stream(chunks):\n    \"\"\"The server sends chunks; there is no channel for the client to talk back on.\"\"\"\n    for chunk in chunks:\n        yield f\"data: {chunk}\\n\\n\"\n\nprint(\"--- SSE stream (server -> client only) ---\")\nfor event in sse_stream([\"The\", \" answer\", \" is\", \" 42.\"]):\n    print(event.strip())\n\n# --- WebSocket-style: genuinely bidirectional, either side can send at any point ---\n\ndef websocket_chat(exchange):\n    \"\"\"exchange is a list of (sender, message) tuples, interleaved in either order.\"\"\"\n    for sender, message in exchange:\n        print(f\"{sender} -> : {message}\")\n\nprint(\"\\n--- WebSocket chat (bidirectional) ---\")\nwebsocket_chat([\n    (\"client\", \"are you still generating?\"),\n    (\"server\", \"yes, almost done\"),\n    (\"client\", \"ok, take your time\"),\n    (\"server\", \"here's the final answer: 42\"),\n])\n```\n\n`sse_stream` only ever yields data in one direction — there's no parameter or return path for the client to send something back over that same generator, matching SSE's one-directional design exactly. `websocket_chat` interleaves messages from both `\"client\"` and `\"server\"` in whatever order they occur, which is the genuinely two-way pattern that needs a full WebSocket connection rather than a simpler one-way stream."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Reaching for a WebSocket when the interaction is actually one-directional after the initial request.** Streaming an LLM's response to a single prior request doesn't need a bidirectional channel — SSE handles it with less infrastructure and works over plain HTTP most systems already support.\n\n**Assuming SSE can handle a use case that genuinely needs the client to keep sending messages.** SSE's simplicity comes specifically from being one-directional; a live chat or collaborative editing feature needing ongoing input from the client needs the bidirectional channel WebSockets provide.\n\n**Picking the more complex tool by default 'to be safe.'** As in data structure or distance-metric choices elsewhere in this curriculum, defaulting to the more powerful, more complex option 'just in case' adds real infrastructure cost the interaction may never actually need.\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "app_server_sent_events_vs_websockets_quiz",
+        "questions": [
+          {
+            "question": "What makes server-sent events (SSE) simpler than WebSockets for streaming an LLM response?",
+            "options": [
+              "SSE only requires a one-directional server-to-client stream over plain HTTP, without needing full bidirectional communication",
+              "SSE requires no HTTP connection at all",
+              "SSE can only be used for non-text data",
+              "SSE requires more server-side infrastructure than WebSockets"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Since streaming a response after an initial request is inherently one-directional, SSE's simpler model avoids the extra complexity WebSockets add for two-way communication.",
+            "id": "q1"
+          },
+          {
+            "question": "When would WebSockets be the better choice over SSE?",
+            "options": [
+              "When the interaction genuinely needs the client to send more messages over the same ongoing connection, like a live two-way chat",
+              "When only the server ever needs to send data, with no further input from the client",
+              "When the application needs no real-time communication of any kind",
+              "When the client only ever makes a single request and needs no streamed response"
+            ],
+            "correctAnswer": 0,
+            "explanation": "WebSockets' bidirectional nature is worth its added complexity specifically when both sides need to send messages over the same ongoing connection.",
+            "id": "q2"
+          },
+          {
+            "question": "This lesson's SSE-vs-WebSockets decision reflects which broader pattern from this curriculum?",
+            "options": [
+              "Matching a tool to the actual shape of the interaction, the same reasoning behind choosing data structures or distance metrics elsewhere",
+              "Always choosing the most complex available tool for any given problem",
+              "Ignoring interaction shape entirely and defaulting to WebSockets",
+              "Avoiding any comparison between technical options"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The recurring theme of matching the simplest sufficient tool to the actual requirement, rather than reaching for the most powerful option by default, shows up here too.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, what does `sse_stream` structurally lack that `websocket_chat` has?",
+            "options": [
+              "Any way for the client to send a message back over the same channel -- sse_stream only ever yields data outward",
+              "Any output at all",
+              "The ability to send more than one chunk",
+              "A way to represent text data"
+            ],
+            "correctAnswer": 0,
+            "explanation": "`sse_stream` only `yield`s outbound chunks with no parameter or path for inbound client messages, while `websocket_chat` explicitly interleaves messages tagged `\"client\"` and `\"server\"` in both directions.",
+            "id": "q4"
+          },
+          {
+            "question": "In `websocket_chat`'s example exchange, what is the second message and who sends it?",
+            "options": [
+              "\"are you still generating?\" from the client",
+              "\"yes, almost done\" from the server",
+              "\"ok, take your time\" from the client",
+              "\"here's the final answer: 42\" from the server"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The `exchange` list's second tuple is `(\"server\", \"yes, almost done\")`, which `websocket_chat` prints as the second line of output, right after the client's first message.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is reaching for a WebSocket when the interaction is actually one-directional flagged as a mistake?",
+            "options": [
+              "Because streaming a response to a single prior request doesn't need a bidirectional channel, and SSE handles it with less infrastructure over plain HTTP",
+              "Because WebSockets cannot technically stream any data",
+              "Because SSE is always slower than WebSockets regardless of the interaction",
+              "Because WebSockets are illegal to use for LLM responses"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's common mistakes point out that adding WebSocket's bidirectional complexity for a fundamentally one-way streaming need is unnecessary overhead that SSE avoids.",
+            "id": "q6"
+          },
+          {
+            "question": "Why can't SSE handle a use case that genuinely needs the client to keep sending messages over the same connection?",
+            "options": [
+              "Because SSE's simplicity comes specifically from being one-directional, so it structurally lacks a channel for ongoing client-to-server messages",
+              "Because SSE cannot be used with HTTP at all",
+              "Because SSE requires the client to disconnect after every message",
+              "Because SSE and WebSockets are functionally identical"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explains SSE is deliberately one-directional, so a use case like live chat or collaborative editing that needs ongoing input from the client requires the bidirectional channel WebSockets provide instead.",
+            "id": "q7"
+          },
+          {
+            "question": "Why is picking the more complex tool (WebSockets) 'to be safe' by default considered a mistake?",
+            "options": [
+              "Because it adds real infrastructure cost the interaction may never actually need, echoing the same tool-matching discipline used for data structures and distance metrics elsewhere in this curriculum",
+              "Because WebSockets are technically incapable of handling simple use cases",
+              "Because defaulting to the safer option is always the correct engineering choice",
+              "Because SSE cannot be implemented in any modern web framework"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson frames defaulting to the more powerful tool without a genuine bidirectional need as unnecessary complexity, consistent with the broader 'match the tool to the interaction' principle seen elsewhere in the curriculum.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "app_handling_client_disconnects_gracefully",
+      "title": "Handling Client Disconnects Gracefully",
+      "description": "A user closing their browser mid-stream shouldn't leave your server generating tokens into the void.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain why detecting and handling a mid-stream client disconnect matters for both cost and resource use."
+          },
+          {
+            "title": "💸 An abandoned generation still costs money",
+            "content": "If a client disconnects partway through a streamed LLM response and the server doesn't notice, the backend keeps generating (and paying for) tokens no one will ever see — directly wasting the cost-per-token budget the LLM Inference course's cost-modeling lesson cared about, for output that provides zero value."
+          },
+          {
+            "title": "🔍 Detecting the disconnect",
+            "content": "Both WebSocket and SSE connections can be monitored for a closed connection, and the server-side handler should check this periodically during a long streaming response, stopping generation as soon as a disconnect is detected rather than only when the full response finishes."
+          },
+          {
+            "title": "🧹 Cleaning up resources, not just stopping tokens",
+            "content": "Beyond stopping the LLM call itself, a disconnected client's abandoned connection should release any associated resources — a held database connection, a reserved slot in the request scheduler from the Inference course's scheduling lesson — promptly, so abandoned connections don't quietly accumulate and exhaust capacity meant for active users."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "Here's a generation loop that checks for a disconnect on every token, stopping early instead of running to completion regardless.\n\n```python\nclass SimulatedConnection:\n    def __init__(self, disconnect_after_tokens=None):\n        self.connected = True\n        self.disconnect_after_tokens = disconnect_after_tokens\n        self.tokens_sent = 0\n\n    def send(self, token):\n        self.tokens_sent += 1\n        if self.disconnect_after_tokens is not None and self.tokens_sent >= self.disconnect_after_tokens:\n            self.connected = False  # simulates the client closing the tab mid-stream\n\n    def is_connected(self):\n        return self.connected\n\ndef stream_response(conn, tokens):\n    generated = 0\n    wasted = 0\n    for token in tokens:\n        if not conn.is_connected():\n            wasted = len(tokens) - generated\n            print(f\"disconnect detected after {generated} tokens -- stopping early, \"\n                  f\"saved generating {wasted} more tokens nobody would see\")\n            return generated\n        conn.send(token)\n        generated += 1\n    print(f\"stream completed normally: {generated} tokens sent\")\n    return generated\n\nall_tokens = [\"The\", \" full\", \" answer\", \" has\", \" six\", \" tokens.\"]\n\nprint(\"--- client stays connected the whole time ---\")\nstream_response(SimulatedConnection(), all_tokens)\n\nprint(\"\\n--- client disconnects after 3 tokens ---\")\nstream_response(SimulatedConnection(disconnect_after_tokens=3), all_tokens)\n```\n\nIn the first run, `conn.is_connected()` stays `True` the whole time, so all 6 tokens are generated and sent normally. In the second run, `SimulatedConnection(disconnect_after_tokens=3)` flips `connected` to `False` right after its 3rd token is sent; the next loop iteration's `is_connected()` check catches that immediately, so `stream_response` stops after generating only 3 of the 6 tokens — exactly the early-stop behavior the lesson describes, avoiding wasted generation for the 3 tokens no one would ever see."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Only checking for a disconnect after the full response finishes generating.** By then, every wasted token has already been generated (and paid for) — the check needs to happen periodically *during* generation, not just at the end.\n\n**Stopping generation but forgetting to release other held resources.** A stopped generation still might leave a database connection, a scheduler slot, or a background task running, quietly consuming capacity meant for active users.\n\n**Assuming a closed connection always means a clean disconnect.** A network drop, a proxy timeout, or a crashed client can all look similar to a deliberate close — the handling code should treat any of these as a signal to stop, rather than trying to distinguish intent before reacting.\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "app_handling_client_disconnects_gracefully_quiz",
+        "questions": [
+          {
+            "question": "Why does an undetected client disconnect during LLM streaming waste real money?",
+            "options": [
+              "Because the server keeps generating (and paying for) tokens that no one will ever see",
+              "Because disconnects always trigger an automatic refund from the LLM provider",
+              "Because disconnected clients are billed directly instead of the server",
+              "Because disconnects have no effect on ongoing generation cost"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Continuing to generate tokens for a response nobody will receive is pure wasted spend, directly undermining the cost-per-token discipline from the Inference course.",
+            "id": "q1"
+          },
+          {
+            "question": "What should a server do as soon as it detects a mid-stream client disconnect?",
+            "options": [
+              "Stop generation and release associated resources promptly, rather than continuing to completion",
+              "Continue generating the full response regardless, since stopping is not possible",
+              "Immediately terminate all other unrelated active connections",
+              "Ignore the disconnect since it has no resource implications"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Prompt detection and cleanup avoids both wasted generation cost and resource exhaustion from abandoned connections.",
+            "id": "q2"
+          },
+          {
+            "question": "Beyond stopping the LLM call, what else should be cleaned up after a detected disconnect?",
+            "options": [
+              "Associated resources like held database connections or reserved scheduler slots",
+              "The user's entire account and authentication history",
+              "All previously completed, successfully delivered responses",
+              "The server's entire request-handling codebase"
+            ],
+            "correctAnswer": 0,
+            "explanation": "A disconnected client's connection may be holding onto several kinds of server resources that should be released promptly, not just the LLM generation itself.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, how many tokens does `stream_response` generate when the client stays connected the whole time?",
+            "options": [
+              "3",
+              "0",
+              "6, all of them, since is_connected() stays True the whole loop",
+              "It varies randomly each run"
+            ],
+            "correctAnswer": 2,
+            "explanation": "With a plain `SimulatedConnection()` (no disconnect configured), `is_connected()` always returns `True`, so the loop runs through all 6 tokens in `all_tokens` without ever triggering the early-stop path.",
+            "id": "q4"
+          },
+          {
+            "question": "In the second run, why does `stream_response` stop after exactly 3 tokens?",
+            "options": [
+              "Because SimulatedConnection(disconnect_after_tokens=3) sets connected=False right after its 3rd token is sent, and the next loop iteration's is_connected() check catches it",
+              "Because the tokens list only contains 3 items in that run",
+              "Because an exception is raised after 3 tokens",
+              "Because stream_response always stops after exactly half the tokens"
+            ],
+            "correctAnswer": 0,
+            "explanation": "`conn.send` flips `self.connected` to `False` once `tokens_sent >= disconnect_after_tokens` (3), so the very next iteration's `if not conn.is_connected()` check is true, stopping the loop right there.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is only checking for a disconnect after the full response finishes generating flagged as a mistake?",
+            "options": [
+              "Because by then, every wasted token has already been generated and paid for -- the check needs to happen periodically during generation, not just at the end",
+              "Because checking at the end is always faster than checking during generation",
+              "Because disconnects can only be detected after generation completes",
+              "Because checking during generation is technically impossible"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's common mistakes explain that a disconnect check only run at the end defeats the purpose, since all the wasted generation has already happened by that point.",
+            "id": "q6"
+          },
+          {
+            "question": "Why is stopping generation but forgetting to release other held resources a problem?",
+            "options": [
+              "Because a stopped generation might still leave a database connection, scheduler slot, or background task running, quietly consuming capacity meant for active users",
+              "Because stopping generation automatically releases every resource with no further action needed",
+              "Because resources are only ever consumed during active token generation",
+              "Because held resources have no effect on system capacity"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson points out that stopping the LLM call is necessary but not sufficient — other resources tied to the abandoned connection also need explicit cleanup to avoid quietly exhausting capacity.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does the lesson caution against assuming a closed connection always means a deliberate, clean disconnect?",
+            "options": [
+              "Because a network drop, a proxy timeout, or a crashed client can all look similar to a deliberate close, so handling code should treat any of these as a signal to stop rather than trying to distinguish intent first",
+              "Because closed connections are always the result of a deliberate user action",
+              "Because network drops never actually close a connection",
+              "Because distinguishing disconnect causes is required before any cleanup can happen"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson advises treating any closed-connection signal as a reason to stop generation and clean up, rather than delaying that response while trying to determine exactly why the connection closed.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

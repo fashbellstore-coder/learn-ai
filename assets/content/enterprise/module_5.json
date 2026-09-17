@@ -1,0 +1,567 @@
+{
+  "id": "ent_governance",
+  "title": "Enterprise AI Governance",
+  "description": "Vendor risk and model governance, compliance frameworks, change management for AI systems, and building an AI Center of Excellence.",
+  "icon": "🏛️",
+  "color": "#4A148C",
+  "order": 5,
+  "estimatedHours": 4,
+  "difficulty": "advanced",
+  "prerequisites": [
+    "ent_gpu_clusters"
+  ],
+  "lessons": [
+    {
+      "id": "ent_vendor_risk_and_model_governance",
+      "title": "Vendor Risk and Model Governance",
+      "description": "Every model, API, and library this curriculum used is a dependency someone in the enterprise has to formally account for.",
+      "duration": 13,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain what vendor risk assessment and model governance cover for an enterprise using both third-party APIs and open-weight models.\n"
+          },
+          {
+            "title": "🏭 Vendor risk: depending on someone else's system",
+            "content": "Using a hosted LLM API (LLM Engineering course) or a managed vector database (Vector Databases course) means depending on that vendor's security practices, uptime, business continuity, and even their own compliance posture — an enterprise-grade **vendor risk process** evaluates a vendor's security certifications, incident history, and contractual commitments before depending on them for anything business-critical, rather than assuming a well-known vendor name is sufficient due diligence on its own.\n"
+          },
+          {
+            "title": "📋 Model governance: tracking what's actually running in production",
+            "content": "Beyond the vendor relationship itself, **model governance** tracks which specific model version is deployed where, its evaluation results (Eval & Security course), its model card and known limitations, and who approved its deployment — a formal inventory and approval process, not an informal \"someone updated the model last week\" practice, which becomes essential once dozens of tenants and use cases (Module 2) are each depending on specific model behavior.\n"
+          },
+          {
+            "title": "🔄 Governance has to keep pace with how fast models change",
+            "content": "Unlike traditional enterprise software with infrequent releases, models and their surrounding tooling change rapidly — a governance process too slow or heavyweight to keep pace with legitimate update needs creates pressure to bypass it entirely, which defeats its purpose; the right process balances real oversight against not becoming an obstacle everyone works around.\n"
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "Here's a simplified simulation of a model governance registry checking whether a deployment is properly tracked before allowing it to go live:\n\n```python\nmodel_registry = {\n    \"support-bot-v3\": {\n        \"eval_results_recorded\": True,\n        \"model_card_on_file\": True,\n        \"approved_by\": \"jane_ml_lead\",\n    },\n}\n\ndef can_deploy(model_name, registry):\n    entry = registry.get(model_name)\n    if entry is None:\n        return False, \"model not in governance registry\"\n    missing = [k for k, v in entry.items() if not v]\n    if missing:\n        return False, f\"incomplete governance record, missing: {missing}\"\n    return True, \"approved for deployment\"\n\nprint(can_deploy(\"support-bot-v3\", model_registry))\nprint(can_deploy(\"support-bot-v4-experimental\", model_registry))\n```\n\n`can_deploy(\"support-bot-v3\", model_registry)` finds the entry, checks every value (`eval_results_recorded`, `model_card_on_file`, `approved_by`) — all are truthy, so `missing` is an empty list and it returns `(True, \"approved for deployment\")`. `can_deploy(\"support-bot-v4-experimental\", model_registry)` finds no entry at all for that name in `model_registry`, so `entry is None` is `True`, and it returns `(False, \"model not in governance registry\")` — blocking deployment of a model version that was never formally tracked, regardless of whether it might actually work fine technically.\n"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Deploying a new model version informally, outside the governance registry, \"just this once.\"** As the code example shows, a model that was never registered is indistinguishable from one that failed review — `can_deploy` has no way to grant an informal exception, which is exactly the point: an informal bypass undermines the whole registry's reliability as a source of truth.\n\n**Treating vendor reputation alone as sufficient due diligence.** A well-known vendor name isn't a substitute for actually reviewing their security certifications, incident history, and contractual commitments — reputation and verified practice are different things.\n\n**Building a governance process so heavyweight that it can't keep pace with legitimate model update needs.** As the lesson warns, this creates pressure to work around the process entirely, which defeats its purpose more thoroughly than a lighter-weight process that people actually follow.\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ent_vendor_risk_and_model_governance_quiz",
+        "questions": [
+          {
+            "question": "What does an enterprise vendor risk process evaluate before depending on a third-party API or service?",
+            "options": [
+              "The vendor's security certifications, incident history, and contractual commitments, rather than assuming a well-known name is sufficient due diligence",
+              "Only the vendor's marketing materials and public reputation",
+              "Nothing; using a well-known vendor requires no formal evaluation",
+              "Only the vendor's pricing, with no consideration of security or reliability"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Formal vendor risk assessment looks past reputation alone to concrete evidence of security posture, track record, and contractual accountability.",
+            "id": "q1"
+          },
+          {
+            "question": "In the code example, why does `can_deploy(\"support-bot-v3\", model_registry)` return `(True, \"approved for deployment\")`?",
+            "options": [
+              "Because the model isn't in the registry at all",
+              "Because `entry` is found, and every value in it (`eval_results_recorded`, `model_card_on_file`, `approved_by`) is truthy, so `missing` ends up as an empty list, and the function falls through to return the approval tuple",
+              "Because `can_deploy` always returns `True` for any model name",
+              "Because `missing` contains all three keys"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The registry entry for `\"support-bot-v3\"` has all three fields set to truthy values, so the list comprehension building `missing` produces an empty list, and since `if missing:` is `False`, execution reaches the final `return True, \"approved for deployment\"`.",
+            "id": "q2"
+          },
+          {
+            "question": "In the code example, why does `can_deploy(\"support-bot-v4-experimental\", model_registry)` return `(False, \"model not in governance registry\")`?",
+            "options": [
+              "Because `model_registry.get(\"support-bot-v4-experimental\")` returns `None` (no such key exists), triggering the `if entry is None` branch immediately, before any field-completeness check happens",
+              "Because the model's `eval_results_recorded` field is `False`",
+              "Because the model's `approved_by` field is missing",
+              "Because `can_deploy` raises an exception for unrecognized models"
+            ],
+            "correctAnswer": 0,
+            "explanation": "`model_registry` only has one key, `\"support-bot-v3\"`; looking up the experimental name returns `None` via `.get()`, and the function's first check (`if entry is None`) catches this before the field-completeness logic is ever reached.",
+            "id": "q3"
+          },
+          {
+            "question": "What does the code example demonstrate about how the governance registry treats an unregistered model compared to one with an incomplete record?",
+            "options": [
+              "That an unregistered model and one with a genuinely incomplete governance record are handled by two entirely different code paths, but both ultimately result in a blocked deployment — there's no way to bypass the registry informally",
+              "That unregistered models are always approved by default",
+              "That incomplete records are always approved, unlike unregistered models",
+              "That the registry cannot distinguish between the two cases at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The two failure paths — `entry is None` versus `missing` being non-empty — are structurally distinct in the code, but both lead to a `False` deployment result, illustrating that there's no informal way around the registry check either way.",
+            "id": "q4"
+          },
+          {
+            "question": "What does model governance track beyond the vendor relationship itself?",
+            "options": [
+              "Which specific model version is deployed where, its evaluation results, its model card, and who approved its deployment",
+              "Only the total number of API calls made to a vendor",
+              "Only the programming language used to build the model",
+              "Nothing beyond what vendor risk assessment already covers"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Model governance is a distinct, more granular tracking practice focused on what's actually deployed and validated, not just the vendor supplying the underlying capability.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does a governance process risk being bypassed if it's too slow or heavyweight?",
+            "options": [
+              "Because models and tooling change rapidly, and a process that can't keep pace with legitimate update needs creates pressure to work around it entirely, defeating its purpose",
+              "Because governance processes are always fast regardless of their design",
+              "Because bypassing governance has no negative consequences for an enterprise",
+              "Because model updates never actually need to happen quickly in practice"
+            ],
+            "correctAnswer": 0,
+            "explanation": "A governance process has to balance real oversight against practical usability — one so slow it blocks legitimate needs tends to get circumvented, undermining the very oversight it was meant to provide.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does the lesson warn against deploying a new model version informally, outside the governance registry, \"just this once\"?",
+            "options": [
+              "Because, as the code example shows, a model that was never registered is indistinguishable from one that failed review — an informal bypass undermines the registry's reliability as a source of truth",
+              "Because informal deployments are technically impossible in any system",
+              "Because the governance registry automatically approves any unregistered model",
+              "Because registered models always perform worse than unregistered ones"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The common mistakes section connects directly to the code example: `can_deploy` treats \"never registered\" the same as \"blocked,\" so an informal exception has no legitimate path through the system as designed.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does the lesson warn against treating vendor reputation alone as sufficient due diligence?",
+            "options": [
+              "Because a well-known vendor name isn't a substitute for actually reviewing their security certifications, incident history, and contractual commitments — reputation and verified practice are different things",
+              "Because well-known vendors are always less secure than unknown ones",
+              "Because vendor reputation is completely irrelevant to any risk assessment",
+              "Because reputation-based assessment is required by every compliance framework"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's core point about vendor risk assessment is that concrete evidence should replace an assumption based purely on a vendor's name recognition.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ent_compliance_frameworks_overview",
+      "title": "Compliance Frameworks Overview",
+      "description": "SOC 2, HIPAA, and similar frameworks, at the level an AI engineer actually needs to understand them.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Name a few common compliance frameworks and explain what they generally require of an AI system, at a practical rather than legal level.\n"
+          },
+          {
+            "title": "📜 A few frameworks worth recognizing by name",
+            "content": "- **SOC 2** focuses on security, availability, and confidentiality controls for a service organization — often required before an enterprise customer will even consider a vendor.\n- **HIPAA** governs healthcare data handling in the US, with strict requirements around who can access patient data and how.\n- **GDPR** (and similar regional regulations) governs personal data handling, including rights like data deletion that have real implications for a system that's, say, used personal data in a fine-tuning dataset (Fine-Tuning course) or a RAG knowledge base (RAG course).\n"
+          },
+          {
+            "title": "🔗 How these frameworks map onto material already covered in this curriculum",
+            "content": "SOC 2's access-control requirements connect directly to this course's RBAC and audit-logging lessons. HIPAA and GDPR's data-handling requirements connect to the data-residency lesson from Module 2, and to the Eval & Security course's privacy lesson on PII and data handling. A compliance framework isn't a separate, unrelated body of knowledge — it's a formal, externally-verified requirement that the practices already built throughout this curriculum actually be in place and demonstrable.\n"
+          },
+          {
+            "title": "⚖️ An AI engineer's role vs. a compliance officer's role",
+            "content": "An AI engineer isn't typically responsible for interpreting the legal nuances of a framework — that's a compliance or legal team's job — but understanding what these frameworks generally require means being able to build systems (the RBAC, audit logging, data residency, and tenant isolation covered throughout this course) that make compliance achievable, rather than discovering after the fact that a system's architecture makes a required compliance control impossible to implement.\n"
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "Here's a simplified simulation mapping a compliance framework's requirements onto the specific technical controls covered elsewhere in this course:\n\n```python\nFRAMEWORK_REQUIREMENTS = {\n    \"SOC2\": [\"access_control\", \"audit_logging\"],\n    \"HIPAA\": [\"access_control\", \"audit_logging\", \"data_residency\"],\n    \"GDPR\": [\"data_residency\", \"data_deletion_capability\"],\n}\n\nsystem_controls_in_place = {\n    \"access_control\": True,   # RBAC, from Module 1\n    \"audit_logging\": True,    # from Module 1\n    \"data_residency\": True,   # from Module 2\n    \"data_deletion_capability\": False,  # not yet implemented\n}\n\ndef compliance_gap(framework, requirements, controls):\n    needed = requirements[framework]\n    return [req for req in needed if not controls.get(req, False)]\n\nfor framework in FRAMEWORK_REQUIREMENTS:\n    gap = compliance_gap(framework, FRAMEWORK_REQUIREMENTS, system_controls_in_place)\n    status = \"READY\" if not gap else f\"GAP: missing {gap}\"\n    print(f\"{framework}: {status}\")\n```\n\nFor `\"SOC2\"`, `needed = [\"access_control\", \"audit_logging\"]`, both of which are `True` in `system_controls_in_place` — `gap` is an empty list, so it prints `\"READY\"`. For `\"HIPAA\"`, `needed` adds `\"data_residency\"`, also `True` — still `\"READY\"`. For `\"GDPR\"`, `needed = [\"data_residency\", \"data_deletion_capability\"]`; `data_residency` is `True` but `data_deletion_capability` is `False`, so `gap = [\"data_deletion_capability\"]` — it prints `\"GAP: missing ['data_deletion_capability']\"`, concretely surfacing that the RBAC and audit-logging controls built earlier in this course satisfy SOC 2 and HIPAA's requirements, but GDPR's deletion right needs a capability this system doesn't have yet.\n"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming the same set of technical controls automatically satisfies every compliance framework equally.** As the code example shows, a system fully ready for SOC 2 and HIPAA can still have a real gap for GDPR — different frameworks require different specific capabilities, and readiness for one doesn't imply readiness for all.\n\n**Waiting until a compliance audit to check whether required controls actually exist.** The `compliance_gap` check in the code example is exactly the kind of thing that should run continuously or before major changes, not be discovered for the first time during a formal audit.\n\n**Having an AI engineer make legal interpretations of what a framework requires, instead of consulting compliance or legal specialists.** The engineer's job is building the technical capability a framework needs; the framework's precise legal scope and interpretation is a different kind of expertise.\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ent_compliance_frameworks_overview_quiz",
+        "questions": [
+          {
+            "question": "What does SOC 2 primarily focus on?",
+            "options": [
+              "Security, availability, and confidentiality controls for a service organization",
+              "Only the pricing structure of a vendor's product",
+              "Only the programming languages used to build a system",
+              "Only physical office security, unrelated to any software system"
+            ],
+            "correctAnswer": 0,
+            "explanation": "SOC 2 is specifically about verifying an organization's controls around security, availability, and confidentiality — often a prerequisite for enterprise customer trust.",
+            "id": "q1"
+          },
+          {
+            "question": "In the code example, why does `compliance_gap(\"GDPR\", FRAMEWORK_REQUIREMENTS, system_controls_in_place)` return `[\"data_deletion_capability\"]`?",
+            "options": [
+              "Because GDPR's `needed` list is `[\"data_residency\", \"data_deletion_capability\"]`, and while `data_residency` is `True` in `system_controls_in_place`, `data_deletion_capability` is `False`, so only that one control fails the `if not controls.get(req, False)` check",
+              "Because neither of GDPR's required controls are in place",
+              "Because GDPR has no entry in `FRAMEWORK_REQUIREMENTS`",
+              "Because `compliance_gap` always returns the same list regardless of framework"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The list comprehension `[req for req in needed if not controls.get(req, False)]` keeps only requirements whose control value is falsy; `data_residency` is `True` (excluded), `data_deletion_capability` is `False` (included), leaving exactly `[\"data_deletion_capability\"]`.",
+            "id": "q2"
+          },
+          {
+            "question": "In the code example, why does `\"SOC2\"` print `\"READY\"` while `\"GDPR\"` prints a GAP message?",
+            "options": [
+              "Because both of SOC 2's required controls (`access_control`, `audit_logging`) are `True` in `system_controls_in_place`, while GDPR's requirements include `data_deletion_capability`, which is `False`",
+              "Because SOC 2 requires fewer controls than exist in the system, regardless of which ones",
+              "Because `compliance_gap` treats SOC 2 as a special case",
+              "Because GDPR and SOC 2 have identical requirement lists"
+            ],
+            "correctAnswer": 0,
+            "explanation": "SOC 2's two requirements are both satisfied (`True`) in `system_controls_in_place`, producing an empty gap list, while GDPR's requirement list includes a control that's explicitly `False`, producing a non-empty gap.",
+            "id": "q3"
+          },
+          {
+            "question": "What does the code example demonstrate about the relationship between a set of technical controls and multiple compliance frameworks?",
+            "options": [
+              "That the same set of controls can satisfy some frameworks (SOC 2, HIPAA) while leaving a real gap for another (GDPR), since each framework has its own distinct requirement list",
+              "That every compliance framework has identical requirements",
+              "That satisfying one framework automatically satisfies all others",
+              "That `data_residency` alone is sufficient for every framework in the example"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The same `system_controls_in_place` dict produces different readiness outcomes across the three frameworks purely because each framework's `needed` list differs — SOC 2 and HIPAA pass, GDPR doesn't.",
+            "id": "q4"
+          },
+          {
+            "question": "How does GDPR's data deletion right have practical implications for a system that used personal data in a fine-tuning dataset?",
+            "options": [
+              "It creates real complications, since a fine-tuned model's learned behavior isn't trivially 'deletable' from the model in the way a database record is",
+              "GDPR has no relationship to fine-tuning or model training in any way",
+              "GDPR only applies to data stored in spreadsheets, never in models",
+              "Data deletion rights are automatically satisfied by any AI system with no special consideration needed"
+            ],
+            "correctAnswer": 0,
+            "explanation": "This is a genuinely hard practical problem — deleting a specific data point's influence from an already-trained model isn't as straightforward as deleting a database row, which is exactly why this connects meaningfully to material from the Fine-Tuning course.",
+            "id": "q5"
+          },
+          {
+            "question": "What is the appropriate relationship between an AI engineer's role and a compliance officer's role regarding these frameworks?",
+            "options": [
+              "The AI engineer builds systems (RBAC, audit logging, data residency, tenant isolation) that make compliance achievable, while legal nuance interpretation belongs to compliance/legal teams",
+              "AI engineers are solely responsible for all legal interpretation of every compliance framework",
+              "Compliance frameworks have no relevance to how an AI engineer builds systems",
+              "Compliance officers are responsible for writing all of a system's code"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The practical, technical implementation of compliance-supporting features is the engineer's contribution, while legal interpretation appropriately remains with specialists — but the two roles depend on each other.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does the lesson warn against assuming the same set of technical controls automatically satisfies every compliance framework equally?",
+            "options": [
+              "Because, as the code example shows, a system fully ready for SOC 2 and HIPAA can still have a real gap for GDPR — different frameworks require different specific capabilities",
+              "Because all compliance frameworks always require the exact same technical controls",
+              "Because technical controls have no relationship to compliance readiness at all",
+              "Because GDPR requires fewer controls than SOC 2 in every case"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The common mistakes section directly reflects the code example's finding — readiness for one framework doesn't generalize automatically to another with different requirements.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does the lesson warn against waiting until a formal compliance audit to check whether required controls actually exist?",
+            "options": [
+              "Because the kind of gap check shown in the code example should run continuously or before major changes, not be discovered for the first time during a formal audit",
+              "Because compliance audits never actually check for technical controls",
+              "Because gaps discovered during an audit are automatically resolved at no cost",
+              "Because compliance frameworks change their requirements during every audit"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The common mistakes section frames the `compliance_gap`-style check as something to run proactively and continuously, rather than treating a formal audit as the first opportunity to discover a gap.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ent_change_management_for_ai_systems",
+      "title": "Change Management for AI Systems",
+      "description": "A model update is a change like any other — and enterprise change management applies to it, even though it doesn't look like a typical code deploy.",
+      "duration": 13,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain what makes AI-specific changes (a new model version, a fine-tuning update) require change management processes beyond a typical code deploy.\n"
+          },
+          {
+            "title": "🔄 What counts as a 'change' for an AI system",
+            "content": "A new base model version, an updated fine-tune, a modified RAG knowledge base, or even a changed system prompt can all meaningfully shift system behavior — unlike a typical application code change, an AI system's behavior change can be much harder to fully characterize in advance, since the model's behavior across the full range of possible inputs isn't something you can exhaustively enumerate and verify the way you might for traditional deterministic code.\n"
+          },
+          {
+            "title": "🚦 Why this needs a formal approval gate",
+            "content": "Given that difficulty of full characterization, enterprise change management for AI-specific changes typically requires the evaluation evidence from the Eval & Security course (does this change pass the existing eval suite, does it introduce any new failure modes) as part of the approval record — connecting a change-management process, usually thought of as a general IT practice, specifically to the evaluation discipline built throughout this curriculum.\n"
+          },
+          {
+            "title": "📢 Communicating AI-specific changes to affected stakeholders",
+            "content": "Because a model change can shift behavior in subtle ways users might not immediately attribute to \"a change was made,\" enterprise change management for AI systems often needs more proactive communication to affected tenants or business units than a typical infrastructure change would — someone relying on a specific model's known quirks or failure patterns deserves advance notice that those may shift.\n"
+          },
+          {
+            "title": "🔙 The rollback plan is part of the change, not an afterthought",
+            "content": "Every AI-specific change should have a rollback plan defined before the change ships, not improvised after something goes wrong — directly extending the MLOps course's rollback lesson to the enterprise change-approval process itself, making rollback readiness a formal precondition for approval rather than a best-effort recovery action.\n"
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "Here's a simplified simulation of a change-approval gate requiring eval evidence and a rollback plan before a model change can be approved:\n\n```python\ndef evaluate_change_request(change):\n    blockers = []\n    if not change.get(\"eval_suite_passed\"):\n        blockers.append(\"eval suite has not passed\")\n    if change.get(\"new_failure_modes_found\"):\n        blockers.append(\"new failure modes found and not yet addressed\")\n    if not change.get(\"rollback_plan_defined\"):\n        blockers.append(\"no rollback plan defined\")\n    if blockers:\n        return \"BLOCKED\", blockers\n    return \"APPROVED\", []\n\nwell_prepared_change = {\n    \"eval_suite_passed\": True,\n    \"new_failure_modes_found\": False,\n    \"rollback_plan_defined\": True,\n}\nrushed_change = {\n    \"eval_suite_passed\": True,\n    \"new_failure_modes_found\": False,\n    \"rollback_plan_defined\": False,\n}\n\nprint(\"well-prepared change:\", evaluate_change_request(well_prepared_change))\nprint(\"rushed change:\", evaluate_change_request(rushed_change))\n```\n\nFor `well_prepared_change`, all three checks pass (`eval_suite_passed=True`, `new_failure_modes_found=False`, `rollback_plan_defined=True`), so `blockers` stays empty and the function returns `(\"APPROVED\", [])`. For `rushed_change`, the eval suite passed and no new failure modes were found, but `rollback_plan_defined` is `False`, so `\"no rollback plan defined\"` is appended to `blockers` — the function returns `(\"BLOCKED\", [\"no rollback plan defined\"])`, refusing approval even though the change's eval results themselves look fine, exactly reflecting the lesson's point that a rollback plan is a formal precondition, not an afterthought.\n"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Approving a change based on eval results alone, without a defined rollback plan.** As the code example shows, `rushed_change` passes its eval checks but is still blocked — good eval results don't substitute for having a way to recover if something unexpected happens after deployment.\n\n**Rolling out an AI-specific change without proactively notifying affected tenants or business units.** Users relying on specific, known model behavior can be caught off guard by a change they weren't told about, even if the change technically passed every internal check.\n\n**Treating a changed system prompt as too minor to go through the same change-management process as a model swap.** The lesson explicitly lists a changed system prompt alongside model and fine-tune changes as something that can meaningfully shift behavior — informally skipping process for \"small\" changes undermines the whole point of having a formal gate.\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ent_change_management_for_ai_systems_quiz",
+        "questions": [
+          {
+            "question": "Why is an AI system's behavior change often harder to fully characterize in advance than a typical code change?",
+            "options": [
+              "Because a model's behavior across the full range of possible inputs isn't something you can exhaustively enumerate and verify the way you might for deterministic code",
+              "Because AI systems never actually change their behavior when updated",
+              "Because typical code changes are always harder to characterize than model changes",
+              "Because AI system behavior is fully predictable and requires no special verification"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The non-exhaustive, probabilistic nature of model behavior across inputs is exactly what makes full characterization structurally harder than for deterministic application code.",
+            "id": "q1"
+          },
+          {
+            "question": "In the code example, why does `evaluate_change_request(rushed_change)` return `(\"BLOCKED\", [\"no rollback plan defined\"])`?",
+            "options": [
+              "Because `rushed_change[\"eval_suite_passed\"]` is `False`",
+              "Because `rushed_change[\"rollback_plan_defined\"]` is `False`, so `if not change.get(\"rollback_plan_defined\")` appends the corresponding blocker, even though the eval-related checks both pass",
+              "Because `rushed_change` has new failure modes",
+              "Because the function always returns BLOCKED for the second call"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`rushed_change` has `eval_suite_passed=True` and `new_failure_modes_found=False`, so neither of the first two blockers trigger, but `rollback_plan_defined=False` triggers the third check, adding its blocker and forcing a BLOCKED result.",
+            "id": "q2"
+          },
+          {
+            "question": "In the code example, what is `blockers` for `well_prepared_change`, and what does that determine?",
+            "options": [
+              "A list containing all three possible blocker messages",
+              "An empty list, since all three checks (`eval_suite_passed`, `new_failure_modes_found`, `rollback_plan_defined`) pass their respective conditions, causing the function to return `(\"APPROVED\", [])`",
+              "A list containing only the rollback blocker",
+              "`None`, since the function has no return value for this case"
+            ],
+            "correctAnswer": 1,
+            "explanation": "None of the three `if` conditions trigger for `well_prepared_change`'s values, so `blockers` remains the empty list it started as, and the function falls through to `return \"APPROVED\", []`.",
+            "id": "q3"
+          },
+          {
+            "question": "What does the contrast between `well_prepared_change` and `rushed_change` in the code example illustrate about the approval gate's design?",
+            "options": [
+              "That the two changes are treated identically regardless of their `rollback_plan_defined` value",
+              "That passing eval-related checks alone is not sufficient for approval — a missing rollback plan blocks the change even when the eval results themselves are clean, reflecting rollback readiness as a formal precondition rather than an afterthought",
+              "That `rollback_plan_defined` has no effect on the function's output",
+              "That `rushed_change` is approved because two of its three checks pass"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The two change requests differ only in `rollback_plan_defined`, and that single difference is enough to flip the outcome from APPROVED to BLOCKED — demonstrating that the gate treats rollback readiness as non-negotiable, not merely a nice-to-have.",
+            "id": "q4"
+          },
+          {
+            "question": "What evidence does enterprise change management for AI systems typically require as part of an approval record?",
+            "options": [
+              "Evaluation evidence from the eval suite, showing whether the change passes existing tests and introduces no new failure modes",
+              "Only the name of the engineer who made the change, with no technical evidence required",
+              "Only a confirmation that the change compiles without syntax errors",
+              "No evidence is required for AI-specific changes beyond a typical code change"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Connecting change approval to concrete evaluation results is what makes the approval process substantively different from a typical code change's simpler build-and-test gate.",
+            "id": "q5"
+          },
+          {
+            "question": "Why should a rollback plan be defined before an AI-specific change ships, rather than improvised afterward?",
+            "options": [
+              "Because it directly extends the MLOps course's rollback discipline, making rollback readiness a formal precondition for approval rather than a best-effort reaction to a problem",
+              "Because rollback plans are technically impossible to create in advance for any system",
+              "Because AI systems never actually need to be rolled back once deployed",
+              "Because improvised rollback plans are always more effective than pre-planned ones"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Pre-defining rollback readiness as part of the approval itself, rather than as an improvised reaction, mirrors the proactive rollback discipline emphasized in the MLOps course, now formalized as an enterprise governance requirement.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does the lesson warn against approving a change based on eval results alone, without a defined rollback plan?",
+            "options": [
+              "Because, as the code example shows, `rushed_change` passes its eval checks but is still blocked — good eval results don't substitute for having a way to recover if something unexpected happens after deployment",
+              "Because eval results are never actually relevant to change approval",
+              "Because rollback plans are automatically generated whenever eval results pass",
+              "Because a missing rollback plan has no effect on whether a change should be approved"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The common mistakes section directly reflects the code example's `rushed_change` outcome — clean eval results alone aren't enough when the rollback precondition isn't met.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does the lesson warn against treating a changed system prompt as too minor to go through the same change-management process as a model swap?",
+            "options": [
+              "Because the lesson explicitly lists a changed system prompt alongside model and fine-tune changes as something that can meaningfully shift behavior — informally skipping process for 'small' changes undermines the whole point of having a formal gate",
+              "Because system prompts never actually affect model behavior",
+              "Because system prompt changes are technically incapable of being tracked in a governance system",
+              "Because model swaps are always less risky than system prompt changes"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's opening section groups system prompt changes with model and fine-tune changes as meaningful behavior shifts — treating any of them as exempt from process defeats the purpose of the formal gate.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ent_building_an_ai_center_of_excellence",
+      "title": "Building an AI Center of Excellence",
+      "description": "Closing this course — and this entire curriculum — by asking how an enterprise makes everything covered so far a durable, organization-wide practice rather than one team's tribal knowledge.",
+      "duration": 14,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain what an AI Center of Excellence (CoE) does and how it ties together the practices covered across this entire curriculum.\n"
+          },
+          {
+            "title": "🏛️ What a CoE actually does",
+            "content": "An **AI Center of Excellence** is a cross-functional group responsible for establishing shared standards, reusable infrastructure, and organizational best practices for AI development across an enterprise — rather than every team independently reinventing decisions this curriculum has covered in depth: which vector database to standardize on (Vector Databases course), how to structure an evaluation harness (Fine-Tuning, RAG, Eval & Security courses), what the standard deployment and monitoring pattern should look like (App Dev, Cloud courses).\n"
+          },
+          {
+            "title": "📚 Turning individual courses into organizational capability",
+            "content": "Where this curriculum taught concepts and techniques one course at a time — RAG, fine-tuning, agents, MLOps, security, and now enterprise infrastructure — a CoE's job is making sure that knowledge doesn't stay siloed in whichever individual engineers happened to learn it, but becomes documented, reusable organizational capability: shared libraries, internal reference architectures, and training paths for new team members joining the effort.\n"
+          },
+          {
+            "title": "⚖️ Balancing standardization against team autonomy",
+            "content": "Too much centralized control recreates the \"process too slow to keep pace with legitimate needs\" problem from this module's change-management lesson; too little coordination means every team repeats the same mistakes and re-solves the same problems (like tenant isolation, or choosing between managed and self-hosted infrastructure) independently. An effective CoE sets shared standards for the highest-leverage, highest-risk decisions — security, compliance, core infrastructure choices — while leaving room for teams to move quickly within those guardrails.\n"
+          },
+          {
+            "title": "🎓 Closing this course, and this entire curriculum",
+            "content": "This course moved from choosing how and where to deploy (Module 0), to managing who can access what (Module 1), to serving many tenants at once (Module 2), to staying available through failure (Module 3), to scaling GPU infrastructure across an organization (Module 4), to finally governing all of it responsibly (this module) — the operational and organizational layer that makes everything from the Python fundamentals at the start of this curriculum through agents, RAG, fine-tuning, and MLOps actually usable, safely and sustainably, at real enterprise scale. A model that works in a notebook became, over the course of this entire curriculum, a governed, observable, secure, multi-tenant, highly-available production system — which was the destination all along.\n"
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "Here's a simplified simulation of a CoE's standards registry, showing how a shared standard reduces redundant decisions across teams while still leaving room for team-level choices outside the guardrails:\n\n```python\ncoe_standards = {\n    \"vector_database\": \"pgvector\",       # highest-leverage: standardized org-wide\n    \"eval_harness_framework\": \"promptfoo\",  # highest-leverage: standardized org-wide\n}\n\ndef resolve_team_choice(decision, coe_standards, team_preference):\n    if decision in coe_standards:\n        return coe_standards[decision], \"standardized by CoE\"\n    return team_preference, \"team's own choice, within guardrails\"\n\nteam_a_decisions = [\n    (\"vector_database\", \"weaviate\"),      # team preference doesn't matter here\n    (\"internal_dashboard_framework\", \"streamlit\"),  # not a CoE-standardized decision\n]\n\nfor decision, preference in team_a_decisions:\n    result, reason = resolve_team_choice(decision, coe_standards, preference)\n    print(f\"{decision}: {result} ({reason})\")\n```\n\nFor `(\"vector_database\", \"weaviate\")`, `\"vector_database\"` is a key in `coe_standards`, so `resolve_team_choice` returns `(\"pgvector\", \"standardized by CoE\")` — Team A's stated preference of `\"weaviate\"` is overridden entirely, since this is one of the highest-leverage decisions the CoE standardized. For `(\"internal_dashboard_framework\", \"streamlit\")`, that decision isn't in `coe_standards` at all, so the function falls through to `return team_preference, \"team's own choice, within guardrails\"` — Team A's choice of `\"streamlit\"` is honored, since dashboard framework choice isn't one of the guardrail decisions the CoE has claimed.\n"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Standardizing every technical decision centrally, down to low-stakes tooling choices.** As the code example's `internal_dashboard_framework` case shows, not every decision needs to be claimed by `coe_standards` — over-centralizing recreates the slow, bypass-inviting process problem from the change-management lesson.\n\n**Leaving high-leverage, high-risk decisions (core infrastructure, security posture) to be decided independently by each team.** Unlike the dashboard framework example, decisions like vector database or eval harness choice genuinely benefit from being standardized — leaving these to independent reinvention means the same foundational mistakes get made repeatedly across the organization.\n\n**Treating a CoE as a one-time initiative rather than an ongoing function.** Just as this curriculum's practices need continuous verification (compliance, DR testing, governance review), the standards a CoE sets need periodic revisiting as the organization's needs and the underlying technology evolve.\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ent_building_an_ai_center_of_excellence_quiz",
+        "questions": [
+          {
+            "question": "What is the core purpose of an AI Center of Excellence within an enterprise?",
+            "options": [
+              "Establishing shared standards, reusable infrastructure, and organizational best practices for AI development, rather than every team independently reinventing the same decisions",
+              "Replacing the need for any individual engineering team to build AI systems at all",
+              "Enforcing a single rigid process with no flexibility for any team",
+              "Serving as the enterprise's only customer-facing support channel"
+            ],
+            "correctAnswer": 0,
+            "explanation": "A CoE's value is turning scattered, team-by-team expertise into shared, reusable organizational capability, avoiding redundant reinvention of the same foundational decisions across teams.",
+            "id": "q1"
+          },
+          {
+            "question": "In the code example, why does `resolve_team_choice(\"vector_database\", coe_standards, \"weaviate\")` return `\"pgvector\"` instead of Team A's stated preference?",
+            "options": [
+              "Because `\"vector_database\"` is a key in `coe_standards`, so the function's `if decision in coe_standards` branch returns the CoE's standardized value directly, ignoring `team_preference` entirely",
+              "Because `\"weaviate\"` is not a valid vector database name",
+              "Because `resolve_team_choice` always ignores the `team_preference` argument",
+              "Because `coe_standards` doesn't actually contain a `\"vector_database\"` key"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The function checks `if decision in coe_standards` first; since `\"vector_database\"` matches, it returns `coe_standards[decision]` (`\"pgvector\"`) — `team_preference` is never even consulted for a standardized decision.",
+            "id": "q2"
+          },
+          {
+            "question": "In the code example, why does `resolve_team_choice(\"internal_dashboard_framework\", coe_standards, \"streamlit\")` return `\"streamlit\"`?",
+            "options": [
+              "Because `\"internal_dashboard_framework\"` is not a key in `coe_standards`, so the function falls through to `return team_preference, \"team's own choice, within guardrails\"`, honoring Team A's own preference",
+              "Because `coe_standards` contains an entry for dashboard frameworks set to `\"streamlit\"`",
+              "Because the function always returns the second argument's value",
+              "Because `internal_dashboard_framework` is a CoE-standardized decision"
+            ],
+            "correctAnswer": 0,
+            "explanation": "`\"internal_dashboard_framework\"` has no entry in `coe_standards`, so `if decision in coe_standards` is `False`, and the function returns the team's own `team_preference` value with the guardrails-scope reason string.",
+            "id": "q3"
+          },
+          {
+            "question": "What does the contrast between the two decisions in the code example illustrate about how a CoE should scope its standardization?",
+            "options": [
+              "That a CoE should standardize every possible technical decision uniformly",
+              "That a CoE claims specific, high-leverage decisions (like vector database choice) while leaving other decisions (like a dashboard framework) to individual teams — standardization is selective, not universal",
+              "That team preferences are always overridden regardless of which decision is being made",
+              "That `coe_standards` has no actual effect on `resolve_team_choice`'s output"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The code shows two decisions handled completely differently based purely on whether they appear in `coe_standards` — exactly modeling the lesson's point that an effective CoE standardizes selectively, not everything.",
+            "id": "q4"
+          },
+          {
+            "question": "Why must a CoE balance standardization against team autonomy?",
+            "options": [
+              "Too much central control recreates the earlier lesson's problem of a process too slow to keep pace with legitimate needs, while too little coordination causes repeated, avoidable mistakes across teams",
+              "Standardization and autonomy have no meaningful trade-off to balance",
+              "Team autonomy should always be eliminated entirely for maximum safety",
+              "Centralized standards are never useful for any enterprise AI practice"
+            ],
+            "correctAnswer": 0,
+            "explanation": "This mirrors the earlier change-management lesson's tension: an effective CoE sets guardrails on the highest-leverage decisions while leaving room for teams to move quickly within them.",
+            "id": "q5"
+          },
+          {
+            "question": "How does this closing lesson frame the relationship between this Enterprise AI course and the rest of the curriculum?",
+            "options": [
+              "As the operational and organizational layer that makes everything from the earlier courses — agents, RAG, fine-tuning, MLOps — actually usable safely and sustainably at real enterprise scale",
+              "As entirely unrelated to any of the technical material covered earlier in the curriculum",
+              "As a replacement for the technical skills taught in the earlier courses, making them unnecessary",
+              "As only relevant to companies with fewer than ten employees"
+            ],
+            "correctAnswer": 0,
+            "explanation": "This course's governance and infrastructure material is framed as the final layer completing the journey from foundational technical skills to a real, responsibly-operated enterprise production system.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does the lesson warn against standardizing every technical decision centrally, down to low-stakes tooling choices?",
+            "options": [
+              "Because, as the code example's dashboard framework case shows, not every decision needs central standardization — over-centralizing recreates the slow, bypass-inviting process problem from the change-management lesson",
+              "Because low-stakes tooling choices are always more important than infrastructure decisions",
+              "Because centralizing every decision always improves team velocity",
+              "Because dashboard frameworks are technically impossible to standardize"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The common mistakes section connects directly to the code example: claiming every decision, including low-stakes ones, as centrally standardized recreates the heavyweight-process problem the change-management lesson already warned about.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does the lesson warn against leaving high-leverage, high-risk decisions to be decided independently by each team?",
+            "options": [
+              "Because, unlike a low-stakes choice such as a dashboard framework, decisions like vector database or eval harness choice genuinely benefit from standardization — leaving these to independent reinvention means the same foundational mistakes get made repeatedly across the organization",
+              "Because high-leverage decisions should always be left entirely to individual teams",
+              "Because vector database choice has no real impact on system quality",
+              "Because independent team decisions are always better than centralized ones"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The common mistakes section makes the opposite-failure-mode point explicit: unlike low-stakes choices, high-leverage decisions left unstandardized lead to the same costly mistakes recurring team by team.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

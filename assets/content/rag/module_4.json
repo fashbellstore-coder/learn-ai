@@ -1,0 +1,525 @@
+{
+  "id": "module_4",
+  "title": "Advanced RAG Patterns",
+  "description": "GraphRAG's relationship-following retrieval, multi-hop iterative retrieval for chained questions, agentic RAG letting the model plan its own searches, and metadata filtering as a first-class RAG requirement.",
+  "icon": "🧠",
+  "color": "#1B5E20",
+  "order": 4,
+  "estimatedHours": 3,
+  "difficulty": "Advanced",
+  "prerequisites": [],
+  "lessons": [
+    {
+      "id": "rag_graphrag",
+      "title": "GraphRAG: Following Entity Relationships",
+      "description": "See how retrieval can follow explicit relationships between entities, not just semantic similarity.",
+      "duration": "9 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain what GraphRAG adds on top of standard vector-based retrieval."
+          },
+          {
+            "title": "🕸️ Beyond 'what's semantically similar'",
+            "content": "Standard vector-based RAG retrieves chunks that are semantically similar to a query — but some questions genuinely require following explicit *relationships* between entities ('who reports to the person who approved this contract?'), which a similarity search alone may not surface well, since the answer might require connecting several separate documents through a chain of relationships rather than any single passage being directly similar to the question."
+          },
+          {
+            "title": "🔗 Building and querying a knowledge graph",
+            "content": "**GraphRAG** extracts entities (people, organizations, concepts) and their relationships from the source documents into an explicit **knowledge graph**, then retrieval can follow graph edges (traversing relationships) in addition to, or instead of, pure vector similarity — directly analogous to the graph traversal concepts, just applied here to navigating a document collection's extracted relationships rather than a generic graph structure.\n\n```python\n# Conceptual: a GraphRAG query following relationships\n# question: \"Who approved the vendor contract that person X manages?\"\n# graph traversal: X -[manages]-> contract -[approved_by]-> approver\n# this chain of relationships may span multiple separate source documents\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming GraphRAG is always better than standard RAG.** It adds real complexity (entity extraction, graph construction and maintenance) that's only worth it for questions genuinely requiring relationship-following, not for simple fact-lookup queries standard RAG already handles well.\n\n**Underestimating the effort of building and maintaining a good knowledge graph.** Entity and relationship extraction from unstructured text is itself a nontrivial task with its own error modes.\n\n**Using GraphRAG as a wholesale replacement for vector search rather than a complement.** Many production GraphRAG systems combine graph traversal with vector similarity search, using each where it's genuinely stronger, rather than picking one exclusively."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "rag_graphrag_quiz",
+        "questions": [
+          {
+            "question": "What kind of question does GraphRAG address that standard vector-based RAG may struggle with?",
+            "options": [
+              "Simple factual lookups that a single relevant passage can directly answer",
+              "Questions that require following explicit relationships between entities across multiple documents, where the answer isn't captured by any single passage being semantically similar to the question",
+              "GraphRAG and standard RAG handle the exact same kinds of questions equally well",
+              "Questions that involve no entities or relationships at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "GraphRAG's specific value is for relationship-following questions — where the answer requires traversing connections between entities across potentially multiple documents, rather than any single passage being directly similar to the question.",
+            "id": "q1"
+          },
+          {
+            "question": "What does GraphRAG build from source documents to enable this kind of retrieval?",
+            "options": [
+              "A standard vector index identical to any other RAG system",
+              "An explicit knowledge graph of extracted entities (people, organizations, concepts) and their relationships, which retrieval can then traverse",
+              "A completely new, separate LLM trained from scratch",
+              "GraphRAG does not build anything beyond a standard vector index"
+            ],
+            "correctAnswer": 1,
+            "explanation": "GraphRAG's core addition is a knowledge graph built by extracting entities and their relationships from the documents, giving retrieval the ability to follow explicit connections rather than relying purely on semantic similarity.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is it a mistake to assume GraphRAG should always replace standard vector-based RAG entirely?",
+            "options": [
+              "GraphRAG is always strictly superior to standard RAG for every possible query",
+              "GraphRAG adds real complexity (entity extraction, graph construction and maintenance) that's only worth it for genuinely relationship-heavy questions, and many production systems combine graph traversal with vector search rather than using GraphRAG exclusively",
+              "GraphRAG and vector-based RAG can never be used together in the same system",
+              "Standard vector-based RAG is always strictly superior to GraphRAG in every case"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since GraphRAG's added complexity is only justified for relationship-heavy queries, and many production systems benefit from combining both approaches (using each where it's genuinely stronger), treating GraphRAG as a wholesale replacement misses this complementary relationship.",
+            "id": "q3"
+          },
+          {
+            "question": "In this lesson's example question, what kind of relationship-following is needed to answer 'who reports to the person who approved this contract?'",
+            "options": [
+              "A chain connecting several separate documents through relationships, rather than any single passage being directly similar to the question",
+              "A single document directly containing the full answer with no relationship-following required at all",
+              "No relationship-following is actually needed; standard vector similarity handles this perfectly",
+              "Only a date-range filter is needed, with no entity relationships involved"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explains that answering this kind of question may require connecting several separate documents through a chain of relationships, which similarity search alone may not surface well.",
+            "id": "q4"
+          },
+          {
+            "question": "In this lesson's conceptual example, what does the graph traversal 'X -[manages]-> contract -[approved_by]-> approver' represent?",
+            "options": [
+              "A chain of relationships that GraphRAG follows across the knowledge graph to answer a relationship-based question",
+              "A single embedding vector representing the entire question",
+              "A random sequence with no actual meaning in the context of GraphRAG",
+              "A SQL query executed directly against a relational database"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's example explicitly shows this traversal chain as how GraphRAG follows relationships (manages, approved_by) across entities to answer the question.",
+            "id": "q5"
+          },
+          {
+            "question": "According to this lesson, what three types of entities does GraphRAG typically extract from source documents?",
+            "options": [
+              "People, organizations, and concepts",
+              "Only numeric values found in tables",
+              "Only dates and timestamps",
+              "Only file names and document titles"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly lists people, organizations, and concepts as the kinds of entities GraphRAG extracts into its knowledge graph.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson warn against underestimating the effort of building and maintaining a knowledge graph?",
+            "options": [
+              "Because entity and relationship extraction from unstructured text is itself a nontrivial task with its own error modes",
+              "Because knowledge graphs build and maintain themselves automatically with zero engineering effort",
+              "Because entity extraction from unstructured text is always perfectly accurate with no error modes",
+              "Because knowledge graph maintenance is identical in effort to standard vector index maintenance"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is underestimating this effort, since extracting entities and relationships from unstructured text is a genuinely nontrivial task.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson recommend combining GraphRAG with vector search rather than using it as a wholesale replacement?",
+            "options": [
+              "Because many production GraphRAG systems combine graph traversal with vector similarity search, using each where it's genuinely stronger",
+              "Because vector search and graph traversal can never technically be combined in the same system",
+              "Because GraphRAG always performs strictly worse than vector search on every kind of question",
+              "Because GraphRAG is only ever useful for questions involving no entities at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is using GraphRAG as a wholesale replacement, when combining it with vector search lets each approach handle the queries it's genuinely best suited for.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "rag_multihop_iterative_retrieval",
+      "title": "Multi-Hop and Iterative Retrieval",
+      "description": "Handle questions that require several rounds of retrieval to fully answer.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain why some questions need more than one retrieval pass, and how iterative retrieval addresses this."
+          },
+          {
+            "title": "🔄 One retrieval pass isn't always enough",
+            "content": "Some questions genuinely require chaining information together: 'What's the refund policy for the product that was recalled last quarter?' first requires finding *which* product was recalled, and only then can a second retrieval find *that specific product's* refund policy. A single retrieval pass using the original question as the query may not surface the second piece of information at all, since the query never explicitly mentions it."
+          },
+          {
+            "title": "🔁 Retrieve, reason, retrieve again",
+            "content": "**Multi-hop (iterative) retrieval** breaks a complex question into a chain of retrieval steps: retrieve information to answer part of the question, use that intermediate result to formulate a follow-up query, retrieve again, and repeat until enough information has been gathered to answer the original question fully — directly extending the query-decomposition idea from earlier in this course into a sequential, adaptive process rather than a single upfront rewrite.\n\n```python\n# Conceptual multi-hop retrieval\nstep1 = retrieve(\"which product was recalled last quarter?\")\nrecalled_product = extract_answer(step1)\nstep2 = retrieve(f\"refund policy for {recalled_product}\")\nfinal_answer = generate(original_question, context=step1 + step2)\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Using multi-hop retrieval for every question, even simple single-fact lookups.** This adds unnecessary latency and cost (multiple retrieval and generation calls) for questions a single retrieval pass would have handled just fine.\n\n**Not capping the number of retrieval hops.** Similar to the tool-call loop's need for a round limit from the LLM engineering course, an unbounded chain of retrieval steps risks looping indefinitely on a genuinely ambiguous or unanswerable question.\n\n**Losing track of earlier retrieved context across hops.** Each subsequent retrieval step needs access to what was already found, or the chain of reasoning breaks down partway through."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "rag_multihop_iterative_retrieval_quiz",
+        "questions": [
+          {
+            "question": "Why might a single retrieval pass fail to answer a question like 'What's the refund policy for the product that was recalled last quarter?'",
+            "options": [
+              "Single-pass retrieval always successfully answers every possible question",
+              "The original query never explicitly mentions the specific product needed for the second half of the question, so a single pass using only the original question as the query may not surface that necessary intermediate information",
+              "This question cannot be answered by any retrieval-based system at all",
+              "Single-pass retrieval only fails for questions about products, never any other topic"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since the query only literally mentions 'the product that was recalled last quarter' without naming it, a single retrieval pass has no direct way to find refund-policy content for a specific product it doesn't yet know the identity of.",
+            "id": "q1"
+          },
+          {
+            "question": "How does multi-hop retrieval address questions requiring chained information?",
+            "options": [
+              "It performs the exact same single retrieval step as standard RAG, just labeled differently",
+              "It breaks the question into a chain of retrieval steps, using an intermediate result from one step to formulate the query for the next, repeating until enough information is gathered",
+              "It retrieves the entire knowledge base at once regardless of the question",
+              "Multi-hop retrieval never actually performs more than one retrieval step"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The defining feature of multi-hop retrieval is its sequential, adaptive nature — each step's result informs the next query, letting the system progressively gather the chained information a complex question actually requires.",
+            "id": "q2"
+          },
+          {
+            "question": "Why does multi-hop retrieval need a cap on the number of retrieval hops, similar to the tool-call loop from the LLM engineering course?",
+            "options": [
+              "A cap is never necessary since multi-hop retrieval always naturally terminates after exactly one hop",
+              "Without a limit, a chain of retrieval steps on a genuinely ambiguous or unanswerable question risks looping indefinitely, wasting time and cost — the same runaway-loop risk covered for tool calling",
+              "Capping hops has no relationship to cost or latency",
+              "Multi-hop retrieval is only ever used for questions requiring exactly two hops"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This directly mirrors the tool-call loop's need for a round limit — an unbounded iterative process risks continuing indefinitely on a question that doesn't have a clean stopping point, so a cap protects against runaway cost and latency.",
+            "id": "q3"
+          },
+          {
+            "question": "In this lesson's conceptual code example, what does step1 retrieve before step2 can happen?",
+            "options": [
+              "Information about which product was recalled last quarter",
+              "The final answer to the entire original question directly",
+              "The refund policy text itself, before knowing which product it applies to",
+              "A list of every product ever sold by the company"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example shows step1 retrieving 'which product was recalled last quarter', and only then can step2 search for that specific product's refund policy.",
+            "id": "q4"
+          },
+          {
+            "question": "According to this lesson's code example, what does extract_answer(step1) produce?",
+            "options": [
+              "The recalled_product, used to formulate the next retrieval query",
+              "The complete final answer shown to the user",
+              "A brand new user question, discarding the original one",
+              "A numeric score representing retrieval confidence"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example shows extract_answer(step1) producing recalled_product, which is then used to build the follow-up query for step2.",
+            "id": "q5"
+          },
+          {
+            "question": "What earlier idea from this course does this lesson say multi-hop retrieval directly extends?",
+            "options": [
+              "The query-decomposition idea, extended into a sequential, adaptive process rather than a single upfront rewrite",
+              "The parsing techniques for handling scanned documents",
+              "The metadata filtering techniques for access control",
+              "The prompt-packing techniques for citation formatting"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly states that multi-hop retrieval extends the query-decomposition idea from earlier in this course into an iterative, adaptive process.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson warn against using multi-hop retrieval for every question, including simple single-fact lookups?",
+            "options": [
+              "Because it adds unnecessary latency and cost from multiple retrieval and generation calls for questions a single pass would have handled fine",
+              "Because multi-hop retrieval is always exactly as fast and cheap as a single retrieval pass",
+              "Because simple single-fact lookups can never actually be answered by a single retrieval pass",
+              "Because multi-hop retrieval never adds any additional latency or cost compared to single-pass retrieval"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is applying multi-hop retrieval universally, when it adds unneeded cost and latency for questions a single pass could already answer.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson emphasize not losing track of earlier retrieved context across hops?",
+            "options": [
+              "Because each subsequent retrieval step needs access to what was already found, or the chain of reasoning breaks down partway through",
+              "Because later retrieval hops never actually depend on information found in earlier hops",
+              "Because losing earlier context has no effect on the quality of the final answer",
+              "Because multi-hop retrieval automatically preserves all earlier context with no explicit effort required"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is losing track of earlier context, since each hop builds on what was previously found, and losing that breaks the reasoning chain.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "rag_agentic_rag",
+      "title": "Agentic RAG: Letting the Model Plan Its Own Retrieval",
+      "description": "Combine tool calling with retrieval, letting the model decide when and what to search for.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain what makes RAG 'agentic', and connect it directly to the tool-calling concepts from the LLM engineering course."
+          },
+          {
+            "title": "🛠️ Retrieval as a tool, not a fixed pipeline step",
+            "content": "In standard RAG, retrieval is a fixed step that always runs the same way for every query. **Agentic RAG** instead exposes retrieval as a **tool** (using the exact tool-calling mechanism from the LLM engineering course) that the model can choose to call — deciding for itself whether retrieval is needed at all, what to actually search for, and whether the results warrant another search before generating a final answer."
+          },
+          {
+            "title": "🎯 When this flexibility is genuinely worth the added complexity",
+            "content": "This is valuable for applications with varied query types: some questions need no retrieval at all (simple conversational replies), some need exactly one search, and some genuinely benefit from the multi-hop, iterative pattern from the previous lesson — agentic RAG lets the model adapt its own retrieval strategy per query rather than forcing every question through an identical, fixed pipeline.\n\n```python\n# Conceptual: retrieval exposed as a tool the model can choose to call\ntools = [{\n    \"name\": \"search_knowledge_base\",\n    \"description\": \"Search the knowledge base for relevant information\",\n    \"parameters\": {\"query\": \"string\"},\n}]\n# the model decides: do I need this tool at all? what should I search for?\n# should I search again with a refined query before answering?\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Adding agentic complexity when a fixed RAG pipeline already handles your query patterns well.** Not every application needs this flexibility — the added complexity and potential unpredictability should be justified by genuinely varied query needs.\n\n**Forgetting the same tool-safety considerations from the LLM engineering course apply here.** Since retrieval is now a tool the model calls, the same allow-listing and safety mindset applies — though the risk profile of a read-only search tool differs from a tool that can take destructive actions.\n\n**Not capping the number of retrieval tool calls per conversation turn.** Just like the general tool-call loop and multi-hop retrieval, an ungoverned agentic retrieval loop can run longer (and cost more) than intended without an explicit limit."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "rag_agentic_rag_quiz",
+        "questions": [
+          {
+            "question": "What makes RAG 'agentic' compared to standard, fixed-pipeline RAG?",
+            "options": [
+              "Agentic RAG always uses a completely different embedding model than standard RAG",
+              "Retrieval is exposed as a tool the model can choose to call, deciding for itself whether retrieval is needed, what to search for, and whether to search again, rather than always running the same fixed retrieval step",
+              "Agentic RAG never actually performs any retrieval at all",
+              "There is no meaningful difference between agentic and standard RAG"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The defining feature is giving the model agency over retrieval itself — using the tool-calling mechanism to let it decide when, whether, and how to search, rather than forcing every query through an identical fixed pipeline.",
+            "id": "q1"
+          },
+          {
+            "question": "How does agentic RAG directly build on a concept from the LLM engineering course?",
+            "options": [
+              "It has no relationship to any concept from the LLM engineering course",
+              "It uses the exact tool-calling mechanism from the LLM engineering course, exposing retrieval as a callable tool the model can choose to invoke rather than a fixed pipeline step",
+              "It replaces tool calling entirely with a completely different mechanism",
+              "Agentic RAG only applies to non-text modalities"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Agentic RAG is a direct application of the tool-calling concept — retrieval simply becomes one of the tools available for the model to call, following the same request-execute-respond pattern covered generally in the LLM engineering course.",
+            "id": "q2"
+          },
+          {
+            "question": "Why should the number of retrieval tool calls per conversation turn be capped in an agentic RAG system?",
+            "options": [
+              "Capping retrieval calls is never necessary since agentic RAG always naturally stops after exactly one search",
+              "Without a limit, an ungoverned agentic retrieval loop can run longer and cost more than intended, mirroring the same runaway-loop risk covered for general tool-calling and multi-hop retrieval",
+              "Capping retrieval calls eliminates the need for any tool-safety considerations",
+              "Retrieval tool calls have no cost or latency implications worth managing"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since agentic RAG gives the model discretion over how many times to search, the same protective reasoning from the general tool-call loop and multi-hop retrieval applies: an explicit cap prevents an unbounded, costly search loop on a genuinely difficult or ambiguous question.",
+            "id": "q3"
+          },
+          {
+            "question": "In this lesson's conceptual code example, what does the search_knowledge_base tool's schema define as its parameter?",
+            "options": [
+              "A query string",
+              "A fixed list of every document in the knowledge base",
+              "A numeric similarity threshold with no query text at all",
+              "A user ID with no search-related parameters"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example defines the search_knowledge_base tool with a single 'query' string parameter that the model fills in when it chooses to call the tool.",
+            "id": "q4"
+          },
+          {
+            "question": "According to this lesson, what three decisions does the model make for itself in agentic RAG?",
+            "options": [
+              "Whether retrieval is needed at all, what to actually search for, and whether results warrant another search before answering",
+              "Only how many words the final answer should contain",
+              "Only which programming language to generate code in",
+              "Only the tone and formatting style of the final answer"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson lists these three specific decisions the model makes in agentic RAG: whether to retrieve, what to search for, and whether to search again.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does this lesson say agentic RAG is valuable for applications with 'varied query types'?",
+            "options": [
+              "Because some questions need no retrieval, some need exactly one search, and some benefit from the multi-hop pattern — agentic RAG lets the model adapt per query rather than using one fixed pipeline",
+              "Because every application benefits equally from agentic RAG regardless of query variety",
+              "Because varied query types make a fixed RAG pipeline strictly superior to an agentic one",
+              "Because agentic RAG only works for applications with exactly one fixed query type"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explains that agentic RAG's flexibility to adapt strategy per query is specifically valuable when an application faces a genuinely varied mix of query needs.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson caution against adding agentic complexity when a fixed RAG pipeline already handles query patterns well?",
+            "options": [
+              "Because not every application needs this flexibility, and the added complexity and potential unpredictability should be justified by genuinely varied query needs",
+              "Because agentic RAG always performs identically to a fixed pipeline with zero added complexity",
+              "Because a fixed RAG pipeline can never actually handle any query pattern well",
+              "Because agentic complexity is always free and never introduces any unpredictability"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is adding agentic RAG unnecessarily, when the added complexity should be justified by an application's genuinely varied query needs.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson say tool-safety considerations from the LLM engineering course still apply to agentic RAG, even though search is read-only?",
+            "options": [
+              "Because the same allow-listing and safety mindset applies, though the risk profile of a read-only search tool differs from a tool that can take destructive actions",
+              "Because a read-only search tool carries exactly the same risk profile as a tool that deletes data",
+              "Because tool safety is completely irrelevant once a tool is confirmed to be read-only",
+              "Because agentic RAG never actually exposes retrieval as a callable tool at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is forgetting tool-safety considerations apply here too, while noting the risk profile differs since search itself doesn't take destructive action.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "rag_metadata_structured_retrieval",
+      "title": "Metadata Filtering and Structured Retrieval in RAG",
+      "description": "Combine everything from the embeddings course's metadata-filtering lesson into a concrete RAG scenario.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can describe a concrete RAG scenario where metadata filtering is essential, not just a nice-to-have."
+          },
+          {
+            "title": "🔒 Access control as a first-class RAG requirement",
+            "content": "The embeddings course covered metadata filtering generally, including access control. In a RAG context, this is often not optional: an internal company knowledge base where different users have different document access permissions absolutely requires that retrieval only ever surfaces documents a given user is actually authorized to see — a security requirement, not a quality-of-life feature."
+          },
+          {
+            "title": "🏷️ Structured filters combined with semantic search",
+            "content": "Beyond access control, RAG systems commonly combine semantic search with structured filters like date ranges ('policies updated in the last year'), document type ('only search official policy documents, not draft proposals'), or department/category — directly applying the filter-then-search or search-then-filter strategies from the embeddings course to a concrete RAG retrieval scenario.\n\n```python\n# Conceptual: RAG retrieval combining semantic search,\n# access control, and structured filters together\nresults = vector_db.search(\n    query_embedding=embed(user_question),\n    filter={\n        \"accessible_to\": user.permission_groups,  # access control -- not optional\n        \"document_type\": \"official_policy\",\n        \"last_updated\": {\"$gte\": \"2025-01-01\"},\n    },\n    top_k=5,\n)\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Treating access-control filtering as an optional post-processing step rather than an enforced part of every retrieval query.** As emphasized in the embeddings course, a lapse here means exposing content a user shouldn't have access to — a serious, not cosmetic, failure.\n\n**Forgetting that a user's permissions can change over time.** If permission metadata isn't kept in sync with actual current access rights, a user might see content they've since lost access to, or be denied content they've since gained access to.\n\n**Not combining structured filters with semantic search when the use case calls for both.** Relying on semantic search alone can surface outdated or wrong-category documents that a simple structured filter would have excluded correctly and cheaply."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "rag_metadata_structured_retrieval_quiz",
+        "questions": [
+          {
+            "question": "Why is access-control metadata filtering often a security requirement rather than an optional feature in an internal RAG system?",
+            "options": [
+              "Access control is never actually necessary for any RAG system",
+              "An internal knowledge base where users have different document permissions needs retrieval to only ever surface documents a given user is actually authorized to see — a lapse here means exposing content that shouldn't be accessible to them",
+              "Access control only matters for external, public-facing RAG systems, never internal ones",
+              "Metadata filtering has no relationship to security or access control"
+            ],
+            "correctAnswer": 1,
+            "explanation": "In a permissioned internal knowledge base, correctly filtering by access rights isn't a nice-to-have — failing to enforce it means genuinely exposing content to users who shouldn't be able to see it, a serious security failure.",
+            "id": "q1"
+          },
+          {
+            "question": "Why might a RAG system combine semantic search with structured filters like date range or document type?",
+            "options": [
+              "Structured filters are never useful alongside semantic search",
+              "Relying on semantic search alone can surface outdated or wrong-category documents that a structured filter (like restricting to recently updated official policies) would exclude correctly and cheaply",
+              "Structured filters always replace the need for semantic search entirely",
+              "Semantic search and structured filters can never be combined in the same query"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Combining both lets a query benefit from semantic understanding of the actual question while also enforcing precise structured constraints (recency, document type) that pure similarity search alone doesn't reliably guarantee.",
+            "id": "q2"
+          },
+          {
+            "question": "Why does a user's permissions changing over time create an ongoing metadata maintenance concern?",
+            "options": [
+              "Permissions never actually change once a user is granted access",
+              "If permission metadata isn't kept in sync with actual current access rights, a user might see content they've since lost access to, or be denied content they've since gained access to — an accuracy problem, not a one-time setup detail",
+              "Metadata maintenance has no relationship to user permissions",
+              "Permission changes are automatically reflected in metadata with no synchronization effort needed"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since permissions are dynamic, treating access-control metadata as a static, set-once value risks it drifting out of sync with actual current permissions — an ongoing synchronization concern rather than something solved permanently at initial setup.",
+            "id": "q3"
+          },
+          {
+            "question": "In this lesson's code example, what three things does the vector_db.search filter combine together?",
+            "options": [
+              "accessible_to (user permission groups), document_type, and last_updated",
+              "Only the user's name, with no other filter fields",
+              "Only the total size of the knowledge base in bytes",
+              "Only the programming language used to build the RAG system"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example shows a filter combining accessible_to (access control), document_type, and last_updated in a single retrieval query.",
+            "id": "q4"
+          },
+          {
+            "question": "According to this lesson, what specific example does it give of a structured, non-access-control filter?",
+            "options": [
+              "Restricting to official policy documents updated within the last year",
+              "Restricting to documents written by a single specific author only",
+              "Restricting to documents shorter than 100 words",
+              "Restricting to documents containing no numbers at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson gives the example of combining date-range and document-type filters — official policy documents updated recently — as a structured, non-access-control use case.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does this lesson describe access-control filtering in an internal RAG system as a security requirement rather than a nice-to-have?",
+            "options": [
+              "Because retrieval must only ever surface documents a given user is actually authorized to see, since a lapse here means exposing content they shouldn't access",
+              "Because access control only ever matters for externally facing, public RAG systems",
+              "Because internal knowledge bases never actually contain any permission-restricted content",
+              "Because security requirements and quality-of-life features are the exact same thing"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson frames this explicitly as a security requirement: failing to enforce access-control filtering means exposing content a user shouldn't be able to see.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson warn against relying on semantic search alone instead of combining it with structured filters?",
+            "options": [
+              "Because semantic search alone can surface outdated or wrong-category documents that a structured filter would exclude correctly and cheaply",
+              "Because semantic search alone always produces perfectly filtered, accurate results with no exceptions",
+              "Because structured filters can never actually be combined with semantic search in the same query",
+              "Because structured filters always produce worse results than semantic search alone"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is not combining structured filters with semantic search, since semantic similarity alone doesn't reliably exclude outdated or wrong-category content.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson emphasize that a user's permissions changing over time is an ongoing concern, not a one-time setup detail?",
+            "options": [
+              "Because if permission metadata isn't kept in sync with actual current access rights, a user might see content they've lost access to or be denied content they've gained access to",
+              "Because user permissions, once granted, are guaranteed to never change again",
+              "Because permission metadata automatically stays synchronized with no ongoing maintenance required",
+              "Because permission changes have no relationship to what a user can retrieve"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is treating permission metadata as static, when in fact it needs ongoing synchronization as actual user permissions change over time.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,575 @@
+{
+  "id": "mcp_building_servers",
+  "title": "Building MCP Servers",
+  "description": "The three MCP primitives (tools, resources, prompts), defining well-designed tools, resources and prompts in depth, and the SDK patterns that handle protocol details for you.",
+  "icon": "🛠️",
+  "color": "#673AB7",
+  "order": 1,
+  "estimatedHours": 5,
+  "difficulty": "intermediate",
+  "prerequisites": [
+    "mcp_fundamentals"
+  ],
+  "lessons": [
+    {
+      "id": "mcp_the_three_primitives",
+      "title": "Tools, Resources, and Prompts: MCP's Three Primitives",
+      "description": "An MCP server can offer three distinct kinds of things — and mixing them up leads to a server that's harder for clients to use well.",
+      "duration": 13,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Define **tools**, **resources**, and **prompts** as MCP primitives and give an example of when each is the appropriate one to expose."
+          },
+          {
+            "title": "🔧 Tools: actions the model can invoke",
+            "content": "A **tool** is an invokable function with defined parameters that the model decides to call, exactly matching the tool-calling concept from the LLM Engineering and Agents courses — searching a database, sending a message, running a calculation. This is **model-controlled**: the LLM decides when and whether to call a given tool, based on the same tool-design principles (clear names, unambiguous descriptions) covered in the Agents course."
+          },
+          {
+            "title": "📄 Resources: data the application can attach to context",
+            "content": "A **resource** is a piece of data (a file's contents, a database record, a document) that the host application can read and include in the model's context — but unlike a tool, invoking a resource isn't necessarily a decision the model makes turn-by-turn; it's often something the **application** decides to attach (a user selecting a file to discuss, an application including a relevant document by default), more similar to how RAG's retrieved documents get placed into context than to a model-initiated tool call."
+          },
+          {
+            "title": "📝 Prompts: reusable prompt templates",
+            "content": "A **prompt** in MCP's sense is a reusable, parameterized prompt template that a server exposes — similar in spirit to the prompt templates from the LangChain module of the LangGraph course, but defined by the server and made available for any connecting client to use, rather than defined in each application's own code. A server might expose a 'summarize this document' prompt template that any connecting host application can offer to its users."
+          },
+          {
+            "title": "🎯 Why the distinction matters",
+            "content": "Each primitive has a different control model: tools are **model-invoked**, resources are typically **application-attached**, and prompts are **user- or application-selected** templates. Exposing something as the wrong primitive (a large, static reference document exposed as a 'tool' the model has to remember to call, rather than a resource the application can just attach) creates unnecessary friction and unreliability, echoing the same care needed in tool design from the Agents course, just applied to a broader set of primitive types."
+          },
+          {
+            "title": "💻 The three primitives at a glance",
+            "content": "```python\n# Tool -- model decides when to call it\n{\"type\": \"tool\", \"name\": \"search_database\", \"parameters\": {\"query\": \"str\"}}\n\n# Resource -- application attaches it to context directly\n{\"type\": \"resource\", \"uri\": \"file:///reports/q3_summary.pdf\"}\n\n# Prompt -- reusable template, filled in with parameters\n{\"type\": \"prompt\", \"name\": \"summarize_document\", \"parameters\": {\"doc_id\": \"str\", \"length\": \"str\"}}\n\n# Mixing these up -- e.g. making a static reference doc a \"tool\" the model\n# must remember to call -- creates exactly the friction this lesson warns about.\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Exposing static reference data as a tool instead of a resource.** This forces the model to remember to call it turn-by-turn, when the application could simply attach it whenever relevant.\n\n**Building a 'prompt' as if it were a tool.** A prompt is a template meant to be selected and filled in, not an action with side effects — conflating the two confuses both design and client-side handling.\n\n**Assuming every server needs all three primitives.** Plenty of well-designed servers legitimately expose only tools, or only resources — forcing an artificial use of all three adds complexity with no corresponding benefit."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "mcp_the_three_primitives_quiz",
+        "questions": [
+          {
+            "question": "What distinguishes an MCP tool from an MCP resource in terms of who decides to use it?",
+            "options": [
+              "Tools and resources are identical in every respect",
+              "A tool is invoked by the model's own decision (like tool-calling), while a resource is typically attached by the application or user, not necessarily as a model-initiated decision",
+              "Resources can only be used by MCP servers, never clients",
+              "Tools cannot have parameters, but resources can"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Tools follow the model-controlled tool-calling pattern from earlier courses, while resources are more like data the application chooses to attach to context, similar to RAG's retrieved documents.",
+            "id": "q1"
+          },
+          {
+            "question": "What is an MCP 'prompt' primitive?",
+            "options": [
+              "A record of every past conversation with the model",
+              "A reusable, parameterized prompt template exposed by the server that any connecting client can use",
+              "A synonym for an MCP tool with no real difference",
+              "A type of resource that can never be reused"
+            ],
+            "correctAnswer": 1,
+            "explanation": "MCP prompts are server-defined, reusable prompt templates — similar in spirit to LangChain's prompt templates, but made available for any connecting client rather than defined per-application.",
+            "id": "q2"
+          },
+          {
+            "question": "Why does exposing a large, static reference document as a 'tool' rather than a 'resource' create unnecessary friction?",
+            "options": [
+              "Tools are always faster to use than resources",
+              "It forces the model to remember to call it turn-by-turn, rather than letting the application simply attach it as context when relevant",
+              "Resources cannot contain any static content",
+              "There's no actual difference between the two approaches"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since resources are meant for data the application can attach directly, using a tool instead makes the model responsible for remembering to fetch something that could have just been included in context, adding unreliability.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, what does the resource entry represent, and who decides to attach it?",
+            "options": [
+              "A model-invoked action, decided turn-by-turn by the LLM",
+              "A file's content identified by a URI, typically attached by the application rather than invoked by the model",
+              "A reusable prompt template with parameters",
+              "A JSON-RPC error object"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The resource example (a file:/// URI) is exactly the kind of data an application attaches to context directly, distinct from a model-invoked tool call.",
+            "id": "q4"
+          },
+          {
+            "question": "Why would building a 'prompt' primitive as though it were a tool with side effects be a design mistake?",
+            "options": [
+              "Because prompts cannot have parameters at all",
+              "Because a prompt is meant to be a selectable template to fill in, not an action the model performs, and conflating the two confuses both design and client handling",
+              "Because tools are always simpler to implement than prompts",
+              "Because MCP technically forbids servers from exposing prompts"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Prompts and tools serve different control models — a prompt supplies reusable template text, while a tool performs an invokable action — treating one as the other undermines the clarity each primitive is meant to provide.",
+            "id": "q5"
+          },
+          {
+            "question": "Does every well-designed MCP server need to expose all three primitives (tools, resources, and prompts)?",
+            "options": [
+              "Yes, every server must expose exactly one of each",
+              "No, a server can legitimately expose only tools, or only resources, without needing to force an artificial use of all three",
+              "No, servers are limited to exposing at most one primitive type total",
+              "Yes, but only if the server uses stdio transport"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The three primitives exist to match different control models to different needs — not every server's use case calls for all three, and forcing them in adds unnecessary complexity.",
+            "id": "q6"
+          },
+          {
+            "question": "What real-world example does the lesson give for when a resource is application-attached rather than model-invoked?",
+            "options": [
+              "A model deciding on its own, turn by turn, whether to fetch a document",
+              "A user selecting a file to discuss, or an application including a relevant document by default",
+              "The model writing a completely new document from scratch",
+              "A server refusing to expose any resources at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson gives exactly these two examples — a user's file selection or an application's default inclusion — as cases where a resource gets attached by something other than the model's own turn-by-turn decision.",
+            "id": "q7"
+          },
+          {
+            "question": "How does an MCP prompt template's design goal compare to a LangChain prompt template's design goal?",
+            "options": [
+              "They share no meaningful similarity at all",
+              "Both aim for a reusable, parameterized template — MCP's version is just defined by the server and made available to any connecting client rather than defined in one application's own code",
+              "LangChain prompt templates cannot accept parameters, unlike MCP prompts",
+              "MCP prompts must always be written in a different language than LangChain templates"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson explicitly draws this parallel: both are reusable, parameterized templates — the difference is where the definition lives and how portable it is across applications.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "mcp_defining_tools_on_a_server",
+      "title": "Defining Tools on an MCP Server",
+      "description": "The same tool-design discipline from the Agents course applies directly here — an MCP server's tool definitions are exactly what the model will see.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Write a well-designed MCP tool definition, applying the tool-design principles from the Agents course to the MCP context specifically."
+          },
+          {
+            "title": "📋 What a tool definition needs",
+            "content": "- A clear, distinctive **name and description** — following exactly the tool-naming guidance from the Agents course's tool-use module, since an MCP client will surface this name and description to the model in precisely the same way a locally-defined tool would be.\n- A **parameter schema** specifying each argument's name, type, and description, including using enums for fixed-choice parameters, exactly as covered in that same lesson."
+          },
+          {
+            "title": "⚙️ The handler: what actually runs",
+            "content": "Behind the tool definition sits the actual **implementation** — the code that runs when the tool is invoked, which could call an external API, query a database, or do local computation, and returns a result (or an error) back through the MCP protocol to the client, which passes it back to the model as an observation exactly as covered in the Agents course's tool-calling-mechanics lesson."
+          },
+          {
+            "title": "🎯 Applying tool-scoping principles here specifically",
+            "content": "The Agents course's guidance to prefer several **narrow, well-named tools** over one broad multi-purpose tool applies directly to MCP server design — an MCP server exposing a `manage_records` tool with a `mode` parameter is harder for a model to use correctly than the same server exposing `create_record`, `update_record`, and `delete_record` as three distinct, clearly-scoped tools."
+          },
+          {
+            "title": "⚠️ A tool-definition mistake specific to MCP servers",
+            "content": "Because an MCP server might be used by many different host applications and models the server author never anticipated, vague tool descriptions that 'made sense in context' for one specific application are especially risky — a good MCP tool description should be **self-contained and clear** without relying on assumptions about what other tools or context a connecting application happens to also provide, since the server author usually can't know that in advance."
+          },
+          {
+            "title": "💻 A narrow tool definition vs. a broad one",
+            "content": "```python\n# Harder for a model to use correctly: one broad tool with a mode switch\n@server.tool()\ndef manage_records(mode: str, record_id: str = None, data: dict = None):\n    \"\"\"mode: 'create', 'update', or 'delete'\"\"\"\n    ...\n\n# Easier for a model to use correctly: three narrow, self-contained tools\n@server.tool()\ndef create_record(data: dict):\n    \"\"\"Create a new record with the given field values.\"\"\"\n    ...\n\n@server.tool()\ndef update_record(record_id: str, data: dict):\n    \"\"\"Update an existing record identified by record_id.\"\"\"\n    ...\n\n@server.tool()\ndef delete_record(record_id: str):\n    \"\"\"Permanently delete the record identified by record_id.\"\"\"\n    ...\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Writing a tool description that only makes sense for one anticipated application.** Since a server may be used by host applications the author never imagined, descriptions need to be self-contained rather than relying on assumed surrounding context.\n\n**Reaching for a broad `mode`-parameter tool for convenience.** It reduces the number of tool definitions to write, but makes correct tool selection harder for the model — the opposite of what the Agents course's tool-scoping guidance recommends.\n\n**Treating the handler's correctness as separate from the tool definition's clarity.** A perfectly correct implementation behind a vague, ambiguous description still produces unreliable tool selection, since the model only ever sees the definition, not the code."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "mcp_defining_tools_on_a_server_quiz",
+        "questions": [
+          {
+            "question": "What tool-design principle from the Agents course applies directly to defining an MCP server's tools?",
+            "options": [
+              "Tool names and descriptions don't matter for MCP servers since a client handles everything automatically",
+              "Clear, distinctive names and descriptions, since the client surfaces these to the model exactly as it would for a locally-defined tool",
+              "MCP tools should always use a single 'mode' parameter to reduce tool count",
+              "Parameter schemas are unnecessary for MCP tools"
+            ],
+            "correctAnswer": 1,
+            "explanation": "MCP doesn't change how the model sees tool names and descriptions — the same clarity and specificity guidance from the Agents course's tool-design lesson applies directly.",
+            "id": "q1"
+          },
+          {
+            "question": "Why is preferring several narrow tools over one broad multi-purpose tool with a mode parameter still good advice for MCP servers?",
+            "options": [
+              "It isn't good advice — MCP servers should always use one big tool for efficiency",
+              "A narrow, clearly-scoped tool is easier for a model to select correctly, exactly as covered in the Agents course's tool-use module",
+              "MCP technically prohibits multi-purpose tools",
+              "Narrow tools require less code to implement"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This is a direct application of the Agents course's tool-scoping guidance to the MCP context — narrow, well-named tools remain easier to select correctly than one broad tool gated by a mode parameter.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is a vague tool description especially risky specifically for an MCP server (versus a tool defined directly in one application)?",
+            "options": [
+              "Vague descriptions are never a problem for any kind of tool",
+              "An MCP server might be used by many different host applications the author never anticipated, so descriptions relying on assumed context from one specific application are unreliable elsewhere",
+              "MCP servers cannot have descriptions at all",
+              "This risk only applies to resources, never to tools"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since an MCP server's tools may be consumed by unknown future applications, descriptions need to be self-contained and clear without relying on assumptions specific to any one connecting application.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, what is the specific downside of the manage_records tool compared to the three narrow tools?",
+            "options": [
+              "It cannot be registered with the SDK's decorator at all",
+              "It bundles create/update/delete behind a mode parameter, making it harder for a model to select and use correctly than three distinct, clearly-scoped tools",
+              "It has no implementation code behind it",
+              "It requires a different transport than the narrow tools"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The example shows exactly the Agents course's scoping guidance: one broad tool gated by a mode string versus three self-explanatory tools that are each easier to select correctly.",
+            "id": "q4"
+          },
+          {
+            "question": "What does the 'handler' behind a tool definition actually do?",
+            "options": [
+              "It only stores the tool's name and description with no executable logic",
+              "It's the actual implementation code that runs when the tool is invoked, returning a result or error back through the MCP protocol",
+              "It replaces the need for a parameter schema",
+              "It is only relevant for resources, not tools"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The handler is where the real work happens — calling an API, querying a database, or computing something — with its result or error passed back through MCP to the client and then to the model.",
+            "id": "q5"
+          },
+          {
+            "question": "Why can a perfectly correct tool handler still lead to unreliable tool selection?",
+            "options": [
+              "Because handlers are never actually executed by MCP servers",
+              "Because the model only ever sees the tool's definition (name, description, parameters) — a vague or ambiguous definition produces poor selection regardless of how correct the underlying code is",
+              "Because correct handlers always guarantee correct tool selection",
+              "Because MCP hides all handler code from the model, making descriptions irrelevant"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Tool selection is driven entirely by what the model can see — the definition — so implementation correctness behind an unclear description doesn't fix a tool-selection problem.",
+            "id": "q6"
+          },
+          {
+            "question": "Why might a server author be tempted to write a single broad tool with a mode parameter, and why is this still a mistake?",
+            "options": [
+              "It's tempting because it's technically required by MCP, and it's not actually a mistake",
+              "It's tempting because it reduces the number of definitions to write, but it makes correct tool selection harder for the model, contradicting the Agents course's scoping guidance",
+              "It's tempting because narrow tools cannot be registered via decorators",
+              "It's tempting because broad tools always run faster than narrow ones"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The convenience of writing fewer definitions doesn't offset the cost to model reliability that a broad, mode-gated tool introduces — narrow tools remain the better design choice.",
+            "id": "q7"
+          },
+          {
+            "question": "What should a tool description avoid relying on, specifically because MCP servers may serve many different host applications?",
+            "options": [
+              "Avoid relying on having a parameter schema at all",
+              "Avoid relying on assumptions about what other tools or context a specific connecting application happens to also provide",
+              "Avoid ever mentioning what the tool actually does",
+              "Avoid using enums for fixed-choice parameters"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since the server author can't know every future host application's context, descriptions need to stand on their own rather than assuming context that only made sense for one anticipated use case.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "mcp_resources_and_prompts_in_depth",
+      "title": "Resources and Prompts in Depth",
+      "description": "Two primitives that look simple on the surface but have their own design considerations worth getting right.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Design a resource URI scheme and a parameterized prompt template for an MCP server, and explain the design considerations behind each."
+          },
+          {
+            "title": "🔗 Resource identification",
+            "content": "Resources are typically identified by a **URI-like scheme** (something like `file:///path/to/doc` or a custom scheme specific to the server's domain), which lets a client refer to a specific resource unambiguously and lets a server organize its available resources in a structured, discoverable way — similar in spirit to how a well-organized API uses clear, structured endpoint paths rather than opaque identifiers."
+          },
+          {
+            "title": "📋 Listing versus reading resources",
+            "content": "MCP typically separates **'what resources are available'** (a listing operation, potentially with resource metadata like a name and description, similar to how tool listings work) from **'give me this specific resource's actual content'** (a read operation) — this separation matters for the same reason curating a relevant tool subset mattered in the Agents course's tool-selection-at-scale lesson: an application might want to show available resources to a user without eagerly fetching the full content of every single one."
+          },
+          {
+            "title": "📝 Designing a good prompt template",
+            "content": "An MCP prompt template accepts **parameters** (similar to a tool's parameters) that get filled in to produce the actual prompt text — designing these well means the same things that made a good prompt template in the LangChain course's prompt-template lesson: clear placeholder names, sensible handling of optional parameters, and instructions that produce consistent results regardless of which host application ends up using the template."
+          },
+          {
+            "title": "🔀 Dynamic resources and prompts",
+            "content": "Beyond a fixed, static list, both resources and prompts can be **dynamic** — a server might expose resources that reflect live data (today's log file, the current state of a record) or a prompt template whose exact content depends on some server-side state, in which case the same freshness considerations that motivated RAG over static fine-tuned facts apply here too: a resource is valuable specifically because it reflects current state at the time it's read, not a stale snapshot baked in earlier."
+          },
+          {
+            "title": "💻 Listing vs. reading, and a prompt template",
+            "content": "```python\n# Listing: cheap metadata only, no content fetched yet\n@server.list_resources()\ndef list_resources():\n    return [{\"uri\": \"file:///reports/q3.pdf\", \"name\": \"Q3 Report\"}]\n\n# Reading: fetches the actual content, only when specifically requested\n@server.read_resource()\ndef read_resource(uri: str):\n    return open(uri.replace(\"file://\", \"\")).read()\n\n# A parameterized prompt template\n@server.prompt()\ndef summarize_document(doc_id: str, length: str = \"short\"):\n    return f\"Summarize document {doc_id} in a {length} paragraph.\"\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Eagerly fetching every resource's full content during listing.** This defeats the purpose of separating listing from reading and can waste significant work when a user or application only needs to see what's available.\n\n**Baking a stale snapshot into a resource instead of reading live state.** A resource's value often comes specifically from reflecting current data at read time — a stale snapshot undermines that value the same way a stale fine-tuned fact undermines RAG's freshness argument.\n\n**Writing prompt templates with unclear placeholder names or inconsistent optional-parameter handling.** This produces inconsistent results across different host applications using the same template, exactly the kind of design failure the LangChain prompt-template lesson warns against."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "mcp_resources_and_prompts_in_depth_quiz",
+        "questions": [
+          {
+            "question": "How are MCP resources typically identified?",
+            "options": [
+              "By a randomly generated number with no structure",
+              "By a URI-like scheme that lets a client refer to a specific resource unambiguously and lets a server organize resources in a structured way",
+              "Resources cannot be individually identified in MCP",
+              "By the exact same identifier used for every resource on a server"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A URI-like identification scheme provides structured, unambiguous references to resources, similar to how well-organized API endpoints use clear paths.",
+            "id": "q1"
+          },
+          {
+            "question": "Why does MCP typically separate listing resources from reading a specific resource's full content?",
+            "options": [
+              "This separation serves no practical purpose",
+              "It lets an application show available resources to a user without eagerly fetching the full content of every one, similar to curating a relevant tool subset at scale",
+              "Listing and reading are actually the same operation with different names",
+              "Only one resource can ever exist on a server at a time"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Separating discovery (listing) from content retrieval (reading) avoids unnecessary work, echoing the same efficiency motivation behind curating relevant tool subsets in the Agents course.",
+            "id": "q2"
+          },
+          {
+            "question": "Why does a resource's ability to reflect live, current data matter, per this lesson?",
+            "options": [
+              "Resources should always contain static, unchanging content",
+              "A resource's value often comes specifically from reflecting current state when read, similar to why RAG's retrieval is preferred over stale, fine-tuned-in facts",
+              "Live data is technically impossible to expose via MCP resources",
+              "This consideration only applies to MCP tools, never resources"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Just as RAG's retrieval-at-query-time beats stale facts baked into weights, a resource's usefulness often comes from reflecting genuinely current state rather than a fixed snapshot.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, what does list_resources() return, and why doesn't it return full file contents?",
+            "options": [
+              "It returns full file contents for every resource immediately",
+              "It returns only lightweight metadata (uri and name), keeping the listing operation cheap and separate from the more expensive read_resource() call",
+              "It returns nothing at all, since listing is not a supported operation",
+              "It returns the server's entire source code"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The example deliberately shows list_resources() returning only metadata, reserving actual content retrieval for the separate read_resource() call — exactly the listing/reading separation the lesson describes.",
+            "id": "q4"
+          },
+          {
+            "question": "What do the parameters in the summarize_document prompt template example (doc_id, length) illustrate?",
+            "options": [
+              "That prompt templates cannot accept any parameters",
+              "That a prompt template accepts parameters, similar to a tool's parameters, which get filled in to produce the actual prompt text",
+              "That every prompt template must have exactly one required parameter and no optional ones",
+              "That prompt templates are identical to tools in every way"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The example shows parameters (doc_id required, length optional with a default) being filled into a template string, matching the lesson's description of how prompt templates work.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is eagerly fetching every resource's full content during a listing operation a mistake?",
+            "options": [
+              "Because listing operations are not allowed to return any data",
+              "Because it defeats the purpose of separating listing from reading and can waste significant work when only a subset of resources is actually needed",
+              "Because resources cannot have content at all",
+              "Because it would violate the JSON-RPC specification"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The whole point of the listing/reading split is to avoid unnecessary content-fetching work — eagerly loading everything during listing undoes that benefit.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does baking a stale snapshot into a resource undermine its value, according to this lesson's freshness argument?",
+            "options": [
+              "Because MCP resources are technically incapable of being stale",
+              "Because a resource is often valuable specifically because it reflects current state at read time, the same reasoning that favors RAG's retrieval over stale fine-tuned facts",
+              "Because stale resources are always faster to read than fresh ones",
+              "Because freshness is only a concern for MCP tools, not resources"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson draws a direct parallel to RAG's freshness argument — a resource's usefulness often depends on reflecting genuinely current data rather than a fixed, outdated snapshot.",
+            "id": "q7"
+          },
+          {
+            "question": "What design failure does the lesson warn about regarding unclear placeholder names or inconsistent optional-parameter handling in prompt templates?",
+            "options": [
+              "It has no real consequence since prompts are never reused",
+              "It produces inconsistent results across different host applications using the same template, echoing the same concern from the LangChain prompt-template lesson",
+              "It causes the MCP server to crash immediately on startup",
+              "It only affects resources, not prompt templates"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since a prompt template may be used by many different host applications, unclear design leads to inconsistent results depending on who's using it — precisely the risk the LangChain prompt-template lesson also warns about.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "mcp_server_sdk_patterns",
+      "title": "MCP Server SDK Patterns",
+      "description": "Building an MCP server from scratch by hand-implementing JSON-RPC would be needless work — SDKs handle the protocol so you focus on the actual logic.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Describe what an MCP server SDK typically handles for you and what a developer still needs to implement themselves."
+          },
+          {
+            "title": "🛠️ What the SDK handles",
+            "content": "The JSON-RPC message parsing and formatting covered earlier in this module, the specific MCP methods and their expected request/response shapes, and transport-level details (covered in the next module) — an SDK typically provides a **decorator- or annotation-based** way to register a plain function as a tool, resource, or prompt, handling the translation between 'a plain function in your code' and 'a properly-formatted MCP response' automatically."
+          },
+          {
+            "title": "✍️ What you still write",
+            "content": "The actual **logic**: what a tool does when called, what data a resource returns when read, what text a prompt template produces given its parameters. You also still write the tool/resource/prompt **metadata** (names, descriptions, parameter schemas) — the SDK doesn't know what makes a good tool description any more than a chat model API knows what makes a good prompt; the design principles from earlier in this module remain entirely the developer's responsibility."
+          },
+          {
+            "title": "🎯 A typical development pattern",
+            "content": "1. Define a plain function implementing the actual logic.\n2. Register it with the SDK, typically via a decorator, specifying its name, description, and parameter types — the SDK infers or validates the JSON-RPC-level details from this registration.\n3. Test the function **directly** (since it's still just a plain function) before worrying about anything MCP-protocol-specific, isolating logic bugs from protocol or connection issues, much like testing a routing function in isolation from the rest of a LangGraph graph."
+          },
+          {
+            "title": "⚠️ A common SDK-era mistake",
+            "content": "Treating the SDK's ease of registering a function as a tool as a **substitute** for actually thinking through the tool-design principles from the Agents course — a function that was never designed with a clear name, description, or well-typed parameters doesn't become well-designed just because a decorator made it technically callable via MCP. The SDK removes protocol friction; it doesn't remove the design work."
+          },
+          {
+            "title": "💻 Decorator registration, and testing in isolation",
+            "content": "```python\n# 1. Plain function with the actual logic\ndef _lookup_order_status(order_id: str) -> str:\n    order = db.get_order(order_id)\n    return order.status if order else \"not found\"\n\n# 2. Register via decorator -- SDK handles JSON-RPC plumbing\n@server.tool(name=\"lookup_order_status\",\n             description=\"Look up the current status of an order by its id.\")\ndef lookup_order_status(order_id: str) -> str:\n    return _lookup_order_status(order_id)\n\n# 3. Test the plain function directly, with no MCP protocol involved\ndef test_lookup_order_status():\n    assert _lookup_order_status(\"ord_123\") == \"shipped\"\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Believing a decorator makes a poorly-designed tool well-designed.** Registration handles protocol plumbing only — the name, description, and parameter design still need the same care as any other tool.\n\n**Skipping direct testing of the underlying function.** Debugging through the full MCP protocol stack when a plain function-level test would isolate the bug much faster is wasted effort.\n\n**Assuming the SDK validates description quality.** An SDK validates structural correctness (types, required fields) — it has no way to know whether a description is actually clear or ambiguous to a model."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "mcp_server_sdk_patterns_quiz",
+        "questions": [
+          {
+            "question": "What does an MCP server SDK typically handle automatically?",
+            "options": [
+              "The actual business logic of every tool",
+              "JSON-RPC message parsing/formatting and the specific MCP method shapes, translating plain functions into properly-formatted MCP responses",
+              "Deciding what makes a good tool description",
+              "Writing the parameter schemas for you with no input needed"
+            ],
+            "correctAnswer": 1,
+            "explanation": "SDKs abstract away the protocol-level plumbing (JSON-RPC formatting, MCP method shapes) so developers can register plain functions rather than hand-implementing the wire protocol.",
+            "id": "q1"
+          },
+          {
+            "question": "What remains the developer's responsibility even when using an MCP server SDK?",
+            "options": [
+              "Nothing — the SDK handles everything automatically",
+              "The actual tool/resource/prompt logic, and the design of names, descriptions, and parameter schemas",
+              "The underlying JSON-RPC message format",
+              "The transport-level connection details"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The SDK removes protocol friction, but the real logic and the tool-design quality (following the Agents course's principles) still depend entirely on the developer's own choices.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is testing a tool's underlying plain function directly (before worrying about the MCP protocol) a good development pattern?",
+            "options": [
+              "It's not useful — only full end-to-end MCP testing matters",
+              "It isolates logic bugs from protocol or connection issues, similar to testing a routing function in isolation in LangGraph",
+              "Plain functions cannot be tested outside of MCP",
+              "This pattern is only relevant for resources, not tools"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since the underlying implementation is still just a plain function, testing it directly narrows down whether a bug is in the actual logic or in the protocol/connection layer, mirroring the isolated-testing approach from the LangGraph debugging lesson.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, why is _lookup_order_status defined as a separate plain function rather than only existing inside the decorated lookup_order_status?",
+            "options": [
+              "Because decorated functions cannot contain any logic at all",
+              "So the actual logic can be tested directly, in isolation from the MCP protocol layer, exactly as the development pattern recommends",
+              "Because the SDK requires two separate function definitions for every tool",
+              "Because JSON-RPC forbids calling functions from within decorated functions"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Separating the plain logic function from the decorated registration lets test_lookup_order_status() exercise the real logic directly without any MCP protocol machinery involved.",
+            "id": "q4"
+          },
+          {
+            "question": "What does the @server.tool() decorator in the example handle on the developer's behalf?",
+            "options": [
+              "It writes the actual order-lookup business logic automatically",
+              "It handles the registration and translation between the plain function and a properly-formatted MCP tool response, using the given name and description",
+              "It guarantees the description is clear and unambiguous to any model",
+              "It replaces the need for a database entirely"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The decorator's job is protocol registration and formatting — it does not, and cannot, judge whether the supplied name and description are actually well-designed.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is 'a decorator made my function technically callable via MCP' not the same as 'my tool is well-designed'?",
+            "options": [
+              "Because decorators actually prevent tools from being callable at all",
+              "Because callability is a protocol-level concern the SDK handles, while tool-design quality (clear names, descriptions, parameters) is a separate concern the SDK cannot judge",
+              "Because well-designed tools cannot use decorators",
+              "Because MCP tools are never technically callable regardless of registration"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The SDK guarantees a function is reachable via MCP once registered; it says nothing about whether the model will actually be able to select and use that tool reliably, which depends entirely on design quality.",
+            "id": "q6"
+          },
+          {
+            "question": "Why might skipping direct testing of the underlying function and only testing through the full MCP stack waste effort?",
+            "options": [
+              "Because MCP-level testing is always faster than direct function testing",
+              "Because debugging through the full protocol stack to find a bug that a simple direct function-level test would isolate immediately is unnecessarily slow",
+              "Because direct function testing is technically impossible once a decorator is applied",
+              "Because the SDK forbids testing functions outside of the MCP protocol"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Testing the plain function directly narrows down whether a failure is a logic bug or a protocol/connection issue much faster than working through the entire MCP stack for every test.",
+            "id": "q7"
+          },
+          {
+            "question": "Can an SDK validate whether a tool's description is clear and unambiguous to a model?",
+            "options": [
+              "Yes, SDKs automatically rewrite unclear descriptions",
+              "No, an SDK can validate structural correctness like types and required fields, but has no way to judge whether a description is actually clear to a model",
+              "Yes, but only for tools, never for resources or prompts",
+              "No, SDKs cannot process descriptions in any way"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Structural validation (types, required parameters) is within an SDK's reach, but genuine description quality is a design judgment call that remains the developer's responsibility.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

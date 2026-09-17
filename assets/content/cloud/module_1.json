@@ -1,0 +1,559 @@
+{
+  "id": "cld_docker",
+  "title": "Containers with Docker",
+  "description": "What containers solve, writing a Dockerfile, images/layers/registries, and multi-service apps with Docker Compose.",
+  "icon": "🐳",
+  "color": "#37474F",
+  "order": 1,
+  "estimatedHours": 4,
+  "difficulty": "intermediate",
+  "prerequisites": [
+    "cld_linux_and_networking"
+  ],
+  "lessons": [
+    {
+      "id": "cld_what_containers_solve",
+      "title": "What Containers Solve",
+      "description": "The 'works on my machine' problem, solved by packaging the machine along with the code.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain the specific problem containers solve, and how they differ from a full virtual machine."
+          },
+          {
+            "title": "😤 The problem: environment drift",
+            "content": "An application that works on a developer's laptop can fail in production due to a different OS version, a missing system library, or a different installed dependency version — 'works on my machine' is a symptom of the runtime environment not actually being the same everywhere."
+          },
+          {
+            "title": "📦 A container packages the whole environment",
+            "content": "A container bundles an application together with its dependencies and enough of a runtime environment to behave identically wherever it runs — the same idea the App Dev course's containerization lesson applied specifically to an AI application, now covered at the general infrastructure level."
+          },
+          {
+            "title": "🪶 Containers vs. virtual machines",
+            "content": "A virtual machine virtualizes an entire computer, including its own full operating system kernel — heavier, slower to start, but fully isolated. A container shares the host machine's kernel and only isolates the application layer — much lighter and faster to start, at the cost of slightly less isolation than a full VM. This is why containers, not VMs, became the default unit of deployment for most modern applications."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "Here's the environment-drift problem and its fix modeled directly: a function whose behavior depends on assumptions about the environment it runs in.\n\n```python\n# --- Without containerization: behavior depends on the surrounding environment ---\n\ndef parse_config_unsafe(installed_yaml_version):\n    \"\"\"Behavior silently differs depending on which yaml library version happens to be installed.\"\"\"\n    if installed_yaml_version >= 6:\n        return \"parsed with safe_load (new API)\"\n    return \"parsed with load (old API, deprecated)\"\n\ndeveloper_laptop = parse_config_unsafe(installed_yaml_version=6)   # has the newer library\nproduction_server = parse_config_unsafe(installed_yaml_version=5)  # has an older library, never updated\n\nprint(\"on developer's laptop:\", developer_laptop)\nprint(\"on production server:\", production_server)\nprint(\"SAME code, DIFFERENT behavior -- 'works on my machine'\\n\")\n\n# --- With containerization: the environment itself is part of what's shipped ---\n\nclass ContainerImage:\n    def __init__(self, app_code, pinned_yaml_version):\n        self.app_code = app_code\n        self.pinned_yaml_version = pinned_yaml_version  # baked into the image, not left to chance\n\n    def run(self):\n        return self.app_code(self.pinned_yaml_version)\n\nimage = ContainerImage(app_code=parse_config_unsafe, pinned_yaml_version=6)\n\nprint(\"running the image on a laptop:\", image.run())\nprint(\"running the SAME image on a production server:\", image.run())\nprint(\"IDENTICAL behavior everywhere, because the environment traveled with the code\")\n```\n\n`parse_config_unsafe` behaves differently depending on an environment detail (`installed_yaml_version`) that's left up to whatever happens to be installed on each machine — exactly the environment-drift problem the lesson describes. `ContainerImage` fixes this by baking `pinned_yaml_version` into the image itself, so `image.run()` produces the identical result no matter which machine actually runs it, because the dependency version travels with the code instead of being left to local chance."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming a container guarantees byte-for-byte identical behavior with zero remaining risk.** Containers share the host's kernel, so a genuine kernel-level difference (an unusual syscall behavior, for instance) can still occasionally leak through — 'consistent' isn't quite the same guarantee as 'perfectly identical in every possible respect.'\n\n**Reaching for a full VM by default when a container's lighter isolation would have been sufficient.** The extra weight and slower startup of a VM is a real cost that should be justified by an actual need for stronger isolation, not applied reflexively.\n\n**Treating 'works in the container on my laptop' as proof it will work in production, without checking that production actually runs the same image.** The consistency benefit only holds if production genuinely runs the exact image that was tested — building a fresh image separately for production reintroduces the very drift containers are meant to eliminate.\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "cld_what_containers_solve_quiz",
+        "questions": [
+          {
+            "question": "What specific problem do containers solve?",
+            "options": [
+              "Environment drift — an application behaving differently across machines due to different OS versions, libraries, or dependencies",
+              "The need for a network connection",
+              "The requirement that all code be written in the same programming language",
+              "The inability to run more than one application per machine"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Containers directly address the 'works on my machine' problem by packaging the application together with a consistent runtime environment.",
+            "id": "q1"
+          },
+          {
+            "question": "How does a container differ from a full virtual machine?",
+            "options": [
+              "A container shares the host's kernel and isolates only the application layer, making it lighter and faster to start than a VM",
+              "A container always requires more resources than a virtual machine",
+              "A container includes a full separate operating system kernel, just like a VM",
+              "Containers and virtual machines are identical in every respect"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The shared-kernel, application-layer-only isolation is exactly what makes containers lighter weight than a full VM, which virtualizes an entire machine including its kernel.",
+            "id": "q2"
+          },
+          {
+            "question": "Why did containers, rather than VMs, become the default deployment unit for most modern applications?",
+            "options": [
+              "Because they are much lighter and faster to start, while still solving the environment-consistency problem",
+              "Because virtual machines cannot run any application code",
+              "Because containers provide stronger isolation than virtual machines in every respect",
+              "Because virtual machines were invented after containers"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The speed and resource-efficiency trade-off, while still solving environment consistency, is what made containers the more practical default for most deployment scenarios.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, why do `developer_laptop` and `production_server` produce different results?",
+            "options": [
+              "Because parse_config_unsafe's behavior depends on installed_yaml_version, which differs between the two calls (6 vs 5), simulating differing environments",
+              "Because the two calls use completely different functions",
+              "Because production_server always crashes",
+              "Because Python behaves differently on different operating systems"
+            ],
+            "correctAnswer": 0,
+            "explanation": "`parse_config_unsafe` branches on `installed_yaml_version`, and the two calls pass different values (6 and 5) to simulate a laptop with a newer library versus a production server with an older one, producing different output for the same underlying code.",
+            "id": "q4"
+          },
+          {
+            "question": "How does `ContainerImage` avoid the same problem when `image.run()` is called on both a laptop and a production server?",
+            "options": [
+              "Because pinned_yaml_version is baked into the image itself at creation time, so every run() call uses the identical value regardless of which machine executes it",
+              "Because ContainerImage ignores the yaml library entirely",
+              "Because run() always returns the same hardcoded string with no computation",
+              "Because ContainerImage detects which machine it's running on and adjusts automatically"
+            ],
+            "correctAnswer": 0,
+            "explanation": "`ContainerImage.__init__` stores `pinned_yaml_version` as part of the image itself, so calling `run()` always passes that same fixed value to `app_code`, regardless of what might otherwise be installed on the machine actually executing it.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is assuming a container guarantees byte-for-byte identical behavior with zero remaining risk flagged as a mistake?",
+            "options": [
+              "Because containers share the host's kernel, so a genuine kernel-level difference can still occasionally leak through, even though the application layer is consistent",
+              "Because containers provide weaker consistency than running an application with no packaging at all",
+              "Because containers cannot actually run any application reliably",
+              "Because kernel differences never affect application behavior in any way"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's common mistakes note that shared-kernel isolation, while much better than no isolation, isn't an absolute guarantee against every possible environment difference, unlike a full VM's stronger isolation.",
+            "id": "q6"
+          },
+          {
+            "question": "Why is reaching for a full VM by default, when a container's isolation would suffice, considered a mistake?",
+            "options": [
+              "Because the extra weight and slower startup of a VM is a real cost that should be justified by an actual need for stronger isolation, not applied reflexively",
+              "Because virtual machines cannot run containerized applications",
+              "Because VMs are always less secure than containers",
+              "Because VMs are technically incapable of running any AI workload"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson frames this as a cost-matching problem: VMs' heavier resource and startup cost should be weighed against an actual isolation requirement, not defaulted to without reason.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does 'works in the container on my laptop' not guarantee production success if production builds a separate image?",
+            "options": [
+              "Because the consistency benefit only holds if production genuinely runs the exact same image that was tested -- building a fresh image separately for production reintroduces the very drift containers are meant to eliminate",
+              "Because containers cannot be run in a production environment at all",
+              "Because laptops and production servers always have incompatible operating systems",
+              "Because container images automatically change their contents based on the machine they run on"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's common mistakes point out that the whole point of consistency is running the identical, already-tested image everywhere — separately building a 'production version' undermines that guarantee entirely.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "cld_writing_a_dockerfile",
+      "title": "Writing a Dockerfile",
+      "description": "The recipe that turns your application code into a runnable container image.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Read and write a basic Dockerfile, and explain what each common instruction does."
+          },
+          {
+            "title": "📝 The core instructions",
+            "content": "`FROM` specifies a base image to build on top of (like a specific Python version). `COPY` brings files from your project into the image. `RUN` executes a command during the image build (like installing dependencies). `CMD` specifies what command runs when a container starts from this image. Together, these describe a repeatable recipe for building the exact same image every time."
+          },
+          {
+            "title": "🏗️ Layers and caching",
+            "content": "Each instruction in a Dockerfile creates a new 'layer,' and Docker caches unchanged layers between builds — ordering instructions so rarely-changing steps (like installing dependencies) come before frequently-changing steps (like copying your latest application code) lets rebuilds reuse cached layers and finish much faster."
+          },
+          {
+            "title": "🧱 Building on the App Dev course's multi-stage pattern",
+            "content": "The App Dev course's containerization lesson mentioned multi-stage builds for keeping images lean; here's the mechanism concretely: a Dockerfile can have multiple `FROM` stages, where an earlier stage does the heavy lifting (compiling, installing build tools) and a later stage copies only the needed final artifacts, discarding everything else the build tools produced."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "Here's the caching payoff of good instruction ordering, modeled with a rebuild counter that only increments for layers that actually changed.\n\n```python\ndef build(instructions, changed_instruction_index):\n    \"\"\"Simulates a rebuild: everything from the first changed instruction onward must re-run;\n    everything before it is served from cache.\"\"\"\n    rebuilt = []\n    for i, instr in enumerate(instructions):\n        if i < changed_instruction_index:\n            print(f\"  [CACHED]  {instr}\")\n        else:\n            print(f\"  [REBUILD] {instr}\")\n            rebuilt.append(instr)\n    return rebuilt\n\n# --- Bad ordering: app code copied BEFORE dependencies are installed ---\n\nbad_order = [\n    \"FROM python:3.12\",\n    \"COPY app.py .\",              # changes on every code edit\n    \"RUN pip install -r requirements.txt\",  # rarely changes, but now sits AFTER the volatile step\n    \"CMD python app.py\",\n]\n\n# --- Good ordering: dependencies installed BEFORE app code is copied ---\n\ngood_order = [\n    \"FROM python:3.12\",\n    \"RUN pip install -r requirements.txt\",  # rarely changes, stays cached across code edits\n    \"COPY app.py .\",              # changes on every code edit, but it's now the LAST volatile step\n    \"CMD python app.py\",\n]\n\nprint(\"--- rebuild after an app.py edit, BAD ordering ---\")\nrebuilt_bad = build(bad_order, changed_instruction_index=1)\nprint(f\"layers rebuilt: {len(rebuilt_bad)} (includes the slow pip install!)\\n\")\n\nprint(\"--- rebuild after the SAME app.py edit, GOOD ordering ---\")\nrebuilt_good = build(good_order, changed_instruction_index=2)\nprint(f\"layers rebuilt: {len(rebuilt_good)} (pip install stayed cached)\")\n```\n\nIn `bad_order`, `COPY app.py .` sits before `RUN pip install`, so a code edit invalidates the cache starting at that `COPY` step — and everything after it, including the slow `pip install`, must rebuild too (`rebuilt_bad` has 3 entries). In `good_order`, the same edit only invalidates `COPY` and `CMD`, since `pip install` now sits *before* the volatile `COPY` step and stays cached (`rebuilt_good` has only 2 entries) — exactly the caching payoff of the ordering discipline the lesson describes."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Copying application code before installing dependencies.** As the code example shows, this forces a full dependency reinstall on every code change, even though dependencies rarely change — the fix is simply reordering the instructions.\n\n**Running unnecessary commands in the final stage of a multi-stage build.** Anything that isn't needed to actually run the application (build tools, test frameworks, temporary files) shouldn't be copied into the final runtime stage, even if it was useful during the build stage.\n\n**Using an overly broad base image when a slimmer one would work.** A full general-purpose OS image as the `FROM` base, when a minimal or language-specific slim image would run the application fine, adds unnecessary size and potential attack surface for no real benefit.\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "cld_writing_a_dockerfile_quiz",
+        "questions": [
+          {
+            "question": "What does the `FROM` instruction in a Dockerfile specify?",
+            "options": [
+              "The base image to build the new image on top of",
+              "The command that runs when the container starts",
+              "The final published name of the image",
+              "The network port the container will listen on"
+            ],
+            "correctAnswer": 0,
+            "explanation": "`FROM` establishes the starting point (often a base OS or language runtime) that the rest of the Dockerfile builds additional layers on top of.",
+            "id": "q1"
+          },
+          {
+            "question": "Why does instruction ordering in a Dockerfile affect build speed?",
+            "options": [
+              "Docker caches unchanged layers between builds, so placing rarely-changing steps before frequently-changing ones lets rebuilds reuse more cached layers",
+              "Instruction order has no effect on build speed whatsoever",
+              "Later instructions always execute before earlier ones",
+              "Docker rebuilds every layer from scratch regardless of ordering"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Layer caching rewards ordering: stable steps early, volatile steps late, so a rebuild only redoes work from the point where something actually changed.",
+            "id": "q2"
+          },
+          {
+            "question": "What is the purpose of using multiple `FROM` stages in a multi-stage build?",
+            "options": [
+              "To let an earlier stage do heavy build work while a later stage copies only the needed final artifacts, discarding unnecessary build tools",
+              "To run two completely unrelated applications in the same container",
+              "To require twice as much disk space for every image with no benefit",
+              "To prevent the image from ever being run as a container"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Multi-stage builds separate build-time tooling from the final runtime image, directly producing the leaner images referenced in the App Dev course's containerization lesson.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, why does the `bad_order` rebuild have to redo `pip install -r requirements.txt` even though `requirements.txt` didn't change?",
+            "options": [
+              "Because COPY app.py . sits before pip install in bad_order, so an app.py edit invalidates the cache starting there, including everything after it",
+              "Because pip install always reruns on every single build regardless of ordering",
+              "Because bad_order never installs any dependencies",
+              "Because changed_instruction_index is set to 0 for bad_order"
+            ],
+            "correctAnswer": 0,
+            "explanation": "In `bad_order`, `COPY app.py .` is instruction index 1, and `RUN pip install` comes after it at index 2, so once index 1 is invalidated by the code change, everything from that point onward -- including the pip install -- must also rebuild.",
+            "id": "q4"
+          },
+          {
+            "question": "How many layers does `good_order` rebuild after the same `app.py` edit, and why fewer than `bad_order`?",
+            "options": [
+              "3, the same as bad_order",
+              "2, since pip install now comes before COPY app.py ., so it stays cached and only COPY and CMD need to rebuild",
+              "0, since good_order never rebuilds anything",
+              "4, since good_order has more instructions than bad_order"
+            ],
+            "correctAnswer": 1,
+            "explanation": "In `good_order`, `RUN pip install` is at index 1, before `COPY app.py .` at index 2, so with `changed_instruction_index=2`, only `COPY` and `CMD` (indices 2 and 3) need to rebuild -- the pip install stays cached.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is copying application code before installing dependencies flagged as a mistake?",
+            "options": [
+              "Because it forces a full dependency reinstall on every code change, even though dependencies rarely change, as the code example demonstrates",
+              "Because Docker forbids this specific instruction order",
+              "Because copying application code is never necessary in a Dockerfile",
+              "Because this ordering makes the final image larger, not slower to build"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's common mistakes directly reference the caching cost shown in the code example: this ordering invalidates the dependency-install cache on every code change, unnecessarily.",
+            "id": "q6"
+          },
+          {
+            "question": "Why is running unnecessary commands in the final stage of a multi-stage build considered a mistake?",
+            "options": [
+              "Because anything not needed to actually run the application shouldn't be copied into the final runtime stage, even if it was useful during the build stage",
+              "Because the final stage cannot run any commands at all",
+              "Because multi-stage builds only support a single instruction total",
+              "Because build tools always improve runtime performance"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explains that the whole point of a multi-stage build is to leave build-time-only tooling behind, so including unnecessary commands or files in the final stage defeats that purpose.",
+            "id": "q7"
+          },
+          {
+            "question": "Why is using an overly broad base image, when a slimmer one would work, a mistake?",
+            "options": [
+              "Because it adds unnecessary size and potential attack surface for no real benefit, when a minimal or language-specific slim image would run the application fine",
+              "Because broad base images always fail to run any application",
+              "Because Docker charges more for larger base images",
+              "Because slim images cannot install any dependencies"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson notes that a bulkier general-purpose base image costs extra size and surface area without providing any benefit the application actually needs, compared to a more targeted slim image.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "cld_images_layers_and_registries",
+      "title": "Images, Layers, and Registries",
+      "description": "Where a built container image lives, and how it gets from your laptop to a production server.",
+      "duration": 11,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain what a container registry is and how an image gets pulled onto a production server."
+          },
+          {
+            "title": "🏷️ Images: the built artifact",
+            "content": "A container image is the built, runnable artifact produced from a Dockerfile — a read-only template that a running container is instantiated from. The same image can be run many times as many separate containers, each with its own isolated runtime state."
+          },
+          {
+            "title": "📚 Layers, revisited",
+            "content": "Because an image is made of layers (from the previous lesson), pushing or pulling an image only needs to transfer layers the destination doesn't already have — this is why a small code change often results in a fast push, since only the changed layer (and layers after it) need to move."
+          },
+          {
+            "title": "🏪 Registries: where images are stored and shared",
+            "content": "A container registry (like Docker Hub, or a cloud provider's private registry) stores built images so they can be pulled onto any server that needs to run them — a production deploy is, at its core, telling a server to pull a specific image tag from a registry and run it, which is exactly what the deployment strategies covered in the App Dev course's zero-downtime-deploys lesson do under the hood."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "Here's the layer-reuse mechanism made concrete: pushing an image transfers only the layers the registry doesn't already have.\n\n```python\nregistry = {}  # maps layer hash -> layer content, shared across all images\n\ndef push_image(image_name, layers):\n    transferred = 0\n    for layer_hash, content in layers:\n        if layer_hash in registry:\n            print(f\"  layer {layer_hash}: already in registry, SKIPPED\")\n        else:\n            registry[layer_hash] = content\n            transferred += 1\n            print(f\"  layer {layer_hash}: NOT in registry, TRANSFERRED\")\n    print(f\"push complete for {image_name}: {transferred} layer(s) actually transferred\\n\")\n\n# v1: base image + dependencies + app code, all new\nv1_layers = [(\"base-py312\", \"...\"), (\"deps-abc123\", \"...\"), (\"app-v1-code\", \"...\")]\nprint(\"--- pushing v1 (first push, nothing cached yet) ---\")\npush_image(\"myapp:v1\", v1_layers)\n\n# v2: SAME base and dependencies, only the app code layer changed\nv2_layers = [(\"base-py312\", \"...\"), (\"deps-abc123\", \"...\"), (\"app-v2-code\", \"...\")]\nprint(\"--- pushing v2 (only app code changed) ---\")\npush_image(\"myapp:v2\", v2_layers)\n```\n\nPushing `v1` transfers all 3 layers, since the registry starts empty. Pushing `v2` reuses the exact same `base-py312` and `deps-abc123` layer hashes from `v1` — since those layers are already in `registry`, they're skipped, and only the new `app-v2-code` layer is actually transferred. This is exactly why a small code change results in a fast push: the unchanged base and dependency layers never need to move again."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Pushing a new image every time as `:latest` with no versioned tag.** Without a specific, stable tag, there's no reliable way to know exactly which image version is currently running in production, or to roll back to a known-good previous version.\n\n**Rebuilding a layer unnecessarily, breaking the cache reuse the registry could have offered.** Restructuring a Dockerfile so a stable layer's hash changes for no functional reason (like touching an unrelated file that gets copied early) forces a full retransfer that layer caching was supposed to avoid.\n\n**Treating a registry as a permanent, unlimited archive with no cleanup.** Old, unused image versions accumulate and consume storage indefinitely if nothing ever prunes them — a registry benefits from the same lifecycle thinking as any other storage system.\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "cld_images_layers_and_registries_quiz",
+        "questions": [
+          {
+            "question": "What is the relationship between a container image and a running container?",
+            "options": [
+              "An image is a read-only template; a container is a running instance created from that image, and many containers can run from the same image",
+              "An image and a container are identical concepts with no distinction",
+              "A container must be created before an image can be built from it",
+              "An image can only ever produce exactly one running container"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The image-to-container relationship is like a class-to-object relationship: one template, potentially many independent running instances.",
+            "id": "q1"
+          },
+          {
+            "question": "Why does pushing a small code change to an image registry often transfer quickly?",
+            "options": [
+              "Because only the changed layer (and layers after it) need to be transferred, thanks to the image's layered structure",
+              "Because registries automatically compress the entire image regardless of what changed",
+              "Because small code changes never require any layers to be rebuilt",
+              "Because registries only store the very first layer of any image"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Layered images mean unchanged portions don't need retransmission, so a small change to a late layer keeps the push fast.",
+            "id": "q2"
+          },
+          {
+            "question": "What does a production deploy fundamentally do, in terms of images and registries?",
+            "options": [
+              "Tells a server to pull a specific image tag from a registry and run it as a container",
+              "Rewrites the application's entire source code on the production server directly",
+              "Deletes the registry and rebuilds the image from scratch on the server",
+              "Requires manually copying files over an unencrypted connection"
+            ],
+            "correctAnswer": 0,
+            "explanation": "At its core, a deploy is a pull-and-run operation against a registry-stored image, which is exactly what deployment strategies like rolling or blue-green orchestrate around.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, how many layers does `push_image(\"myapp:v1\", v1_layers)` actually transfer, and why?",
+            "options": [
+              "0, since v1 is never pushed",
+              "3, since the registry starts empty and none of v1's layers exist there yet",
+              "1, only the app code layer",
+              "2, skipping the base image layer"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since `registry` starts as an empty dict, none of `v1_layers`'s three layer hashes are found in it, so all three are transferred and added to `registry`.",
+            "id": "q4"
+          },
+          {
+            "question": "Why does pushing `v2` only transfer 1 layer instead of 3?",
+            "options": [
+              "Because v2's base-py312 and deps-abc123 layer hashes are identical to v1's and already exist in registry from the v1 push, so only the new app-v2-code layer needs to transfer",
+              "Because v2 has fewer total layers than v1",
+              "Because the registry rejects two of v2's layers",
+              "Because push_image always transfers exactly 1 layer regardless of content"
+            ],
+            "correctAnswer": 0,
+            "explanation": "`v2_layers` reuses the exact same `base-py312` and `deps-abc123` hashes already stored in `registry` from the `v1` push, so those two are skipped, and only the new `app-v2-code` layer hash (not yet in `registry`) is actually transferred.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is pushing every new image as `:latest` with no versioned tag flagged as a mistake?",
+            "options": [
+              "Because without a specific, stable tag, there's no reliable way to know exactly which image version is running in production or to roll back to a known-good version",
+              "Because :latest tags are technically forbidden by all registries",
+              "Because versioned tags always take longer to push than :latest",
+              "Because :latest automatically deletes all previous image versions"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explains that relying only on a moving tag like `:latest` loses the ability to precisely identify or roll back to a specific known-good version currently running.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does unnecessarily invalidating a stable layer's hash defeat the purpose of registry layer caching?",
+            "options": [
+              "Because it forces a full retransfer of a layer that caching was supposed to avoid, even though nothing functionally important actually changed",
+              "Because layer hashes never actually change once created",
+              "Because registries automatically detect and ignore unnecessary layer changes",
+              "Because layer caching only applies to the very first push, never subsequent ones"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson warns that restructuring a Dockerfile so a stable layer's hash changes for no real reason forces an unnecessary retransfer, undoing the efficiency layer caching is meant to provide.",
+            "id": "q7"
+          },
+          {
+            "question": "Why is treating a registry as a permanent, unlimited archive with no cleanup a mistake?",
+            "options": [
+              "Because old, unused image versions accumulate and consume storage indefinitely if nothing ever prunes them",
+              "Because registries automatically delete all images after 24 hours",
+              "Because registries can only ever store a single image at a time",
+              "Because cleanup is technically impossible for any container registry"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson points out that a registry, like any storage system, benefits from lifecycle management — without it, storage costs and clutter grow unbounded over time.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "cld_docker_compose_for_multi_service_apps",
+      "title": "Docker Compose for Multi-Service Apps",
+      "description": "Most real applications aren't one container — they're several, working together.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain what Docker Compose coordinates and why a real AI application typically needs more than one container."
+          },
+          {
+            "title": "🧩 A real app is usually several services",
+            "content": "A typical AI application isn't just one container — it's an API server, a database, a cache (like Redis, from the App Dev course's caching lessons), and maybe a vector database (from the Vector Databases course), each often running as its own container with its own image and configuration."
+          },
+          {
+            "title": "📋 Docker Compose: defining multi-container apps declaratively",
+            "content": "Docker Compose lets you define all of these services, their configuration, and how they connect to each other in a single YAML file, then start or stop the whole application stack with one command — rather than manually running and configuring each container's networking by hand every time."
+          },
+          {
+            "title": "🔗 A stepping stone to Kubernetes",
+            "content": "Docker Compose is well suited to local development and small deployments, but doesn't handle the more demanding needs of production-scale orchestration — automatic scaling, self-healing, rolling updates across many machines — which is exactly the gap Kubernetes, covered in the next module, is built to fill. Understanding Compose's simpler model first makes Kubernetes's more complex model easier to learn by contrast."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "Here's the \"one command instead of manual per-container setup\" idea made concrete: starting a multi-service stack declaratively versus imperatively.\n\n```python\n# --- Manual, imperative approach: each container started and wired up by hand ---\n\ndef manual_startup():\n    steps = []\n    steps.append(\"docker run -d --name db postgres:16\")\n    steps.append(\"docker run -d --name cache redis:7\")\n    steps.append(\"docker network create app-net\")\n    steps.append(\"docker network connect app-net db\")\n    steps.append(\"docker network connect app-net cache\")\n    steps.append(\"docker run -d --name api --network app-net -e DB_HOST=db -e CACHE_HOST=cache myapi:v1\")\n    for s in steps:\n        print(\" \", s)\n    return len(steps)\n\n# --- Compose-style declarative approach: describe the desired state once ---\n\ncompose_config = {\n    \"services\": {\n        \"db\": {\"image\": \"postgres:16\"},\n        \"cache\": {\"image\": \"redis:7\"},\n        \"api\": {\"image\": \"myapi:v1\", \"depends_on\": [\"db\", \"cache\"],\n                 \"environment\": {\"DB_HOST\": \"db\", \"CACHE_HOST\": \"cache\"}},\n    }\n}\n\ndef compose_up(config):\n    print(\"  docker compose up  (reads the config below, handles networking automatically)\")\n    for name, svc in config[\"services\"].items():\n        print(f\"    starting '{name}' from image {svc['image']!r}\")\n    return 1  # one command, regardless of how many services are defined\n\nprint(\"--- manual approach ---\")\nmanual_commands = manual_startup()\nprint(f\"commands the operator had to run: {manual_commands}\\n\")\n\nprint(\"--- compose approach ---\")\ncompose_commands = compose_up(compose_config)\nprint(f\"commands the operator had to run: {compose_commands}\")\n```\n\n`manual_startup` requires 6 separate commands, each one a chance to forget a step or make a typo — exactly the manual-networking tedium the lesson describes. `compose_up` instead reads the same 3-service setup from `compose_config` and starts everything with a single logical command (`docker compose up`), with Compose handling the networking between `db`, `cache`, and `api` automatically based on the declared `depends_on` and `environment` relationships."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Using Docker Compose for a production deployment that needs real scaling and self-healing.** Compose doesn't provide automatic scaling across multiple machines or automatic recovery from a machine-level failure — using it in production beyond a small, low-stakes deployment reaches past what it's designed for.\n\n**Hardcoding service addresses instead of using service names Compose already provides.** Compose automatically makes each service reachable by its name (like `db` or `cache`) on the shared network — hardcoding an IP address instead throws away that convenience and breaks the moment the underlying IP changes.\n\n**Forgetting that Compose's single YAML file is still something to review carefully, not just 'infrastructure config nobody reads.'** A misconfigured `depends_on` or an accidentally exposed port in a Compose file is just as real a bug as one in application code.\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "cld_docker_compose_for_multi_service_apps_quiz",
+        "questions": [
+          {
+            "question": "Why does a real AI application typically require more than one container?",
+            "options": [
+              "Because it usually consists of several distinct services — an API server, a database, a cache, possibly a vector database — each often deserving its own container",
+              "Because Docker forbids running more than one process per machine",
+              "Because a single container cannot contain any application code",
+              "Because multiple containers are required by law for production software"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Real applications are composed of multiple distinct services with different responsibilities, which naturally maps to multiple containers rather than one monolithic container.",
+            "id": "q1"
+          },
+          {
+            "question": "What does Docker Compose let you do that manually running each container separately does not?",
+            "options": [
+              "Define all services, their configuration, and their connections in one file, then start or stop the whole stack with one command",
+              "Automatically scale an application across hundreds of machines",
+              "Eliminate the need for any container images at all",
+              "Replace Kubernetes entirely for large-scale production deployments"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Compose's value is declarative, one-command orchestration of a local or small multi-container stack — not the larger-scale orchestration Kubernetes provides.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is Docker Compose described as a stepping stone to Kubernetes rather than a full replacement for it?",
+            "options": [
+              "Because Compose doesn't handle production-scale needs like automatic scaling, self-healing, and rolling updates across many machines the way Kubernetes does",
+              "Because Compose and Kubernetes are functionally identical tools",
+              "Because Kubernetes cannot run containers built with Docker",
+              "Because Compose requires no YAML configuration at all, unlike Kubernetes"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Compose's simpler model suits local development and small deployments, while Kubernetes is built specifically for the more demanding orchestration needs of production scale.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, how many commands does `manual_startup` require the operator to run?",
+            "options": [
+              "1",
+              "3",
+              "6",
+              "0"
+            ],
+            "correctAnswer": 2,
+            "explanation": "`manual_startup` appends 6 separate command strings to `steps` -- two `docker run` calls, a network creation, two network connections, and a final `docker run` for the API -- printing and counting all 6.",
+            "id": "q4"
+          },
+          {
+            "question": "How does `compose_up` achieve the same result with a single logical command?",
+            "options": [
+              "It reads the entire multi-service setup from compose_config and starts every service Compose already knows how to network together, based on one declarative description",
+              "It secretly runs the same 6 manual commands behind the scenes with no real difference",
+              "It only starts one of the three services and skips the rest",
+              "It requires the operator to still manually configure networking separately"
+            ],
+            "correctAnswer": 0,
+            "explanation": "`compose_up` iterates over `config[\"services\"]` and starts all three declared services, with the function itself representing the single `docker compose up` command that replaces the 6 manual steps -- Compose handles the networking implied by `depends_on` and `environment` automatically.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is using Docker Compose for a production deployment needing real scaling and self-healing flagged as a mistake?",
+            "options": [
+              "Because Compose doesn't provide automatic scaling across multiple machines or automatic recovery from a machine-level failure, unlike Kubernetes",
+              "Because Compose cannot start more than one container at a time",
+              "Because Compose is technically incompatible with any production environment",
+              "Because Compose requires a paid license for any production use"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's common mistakes point out that Compose's simpler model doesn't include the production-scale orchestration capabilities (scaling, self-healing) that Kubernetes is specifically built to provide.",
+            "id": "q6"
+          },
+          {
+            "question": "Why is hardcoding a service's IP address instead of using the service name Compose provides a mistake?",
+            "options": [
+              "Because Compose automatically makes each service reachable by its name on the shared network, and hardcoding an IP throws away that convenience and breaks if the IP changes",
+              "Because Compose does not support any form of networking between services",
+              "Because service names are always slower to resolve than IP addresses",
+              "Because hardcoded IPs are required for Compose to function at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explains that Compose already handles service-name-based networking automatically, so bypassing it with a hardcoded IP address discards that convenience and introduces fragility.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does the lesson warn against treating a Compose YAML file as configuration nobody needs to review carefully?",
+            "options": [
+              "Because a misconfigured depends_on or an accidentally exposed port in a Compose file is just as real a bug as one in application code",
+              "Because Compose files are automatically validated for correctness with no possible errors",
+              "Because Compose files cannot contain any configuration errors by design",
+              "Because reviewing Compose files is unnecessary since they have no effect on the running application"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's common mistakes emphasize that infrastructure configuration like a Compose file deserves the same scrutiny as application code, since mistakes there are just as consequential.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

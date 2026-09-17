@@ -1,0 +1,575 @@
+{
+  "id": "mcp_security",
+  "title": "Security & Trust in MCP",
+  "description": "The trust boundary problem with third-party servers, permission scoping, prompt injection through tool results and resources, and sandboxing/auditing as layered defenses.",
+  "icon": "🔐",
+  "color": "#673AB7",
+  "order": 4,
+  "estimatedHours": 5,
+  "difficulty": "advanced",
+  "prerequisites": [
+    "mcp_clients_and_discovery"
+  ],
+  "lessons": [
+    {
+      "id": "mcp_the_trust_boundary_problem",
+      "title": "The Trust Boundary Problem in MCP",
+      "description": "Connecting to an MCP server means trusting code you probably didn't write, running with whatever permissions you grant it.",
+      "duration": 13,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain why connecting to a third-party MCP server introduces a genuine trust boundary, and what specifically is being trusted."
+          },
+          {
+            "title": "🔓 What connecting to a server actually means",
+            "content": "When a host application connects to an MCP server, it's agreeing to let that server's tools be called (potentially with real consequences — reading data, writing data, calling external services), let its resources be read into the model's context, and let its prompts be used — all based on code the host application developer very likely **didn't write and can't fully audit**, similar in spirit to installing a third-party software dependency, but with the added twist that an LLM (not just application code) is deciding when to invoke it."
+          },
+          {
+            "title": "⚠️ Why this is a different trust problem than a locally-defined tool",
+            "content": "A tool defined directly in your own application's code is code you wrote (or at least chose and reviewed) and that runs with permissions you explicitly gave it in your own codebase. An MCP server is a separate piece of software, potentially maintained by an unrelated third party, that you're choosing to grant some level of access to — the **guardrails and permission-scoping principles** from the Agents course's guardrails lesson apply here with extra urgency, precisely because the code enforcing (or failing to enforce) good behavior isn't code you control."
+          },
+          {
+            "title": "🕵️ Malicious or compromised servers",
+            "content": "A server could be built maliciously from the start, or a legitimate server could be **compromised after the fact** (a supply-chain-style attack, similar to a compromised software package) — in either case, a server nominally offering one set of advertised tools could actually be doing something different or additional behind the scenes, since nothing in the MCP protocol itself guarantees a server's actual behavior matches its advertised tool descriptions."
+          },
+          {
+            "title": "🎯 The core question to ask before connecting",
+            "content": "For any MCP server you're considering connecting to: **what data can it access, what actions can it actually take, and what happens if it behaves maliciously or is compromised?** Answering this honestly — before granting a connection, not after — is the starting point for every mitigation covered in the rest of this module."
+          },
+          {
+            "title": "💻 Framing the trust question as code",
+            "content": "```python\n# Before connecting to any MCP server, answer these explicitly:\ntrust_assessment = {\n    \"what_data_can_it_access\": \"customer records in the CRM database\",\n    \"what_actions_can_it_take\": \"read-only queries, no writes\",\n    \"worst_case_if_compromised\": \"exposure of CRM read access, no data loss\",\n}\n\n# A server you can't answer this honestly for is a server you're not\n# ready to connect to yet -- this assessment feeds directly into the\n# permission-scoping decisions covered in the next lesson.\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Connecting to a server first and thinking about trust later.** The core question — what it can access, what it can do, what happens if it's compromised — needs an honest answer *before* granting a connection, not as an afterthought.\n\n**Assuming a reasonable-looking tool list means safe behavior.** Nothing in the MCP protocol verifies that a server's actual behavior matches its advertised descriptions — a compromised or malicious server can do more (or something different) than what it claims.\n\n**Treating all MCP servers as equally trustworthy.** A server built and maintained in-house carries a different risk profile than an unfamiliar third-party server — the trust assessment should reflect that difference, not treat every connection identically."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "mcp_the_trust_boundary_problem_quiz",
+        "questions": [
+          {
+            "question": "What is fundamentally different about the trust relationship with an MCP server compared to a tool defined directly in your own application's code?",
+            "options": [
+              "There is no meaningful difference between the two",
+              "An MCP server is separate software, often from a third party, that you're choosing to grant access to, rather than code you wrote and reviewed yourself",
+              "MCP servers are always more secure than locally-defined tools",
+              "Locally-defined tools cannot have any security concerns at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A locally-defined tool is code you control and reviewed; an MCP server is external code you're trusting, often without the ability to fully audit it, which is a materially different trust situation.",
+            "id": "q1"
+          },
+          {
+            "question": "Why is a malicious or compromised MCP server a real concern, even for a server that advertises a reasonable-looking set of tools?",
+            "options": [
+              "MCP guarantees that a server's actual behavior always matches its advertised tool descriptions",
+              "Nothing in the MCP protocol itself guarantees a server's real behavior matches what it advertises, so a malicious or compromised server could do something different or additional",
+              "Malicious servers are technically impossible to build using MCP",
+              "This concern only applies to servers using the stdio transport"
+            ],
+            "correctAnswer": 1,
+            "explanation": "MCP standardizes discovery and invocation format, but doesn't itself verify or guarantee that a server actually behaves as its tool descriptions claim — similar to a supply-chain risk with any third-party software dependency.",
+            "id": "q2"
+          },
+          {
+            "question": "What core question does this lesson recommend asking before connecting to any MCP server?",
+            "options": [
+              "What color is the server's logo?",
+              "What data can it access, what actions can it take, and what happens if it behaves maliciously or is compromised?",
+              "How many lines of code does the server have?",
+              "Which programming language was the server written in?"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Honestly assessing the potential blast radius of a connection — before granting it — is the foundation for every mitigation strategy covered in the rest of the security module.",
+            "id": "q3"
+          },
+          {
+            "question": "In the trust_assessment code example, what does the \"worst_case_if_compromised\" field represent?",
+            "options": [
+              "The server's expected uptime percentage",
+              "An honest assessment of the actual consequences if the server turns out to be malicious or gets compromised, informing the permission-scoping decisions that follow",
+              "The number of tools the server exposes",
+              "The programming language the server is implemented in"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This field operationalizes the lesson's core question — thinking through the actual consequences of compromise before granting a connection, which then feeds directly into scoping decisions.",
+            "id": "q4"
+          },
+          {
+            "question": "Why does the lesson frame connecting to an MCP server as similar to installing a third-party software dependency, but with an added twist?",
+            "options": [
+              "Because there is no meaningful similarity between the two situations",
+              "Because both involve trusting code you didn't write, but with MCP an LLM (not just application code) is deciding when to invoke that trusted code",
+              "Because software dependencies never carry any security risk",
+              "Because MCP servers cannot be compared to any other kind of software"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The added twist is that with MCP, invocation decisions are made by a model rather than by explicit application code paths, adding a layer of unpredictability on top of the usual third-party trust concerns.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is answering the trust question honestly 'before granting a connection, not after' emphasized in this lesson?",
+            "options": [
+              "Because trust assessments become impossible to perform once a connection is already established",
+              "Because the whole point is proactive risk assessment — the mitigations covered later in the module (permission scoping, sandboxing, auditing) build on having already thought through the potential blast radius",
+              "Because MCP automatically revokes access if a threat is discovered later",
+              "Because the timing of the assessment has no practical effect either way"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson explicitly frames this honest, upfront assessment as the starting point for every subsequent mitigation covered in the module — doing it after the fact defeats its preventive purpose.",
+            "id": "q6"
+          },
+          {
+            "question": "Why doesn't the MCP protocol itself guarantee that a server behaves as its advertised tool descriptions claim?",
+            "options": [
+              "Because MCP requires all servers to be formally certified before use",
+              "Because MCP standardizes discovery and invocation format, not the actual implementation behavior behind a server's tools",
+              "Because MCP servers are not allowed to have tool descriptions at all",
+              "Because this guarantee is enforced by the JSON-RPC specification instead"
+            ],
+            "correctAnswer": 1,
+            "explanation": "MCP's standardization covers how tools are described and invoked, not a guarantee about what the server's implementation code actually does when a tool is called.",
+            "id": "q7"
+          },
+          {
+            "question": "Why should a host application treat an unfamiliar third-party MCP server differently from an in-house-built one in its trust assessment?",
+            "options": [
+              "It shouldn't — all MCP servers carry an identical risk profile by definition",
+              "Because the degree of control, auditability, and familiarity differs significantly between an in-house server and an unfamiliar third-party one, which should be reflected in the trust assessment",
+              "Because MCP technically forbids connecting to any third-party servers",
+              "Because in-house servers are always guaranteed to be free of vulnerabilities"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The trust boundary is inherently about how much you can verify and control — an in-house server you built and reviewed carries a different risk profile than an external server you didn't.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "mcp_permission_scoping_for_servers",
+      "title": "Permission Scoping for MCP Servers",
+      "description": "The least-privilege principle from the Agents course's guardrails lesson applies with extra force when the code you're scoping isn't code you wrote.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Apply the least-privilege principle specifically to scoping what an MCP server connection is permitted to do."
+          },
+          {
+            "title": "🔒 Least privilege, applied to server connections",
+            "content": "Grant an MCP server connection only the access it strictly needs for the tools you actually intend to use — a filesystem MCP server should be scoped to the specific directory your application actually needs, not the whole filesystem; a database MCP server should use read-only credentials if the application never needs to write. This is exactly the **permission-scoping guardrail** from the Agents course, applied specifically to the credentials and access granted to an external MCP server rather than to a tool your own code implements directly."
+          },
+          {
+            "title": "🎯 Scoping at the credential level, not just the tool level",
+            "content": "Because an MCP server's actual behavior isn't something you control or can fully verify (per the previous lesson), scoping needs to happen at the level of what **credentials and system access** the server process itself is granted — even if a server's advertised tools all look benign, restricting its underlying credentials means that even a compromised or misbehaving server is structurally limited in what damage it can actually do, mirroring the Agents course's point that real guardrails are enforced outside the model's (or here, the server's) own behavior."
+          },
+          {
+            "title": "🚫 Avoiding overly broad default connections",
+            "content": "A common mistake is connecting to a broadly-scoped server (full filesystem access, admin-level database credentials) because it's the path of **least immediate friction**, rather than taking the extra step to configure a more narrowly-scoped connection — exactly the kind of shortcut that the least-privilege principle exists to prevent, and one that's easy to justify in the moment ('it's just for development') but risky to leave in place."
+          },
+          {
+            "title": "🔍 Auditing what a server was actually granted",
+            "content": "Periodically reviewing what access each connected MCP server was **actually granted** — not just what it was granted at initial setup, but whether that access is still appropriate given how the server is actually being used now — catches permission scope that accumulated or was left overly broad from an earlier, less careful setup, similar in spirit to periodic security audits of any other system's access grants."
+          },
+          {
+            "title": "💻 Scoped vs. overly broad credentials",
+            "content": "```python\n# Overly broad: convenient now, risky if this server misbehaves or is compromised\nfilesystem_server = connect_mcp(\n    \"filesystem\", root=\"/\",              # entire filesystem\n    db_credentials=ADMIN_DB_CREDENTIALS,   # full read/write, all tables\n)\n\n# Least privilege: scoped to exactly what the application actually needs\nfilesystem_server = connect_mcp(\n    \"filesystem\", root=\"/app/user_uploads\",       # only the needed directory\n    db_credentials=READ_ONLY_REPORTS_CREDENTIALS,   # read-only, one schema\n)\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Granting broad credentials 'to keep things simple' during development, then never revisiting them.** What starts as a convenient shortcut often becomes the permanent production configuration if no one goes back to tighten it.\n\n**Scoping at the tool level but ignoring the underlying credentials.** Even if every exposed tool looks reasonable, an overly broad credential grant means a compromised server can still do far more than its tools suggest.\n\n**Treating an initial permission grant as permanent.** Access needs can change as a server's actual usage evolves — skipping periodic audits lets permission scope drift wider than what's genuinely still needed."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "mcp_permission_scoping_for_servers_quiz",
+        "questions": [
+          {
+            "question": "How does the least-privilege principle apply specifically to MCP server connections?",
+            "options": [
+              "MCP servers should always be granted full system access by default for convenience",
+              "Grant a server connection only the access it strictly needs for the tools actually intended to be used — like read-only database credentials if writes are never needed",
+              "Least privilege doesn't apply to MCP since servers are inherently trustworthy",
+              "Permission scoping is only relevant for locally-defined tools, not MCP servers"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This is a direct application of the Agents course's least-privilege guardrail, specifically to the credentials and system access granted to an external MCP server connection.",
+            "id": "q1"
+          },
+          {
+            "question": "Why does scoping need to happen at the credential level, not just by trusting a server's advertised tool descriptions?",
+            "options": [
+              "Credential-level scoping is unnecessary if tool descriptions look reasonable",
+              "Since a server's actual behavior isn't fully verifiable, restricting its underlying credentials structurally limits damage even if the server is compromised or misbehaves",
+              "MCP servers cannot be granted specific credentials at all",
+              "Tool descriptions are always a reliable guarantee of actual server behavior"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Mirroring the Agents course's point that real guardrails are enforced outside the model's own judgment, restricting credentials provides a structural limit on damage regardless of whether the server's actual behavior matches its advertised description.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is periodically auditing a connected MCP server's granted access valuable?",
+            "options": [
+              "Audits are never useful once a server connection is established",
+              "It catches permission scope that accumulated or was left overly broad from an earlier, less careful setup, similar to auditing any other system's access grants",
+              "Auditing replaces the need for initial least-privilege scoping entirely",
+              "This only applies to servers using an HTTP-based transport"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Regular review helps catch overly broad access that may have been granted for expediency early on and never revisited, keeping actual granted permissions aligned with genuine current need.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, what specifically distinguishes the least-privilege filesystem_server configuration from the overly broad one?",
+            "options": [
+              "It uses a different programming language entirely",
+              "It scopes the root directory to only what's needed and uses read-only, single-schema database credentials instead of full filesystem access and admin credentials",
+              "It disables the filesystem server's tools entirely",
+              "It removes the need for any database credentials at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The example directly contrasts root=\"/\" and ADMIN_DB_CREDENTIALS against a narrowly scoped directory and READ_ONLY_REPORTS_CREDENTIALS, illustrating least-privilege scoping in practice.",
+            "id": "q4"
+          },
+          {
+            "question": "Why might a developer be tempted to grant a server admin-level credentials during development, and why is this risky to leave in place?",
+            "options": [
+              "Because admin credentials are technically required for any MCP server to function",
+              "Because it's the path of least immediate friction, but what starts as a development convenience often becomes the permanent, overly broad production configuration if never revisited",
+              "Because scoped credentials are always slower to configure than admin ones",
+              "Because MCP servers cannot function with narrowly scoped credentials"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson explicitly warns that broad grants justified as temporary convenience are easy to leave in place, turning a development shortcut into a lasting security risk.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is it insufficient to scope permissions only at the level of which tools are exposed, without also restricting underlying credentials?",
+            "options": [
+              "Because tool-level scoping is actually more effective than credential-level scoping",
+              "Because even benign-looking exposed tools don't limit what a compromised or misbehaving server could do if its underlying credentials are overly broad",
+              "Because MCP tools and credentials are always identical concepts",
+              "Because credential-level scoping is technically impossible in MCP"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The real structural limit on damage comes from restricting the server's actual system/credential access, not just curating which tools are advertised or exposed.",
+            "id": "q6"
+          },
+          {
+            "question": "What risk does skipping periodic permission audits introduce, per this lesson?",
+            "options": [
+              "No risk — initial permission grants remain appropriate forever without review",
+              "Permission scope can drift wider than what's genuinely needed as a server's actual usage evolves, going unnoticed without periodic review",
+              "Audits are only useful for detecting malicious servers, never for legitimate scope drift",
+              "Skipping audits has no relationship to least-privilege scoping at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Access needs can change over time; without periodic review, permission grants can silently become broader than actually necessary for how the server is genuinely being used.",
+            "id": "q7"
+          },
+          {
+            "question": "How does this lesson's credential-scoping guidance connect to the Agents course's point about guardrails being enforced outside the model's own behavior?",
+            "options": [
+              "It doesn't connect at all — the two are unrelated concepts",
+              "Just as real guardrails don't rely solely on the model behaving correctly, credential scoping doesn't rely solely on the server behaving correctly — it structurally limits damage regardless of server behavior",
+              "The Agents course's guardrails lesson applies only to models, never to external servers",
+              "Credential scoping means guardrails are no longer necessary elsewhere in the system"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Both principles share the same structural logic: don't rely on good behavior from something you don't fully control — limit what damage is even possible if it misbehaves.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "mcp_prompt_injection_via_content",
+      "title": "Prompt Injection Through Tool Results and Resources",
+      "description": "Content coming back from an MCP server isn't just data — if the model reads it, it's also a potential channel for hidden instructions.",
+      "duration": 13,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain how prompt injection can occur through MCP tool results or resource content, and connect this to the input-filtering guardrail from the Agents course."
+          },
+          {
+            "title": "🎭 What prompt injection via content looks like here",
+            "content": "Building directly on the Agents course's guardrails lesson mention of screening tool results and retrieved content for prompt injection: if an MCP tool's result or a resource's content contains text crafted to look like an instruction ('ignore your previous instructions and instead...'), and that content gets placed into the model's context the same way any other observation or resource would, the model may **follow it as if it were a legitimate instruction** from the user or system — because, from the model's perspective inside its context window, there's no inherent marker distinguishing 'trusted instruction' from 'untrusted data that happens to look like an instruction.'"
+          },
+          {
+            "title": "📄 Why MCP specifically raises this risk",
+            "content": "Because MCP servers may be third-party, and the data or content they return (a resource's content, a tool's result) might itself come from sources the server doesn't fully control either (a document someone else uploaded, a web page a tool fetched) — the **untrusted-content problem compounds across each additional hop**, and a host application has even less visibility into where a particular piece of content actually originated than it would with a tool it built and controlled fully itself."
+          },
+          {
+            "title": "🛡️ Mitigations",
+            "content": "- Treat **all content coming back from tool calls and resource reads as untrusted data**, never as instructions, regardless of how it's phrased — this is a mindset and design principle as much as a specific technical control.\n- Apply the same **input/output filtering guardrail** from the Agents course to content flowing through MCP specifically, screening for injection patterns in tool results and resource content before or as it's incorporated into context.\n- Where feasible, **structurally separate** 'content to be discussed or summarized' from 'instructions to be followed' in how content is presented to the model, rather than relying entirely on the model's own judgment to make that distinction reliably every time."
+          },
+          {
+            "title": "🎯 This isn't a solved problem",
+            "content": "Prompt injection through untrusted content (whether via MCP or any other channel that brings external content into a model's context) remains a genuinely hard, actively-studied problem without a complete technical solution — the guardrails and mitigations here **reduce risk, they don't eliminate it entirely**, which is exactly why the permission-scoping and least-privilege lessons in this module matter as a second line of defense: even if an injection succeeds in influencing the model's behavior, tightly-scoped permissions limit what damage that influenced behavior can actually cause."
+          },
+          {
+            "title": "💻 Screening content before it reaches context",
+            "content": "```python\ndef call_mcp_tool_safely(client, name, args):\n    result = client.call_tool(name, args)\n\n    # Treat the result as untrusted data -- screen it, don't just forward it\n    if looks_like_injection(result):\n        log.warning(f\"possible injection in result from {name}\")\n        result = sanitize_or_flag(result)\n\n    # Structurally mark it as content-to-summarize, not an instruction to follow\n    return f\"<untrusted_tool_result>{result}</untrusted_tool_result>\"\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Forwarding tool results and resource content directly into context with no screening.** Since the model can't inherently distinguish trusted instructions from data that merely looks like one, unscreened content is a direct injection vector.\n\n**Believing filtering alone fully solves the problem.** Injection through untrusted content remains an active, unsolved research area — filtering reduces risk, it doesn't eliminate it, which is why permission scoping matters as a backstop.\n\n**Skipping permission scoping because 'we filter for injection already.'** Filtering and least-privilege scoping are complementary, not substitutes — even a successful injection should be limited in what damage it can cause."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "mcp_prompt_injection_via_content_quiz",
+        "questions": [
+          {
+            "question": "How can prompt injection occur through an MCP tool's result or a resource's content?",
+            "options": [
+              "It's impossible for tool results or resources to contain any text at all",
+              "If the content contains text crafted to look like an instruction, and it's placed in the model's context like any observation, the model may follow it as if it were legitimate",
+              "Prompt injection can only happen through the initial user message, never through tool or resource content",
+              "MCP automatically strips all instructions from tool results and resources"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since the model has no inherent way to distinguish trusted instructions from untrusted data that merely looks like an instruction, malicious content returned via MCP can potentially manipulate the model's behavior.",
+            "id": "q1"
+          },
+          {
+            "question": "Why does MCP specifically compound the untrusted-content risk compared to a tool an application builds and controls fully itself?",
+            "options": [
+              "MCP eliminates all untrusted content risk entirely",
+              "MCP servers may be third-party, and the content they return might itself originate from sources the server doesn't fully control, adding an extra hop of reduced visibility",
+              "MCP tools cannot return any content at all",
+              "This risk is identical regardless of whether MCP is involved"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Each additional hop (a third-party server returning content that itself came from an uncontrolled source) reduces the host application's visibility into where content actually originated, compounding the injection risk.",
+            "id": "q2"
+          },
+          {
+            "question": "Why do permission-scoping and least-privilege mitigations matter as a 'second line of defense' against prompt injection?",
+            "options": [
+              "They have no relevance to prompt injection at all",
+              "Even if an injection succeeds in influencing model behavior, tightly-scoped permissions limit what damage that influenced behavior can actually cause",
+              "Permission scoping completely prevents prompt injection from ever occurring",
+              "Prompt injection is a fully solved problem once permissions are scoped correctly"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since prompt injection isn't a fully solvable problem through content filtering alone, structurally limiting what a compromised or manipulated agent can actually do provides a backstop even when an injection attempt succeeds.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, what does wrapping the result in <untrusted_tool_result> tags attempt to achieve?",
+            "options": [
+              "It attempts to delete the tool result before the model can see it",
+              "It structurally separates content-to-be-discussed from instructions-to-be-followed, rather than relying entirely on the model's own judgment to make that distinction",
+              "It converts the tool result into a new MCP resource",
+              "It permanently blocks the tool from being called again"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This illustrates the lesson's mitigation of structurally marking untrusted content, giving the model an explicit signal rather than leaving the trusted/untrusted distinction entirely up to its own judgment.",
+            "id": "q4"
+          },
+          {
+            "question": "What does the looks_like_injection() check in the code example represent?",
+            "options": [
+              "A guarantee that all injection attempts will be caught with certainty",
+              "Applying the input/output filtering guardrail from the Agents course specifically to content flowing through MCP tool calls",
+              "A check that only applies to resources, never to tool results",
+              "A replacement for permission scoping that makes it unnecessary"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This screening step is the direct MCP-specific application of the Agents course's general input/output filtering guardrail for untrusted content.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is believing that content filtering alone fully solves the prompt injection problem a mistake?",
+            "options": [
+              "Because filtering is completely useless and should never be attempted",
+              "Because prompt injection through untrusted content remains an actively-studied, unsolved problem — filtering reduces risk but doesn't eliminate it entirely",
+              "Because filtering only works for resources, never for tool results",
+              "Because filtering makes permission scoping entirely redundant"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson explicitly frames this as an open problem — mitigations reduce risk without providing a complete guarantee, which is exactly why layered defenses like permission scoping still matter.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does skipping permission scoping on the grounds that 'we already filter for injection' undermine defense in depth?",
+            "options": [
+              "Because filtering and permission scoping are literally the same technique",
+              "Because filtering and least-privilege scoping are complementary defenses — even a successful injection should still be limited by tightly-scoped permissions in what damage it can cause",
+              "Because permission scoping has no relevance whatsoever to prompt injection",
+              "Because filtering guarantees zero injection attempts will ever succeed"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Relying on filtering alone abandons the layered-defense principle — scoped permissions provide a backstop specifically for the cases where filtering fails to catch an injection attempt.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does the model have no inherent way to distinguish a trusted instruction from untrusted data that merely looks like an instruction?",
+            "options": [
+              "Because the model always has access to metadata marking each token's trust level",
+              "Because from the model's perspective inside its context window, text is just text — there's no built-in marker separating legitimate instructions from content crafted to resemble one",
+              "Because MCP automatically labels every message as trusted or untrusted",
+              "Because this distinction is only relevant for resources, not tool results"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This is the core mechanism behind the injection risk: without an explicit structural or filtering signal, the model has no default way to tell a real instruction apart from data that imitates one.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "mcp_auditing_and_sandboxing",
+      "title": "Auditing and Sandboxing MCP Servers",
+      "description": "Beyond permission scoping, isolating a server's execution environment and watching what it actually does adds further layers of defense.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Describe sandboxing and auditing as complementary mitigations to permission scoping for MCP server security."
+          },
+          {
+            "title": "📦 Sandboxing server execution",
+            "content": "Running an MCP server (particularly one from a third party, or one whose code hasn't been fully audited) in an **isolated environment** — a container, a restricted execution context — limits what it can access on the host system even beyond the specific credentials it was explicitly granted, catching cases where a server might attempt to access something outside its intended scope through means other than its advertised MCP tools (a vulnerability in the server's own implementation, for instance, not just malicious intent)."
+          },
+          {
+            "title": "📊 Logging and auditing server activity",
+            "content": "Recording **what tools were called, with what arguments, and what was returned** — for every connected MCP server, not just ones considered higher-risk — extends the same tracing and observability practices from the Agents course's production lesson and the LangGraph course's observability lesson specifically to the MCP boundary, so unusual or unexpected server behavior (a tool being called far more often than expected, arguments that don't match typical usage patterns) can be noticed and investigated rather than going unseen."
+          },
+          {
+            "title": "🚨 What to watch for in audit logs specifically",
+            "content": "- Tool calls to sensitive operations happening more frequently or in different patterns than the application's own usage would suggest.\n- Arguments to tool calls that look unusual or potentially indicative of an attempt to access something outside the intended scope.\n- Resource reads for content that doesn't match what the application's own logic would normally request.\n\nAny of these patterns are worth a closer look rather than being dismissed as noise."
+          },
+          {
+            "title": "🎯 Sandboxing and auditing as complements, not replacements",
+            "content": "Sandboxing and auditing **don't replace** the permission-scoping and least-privilege work from earlier in this module — they add **defense in depth** on top of it. A well-scoped server that's also sandboxed and audited has multiple independent layers limiting and detecting bad behavior, rather than relying on any single mitigation being perfect, echoing the same defense-in-depth thinking behind combining multiple guardrail types in the Agents course."
+          },
+          {
+            "title": "💻 A sandboxed, audited server connection",
+            "content": "```python\nserver_process = run_in_container(\n    image=\"mcp-github-server:latest\",\n    network=\"restricted\",         # sandboxing: limits reach beyond granted credentials\n    read_only_root_fs=True,\n)\n\ndef call_tool_with_audit(client, name, args):\n    log.info(f\"tool_call server=github name={name} args={args}\")\n    result = client.call_tool(name, args)\n    log.info(f\"tool_result server=github name={name} result_summary={summarize(result)}\")\n    if is_unusual_pattern(name, args):\n        alert(\"unusual MCP tool call pattern detected\")\n    return result\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Treating sandboxing as a substitute for credential scoping.** Sandboxing limits access beyond granted credentials; it doesn't replace the need to scope those credentials tightly in the first place.\n\n**Only logging failures, not successful calls.** Unusual patterns (excessive frequency, atypical arguments) often show up in otherwise 'successful' calls — logging only errors misses this signal entirely.\n\n**Auditing only the servers assumed to be higher-risk.** Every connected server benefits from the same visibility, since risk assumptions can be wrong and low-risk-seeming servers can still be compromised."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "mcp_auditing_and_sandboxing_quiz",
+        "questions": [
+          {
+            "question": "What does sandboxing an MCP server's execution provide beyond credential-level permission scoping?",
+            "options": [
+              "Nothing additional — sandboxing and permission scoping are identical",
+              "It limits what the server can access on the host system even through means other than its advertised tools, such as a vulnerability in the server's own implementation",
+              "Sandboxing eliminates the need for any credential scoping at all",
+              "Sandboxing only applies to servers using stdio transport"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Sandboxing catches access attempts that might occur outside the specific credentials explicitly granted, such as through an implementation vulnerability, providing a layer beyond permission scoping alone.",
+            "id": "q1"
+          },
+          {
+            "question": "What does logging and auditing MCP server activity extend from earlier courses?",
+            "options": [
+              "A completely new concept unrelated to anything covered previously",
+              "The tracing and observability practices from the Agents course's production lesson and the LangGraph course's observability lesson, applied specifically to the MCP boundary",
+              "Only the JSON-RPC protocol's message formatting",
+              "The reducer patterns from the LangGraph course's state management module"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This lesson explicitly connects MCP-specific auditing to the same tracing/observability principles already established for agent production monitoring and LangGraph observability.",
+            "id": "q2"
+          },
+          {
+            "question": "How do sandboxing and auditing relate to the permission-scoping mitigations from earlier in this module?",
+            "options": [
+              "They replace the need for permission scoping entirely",
+              "They add defense in depth on top of permission scoping, rather than being a substitute for it",
+              "Sandboxing and auditing are mutually exclusive with permission scoping",
+              "Permission scoping alone is always sufficient, making these additional measures unnecessary"
+            ],
+            "correctAnswer": 1,
+            "explanation": "These mitigations work together as layered, complementary defenses rather than any single one being relied upon as a complete solution — the same defense-in-depth principle from the Agents course's guardrails lesson.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, what does network=\"restricted\" and read_only_root_fs=True accomplish?",
+            "options": [
+              "They grant the server additional credentials beyond what was originally scoped",
+              "They sandbox the server's execution environment, limiting what it can reach or modify on the host system beyond its explicitly granted credentials",
+              "They disable all logging for this particular server",
+              "They replace the need for the call_tool_with_audit function entirely"
+            ],
+            "correctAnswer": 1,
+            "explanation": "These container-level restrictions are exactly the kind of execution-environment isolation the lesson describes as sandboxing, distinct from and complementary to credential scoping.",
+            "id": "q4"
+          },
+          {
+            "question": "What does call_tool_with_audit() log, and why log both before and after the call?",
+            "options": [
+              "It only logs failures, skipping successful calls entirely",
+              "It logs the tool call's name and arguments before the call, and a summary of the result after, so unusual patterns can be noticed in both requests and outcomes",
+              "It logs only the server's network configuration, not the actual tool calls",
+              "It logs nothing related to the actual tool call itself"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Logging both the outgoing call and its result gives visibility into the full round trip, supporting the pattern-detection the lesson recommends watching for.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is is_unusual_pattern() checked even on what would otherwise look like a successful tool call?",
+            "options": [
+              "Because successful calls can never be part of a security concern",
+              "Because unusual patterns (excessive frequency, atypical arguments) can appear in technically successful calls, so only logging failures would miss this signal",
+              "Because unusual patterns only ever occur in failed calls",
+              "Because this check replaces the need for any other logging"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson specifically warns that watching only for failures misses the kind of behavioral anomalies (frequency, argument patterns) that can appear in calls that otherwise complete successfully.",
+            "id": "q6"
+          },
+          {
+            "question": "Why is auditing only servers assumed to be 'higher-risk' considered a mistake?",
+            "options": [
+              "Because auditing is never useful for any server, regardless of assumed risk",
+              "Because risk assumptions can be wrong, and a server assumed to be low-risk can still be compromised or misbehave, so equal visibility across all connected servers is valuable",
+              "Because MCP technically prevents logging for anything but high-risk servers",
+              "Because low-risk servers cannot be sandboxed under any circumstances"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson recommends logging tool calls, arguments, and results for every connected server, not just ones considered higher-risk, precisely because risk assessments can be mistaken.",
+            "id": "q7"
+          },
+          {
+            "question": "How does the defense-in-depth thinking in this lesson connect to the Agents course's approach to guardrails?",
+            "options": [
+              "It doesn't connect — defense in depth is a concept unique to MCP security",
+              "Both rely on combining multiple independent layers of protection rather than trusting any single mitigation to be perfect on its own",
+              "The Agents course's guardrails lesson recommends relying on exactly one guardrail at a time",
+              "Defense in depth means only sandboxing is necessary, making other guardrails redundant"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson explicitly echoes the Agents course's combination of multiple guardrail types as the same underlying defense-in-depth philosophy, just applied to the MCP security context.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

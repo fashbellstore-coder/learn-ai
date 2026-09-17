@@ -1,0 +1,575 @@
+{
+  "id": "ops_reproducible_training",
+  "title": "Training as a Reproducible Job",
+  "description": "Experiment tracking, training pipelines and orchestration, systematic hyperparameter management, and packaging training jobs into portable, reproducible units.",
+  "icon": "🏋️",
+  "color": "#546E7A",
+  "order": 2,
+  "estimatedHours": 5,
+  "difficulty": "intermediate",
+  "prerequisites": [
+    "ops_data_versioning"
+  ],
+  "lessons": [
+    {
+      "id": "ops_experiment_tracking",
+      "title": "Experiment Tracking",
+      "description": "Without a record of what was tried, teams re-run experiments they've already done, or lose track of which configuration actually produced the best result.",
+      "duration": 13,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Describe what an experiment tracking system records and why this record-keeping matters beyond just personal memory."
+          },
+          {
+            "title": "📝 What gets tracked",
+            "content": "For each training run:\n\n- The **code version**, **data version**, and **configuration** (hyperparameters) used — exactly the provenance chain from the reproducibility lesson earlier in this course\n- The resulting **metrics** (accuracy, loss, whatever evaluation criteria matter for the task)\n- Often **artifacts** like the trained model file itself or diagnostic plots\n\nAll tied together under one recorded experiment entry that can be looked up, compared, and referenced later."
+          },
+          {
+            "title": "📊 Why comparison across runs matters",
+            "content": "A single run's metrics mean little in isolation — what matters is **how this run compares to previous ones**: did this new feature actually improve accuracy, did this hyperparameter change help or hurt, is this the best result so far across everything tried. An experiment tracking system that makes many runs easily comparable side by side turns \"which configuration actually worked best\" from a question requiring someone's memory or manually-maintained spreadsheet into a **query the system can answer directly**."
+          },
+          {
+            "title": "👥 Why this matters for teams, not just individuals",
+            "content": "Without shared experiment tracking, knowledge about what's been tried and what worked lives in individual team members' heads or scattered personal notes — new team members can't easily learn from past experiments, and even existing team members can lose track of results from months ago. A **shared, queryable record** makes this institutional knowledge durable and accessible rather than dependent on any one person's memory or availability."
+          },
+          {
+            "title": "🔗 Connecting experiment tracking to the model registry",
+            "content": "The relationship between experiment tracking (covered here) and a **model registry** (covered in the next module) is direct: experiment tracking is where you explore and compare many candidate training runs, and the model registry is where you formally register the specific run that's actually chosen for deployment — experiment tracking casts a wide net across many attempts, while the registry marks the one (or few) that graduate to being an actual deployment candidate."
+          },
+          {
+            "title": "💻 A minimal experiment log entry",
+            "content": "```python\ndef log_experiment(tracker, code_version, data_version, config, metrics, artifact_path):\n    return tracker.log_run({\n        \"code_version\": code_version,\n        \"data_version\": data_version,\n        \"config\": config,\n        \"metrics\": metrics,\n        \"artifact_path\": artifact_path,\n    })\n\n# Comparing runs becomes a query, not a memory exercise:\nbest_run = tracker.query(\n    experiment=\"fraud_model\",\n    sort_by=\"metrics.precision\",\n    descending=True,\n)[0]\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Keeping experiment results in personal notes or spreadsheets instead of a shared system.** This makes institutional knowledge dependent on one person's memory and availability, and new teammates have nothing to learn from.\n\n**Logging metrics without the code, data, and config that produced them.** A metric with no attached provenance can't actually be compared meaningfully against other runs, since there's no way to know what specifically produced it.\n\n**Confusing 'tracked' with 'registered.'** Not every tracked experiment deserves to become a deployment candidate — treating every run as registry-worthy defeats the purpose of the registry's deliberate promotion step."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ops_experiment_tracking_quiz",
+        "questions": [
+          {
+            "question": "What does an experiment tracking system typically record for each training run?",
+            "options": [
+              "Only the final model's file size",
+              "The code version, data version, configuration, resulting metrics, and often artifacts like the model file, all tied together in one entry",
+              "The personal opinions of the data scientist who ran it",
+              "Nothing beyond the date the run was started"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Experiment tracking captures the full provenance and results of a run — extending the reproducibility chain into a comparable, queryable record.",
+            "id": "q1"
+          },
+          {
+            "question": "Why does comparing metrics across many runs matter more than looking at a single run's metrics in isolation?",
+            "options": [
+              "A single run's metrics are always sufficient on their own",
+              "What matters is whether a change (a new feature, a hyperparameter adjustment) actually improved results relative to previous runs, which requires comparison",
+              "Comparing runs is only useful for teams larger than ten people",
+              "Experiment tracking systems cannot actually compare different runs"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Determining whether a specific change helped or hurt requires comparing it against prior results — a capability that a shared tracking system provides directly rather than relying on manual record-keeping.",
+            "id": "q2"
+          },
+          {
+            "question": "How does experiment tracking relate to a model registry?",
+            "options": [
+              "They are identical systems serving the same purpose",
+              "Experiment tracking casts a wide net across many candidate runs during exploration, while the model registry formally registers the specific run(s) chosen for deployment",
+              "A model registry replaces the need for experiment tracking entirely",
+              "Experiment tracking only happens after a model is already deployed"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Experiment tracking supports broad exploration and comparison, while the registry (covered next module) marks the specific, chosen result as an actual deployment candidate — the two serve complementary roles in the lifecycle.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, what does `tracker.query(sort_by=\"metrics.precision\", descending=True)[0]` return?",
+            "options": [
+              "The very first experiment ever logged, regardless of its metrics",
+              "The run with the highest recorded precision among all logged experiments matching the query",
+              "A randomly selected run from the tracking system",
+              "An error, since experiment tracking systems can't be queried this way"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Sorting by the precision metric in descending order and taking the first result returns the best-performing run by that metric — exactly the kind of comparison query experiment tracking is meant to make trivial.",
+            "id": "q4"
+          },
+          {
+            "question": "Why does `log_experiment` include `code_version` and `data_version` alongside `metrics`, rather than logging metrics alone?",
+            "options": [
+              "Because tracker.log_run requires exactly five arguments regardless of their usefulness",
+              "Because a metric without its provenance can't be meaningfully compared to other runs, since there's no way to know what specifically produced it",
+              "Because code_version and data_version are actually optional and rarely used",
+              "Because metrics alone are always sufficient for reproducibility"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This mirrors the 'common mistakes' point: logging results without their provenance breaks the ability to meaningfully attribute a result to a specific cause when comparing across runs.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is keeping experiment results in personal notes or spreadsheets identified as a mistake?",
+            "options": [
+              "Because spreadsheets can never store numerical data",
+              "Because it makes institutional knowledge dependent on one person's memory and availability, and new teammates have nothing shared to learn from",
+              "Because personal notes are technically more accurate than a shared system",
+              "Because this practice has no actual downside for teams"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson explicitly contrasts scattered personal knowledge against a shared, queryable record — the former isn't durable or accessible to the whole team, undermining the point of tracking experiments at all.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does the lesson warn against treating every tracked experiment as automatically registry-worthy?",
+            "options": [
+              "Because tracked experiments and registered models are technically identical concepts",
+              "Because not every tracked experiment deserves the deliberate promotion to being a genuine deployment candidate — conflating the two defeats the purpose of that distinct promotion step",
+              "Because experiment tracking systems cannot store more than one run",
+              "Because registries never actually contain more than one model"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson frames the registry's value as coming precisely from being a deliberate, selective promotion — treating every tracked run as registry-worthy erases that distinction and the value it provides.",
+            "id": "q7"
+          },
+          {
+            "question": "According to this lesson, what happens to institutional knowledge about past experiments when there's no shared tracking system?",
+            "options": [
+              "It becomes perfectly preserved regardless of tracking practices",
+              "It lives in individual team members' heads or scattered notes, making it inaccessible to new team members and losable even for existing ones over time",
+              "It automatically transfers to a model registry instead",
+              "It has no effect on team productivity either way"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Without shared tracking, knowledge about what worked and what didn't remains fragmented and dependent on individual memory, which is exactly the gap a shared experiment tracking system closes.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ops_training_pipelines_and_orchestration",
+      "title": "Training Pipelines and Orchestration",
+      "description": "Turning 'run this script on my laptop' into 'run this reliable, repeatable, multi-step job' is most of what separates a prototype from a production ML system.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Describe what a training pipeline orchestrator provides over manually running training scripts, and why this matters for reliability."
+          },
+          {
+            "title": "🔗 From a single script to a multi-step pipeline",
+            "content": "A real training process is rarely just one script — it's typically several dependent steps: **fetch and validate data** (per the data-validation lesson), **compute features** (per the feature-store lesson), **train the model**, **evaluate it**, and **register it** (per the next module) if it passes evaluation criteria. An orchestrator manages this as a defined pipeline with explicit dependencies between steps, rather than a person manually running each step in sequence and hoping they didn't skip one or run them out of order."
+          },
+          {
+            "title": "🔁 Reliability features an orchestrator provides",
+            "content": "- **Automatic retries** for transient failures (a network hiccup fetching data, similar to the transient-versus-permanent failure distinction from the Agents course's tool-failure-handling lesson, just applied to pipeline steps instead of agent tool calls)\n- **Scheduling**, so pipelines can run on a defined cadence (nightly retraining, for instance) without manual intervention\n- **Dependency management**, ensuring a step only runs once its prerequisite steps have actually completed successfully, rather than assuming they did"
+          },
+          {
+            "title": "📊 Observability into pipeline runs",
+            "content": "Just as the Agents and LangGraph courses emphasized tracing and observability for agent and graph execution, a training pipeline orchestrator typically provides visibility into **which step is currently running**, **which steps succeeded or failed**, and **how long each step took** — turning \"why did last night's retraining job not produce a new model\" from a mystery into something traceable to a specific failed step."
+          },
+          {
+            "title": "🎯 Why manual training doesn't scale as a practice",
+            "content": "A single person manually running a training script occasionally can work fine at very small scale. As retraining needs to happen regularly (per new data, per the drift-triggered retraining covered in module 4), and as the pipeline grows more steps, manual execution becomes both **unreliable** (steps get skipped or run out of order) and a **bottleneck** (someone has to be available and remember to actually run it) — exactly the kind of repeated, error-prone manual process that automation and orchestration exist to remove."
+          },
+          {
+            "title": "💻 A pipeline as explicit steps with dependencies",
+            "content": "```python\npipeline = Pipeline(name=\"nightly_retrain\", schedule=\"0 2 * * *\")\n\n@pipeline.step(retries=3)\ndef fetch_and_validate_data():\n    df = fetch_latest_data()\n    return validate_dataset(df)  # from the data-validation lesson\n\n@pipeline.step(depends_on=fetch_and_validate_data)\ndef compute_features(df):\n    return feature_store.compute_all(df)\n\n@pipeline.step(depends_on=compute_features)\ndef train_and_evaluate(features):\n    model = train(features)\n    metrics = evaluate(model)\n    if metrics[\"precision\"] < MINIMUM_THRESHOLD:\n        raise PipelineHalt(\"model failed evaluation gate, not registering\")\n    return model, metrics\n\n# The orchestrator, not a person, decides what runs next, retries\n# transient failures, and records exactly what happened at each step.\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Relying on someone to remember to kick off training manually.** As frequency and step count grow, manual execution becomes both unreliable and a bottleneck — exactly the risk orchestration is meant to remove.\n\n**Treating a transient failure the same as a permanent one.** A step that fails due to a passing network hiccup should retry automatically, not halt the entire pipeline the way a genuinely broken step should.\n\n**Running steps without explicit dependencies.** Without dependency management, a later step can run before its prerequisite has actually finished successfully, silently working on stale or incomplete inputs."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ops_training_pipelines_and_orchestration_quiz",
+        "questions": [
+          {
+            "question": "What does a training pipeline orchestrator manage that a single manually-run script doesn't?",
+            "options": [
+              "Nothing — orchestrators provide no benefit over manual scripts",
+              "Multiple dependent steps (data fetch, validation, feature computation, training, evaluation, registration) as a defined pipeline with explicit dependencies, retries, and scheduling",
+              "Only the final model's accuracy metric",
+              "The visual design of a dashboard"
+            ],
+            "correctAnswer": 1,
+            "explanation": "An orchestrator manages the full multi-step process reliably, handling dependencies, retries, and scheduling that manual execution would leave to error-prone human coordination.",
+            "id": "q1"
+          },
+          {
+            "question": "How does an orchestrator's retry behavior relate to a concept from the Agents course?",
+            "options": [
+              "It has no relationship to any prior course concept",
+              "It mirrors the transient-versus-permanent failure distinction from the Agents course's tool-failure-handling lesson, applied to pipeline steps instead of agent tool calls",
+              "It replaces the need for any tool-calling mechanics",
+              "Retries in orchestration and in agents are completely unrelated ideas"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Just as an agent should retry transient tool failures but not permanent ones, a pipeline orchestrator applies the same reasoning to retrying failed pipeline steps appropriately.",
+            "id": "q2"
+          },
+          {
+            "question": "Why does manual training execution become unreliable and a bottleneck as an ML system matures?",
+            "options": [
+              "Manual execution always remains the best approach regardless of scale",
+              "As retraining needs to happen more regularly and pipelines grow more steps, manual execution risks skipped or out-of-order steps and depends on someone remembering to run it",
+              "Manual execution is actually more reliable than any automated system",
+              "This problem only affects systems with a single training step"
+            ],
+            "correctAnswer": 1,
+            "explanation": "As frequency and pipeline complexity grow, manual execution's error-proneness and dependency on human availability make it an increasingly poor fit, which is exactly the gap orchestration and automation fill.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, what does `@pipeline.step(retries=3)` on `fetch_and_validate_data` provide?",
+            "options": [
+              "It guarantees the step will always fail exactly three times before succeeding",
+              "It causes the orchestrator to automatically retry the step up to three times if it fails, handling transient issues like a network hiccup",
+              "It skips data validation entirely on the third attempt",
+              "It has no functional effect and is purely decorative"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The retries parameter is the orchestrator's mechanism for automatically retrying a step that fails transiently, rather than requiring a person to notice the failure and manually re-run it.",
+            "id": "q4"
+          },
+          {
+            "question": "Why does `train_and_evaluate` raise `PipelineHalt` instead of returning the model when `metrics[\"precision\"]` is below `MINIMUM_THRESHOLD`?",
+            "options": [
+              "Because raising an exception is required syntax with no functional meaning",
+              "Because a model that fails its evaluation gate shouldn't proceed to registration, and halting makes that failure explicit rather than silently continuing",
+              "Because MINIMUM_THRESHOLD is always set to zero",
+              "Because train_and_evaluate never actually needs to check evaluation metrics"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This reflects the pipeline's evaluation gate: a model that doesn't clear the threshold should stop the pipeline rather than silently proceeding toward registration, connecting to the CI/CD gate concept covered in the next module.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does `compute_features` declare `depends_on=fetch_and_validate_data` explicitly?",
+            "options": [
+              "Because Python requires every function to declare a dependency",
+              "Because dependency management ensures compute_features only runs once fetch_and_validate_data has actually completed successfully, rather than assuming it did",
+              "Because this has no actual effect on execution order",
+              "Because compute_features doesn't actually need the data fetched by the prior step"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Explicit dependency declarations are what let the orchestrator guarantee correct ordering — a step runs only after its prerequisite genuinely finished, closing the 'assumed it did' gap manual execution risks.",
+            "id": "q6"
+          },
+          {
+            "question": "Why is treating a transient failure the same as a permanent one identified as a mistake?",
+            "options": [
+              "Because transient and permanent failures always require the exact same response",
+              "Because a step failing due to a passing network hiccup should retry automatically, not halt the entire pipeline the way a genuinely broken step should",
+              "Because transient failures never actually occur in real pipelines",
+              "Because permanent failures should always be retried indefinitely"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Conflating the two wastes the value of automatic retries — a transient issue deserves a retry, while treating it as fatal needlessly halts a pipeline that would have succeeded on a second attempt.",
+            "id": "q7"
+          },
+          {
+            "question": "What risk does running pipeline steps without explicit dependency declarations create?",
+            "options": [
+              "No risk — steps always execute in the correct order regardless of dependencies",
+              "A later step can run before its prerequisite has actually finished successfully, silently working on stale or incomplete inputs",
+              "The pipeline becomes faster but otherwise unaffected",
+              "This only matters for pipelines with a single step"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Without explicit dependencies, the orchestrator has no way to guarantee correct execution order, risking a step running on data or features that aren't actually ready yet.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ops_hyperparameter_management",
+      "title": "Managing Hyperparameters Systematically",
+      "description": "Hyperparameter search is only useful if you can actually track, compare, and reproduce what was searched.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Describe systematic approaches to hyperparameter search and explain how they connect to the experiment tracking practices from earlier in this module."
+          },
+          {
+            "title": "🔍 Why ad hoc hyperparameter tuning breaks down",
+            "content": "Manually trying different hyperparameter values one at a time, based on intuition, can work for quick exploration, but doesn't scale to searching a large space systematically, and — without the experiment tracking from earlier in this module — makes it easy to lose track of what's actually been tried, or accidentally re-run a configuration that was already tested with no new information gained."
+          },
+          {
+            "title": "🔢 Systematic search approaches",
+            "content": "- **Grid search** (trying every combination of a defined set of values for each hyperparameter) is exhaustive but can be prohibitively expensive as the number of hyperparameters and their possible values grows\n- **Random search** (sampling random combinations rather than every one) is often more efficient in practice, since it tends to explore the space more effectively per unit of compute spent than exhaustively covering a grid\n- **More sophisticated approaches** use the results of earlier trials to intelligently choose which configuration to try next, rather than searching blindly, converging on good configurations with fewer total trials than either grid or random search typically needs"
+          },
+          {
+            "title": "📋 Every search run is still an experiment",
+            "content": "Regardless of which search strategy is used, every individual configuration tried during a hyperparameter search is itself a training run that belongs in the **experiment tracking system** from the previous lesson — a systematic search strategy determines what to try next, but the record-keeping and comparison discipline from experiment tracking is what makes the search's results actually useful and auditable afterward, rather than a black box that produced one final answer with no visibility into what else was tried."
+          },
+          {
+            "title": "🎯 Avoiding a subtle mistake: tuning on the wrong data",
+            "content": "Hyperparameter search needs its **own held-out validation data**, separate from the final test set used to report a model's ultimate performance — searching over many configurations and picking the one that does best specifically risks overfitting to whatever data was used to evaluate the search, similar in spirit to the fine-tuning evaluation lesson's point about needing a genuinely held-out set. Reporting a model's final performance on the same data used to select its hyperparameters would give an overly optimistic, unreliable picture of how well it will actually generalize."
+          },
+          {
+            "title": "💻 Grid, random, and tracked-either-way",
+            "content": "```python\nimport random\n\ndef grid_search(param_grid, train_and_eval, tracker):\n    for combo in itertools.product(*param_grid.values()):\n        config = dict(zip(param_grid.keys(), combo))\n        metrics = train_and_eval(config, data_split=\"validation\")\n        tracker.log_run(config=config, metrics=metrics)  # every trial tracked\n\ndef random_search(param_distributions, n_trials, train_and_eval, tracker):\n    for _ in range(n_trials):\n        config = {k: random.choice(v) for k, v in param_distributions.items()}\n        metrics = train_and_eval(config, data_split=\"validation\")  # NOT the test set\n        tracker.log_run(config=config, metrics=metrics)\n\n# Whichever strategy picks the next config, every trial still goes\n# through the same experiment-tracking discipline from the previous lesson.\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Tuning hyperparameters without tracking each trial.** A search that isn't logged through the same experiment tracking discipline turns into a black box with a final answer and no visibility into what else was tried.\n\n**Evaluating hyperparameter search on the final test set.** As the code example's `data_split=\"validation\"` comment underscores, using the test set during search risks an overly optimistic, unreliable estimate of real-world generalization.\n\n**Defaulting to exhaustive grid search regardless of the search space size.** As the number of hyperparameters grows, grid search's cost grows combinatorially — random or more sophisticated search often reaches a comparable result far more efficiently."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ops_hyperparameter_management_quiz",
+        "questions": [
+          {
+            "question": "What is a key limitation of manual, intuition-based hyperparameter tuning without systematic tracking?",
+            "options": [
+              "It always produces the best possible result",
+              "It doesn't scale to a large search space and, without experiment tracking, makes it easy to lose track of what's been tried or accidentally repeat a configuration",
+              "Manual tuning requires no compute resources at all",
+              "This approach is actually recommended over any systematic method"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Ad hoc tuning breaks down at scale and, without tracking, risks wasted effort re-testing configurations or losing the results of what's already been tried.",
+            "id": "q1"
+          },
+          {
+            "question": "Why is random search often more efficient in practice than exhaustive grid search?",
+            "options": [
+              "Random search always tries every possible combination, just in a different order",
+              "Random search tends to explore the hyperparameter space more effectively per unit of compute than exhaustively covering every grid combination",
+              "Grid search is always faster than random search regardless of the search space size",
+              "Random search cannot be tracked using experiment tracking systems"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Sampling combinations rather than exhaustively covering a grid tends to make better use of a limited compute budget, especially as the number of hyperparameters grows.",
+            "id": "q2"
+          },
+          {
+            "question": "Why does hyperparameter search need its own held-out validation data, separate from the final test set?",
+            "options": [
+              "Held-out data is unnecessary for hyperparameter search specifically",
+              "Selecting the best-performing configuration from a search risks overfitting to whatever data evaluated the search, so a separate final test set is needed for an unbiased performance estimate",
+              "The final test set should always be used during the search itself for efficiency",
+              "Hyperparameter search never involves any risk of overfitting"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Using the same data to both select hyperparameters and report final performance would give an overly optimistic result, echoing the same held-out-set discipline emphasized in the Fine-Tuning course's evaluation lesson.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, why does `random_search` call `train_and_eval(config, data_split=\"validation\")` instead of `data_split=\"test\"`?",
+            "options": [
+              "Because the test set doesn't actually exist for most datasets",
+              "Because evaluating hyperparameter search on the test set risks an overly optimistic, unreliable estimate of the final model's real-world generalization",
+              "Because the validation set always contains more data than the test set",
+              "Because random.choice() only works with validation data"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This directly implements the lesson's warning: search needs its own held-out validation split, keeping the test set untouched until final reporting to avoid an inflated performance estimate.",
+            "id": "q4"
+          },
+          {
+            "question": "Why does `grid_search` call `tracker.log_run` inside the loop for every combination, rather than only logging the single best result at the end?",
+            "options": [
+              "Because logging every trial is required by Python syntax",
+              "Because every individual configuration tried is itself a training run that belongs in the experiment tracking system, making the search auditable rather than a black box",
+              "Because only the final combination in the loop actually matters",
+              "Because tracker.log_run has no effect when called more than once"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Logging every trial (not just the winner) is what turns the search into a comparable, auditable record rather than a black box that produced one final answer with no visibility into what else was tried.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is tuning hyperparameters without tracking each trial identified as a mistake?",
+            "options": [
+              "Because tracking trials always slows down the search significantly",
+              "Because an untracked search turns into a black box with a final answer and no visibility into what else was tried, undermining auditability",
+              "Because grid search and random search cannot be tracked at all",
+              "Because untracked searches always find the objectively best configuration anyway"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Without tracking, the record-keeping and comparison discipline that makes a search's results useful afterward is lost, regardless of which search strategy was used to generate the trials.",
+            "id": "q6"
+          },
+          {
+            "question": "What happens if hyperparameter search is evaluated on the same test set used for final reporting?",
+            "options": [
+              "Nothing changes — test set and validation set serve identical purposes",
+              "The selected configuration's reported performance risks being overly optimistic and unreliable, since the search process specifically favored whatever performed best on that data",
+              "The search becomes faster with no downside",
+              "This is actually the recommended practice for hyperparameter tuning"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Selecting a configuration based on performance on a given dataset and then reporting final performance on that same dataset inflates the apparent result, since the selection process was specifically optimized against it.",
+            "id": "q7"
+          },
+          {
+            "question": "Why might defaulting to exhaustive grid search regardless of search space size be a mistake?",
+            "options": [
+              "Because grid search always converges faster than any other method",
+              "Because grid search's cost grows combinatorially as the number of hyperparameters and values increases, while random or more sophisticated search can often reach a comparable result more efficiently",
+              "Because grid search cannot be logged through an experiment tracker",
+              "Because grid search only works for a single hyperparameter at a time"
+            ],
+            "correctAnswer": 1,
+            "explanation": "As the search space grows, grid search's exhaustive nature becomes prohibitively expensive, which is exactly why the lesson presents random search and more sophisticated trial-informed approaches as often more practical alternatives.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ops_packaging_training_jobs",
+      "title": "Packaging Training Jobs for Portability",
+      "description": "A training job that only runs correctly on one specific machine, configured a specific way nobody wrote down, isn't actually reproducible no matter how well the code and data are versioned.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain what containerizing a training job provides and why it matters even when code, data, and configuration are all already versioned."
+          },
+          {
+            "title": "🎯 The gap that versioning code and data alone leaves",
+            "content": "Even with the code, data, and configuration versioning covered earlier in this module, a training job still depends on its **execution environment** — which exact library versions are installed, which system-level dependencies exist, sometimes even which operating system — and if that environment isn't itself captured somewhere, \"reproduce this exact result\" can still fail on a different machine or after enough time has passed for the ambient environment to drift, even with everything else nominally version-controlled correctly."
+          },
+          {
+            "title": "📦 Containerization as the fix",
+            "content": "Packaging a training job into a **container** captures the entire runtime environment (system dependencies, library versions, the training code itself) as a single, portable, versioned unit that runs identically regardless of what machine it's actually executed on — closing exactly the environment-drift gap that code and data versioning alone leave open, and making \"run this exact training job again, even years later\" a genuinely reliable operation rather than a hopeful one."
+          },
+          {
+            "title": "🔄 Portability across environments",
+            "content": "A properly containerized training job can run on a **developer's laptop** for quick iteration, in a **CI/CD pipeline** for automated retraining (covered as part of the orchestration lesson earlier in this module), and on **dedicated training infrastructure** at scale — all using the identical packaged environment, removing \"works on my machine\" as a category of problem for training jobs specifically, the same benefit containerization provides for application deployment generally in standard software engineering practice."
+          },
+          {
+            "title": "🎯 Where this fits in the reproducibility chain",
+            "content": "This lesson closes the loop the reproducibility-and-versioning lesson opened earlier in this course: **code version**, **data version**, **configuration**, and now **environment**, are all captured and versioned together — a complete, genuinely reproducible record of exactly what produced a given trained model, with no remaining gap for \"well, it depends on what else happened to be installed on that machine at the time.\""
+          },
+          {
+            "title": "💻 The environment as part of the provenance record",
+            "content": "```dockerfile\n# Dockerfile: captures the environment as a portable, versioned unit\nFROM python:3.11-slim\nCOPY requirements.txt .\nRUN pip install -r requirements.txt   # exact library versions pinned\nCOPY train.py .\nENTRYPOINT [\"python\", \"train.py\"]\n```\n```python\n# The provenance record from earlier in this course now has one more field\nprovenance[\"container_image\"] = \"registry/fraud-training:v17-a1b2c3\"\n\n# \"Reproduce this exact result\" now means: pull this exact image,\n# pass it this exact data_version and config — nothing about the\n# host machine's installed libraries can quietly change the outcome.\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Versioning code, data, and config but leaving the environment ambient.** A training job that depends on 'whatever happens to be installed' can silently stop reproducing its own past results after a library update or a move to a different machine.\n\n**Treating containerization as only a deployment concern.** The same portability benefit containerization provides for serving applies just as directly to training jobs, and skipping it there leaves exactly the gap this lesson describes.\n\n**Pinning library versions loosely (or not at all) inside the container.** A container built from an unpinned requirements file can still drift between builds, undermining the very reproducibility containerization is meant to guarantee."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ops_packaging_training_jobs_quiz",
+        "questions": [
+          {
+            "question": "What gap remains even after code, data, and configuration are all properly versioned, per this lesson?",
+            "options": [
+              "There is no remaining gap — versioning code, data, and configuration is fully sufficient",
+              "The training job's execution environment (library versions, system dependencies) can still drift or differ across machines, undermining true reproducibility",
+              "The model's final accuracy is never actually knowable",
+              "Data validation becomes unnecessary once code and data are versioned"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Without capturing the runtime environment itself, differences in installed library versions or system dependencies across machines or over time can still break reproducibility, even with code and data properly versioned.",
+            "id": "q1"
+          },
+          {
+            "question": "What does containerizing a training job provide?",
+            "options": [
+              "A guarantee that the model will always achieve high accuracy",
+              "A single, portable, versioned unit capturing the entire runtime environment, so the job runs identically regardless of the machine it's executed on",
+              "A replacement for data versioning, making it unnecessary",
+              "An automatic hyperparameter search with no configuration needed"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Containerization packages the full environment alongside the code, closing the environment-drift gap that code and data versioning alone can't address.",
+            "id": "q2"
+          },
+          {
+            "question": "How does containerization eliminate 'works on my machine' problems for training jobs specifically?",
+            "options": [
+              "It doesn't — containerization has no effect on this class of problem",
+              "A properly containerized job runs identically on a laptop, in CI/CD, or on dedicated training infrastructure, since the packaged environment is the same everywhere it runs",
+              "It requires every machine to have identical physical hardware",
+              "It only works if the training job has no dependencies at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since the container captures the full environment as a portable unit, the same job behaves consistently regardless of where it's actually executed, mirroring containerization's well-established benefit for application deployment generally.",
+            "id": "q3"
+          },
+          {
+            "question": "In the Dockerfile example, why does `RUN pip install -r requirements.txt` matter for reproducibility specifically?",
+            "options": [
+              "Because it has no actual effect on the resulting image",
+              "Because it pins exact library versions inside the portable image, rather than depending on whatever happens to be installed on whatever machine later runs the job",
+              "Because pip install always produces a different result each time regardless of the requirements file",
+              "Because Dockerfiles cannot install Python packages"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Installing from a requirements file inside the image bakes the exact library versions into the portable unit itself, removing dependence on the host machine's ambient environment.",
+            "id": "q4"
+          },
+          {
+            "question": "Why does the code example add `container_image` to the `provenance` record introduced earlier in this course?",
+            "options": [
+              "Because container_image replaces the need for code_version and data_version entirely",
+              "Because the environment is now a captured, versioned part of the full provenance chain, closing the gap that code, data, and config versioning alone left open",
+              "Because provenance records cannot contain more than four fields",
+              "Because container_image is unrelated to reproducibility"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Adding container_image extends the provenance chain to include the environment, completing the reproducibility record this lesson describes: code, data, config, and now environment, all captured together.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is leaving the environment 'ambient' (uncaptured) identified as a mistake even when code, data, and config are versioned?",
+            "options": [
+              "Because ambient environments are always identical across every machine",
+              "Because a training job depending on whatever happens to be installed can silently stop reproducing its own past results after a library update or a machine change",
+              "Because this has no actual bearing on whether a training run can be reproduced",
+              "Because containerization is unrelated to the concept of an ambient environment"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This is exactly the gap the lesson opens with: even with everything else versioned, an uncaptured environment can quietly drift and break 'reproduce this exact result' later.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does the lesson caution against treating containerization as only a deployment-time concern?",
+            "options": [
+              "Because containerization has never actually been used for deployment either",
+              "Because the same portability benefit containerization provides for serving applies just as directly to training jobs, and skipping it there leaves the environment-drift gap open",
+              "Because training jobs never need any environment beyond a bare Python installation",
+              "Because deployment and training use fundamentally incompatible container formats"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson explicitly draws the parallel to standard software engineering's use of containers for deployment, arguing the same reasoning and benefit apply directly to training jobs.",
+            "id": "q7"
+          },
+          {
+            "question": "Why can loosely pinning library versions inside a container still undermine reproducibility?",
+            "options": [
+              "Because loose pinning always produces byte-identical containers regardless of when they're built",
+              "Because an unpinned or loosely pinned requirements file can let library versions drift between separate container builds, even though each build is still 'a container'",
+              "Because containers can never contain a requirements file",
+              "Because this only matters for containers larger than a few gigabytes"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Containerization only delivers its reproducibility guarantee if what's inside the container is itself pinned precisely — loose version constraints can still let the packaged environment vary between builds.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

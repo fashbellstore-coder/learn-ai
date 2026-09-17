@@ -1,0 +1,559 @@
+{
+  "id": "swe_system_design",
+  "title": "System Design Basics",
+  "description": "Load balancers and caching, SQL vs. NoSQL trade-offs, API design principles, and designing a system end-to-end.",
+  "icon": "🏗️",
+  "color": "#1565C0",
+  "order": 3,
+  "estimatedHours": 4,
+  "difficulty": "advanced",
+  "prerequisites": [
+    "swe_algorithms"
+  ],
+  "lessons": [
+    {
+      "id": "swe_designing_for_scale_load_balancers_and_caching",
+      "title": "Designing for Scale: Load Balancers and Caching",
+      "description": "What a load balancer distributes and what a cache trades away.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain what a load balancer distributes and what a cache trades away in exchange for speed."
+          },
+          {
+            "title": "⚖️ Load balancers: spreading the work",
+            "content": "A **load balancer** sits in front of a group of servers and decides which server handles each incoming request. Instead of every user hitting a single machine, requests get spread across many machines.\n\nThis matters for two reasons:\n\n- **Throughput.** One server can only handle so many requests per second. Ten servers behind a load balancer can handle roughly ten times as many (traffic permitting).\n- **Availability.** If one server crashes, the load balancer stops sending it traffic and routes around it. Users don't notice — the other servers pick up the slack.\n\nCommon strategies include **round robin** (requests go to each server in turn), **least connections** (new requests go to whichever server currently has the fewest active connections), and **hashing on some key** (like user ID, so the same user tends to land on the same server, which helps if that server has cached something useful for them)."
+          },
+          {
+            "title": "⚡ Caching: trading freshness for speed",
+            "content": "A **cache** stores the result of an expensive operation — a database query, an API call, a computed value — so the next request for the same thing can skip the expensive part and return the stored answer instead.\n\nThe trade-off is **freshness**. A cached value is a snapshot from whenever it was stored. If the underlying data changes, the cache can go stale until it's refreshed or invalidated. This is why caching decisions always come with a companion question: *how long can this be wrong before it matters?* A cached list of country names can be stale for a year. A cached account balance cannot be stale for more than a few seconds, if at all.\n\nCommon places to cache: in front of the database (so repeated identical queries don't hit disk), at the API layer (so repeated identical requests don't repeat the whole pipeline), and in the browser or CDN (so repeated identical assets don't even reach your servers)."
+          },
+          {
+            "title": "🔗 Where you've seen both before",
+            "content": "You've already run into both ideas outside a system-design context. The App Dev course covers where caching sits inside a single application's request path. The Cloud & Infrastructure course covers how load balancers get deployed and configured in a real cloud environment. This lesson is the conceptual layer underneath both: understanding *why* those tools exist and what problem they solve makes the hands-on tooling in those other courses click into place much faster."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "Here's a tiny simulation that makes the trade-offs concrete: a fake \"slow\" data source, a cache in front of it, and a round-robin load balancer choosing between servers.\n\n```python\nimport itertools\n\n# --- Caching: trading freshness for speed ---\n\ncall_count = 0\n\ndef slow_lookup(key):\n    \"\"\"Pretend this hits a database and is expensive.\"\"\"\n    global call_count\n    call_count += 1\n    return f\"value-for-{key}\"\n\ncache = {}\n\ndef cached_lookup(key):\n    if key in cache:\n        return cache[key], \"HIT\"\n    result = slow_lookup(key)\n    cache[key] = result\n    return result, \"MISS\"\n\nfor key in [\"a\", \"b\", \"a\", \"a\", \"c\", \"b\"]:\n    value, outcome = cached_lookup(key)\n    print(f\"lookup({key}) -> {value} [{outcome}]\")\n\nprint(f\"expensive slow_lookup calls made: {call_count}\")  # 3, not 6\n\n# --- Load balancing: round robin across servers ---\n\nservers = [\"server-1\", \"server-2\", \"server-3\"]\nserver_cycle = itertools.cycle(servers)\n\nrouted = [next(server_cycle) for _ in range(7)]\nprint(\"requests routed to:\", routed)\n# server-1, server-2, server-3, server-1, server-2, server-3, server-1\n```\n\nThe cache turns six lookups into three expensive calls — the two repeated `\"a\"` calls and the repeated `\"b\"` call are served straight from `cache` without touching `slow_lookup` again. The round-robin balancer just walks the `servers` list in a loop, wrapping back to `server-1` after `server-3`, so seven requests split as evenly as possible across three servers."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Caching without an invalidation plan.** It's easy to add a cache and immediately speed things up, then forget that the cached value needs to be updated or expired when the underlying data changes. A cache with no invalidation strategy is a bug waiting for someone to update a record and wonder why the app still shows the old value.\n\n**Treating load balancing as a fix for a single-server bottleneck that isn't about server count.** If requests are slow because of a slow database query, adding more application servers behind a load balancer doesn't help — every one of those servers still waits on the same slow query. Scale the part that's actually the bottleneck.\n\n**Assuming round robin is always fair.** Round robin assumes every request costs about the same. If some requests are far more expensive than others, round robin can send a burst of expensive requests to the same server in a row while a cheap-request server sits idle — least-connections routing handles that case better.\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "swe_designing_for_scale_load_balancers_and_caching_quiz",
+        "questions": [
+          {
+            "question": "What does a load balancer distribute across servers?",
+            "options": [
+              "Database schemas",
+              "Incoming requests",
+              "Cache invalidation events",
+              "Source code commits"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A load balancer sits in front of a group of servers and decides which server handles each incoming request, spreading the load across them.",
+            "id": "q1"
+          },
+          {
+            "question": "What does caching trade away in exchange for speed?",
+            "options": [
+              "Security",
+              "Freshness",
+              "Availability",
+              "Cost"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A cached value is a snapshot from whenever it was stored, so caching always trades some amount of freshness for the speed of not recomputing or refetching the value.",
+            "id": "q2"
+          },
+          {
+            "question": "According to the lesson, where do you dive deeper into the practical tooling for caching and load balancers, respectively?",
+            "options": [
+              "App Dev covers caching placement; Cloud & Infrastructure covers load balancer deployment",
+              "Both are covered only in this lesson",
+              "SQL vs NoSQL covers both",
+              "Neither is covered elsewhere in the curriculum"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly points to the App Dev course for where caching sits in an application's request path, and the Cloud & Infrastructure course for how load balancers are deployed and configured.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, how many times is `slow_lookup` actually called across the six `cached_lookup` calls?",
+            "options": [
+              "6",
+              "3",
+              "1",
+              "0"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Keys \"a\", \"b\", and \"c\" are each looked up for the first time once (3 expensive calls); the repeated lookups for \"a\", \"a\", and \"b\" are served from `cache` without calling `slow_lookup` again.",
+            "id": "q4"
+          },
+          {
+            "question": "In the round-robin example, which server receives the 4th request (index 3) in the `routed` list?",
+            "options": [
+              "server-1",
+              "server-2",
+              "server-3",
+              "None, it errors"
+            ],
+            "correctAnswer": 0,
+            "explanation": "`itertools.cycle` wraps around after exhausting the list, so requests 1-3 go to server-1, server-2, server-3, and request 4 wraps back to server-1.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is a cache with no invalidation strategy dangerous, according to the lesson's common mistakes?",
+            "options": [
+              "It uses too much memory",
+              "It can keep serving an old value after the underlying data changes, with nothing to correct it",
+              "It makes requests slower",
+              "It only works for read-heavy workloads"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Without an invalidation plan, a cache has no mechanism to notice that the underlying data changed, so it can keep returning a stale value indefinitely.",
+            "id": "q6"
+          },
+          {
+            "question": "If an application is slow because of one slow database query, why won't adding more application servers behind a load balancer fix it?",
+            "options": [
+              "Load balancers only work with two servers",
+              "Every server still has to wait on the same slow query, so the bottleneck is unchanged",
+              "Load balancers add their own latency that cancels out the benefit",
+              "More servers always makes caching impossible"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Adding servers increases how many requests can be handled in parallel, but if the actual bottleneck is a slow query, every added server still waits on that same slow query — the bottleneck itself hasn't moved.",
+            "id": "q7"
+          },
+          {
+            "question": "Why might least-connections routing outperform round robin when request costs vary a lot?",
+            "options": [
+              "Round robin doesn't support more than 3 servers",
+              "Round robin can send a burst of expensive requests to the same server in sequence, while least-connections adapts to current load",
+              "Least-connections is always slower but safer",
+              "There is no real difference between the two strategies"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Round robin assumes each request costs about the same and just cycles through servers regardless of how busy they are, so a run of expensive requests can pile onto one server; least-connections instead routes to whichever server currently has the fewest active connections.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "swe_sql_vs_nosql_tradeoffs",
+      "title": "SQL vs. NoSQL Trade-offs",
+      "description": "The core trade-off between relational and NoSQL databases, and why real systems often use both.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain the core trade-off between relational and NoSQL databases, and why real systems often use both."
+          },
+          {
+            "title": "🗂️ Relational (SQL) databases",
+            "content": "A **relational database** (PostgreSQL, MySQL, and similar) organizes data into tables with a fixed **schema** — every row in a table has the same columns, with defined types. Relationships between tables are expressed with foreign keys, and the database enforces them.\n\nThe headline feature is **ACID** guarantees: transactions are **A**tomic (all-or-nothing), **C**onsistent (they never leave the data in a state that violates its rules), **I**solated (concurrent transactions don't see each other's half-finished work), and **D**urable (once committed, a transaction survives a crash). This makes relational databases the default choice whenever correctness of interrelated data — like money moving between two accounts — matters more than raw write throughput."
+          },
+          {
+            "title": "📦 NoSQL databases",
+            "content": "**NoSQL** is an umbrella term for databases that relax the fixed-schema, strict-relational model in exchange for something else — usually flexibility or horizontal scalability. A few common shapes:\n\n- **Document stores** (like MongoDB) store flexible, JSON-like documents where different documents in the same collection can have different fields.\n- **Key-value stores** (like Redis) store a value under a key, optimized for extremely fast lookups.\n- **Wide-column stores** (like Cassandra) are built to write huge volumes of data across many machines with high availability.\n\nThe common thread is that NoSQL systems typically trade some of SQL's strict consistency guarantees for **horizontal scalability** (spreading data across many cheap machines) and **schema flexibility** (not every record has to look the same)."
+          },
+          {
+            "title": "🤔 It's rarely a strict either/or in practice",
+            "content": "Most real systems of any size use more than one kind of database, each for what it's good at: a relational database for orders and payments where correctness is non-negotiable, a key-value store for session data and caching where speed matters more than durability, and maybe a document store for a product catalog with wildly varying attributes across categories. The skill isn't picking \"the right database\" once — it's matching each piece of data to the storage model whose trade-offs fit that data's actual requirements."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "The clearest way to feel the difference is to see what each model makes easy versus painful for the same data.\n\n```python\n# --- Relational-style: fixed schema, enforced relationships ---\n\naccounts = {1: {\"id\": 1, \"name\": \"Alice\", \"balance_cents\": 5000},\n            2: {\"id\": 2, \"name\": \"Bob\", \"balance_cents\": 3000}}\n\ndef transfer(accounts, from_id, to_id, amount_cents):\n    \"\"\"An ACID-style transfer: both updates happen, or neither does.\"\"\"\n    if accounts[from_id][\"balance_cents\"] < amount_cents:\n        raise ValueError(\"insufficient funds\")\n    # In a real relational DB this whole block is one atomic transaction.\n    accounts[from_id][\"balance_cents\"] -= amount_cents\n    accounts[to_id][\"balance_cents\"] += amount_cents\n\ntransfer(accounts, 1, 2, 1500)\nprint(accounts[1][\"balance_cents\"], accounts[2][\"balance_cents\"])  # 3500 4500\n\n# --- Document-style: flexible schema, no enforced relationships ---\n\nproducts = [\n    {\"id\": \"p1\", \"name\": \"Espresso Machine\", \"pressure_bars\": 15},\n    {\"id\": \"p2\", \"name\": \"Novel\", \"pages\": 320, \"author\": \"J. Doe\"},\n    {\"id\": \"p3\", \"name\": \"Bike Helmet\", \"size\": \"M\", \"cert\": \"CPSC\"},\n]\n\nfor p in products:\n    print(p[\"name\"], \"->\", {k: v for k, v in p.items() if k not in (\"id\", \"name\")})\n```\n\n`transfer` mimics what a relational database enforces automatically: the balance check and both updates succeed together, keeping the books consistent (the printed totals still sum to the original 8000 cents). The `products` list shows the opposite strength — three completely different attribute sets living side by side with no schema to satisfy, which is exactly the flexibility a document store is built for and a fixed-schema table would reject or force into a sea of nullable columns."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Treating \"NoSQL\" as one technology.** Document stores, key-value stores, and wide-column stores solve different problems and make different trade-offs. \"We're using NoSQL\" doesn't say much until you know which shape and why.\n\n**Choosing a database by popularity instead of access pattern.** The right question is always \"how will this data be read and written, and what happens if it's briefly inconsistent?\" — not \"what is everyone else using.\"\n\n**Giving up relational guarantees for data that actually needs them.** Moving financial or inventory-critical data to a system with weaker consistency guarantees, purely for scalability, can trade a real correctness problem for a performance win you didn't need yet.\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "swe_sql_vs_nosql_tradeoffs_quiz",
+        "questions": [
+          {
+            "question": "What does a relational database enforce that NoSQL systems typically relax?",
+            "options": [
+              "A fixed schema and strict ACID guarantees",
+              "The ability to store JSON",
+              "Horizontal scalability",
+              "In-memory storage"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Relational databases enforce a fixed schema per table and ACID transaction guarantees; NoSQL systems typically relax one or both of these in exchange for flexibility or scale.",
+            "id": "q1"
+          },
+          {
+            "question": "What do NoSQL systems typically gain in exchange for relaxing SQL's strict consistency guarantees?",
+            "options": [
+              "Nothing — it's a strictly worse model",
+              "Horizontal scalability and/or schema flexibility",
+              "Automatic foreign key enforcement",
+              "Guaranteed ACID transactions"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson describes the common trade as giving up some of SQL's strict consistency in exchange for horizontal scalability and schema flexibility.",
+            "id": "q2"
+          },
+          {
+            "question": "Why do most real systems use more than one kind of database rather than picking just one?",
+            "options": [
+              "Because using only one database is against best practice regardless of the data",
+              "Because different pieces of data have different requirements, and different storage models fit those requirements differently",
+              "Because relational databases can't store more than a few thousand rows",
+              "Because NoSQL databases can't be queried"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson argues the skill is matching each piece of data to the storage model whose trade-offs fit that data's actual requirements, not picking one database for everything.",
+            "id": "q3"
+          },
+          {
+            "question": "In the `transfer` function's code example, what would happen to `accounts[1]` if the `ValueError` were raised instead?",
+            "options": [
+              "Its balance would still be decremented",
+              "Neither account's balance would change, since the function raises before either update runs",
+              "Its balance would be set to zero",
+              "The function would deadlock"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The insufficient-funds check happens before either balance update line, so raising `ValueError` there means neither `accounts[from_id]` nor `accounts[to_id]` gets modified — mirroring the all-or-nothing behavior of a real ACID transaction.",
+            "id": "q4"
+          },
+          {
+            "question": "In the `products` list example, what attribute does `p2` (the novel) have that `p1` (the espresso machine) does not?",
+            "options": [
+              "pressure_bars",
+              "pages",
+              "cert",
+              "size"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`p2` has a `pages` field (and `author`), while `p1` has `pressure_bars` instead — the three products have different attribute sets, which is exactly what a fixed relational schema would not allow without nullable columns.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is saying \"we're using NoSQL\" identified as a common mistake in how it's talked about?",
+            "options": [
+              "Because NoSQL databases don't actually exist",
+              "Because \"NoSQL\" covers very different technologies (document, key-value, wide-column) that solve different problems, so the phrase alone says little",
+              "Because NoSQL is always slower than SQL",
+              "Because it implies the team isn't using any database"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson points out that document stores, key-value stores, and wide-column stores make different trade-offs, so calling something \"NoSQL\" without specifying which shape doesn't communicate much about its actual behavior.",
+            "id": "q6"
+          },
+          {
+            "question": "What question does the lesson say should actually drive a database choice?",
+            "options": [
+              "What is everyone else using",
+              "How will this data be read and written, and what happens if it's briefly inconsistent",
+              "Which database has the most features",
+              "Which database is newest"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson explicitly frames the right question as being about the data's access pattern and tolerance for inconsistency, not popularity or feature count.",
+            "id": "q7"
+          },
+          {
+            "question": "Why is moving financial data to a weaker-consistency system purely for scalability flagged as a mistake?",
+            "options": [
+              "Because financial data is never large enough to need scaling",
+              "Because it can trade a real correctness problem for a performance win that wasn't needed yet",
+              "Because financial systems cannot use NoSQL databases at all",
+              "Because scalability and consistency are the same thing"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson warns that giving up relational guarantees for data that actually needs them can introduce a real correctness risk in exchange for scalability the system may not have even needed yet.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "swe_api_design_principles",
+      "title": "API Design Principles",
+      "description": "Designing an API around resources instead of actions, and why versioning matters.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Design an API around resources instead of actions, and explain why versioning matters for external consumers."
+          },
+          {
+            "title": "🌐 Resources, not actions",
+            "content": "A well-designed REST API models **resources** (nouns — `orders`, `users`, `invoices`) and lets HTTP **methods** (verbs — GET, POST, PUT, DELETE) express what you're doing to them, rather than baking the action into the URL.\n\nCompare `POST /orders` (create a new order — the noun is the URL, the verb is the HTTP method) to `POST /createNewOrder` (the action is smuggled into the URL itself, duplicating what the HTTP method was already supposed to express). The resource-based version is more predictable: once you know the pattern, `GET /orders/42`, `PUT /orders/42`, and `DELETE /orders/42` are all guessable without reading documentation."
+          },
+          {
+            "title": "📐 Consistent, predictable responses",
+            "content": "Every endpoint in an API should follow the same conventions for status codes, error shapes, and pagination. If `GET /orders` returns errors as `{\"error\": \"...\"}` but `GET /users` returns them as `{\"message\": \"...\"}`, every client integrating with the API has to special-case each endpoint. Consistency isn't a nice-to-have — it's what lets a client written against one endpoint mostly work against the others without extra effort."
+          },
+          {
+            "title": "🔢 Versioning: the promise you can't quietly break",
+            "content": "Once an API has external consumers — other teams, other companies, mobile apps already installed on users' phones — you can no longer freely change its shape. Removing a field, renaming a field, or changing what a status code means can break every client that depends on the old behavior, and you usually can't force them all to update at once.\n\n**Versioning** (`/v1/orders`, `/v2/orders`, or a version header) is how you make breaking changes without breaking existing consumers: old clients keep talking to the old version while new clients adopt the new one, and the old version gets retired only once its remaining traffic is gone."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "Here's a small, dependency-free simulation showing the resource-based pattern in action, plus what versioning buys you when a field's shape changes.\n\n```python\n# --- Resource-based routing (simulated) ---\n\norders = {}\nnext_id = 1\n\ndef handle(method, path, body=None):\n    global next_id\n    if method == \"POST\" and path == \"/orders\":\n        order = {\"id\": next_id, **body}\n        orders[next_id] = order\n        next_id += 1\n        return 201, order\n    if method == \"GET\" and path.startswith(\"/orders/\"):\n        order_id = int(path.split(\"/\")[-1])\n        if order_id not in orders:\n            return 404, {\"error\": \"not found\"}\n        return 200, orders[order_id]\n    return 404, {\"error\": \"no route\"}\n\nstatus, body = handle(\"POST\", \"/orders\", {\"item\": \"widget\", \"qty\": 3})\nprint(status, body)          # 201 {'id': 1, 'item': 'widget', 'qty': 3}\nstatus, body = handle(\"GET\", \"/orders/1\")\nprint(status, body)          # 200 {'id': 1, 'item': 'widget', 'qty': 3}\nstatus, body = handle(\"GET\", \"/orders/99\")\nprint(status, body)          # 404 {'error': 'not found'}\n\n# --- Versioning: same resource, changed shape ---\n\ndef serialize_v1(order):\n    return {\"id\": order[\"id\"], \"item\": order[\"item\"]}          # 'item' as a single string\n\ndef serialize_v2(order):\n    return {\"id\": order[\"id\"], \"items\": [order[\"item\"]]}       # 'items' as a list, breaking change\n\norder = orders[1]\nprint(\"/v1/orders/1 ->\", serialize_v1(order))\nprint(\"/v2/orders/1 ->\", serialize_v2(order))\n```\n\n`handle` dispatches purely on method + path, exactly the resource/verb split the lesson describes — `POST /orders` creates, `GET /orders/<id>` reads, and an unknown ID cleanly returns a 404 rather than crashing. `serialize_v1` and `serialize_v2` show why versioning exists: `v2` renames `item` to `items` and changes its type from a string to a list, which would silently break any `v1` client if it happened in place — instead both shapes can be served side by side under different version paths."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Baking verbs into URLs.** `/createNewOrder`, `/getUserById`, `/deleteOrder42` duplicate what the HTTP method already communicates and make the API harder to guess and harder to keep consistent.\n\n**Changing a response shape without versioning it.** Renaming a field, changing its type, or removing it from an existing, unversioned endpoint can silently break every client already depending on it — there's no way for them to opt in or out.\n\n**Inconsistent error and pagination formats across endpoints.** Every added inconsistency is another thing every client has to special-case, which compounds as the API grows.\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "swe_api_design_principles_quiz",
+        "questions": [
+          {
+            "question": "In resource-based API design, what expresses the action being performed?",
+            "options": [
+              "The URL alone",
+              "The HTTP method (GET, POST, PUT, DELETE)",
+              "The response body",
+              "The API version number"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Resource-based design uses nouns for URLs (resources like /orders) and lets the HTTP method express the verb, rather than encoding the action into the URL itself.",
+            "id": "q1"
+          },
+          {
+            "question": "Why does the lesson say versioning matters once an API has external consumers?",
+            "options": [
+              "Because external consumers can't be trusted",
+              "Because you generally can't force every external client to update at the same time you change the API's shape",
+              "Because versioning makes the API faster",
+              "Because external consumers require a different programming language"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Once other teams, companies, or installed apps depend on an API, you usually can't force them all to update simultaneously, so versioning lets breaking changes roll out without breaking existing clients.",
+            "id": "q2"
+          },
+          {
+            "question": "According to the lesson, what problem does the App Dev course's FastAPI content build on from this lesson?",
+            "options": [
+              "Database indexing strategies",
+              "The resource-based, consistent, versioned API design principles covered here",
+              "Load balancer configuration",
+              "Git branching strategies"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson connects its API design principles to the practical FastAPI tooling covered in the App Dev course, similar to how the earlier lesson connects caching/load balancing concepts to App Dev and Cloud course tooling.",
+            "id": "q3"
+          },
+          {
+            "question": "In the `handle` function, what status code and body are returned for `GET /orders/99` when order 99 doesn't exist?",
+            "options": [
+              "200 and an empty dict",
+              "404 and {'error': 'not found'}",
+              "500 and a stack trace",
+              "201 and a newly created order"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The code explicitly checks `if order_id not in orders` and returns `404, {\"error\": \"not found\"}` in that case, rather than crashing or returning a success status.",
+            "id": "q4"
+          },
+          {
+            "question": "What is the key difference between `serialize_v1` and `serialize_v2` in the code example?",
+            "options": [
+              "v2 removes the id field entirely",
+              "v2 renames 'item' to 'items' and changes it from a string to a list",
+              "v1 and v2 are identical",
+              "v2 adds authentication"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`serialize_v1` returns `item` as a single value while `serialize_v2` returns `items` as a list containing that value — a breaking shape and type change that versioning lets both old and new clients handle safely.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is `/createNewOrder` flagged as a mistake compared to `POST /orders`?",
+            "options": [
+              "Because it's too long",
+              "Because it duplicates what the HTTP method already communicates and breaks the guessable resource/verb pattern",
+              "Because it doesn't use HTTPS",
+              "Because URLs cannot contain the word 'create'"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson's common mistakes call out baking verbs into URLs as duplicating the HTTP method's job and undermining the predictability that comes from a consistent resource/verb pattern.",
+            "id": "q6"
+          },
+          {
+            "question": "What happens if a response shape is changed on an existing, unversioned endpoint?",
+            "options": [
+              "Nothing, since all clients handle changes gracefully by default",
+              "It can silently break every client already depending on the old shape, with no way for them to opt out",
+              "The API automatically creates a new version",
+              "Only new clients are affected"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson explains that changing an unversioned endpoint's shape can silently break existing clients since they have no mechanism to keep using the old behavior while others adopt the new one.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does inconsistent error formatting across endpoints get worse as an API grows?",
+            "options": [
+              "It doesn't — it stays a fixed, one-time cost",
+              "Every inconsistency is another thing every client has to special-case, and that compounds as more endpoints are added",
+              "Because larger APIs automatically standardize their formats",
+              "Because error formatting is unrelated to API size"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson notes that each added inconsistency forces clients to special-case that endpoint, and this cost compounds as the number of endpoints — and thus the number of possible inconsistencies — grows.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "swe_designing_a_system_end_to_end",
+      "title": "Designing a System End-to-End",
+      "description": "A repeatable design process, walked through with a URL shortener as a worked example.",
+      "duration": 13,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Walk through a repeatable process for designing a system end-to-end, using a URL shortener as a worked example."
+          },
+          {
+            "title": "📋 A repeatable design process",
+            "content": "Faced with an open-ended \"design X\" prompt, it helps to work through the same steps every time:\n\n1. **Clarify requirements.** What does the system need to do? What scale (users, requests per second, data volume)? What's explicitly out of scope?\n2. **Identify the core data and access pattern.** What gets read, what gets written, and how often does each happen relative to the other?\n3. **Sketch the high-level components.** What are the main pieces (API layer, database, cache, background jobs) and how do they talk to each other?\n4. **Apply the trade-offs from earlier lessons.** Where does caching help? Where does the data model favor SQL or NoSQL? Where would a load balancer matter?\n5. **Revisit and refine.** Real design is iterative — the first sketch is rarely the final answer."
+          },
+          {
+            "title": "🧮 A worked example: a URL shortener",
+            "content": "Take \"design a URL shortener\" (like bit.ly). Walking the process:\n\n- **Requirements:** given a long URL, return a short code; given a short code, redirect to the original URL. Reads (redirects) vastly outnumber writes (new short URLs created).\n- **Access pattern:** overwhelmingly read-heavy, and each read is a simple lookup by key (the short code) — no complex joins or queries needed.\n- **Components:** an API for creating short URLs, a redirect service for resolving them, and storage for the mapping between short codes and original URLs.\n- **Applying trade-offs:** the read-heavy, lookup-by-key access pattern is a strong match for a **key-value store** rather than a relational database — there's no relational structure to preserve. A **cache** in front of it helps further, since popular short URLs get looked up disproportionately often. **Caching** is worth prioritizing here precisely because reads dominate."
+          },
+          {
+            "title": "🎓 Why this matters beyond a whiteboard exercise",
+            "content": "This process isn't just for interviews. Every real system — the one you're about to build in the App Dev course, deploy in the Cloud & Infrastructure course, and harden in the Enterprise AI course — started as some version of this same walk: clarify what it needs to do, understand how it will actually be read and written, sketch the pieces, and apply the right trade-offs. The specific technology choices will differ, but the process stays the same."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "Here's a minimal URL shortener that mirrors the worked example's conclusions: key-value storage, a cache for popular lookups, and separate creation/redirect operations.\n\n```python\nimport random\nimport string\n\nstore = {}          # the \"database\": short_code -> long_url\ncache = {}          # the \"cache\": short_code -> long_url, for hot lookups\naccess_counts = {}  # tracks how often each code is looked up\n\ndef shorten(long_url):\n    code = \"\".join(random.choice(string.ascii_lowercase) for _ in range(6))\n    store[code] = long_url\n    return code\n\ndef redirect(code):\n    access_counts[code] = access_counts.get(code, 0) + 1\n    if code in cache:\n        return cache[code], \"CACHE HIT\"\n    long_url = store.get(code)\n    if long_url is None:\n        return None, \"NOT FOUND\"\n    # Promote to cache once it's been looked up a few times.\n    if access_counts[code] >= 3:\n        cache[code] = long_url\n    return long_url, \"DB LOOKUP\"\n\nrandom.seed(0)\ncode = shorten(\"https://example.com/a-very-long-article-url\")\nprint(\"short code:\", code)\n\nfor i in range(5):\n    url, source = redirect(code)\n    print(f\"redirect #{i + 1}: {source}\")\n# DB LOOKUP, DB LOOKUP, DB LOOKUP, CACHE HIT, CACHE HIT\n```\n\n`shorten` is the rare write; `redirect` is the frequent read, matching the read-heavy access pattern the worked example identifies. The first three redirects go through `store` (the \"database\") while `access_counts` climbs, and once a code crosses the popularity threshold it gets promoted into `cache`, so redirects 4 and 5 print `\"CACHE HIT\"` instead of `\"DB LOOKUP\"` — exactly the caching priority the lesson argues for in a read-dominated system."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Jumping straight to technology choices before understanding the access pattern.** Picking \"Postgres\" or \"Redis\" before knowing whether the system is read-heavy or write-heavy, and what the actual queries look like, is designing backwards.\n\n**Treating the first sketch as final.** Real system design is iterative. A design that doesn't survive a follow-up question (\"what happens at 100x the traffic?\") isn't a failure — it's supposed to get revised.\n\n**Over-engineering for scale the system doesn't have yet.** Designing for a billion users on day one when the actual requirement is ten thousand adds complexity and cost without matching benefit — start with what the requirements actually call for.\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "swe_designing_a_system_end_to_end_quiz",
+        "questions": [
+          {
+            "question": "What is the first step in the repeatable design process described in this lesson?",
+            "options": [
+              "Sketch the high-level components",
+              "Clarify requirements",
+              "Apply caching everywhere",
+              "Pick a specific database technology"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The process starts with clarifying requirements — what the system needs to do, at what scale, and what's out of scope — before any technology decisions are made.",
+            "id": "q1"
+          },
+          {
+            "question": "In the URL shortener worked example, why does a key-value store fit the access pattern better than a relational database?",
+            "options": [
+              "Because key-value stores are always faster than relational databases",
+              "Because the access pattern is a simple lookup by key with no relational structure to preserve",
+              "Because relational databases can't store URLs",
+              "Because key-value stores support SQL joins"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson identifies the URL shortener's access pattern as overwhelmingly read-heavy lookups by a single key (the short code), with no relational structure needed, which is exactly what a key-value store is optimized for.",
+            "id": "q2"
+          },
+          {
+            "question": "How does this lesson connect the design process to the rest of the curriculum?",
+            "options": [
+              "It says system design is unrelated to the App Dev, Cloud, and Enterprise AI courses",
+              "It frames the App Dev, Cloud & Infrastructure, and Enterprise AI courses as building, deploying, and hardening systems that go through this same design process",
+              "It replaces the need for those other courses",
+              "It only applies to interview preparation"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson explicitly ties this process to real systems built in App Dev, deployed in Cloud & Infrastructure, and hardened in Enterprise AI, framing the process as the common thread underneath all of them.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, after how many accesses does a short code get promoted into `cache`?",
+            "options": [
+              "1",
+              "2",
+              "3",
+              "5"
+            ],
+            "correctAnswer": 2,
+            "explanation": "The `redirect` function checks `if access_counts[code] >= 3` before promoting the code into `cache`, so promotion happens starting on the 3rd access.",
+            "id": "q4"
+          },
+          {
+            "question": "Based on the code's promotion logic, what does redirect #3 print as its source, and why?",
+            "options": [
+              "CACHE HIT, because the code was cached after redirect #2",
+              "DB LOOKUP, because the cache promotion happens inside redirect #3 itself, after the lookup already used the database",
+              "NOT FOUND, because the code expired",
+              "CACHE HIT, because all lookups after the first are cached"
+            ],
+            "correctAnswer": 1,
+            "explanation": "On redirect #3, `access_counts[code]` reaches 3, but the function first checks `if code in cache` (still false at that point), does a `DB LOOKUP`, and only then promotes the code into `cache` — so redirect #3 still prints DB LOOKUP, and redirect #4 is the first CACHE HIT.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is jumping straight to a specific technology (like \"Postgres\" or \"Redis\") before understanding the access pattern called a mistake?",
+            "options": [
+              "Because those are outdated technologies",
+              "Because it designs backwards — the access pattern should determine the technology choice, not the other way around",
+              "Because open-source databases can't be used in system design",
+              "Because it violates licensing rules"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson's common mistakes explicitly call this \"designing backwards\": the right technology choice follows from understanding whether the system is read-heavy or write-heavy and what the actual queries look like, not the reverse.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does the lesson say a design that doesn't survive a follow-up question isn't a failure?",
+            "options": [
+              "Because follow-up questions are unfair",
+              "Because system design is meant to be iterative, and a first sketch is expected to get revised",
+              "Because the interviewer is always wrong",
+              "Because designs never need to handle more traffic"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson frames revisiting and refining as step 5 of the repeatable process itself, so a design changing in response to a harder question (like handling 100x traffic) is the process working as intended, not a failure.",
+            "id": "q7"
+          },
+          {
+            "question": "Why is designing for a billion users when the actual requirement is ten thousand called over-engineering?",
+            "options": [
+              "Because billion-user systems are technically impossible",
+              "Because it adds complexity and cost that doesn't match the system's actual, current requirements",
+              "Because it makes the system less secure",
+              "Because caching only works below ten thousand users"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson warns against over-engineering for scale the system doesn't have yet, since it adds unnecessary complexity and cost relative to what the stated requirements actually call for.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

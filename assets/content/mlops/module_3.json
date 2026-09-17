@@ -1,0 +1,575 @@
+{
+  "id": "ops_registries_and_deployment",
+  "title": "Model Registries & Deployment",
+  "description": "Model registries as a single source of truth, packaging models for serving, canary/blue-green/shadow deployment strategies, and CI/CD for machine learning end to end.",
+  "icon": "📦",
+  "color": "#546E7A",
+  "order": 3,
+  "estimatedHours": 5,
+  "difficulty": "intermediate",
+  "prerequisites": [
+    "ops_reproducible_training"
+  ],
+  "lessons": [
+    {
+      "id": "ops_model_registries",
+      "title": "Model Registries: The Single Source of Truth for What's Deployed",
+      "description": "When someone asks 'which model version is actually live right now, and what produced it,' a registry is what gives you a real answer.",
+      "duration": 13,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain what a model registry tracks and why it's the natural next step after experiment tracking in the ML lifecycle."
+          },
+          {
+            "title": "📋 What a registry tracks",
+            "content": "For each registered model version: which **experiment/training run** produced it (tying back to the experiment tracking from the previous module), its **evaluation metrics**, its current **stage** (staging, production, archived — or similar lifecycle labels), and the actual **model artifact** itself or a pointer to where it's stored — a registry turns \"which model is deployed\" from a question requiring someone to remember or check a deployment script into a queryable, authoritative record."
+          },
+          {
+            "title": "🔄 Model lifecycle stages",
+            "content": "A registry typically tracks a model version's **stage explicitly** — a newly registered model might start in a \"staging\" or \"candidate\" stage, get promoted to \"production\" after passing whatever validation or approval process a team uses, and eventually get \"archived\" when replaced by a newer version — making the state of every model version in the system explicit and auditable, rather than implicit in whichever deployment happens to currently be running."
+          },
+          {
+            "title": "🔗 From experiment tracking to registry: a promotion, not a duplication",
+            "content": "Not every experiment tracked (per the previous module) becomes a registered model — a registry entry represents a **deliberate decision** that this specific run's result is a genuine deployment candidate, distinct from the much larger number of exploratory runs that experiment tracking records along the way. This mirrors the same \"wide exploration, narrow promotion\" pattern from that lesson."
+          },
+          {
+            "title": "🎯 Why a single source of truth matters operationally",
+            "content": "Without a registry, knowing exactly which model version is running in production, what data and code produced it, and how it performed in evaluation often depends on scattered knowledge, deployment scripts, or someone's memory. A registry consolidates this into **one authoritative place**, which becomes essential the moment more than one person needs to answer \"what's actually live right now\" or \"can we roll back to what we had before this version\" (the subject of a later module) — questions that need a definitive answer, not a best guess."
+          },
+          {
+            "title": "💻 Promoting a tracked experiment into a registered stage",
+            "content": "```python\ndef register_model(tracker, registry, run_id, initial_stage=\"staging\"):\n    run = tracker.get_run(run_id)  # the experiment this promotes\n    return registry.register(\n        model_name=\"fraud_model\",\n        run_id=run.id,\n        artifact_path=run.artifact_path,\n        metrics=run.metrics,\n        stage=initial_stage,\n    )\n\ndef promote(registry, model_version, new_stage):\n    # e.g. staging -> production, once an approval process clears it\n    registry.set_stage(model_version, new_stage)\n\n# \"Which model is live right now?\" becomes a direct query:\nregistry.get_stage(\"fraud_model\", stage=\"production\")\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Answering 'what's deployed' from memory or a deployment script instead of a registry.** This works until more than one person needs the answer, at which point scattered knowledge stops being a reliable source of truth.\n\n**Registering every tracked experiment instead of deliberately promoting one.** This erases the distinction between broad exploration and a genuine deployment candidate, defeating the purpose of having a separate registry step at all.\n\n**Leaving a model version's stage implicit.** Without an explicit stage (staging, production, archived), the state of every model version in the system depends on inference rather than an auditable record."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ops_model_registries_quiz",
+        "questions": [
+          {
+            "question": "What does a model registry entry typically include?",
+            "options": [
+              "Only the model's file name with no other detail",
+              "Which training run produced it, its evaluation metrics, its lifecycle stage, and the model artifact itself or a pointer to it",
+              "The personal notes of whoever trained the model",
+              "Nothing related to evaluation or provenance"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A registry entry ties together provenance (which run produced it), evaluation results, and lifecycle status, making a model version's full record queryable and authoritative.",
+            "id": "q1"
+          },
+          {
+            "question": "What is the relationship between experiment tracking and a model registry, per this lesson?",
+            "options": [
+              "They are identical and interchangeable systems",
+              "Registering a model is a deliberate promotion of a specific tracked experiment's result to being a genuine deployment candidate, distinct from the many exploratory runs experiment tracking records",
+              "A model registry replaces the need for experiment tracking entirely",
+              "Every single tracked experiment automatically becomes a registered model"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Not every experiment becomes a registered model — registration marks a deliberate decision that a specific run's result deserves to be treated as a deployment candidate.",
+            "id": "q2"
+          },
+          {
+            "question": "Why does having a single source of truth for deployed models matter operationally?",
+            "options": [
+              "It has no practical operational benefit",
+              "Questions like 'what's actually live right now' or 'can we roll back to a previous version' need a definitive, queryable answer, not scattered knowledge or guesswork",
+              "It eliminates the need for any deployment strategy at all",
+              "Only very small teams benefit from having a model registry"
+            ],
+            "correctAnswer": 1,
+            "explanation": "As more than one person needs authoritative answers about what's deployed, a consolidated registry becomes essential rather than relying on distributed, informal knowledge.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, why does `register_model` take a `run_id` and call `tracker.get_run(run_id)` rather than accepting a raw model file directly?",
+            "options": [
+              "Because raw model files cannot be registered under any circumstances",
+              "Because registration is meant to promote a specific tracked experiment, so pulling from the tracker preserves the run's provenance (artifact_path, metrics) into the registry entry",
+              "Because tracker.get_run always returns an empty result",
+              "Because run_id and artifact_path are unrelated concepts"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This reflects the 'promotion, not duplication' relationship: registering a model deliberately ties the registry entry back to a specific already-tracked experiment, carrying its provenance forward rather than starting from nothing.",
+            "id": "q4"
+          },
+          {
+            "question": "What does the `promote` function's `new_stage` parameter represent in the code example?",
+            "options": [
+              "A randomly assigned label with no operational meaning",
+              "An explicit lifecycle stage transition, such as moving a model version from staging to production after clearing an approval process",
+              "The programming language the model was trained in",
+              "A new dataset to retrain the model on"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The promote function models the explicit stage-tracking the lesson describes — moving a version through staging, production, and eventually archived as it's reviewed and approved.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is answering 'what's deployed' from memory or a deployment script identified as a mistake?",
+            "options": [
+              "Because deployment scripts are always more reliable than any registry",
+              "Because this approach works only until more than one person needs the answer, at which point scattered knowledge stops being a reliable source of truth",
+              "Because memory-based answers are always more accurate than recorded ones",
+              "Because this has no actual bearing on operational reliability"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson explicitly frames the registry's value as becoming essential the moment more than one person needs a definitive, not best-guess, answer to what's actually live.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does registering every tracked experiment instead of a deliberately promoted one undermine the registry's purpose?",
+            "options": [
+              "Because registries can only ever hold a single model version at a time",
+              "Because it erases the distinction between broad exploration (experiment tracking) and a genuine deployment candidate (registration), the exact 'wide exploration, narrow promotion' pattern this lesson describes",
+              "Because experiment tracking and registries use fundamentally incompatible data formats",
+              "Because this practice actually has no downside"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The registry's value comes specifically from being selective — registering everything collapses the deliberate promotion step back into undifferentiated tracking, losing the signal of which runs are actual deployment candidates.",
+            "id": "q7"
+          },
+          {
+            "question": "What problem does leaving a model version's stage implicit (rather than explicitly tracked) create?",
+            "options": [
+              "No problem — implicit stages are always clear from context",
+              "The state of every model version in the system depends on inference rather than an auditable, explicit record",
+              "This actually makes rollback faster and easier",
+              "Implicit stages are required for a registry to function at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Without an explicit stage field, understanding where a given model version stands (staging, production, archived) becomes a matter of guesswork rather than a directly queryable, auditable fact.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ops_packaging_models_for_serving",
+      "title": "Packaging Models for Serving",
+      "description": "A trained model file sitting in storage isn't the same thing as a model that can actually answer real-time prediction requests.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Describe what's needed to turn a trained model artifact into something that can serve predictions, and the main serving patterns available."
+          },
+          {
+            "title": "📦 From artifact to servable model",
+            "content": "A registered model artifact (per the previous lesson) needs to be wrapped with the code that **loads** it, **accepts** a prediction request in some expected format, **runs inference**, and **returns a response** — this wrapping layer, plus whatever runtime environment it needs, is what actually makes a model callable as a service, echoing the same containerization approach from the training-jobs lesson, now applied to serving instead of training, for the same portability benefits."
+          },
+          {
+            "title": "⚡ Real-time (online) serving",
+            "content": "Predictions computed **on demand**, in response to individual incoming requests, typically with a latency requirement (a recommendation needs to come back fast enough for a user-facing application) — this pattern trades some infrastructure complexity for the ability to react to the very latest input data at request time, rather than a prediction computed in advance."
+          },
+          {
+            "title": "📦 Batch (offline) serving",
+            "content": "Predictions computed **in bulk, ahead of time**, for a known set of inputs — generating tomorrow's demand forecast for every product overnight, rather than computing a forecast fresh for every individual request throughout the day. This is simpler and more resource-efficient when predictions don't need to reflect the absolute latest data and the full set of inputs needing predictions is known in advance."
+          },
+          {
+            "title": "⚖️ Choosing between them",
+            "content": "**Real-time serving** fits interactive, user-facing use cases where a prediction needs to reflect current input immediately. **Batch serving** fits use cases where predictions can be precomputed on a schedule and where the full set of things needing predictions is known ahead of time — choosing unnecessarily complex real-time infrastructure for a use case that's genuinely fine with batch predictions is a common instance of the \"match the tool to the actual need\" pattern that's come up repeatedly across this curriculum's architectural decisions."
+          },
+          {
+            "title": "💻 The same model, two serving wrappers",
+            "content": "```python\n# Real-time (online) serving: one request in, one prediction out, fast\nclass OnlinePredictor:\n    def __init__(self, model_artifact):\n        self.model = load_model(model_artifact)\n\n    def predict(self, request):\n        features = featurize(request)\n        return {\"prediction\": self.model.predict(features)}\n\n# Batch (offline) serving: all known inputs, computed ahead of time\nclass BatchPredictor:\n    def __init__(self, model_artifact):\n        self.model = load_model(model_artifact)\n\n    def run_nightly(self, all_known_inputs):\n        features = [featurize(r) for r in all_known_inputs]\n        predictions = self.model.predict(features)\n        write_to_store(predictions)  # ready before anyone asks\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Treating a raw model artifact as immediately servable.** Without the wrapping layer (loading, request parsing, inference, response formatting), a trained model file is not yet a callable service.\n\n**Defaulting to real-time serving when batch would do.** Real-time infrastructure adds latency and complexity that's wasted when the actual need is a known set of inputs on a predictable schedule.\n\n**Applying the same latency assumptions to both serving patterns.** Real-time serving is built around per-request latency requirements; batch serving is built around throughput over a known input set — conflating the two leads to over- or under-engineering."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ops_packaging_models_for_serving_quiz",
+        "questions": [
+          {
+            "question": "What does a trained model artifact need beyond itself to become an actual callable prediction service?",
+            "options": [
+              "Nothing — the raw artifact file is immediately callable as a service",
+              "Wrapping code that loads the model, accepts requests in an expected format, runs inference, and returns responses, plus the runtime environment it needs",
+              "A completely new model trained from scratch specifically for serving",
+              "Only a change to the model's file name"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Serving requires a wrapping layer around the artifact to handle request/response formatting and inference execution, echoing the containerization approach used for training jobs but applied to serving.",
+            "id": "q1"
+          },
+          {
+            "question": "What distinguishes real-time (online) serving from batch (offline) serving?",
+            "options": [
+              "They are identical in every respect",
+              "Real-time serving computes predictions on demand for individual requests with a latency requirement, while batch serving precomputes predictions in bulk ahead of time for a known set of inputs",
+              "Batch serving always requires more infrastructure than real-time serving",
+              "Real-time serving can only be used for classification tasks"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Real-time serving reacts to individual requests as they arrive, while batch serving precomputes results in advance for a known input set — different trade-offs suited to different use cases.",
+            "id": "q2"
+          },
+          {
+            "question": "Why might choosing real-time serving infrastructure for a use case that's fine with batch predictions be a mistake?",
+            "options": [
+              "Real-time serving is always simpler than batch serving",
+              "It takes on unnecessary infrastructure complexity when the actual need (predictions on a known schedule for a known input set) doesn't require reacting to individual requests in real time",
+              "Batch serving is technically impossible to implement for any use case",
+              "There is no meaningful difference in complexity between the two approaches"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This echoes the recurring 'match the tool to the actual need' principle from earlier in this curriculum — real-time serving's added complexity is only worth it when the use case genuinely requires immediate, request-by-request predictions.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, why does `OnlinePredictor.predict` operate on a single `request` while `BatchPredictor.run_nightly` operates on `all_known_inputs`?",
+            "options": [
+              "Because OnlinePredictor is incapable of handling more than one input ever",
+              "Because they implement two different serving patterns: on-demand, per-request prediction versus precomputed, bulk prediction over a known input set",
+              "Because BatchPredictor cannot use the same underlying model as OnlinePredictor",
+              "Because this distinction has no connection to the real-time versus batch serving concepts in this lesson"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The two classes' method signatures directly reflect the lesson's distinction: real-time serving reacts to individual requests, while batch serving processes a known, complete set of inputs at once.",
+            "id": "q4"
+          },
+          {
+            "question": "Why does `BatchPredictor.run_nightly` call `write_to_store(predictions)` instead of returning a value directly to a waiting caller?",
+            "options": [
+              "Because batch predictions are always discarded immediately after computation",
+              "Because batch serving computes predictions ahead of time so they're ready before anyone actually requests them, unlike real-time serving's immediate request-response pattern",
+              "Because write_to_store is required syntax with no functional purpose",
+              "Because OnlinePredictor also writes its results to a store instead of returning them"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This reflects batch serving's core characteristic: predictions are precomputed and stored ahead of time, so they're available on lookup rather than computed fresh in response to each individual request.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is treating a raw model artifact as immediately servable identified as a mistake?",
+            "options": [
+              "Because model artifacts are actually never usable for serving under any circumstances",
+              "Because without the wrapping layer (loading, request parsing, inference, response formatting), a trained model file is not yet a callable service",
+              "Because this mistake only affects batch serving, never real-time serving",
+              "Because model artifacts automatically include their own serving wrapper by default"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson is explicit that an artifact needs the wrapping layer described in the first section before it becomes an actual callable prediction service — the artifact alone isn't sufficient.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does defaulting to real-time serving 'just in case' risk over-engineering, per this lesson?",
+            "options": [
+              "Because real-time serving is always cheaper than batch serving",
+              "Because it adds latency-oriented infrastructure complexity that's wasted when the actual need is a known set of inputs on a predictable schedule that batch serving handles more simply",
+              "Because real-time serving cannot actually be implemented in practice",
+              "Because batch serving requires strictly more infrastructure than real-time serving in every case"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This is the lesson's core caution: real-time infrastructure is only worth its added complexity when the use case genuinely needs immediate, per-request predictions — otherwise it's unnecessary overhead compared to batch serving.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does conflating real-time and batch serving's underlying assumptions lead to poor design choices?",
+            "options": [
+              "Because the two patterns are actually interchangeable with no meaningful difference",
+              "Because real-time serving is built around per-request latency requirements while batch serving is built around throughput over a known input set — treating them the same leads to over- or under-engineering",
+              "Because latency only matters for batch serving, never real-time serving",
+              "Because throughput is irrelevant to both serving patterns"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Each pattern optimizes for a different property (latency per request versus overall throughput for a known set), so applying one pattern's assumptions to the other's use case results in a poorly matched design.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ops_deployment_strategies",
+      "title": "Deployment Strategies: Introducing a New Model Version Carefully",
+      "description": "Swapping a live model for a new version all at once means finding out about a problem only after every single user has already hit it.",
+      "duration": 13,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Compare canary, blue-green, and shadow deployment strategies and identify which fits a given risk tolerance and validation need."
+          },
+          {
+            "title": "🐤 Canary deployment",
+            "content": "Route a **small percentage** of production traffic to the new model version while the majority continues going to the current version, monitor the canary's performance (using the monitoring practices covered in the next module) and gradually increase its traffic share if it looks healthy — this limits the **blast radius** of a problem to a small fraction of traffic rather than all of it, catching issues before they affect everyone."
+          },
+          {
+            "title": "🔵🟢 Blue-green deployment",
+            "content": "Run the new version (green) **fully in parallel** with the current version (blue), fully tested and ready, then switch all traffic over in one coordinated cutover — and critically, keep the old version (blue) ready to instantly switch back to if a problem appears, making **rollback** (covered in depth in the next module) fast and low-risk compared to a deployment approach with no readily-available previous version to fall back to."
+          },
+          {
+            "title": "👥 Shadow deployment",
+            "content": "Send production traffic to the new model version **in parallel** with the current one, but don't actually use the new version's predictions for real decisions yet — just log and compare them against the current version's actual predictions. This validates how the new version would have performed on real traffic with **zero risk to actual users**, since nothing about the live system's actual behavior changes during a shadow deployment — a natural fit for validating a model before trusting it with any real traffic at all."
+          },
+          {
+            "title": "🎯 Choosing a strategy",
+            "content": "- **Shadow deployment** for validating a genuinely new or substantially different model before it influences any real decisions\n- **Canary deployment** for a gradual, monitored rollout once initial validation looks good, limiting exposure while gaining confidence\n- **Blue-green** for a coordinated cutover where having an instant rollback path matters most\n\nMany real deployments combine these — shadow first to validate, then canary to gradually roll out, mirroring the same \"start cautious, increase confidence gradually\" principle behind the approval-gate and human-in-the-loop patterns covered in the Agents and LangGraph courses, just applied to model deployment risk instead of agent action risk."
+          },
+          {
+            "title": "💻 Combining shadow then canary in one rollout",
+            "content": "```python\ndef rollout_new_version(new_model, current_model, traffic_router):\n    # Phase 1: shadow — zero risk, validate against real traffic\n    for request in traffic_router.stream():\n        live_prediction = current_model.predict(request)\n        shadow_prediction = new_model.predict(request)  # logged, not served\n        log_comparison(live_prediction, shadow_prediction)\n    if not shadow_results_look_healthy():\n        return \"do not proceed\"\n\n    # Phase 2: canary — small, monitored traffic share, growing gradually\n    for pct in [5, 20, 50, 100]:\n        traffic_router.set_split(new_model, pct)\n        if not monitor_health(new_model):        # module 4\n            traffic_router.set_split(current_model, 100)  # rollback, module 5\n            return \"rolled back\"\n    return \"fully rolled out\"\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Switching all traffic to a new version at once with no gradual step.** This means finding out about a problem only after every user has already been affected, with no contained blast radius.\n\n**Skipping shadow validation for a substantially different model.** Canary deployment still exposes some real traffic to a genuinely untested model — shadow deployment offers a zero-risk way to validate first.\n\n**Deploying without keeping the previous version ready.** Whether via blue-green's parallel-and-ready approach or otherwise, a deployment with no readily-available fallback turns a bad new version into a slow, improvised scramble instead of a fast, planned rollback."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ops_deployment_strategies_quiz",
+        "questions": [
+          {
+            "question": "What does a canary deployment do?",
+            "options": [
+              "Switches all production traffic to the new model version immediately",
+              "Routes a small percentage of traffic to the new version, monitoring it before gradually increasing its share, limiting the blast radius of any problem",
+              "Only tests the new model on data that was never actually part of production traffic",
+              "Deploys the new model to a completely separate, unrelated system"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Canary deployment limits initial exposure to a small fraction of traffic, catching problems before they affect all users, then gradually expands based on observed health.",
+            "id": "q1"
+          },
+          {
+            "question": "What is the key advantage of blue-green deployment specifically?",
+            "options": [
+              "It eliminates the need for any monitoring after deployment",
+              "Keeping the old version fully ready in parallel makes rollback fast and low-risk if a problem appears after the cutover",
+              "It requires no evaluation of the new model before deployment",
+              "It only works for batch serving, never real-time serving"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Blue-green's readily-available previous version is what makes fast, low-risk rollback possible compared to a deployment approach without an immediately available fallback.",
+            "id": "q2"
+          },
+          {
+            "question": "What makes shadow deployment uniquely low-risk compared to canary or blue-green?",
+            "options": [
+              "Shadow deployment actually serves live predictions to a subset of users",
+              "The new model's predictions are only logged and compared, never actually used for real decisions, so nothing about the live system's actual behavior changes",
+              "Shadow deployment requires switching all traffic immediately",
+              "It has no way to validate the new model's performance at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since shadow deployment never uses the new model's predictions for real decisions, it provides validation against real traffic with zero risk to actual users, making it a natural first step before canary or blue-green.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, why is `shadow_prediction` computed but never passed to `traffic_router` for an actual served response?",
+            "options": [
+              "Because new_model.predict always raises an error",
+              "Because shadow deployment logs and compares predictions without using them for real decisions, keeping zero risk to actual users during Phase 1",
+              "Because shadow deployment is identical to canary deployment",
+              "Because live_prediction and shadow_prediction are computed by the same model"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This directly implements the lesson's description of shadow deployment: the new model's output is only logged for comparison, never actually served, which is exactly what keeps it risk-free.",
+            "id": "q4"
+          },
+          {
+            "question": "Why does the canary phase in the code example loop through increasing percentages (`[5, 20, 50, 100]`) rather than jumping straight to 100?",
+            "options": [
+              "Because traffic_router.set_split only accepts values below 10",
+              "Because canary deployment gradually increases the new version's traffic share while monitoring health, limiting the blast radius of any problem at each step",
+              "Because this loop has no actual effect on how traffic is routed",
+              "Because 100 is an invalid percentage value"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The gradual traffic increase, combined with a health check at each step, is exactly how canary deployment limits exposure while building confidence, rather than exposing all users at once.",
+            "id": "q5"
+          },
+          {
+            "question": "What does the code example's rollback line (`traffic_router.set_split(current_model, 100)`) illustrate about combining deployment strategies with rollback?",
+            "options": [
+              "That rollback is only possible after a full rollout completes",
+              "That a failed health check during the canary phase can trigger an immediate revert to the previous version, connecting deployment strategy directly to the rollback practices covered in a later module",
+              "That rollback requires retraining a new model from scratch",
+              "That the shadow phase makes rollback entirely unnecessary"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This shows deployment strategies and rollback working together in practice: a canary rollout's monitoring can trigger an immediate, fast revert exactly because the previous version was never fully replaced.",
+            "id": "q6"
+          },
+          {
+            "question": "Why is switching all traffic to a new version at once, with no gradual step, identified as a mistake?",
+            "options": [
+              "Because instant cutovers are always faster and therefore always preferable",
+              "Because it means finding out about a problem only after every user has already been affected, with no contained blast radius",
+              "Because gradual rollouts are technically impossible to implement",
+              "Because this approach has no actual risk associated with it"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This is the exact problem canary deployment is designed to solve — an all-at-once switch removes the contained blast radius that a gradual rollout provides.",
+            "id": "q7"
+          },
+          {
+            "question": "Why might skipping shadow validation for a substantially different model still leave meaningful risk, even with canary deployment in place?",
+            "options": [
+              "Because canary deployment already exposes zero real traffic to the new model",
+              "Because canary deployment still exposes some real traffic to a genuinely untested model, whereas shadow deployment validates with zero risk before any real traffic is affected",
+              "Because shadow and canary deployment are functionally identical",
+              "Because canary deployment cannot be used for genuinely new models"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Even canary's small initial traffic share still means some real users are exposed to the new model — shadow deployment closes that remaining gap by validating with zero risk beforehand.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ops_ci_cd_for_ml",
+      "title": "CI/CD for Machine Learning",
+      "description": "Continuous integration and delivery, extended to handle the fact that a model's 'test suite' includes data checks and evaluation metrics, not just unit tests.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Describe what an ML-specific CI/CD pipeline includes beyond standard software CI/CD, tying together the practices from this whole course."
+          },
+          {
+            "title": "✅ What standard CI/CD already covers",
+            "content": "**Code review**, **automated testing**, and **automated deployment on a passing build** — the standard software engineering practices this course has referenced throughout as the baseline that MLOps extends, applying directly to the pipeline and serving code that surrounds a model."
+          },
+          {
+            "title": "🔧 What ML-specific CI/CD adds",
+            "content": "- **Data validation** (from module 1) as an automated pipeline gate, not just code tests\n- **Automated retraining and evaluation** as part of the pipeline, with a defined threshold a new model version needs to clear before being considered a deployment candidate (extending the model-registry lifecycle-stage concept — a model doesn't get promoted to \"production\" without passing this gate)\n- **Automated promotion** through deployment strategies (canary, shadow) from the previous lesson, rather than a fully manual deployment process, once a new version has passed its evaluation gate"
+          },
+          {
+            "title": "🔗 Tying the whole course together",
+            "content": "A mature ML CI/CD pipeline is essentially every practice from this course, wired together into one automated flow: new data triggers validation (module 1) → a training pipeline runs (module 2), tracked as an experiment → if the resulting model clears its evaluation threshold, it's registered (this module) → deployed via a canary or shadow strategy (this module) → monitored for drift and performance (module 4) → with a rollback path ready (module 5) if something goes wrong. Understanding CI/CD for ML means recognizing it's **not a separate topic** from everything else in this course — it's the automation that connects all of it into one coherent, reliable operational system."
+          },
+          {
+            "title": "🎯 Why full automation is the goal, not a luxury",
+            "content": "Each individual practice in this course reduces a specific risk (data problems, irreproducibility, deployment risk, undetected degradation) — but a pipeline that requires a person to manually execute each of these steps in the correct order, every time, reintroduces exactly the kind of **human-error risk** (a forgotten step, an out-of-order execution) that the individual automated pieces were each designed to eliminate. Automating the full chain end to end is what actually delivers the reliability this course's practices are meant to provide."
+          },
+          {
+            "title": "💻 The whole course as one automated flow",
+            "content": "```python\ndef ml_ci_cd_pipeline(new_data):\n    validated = validate_dataset(new_data, schema, historical_stats)   # module 1\n    model, metrics = train_and_evaluate(validated)                    # module 2\n\n    if metrics[\"precision\"] < PROMOTION_THRESHOLD:\n        return \"model did not clear evaluation gate, not promoted\"\n\n    version = register_model(tracker, registry, model.run_id)         # module 3\n    promote(registry, version, \"staging\")\n    rollout_new_version(version, current_production_model, router)    # module 3\n    # monitoring (module 4) and rollback (module 5) continue afterward,\n    # closing the loop back to \"new data triggers validation\" again\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Applying only standard software CI/CD to an ML pipeline.** Code review and automated tests alone say nothing about data quality or model evaluation — the ML-specific gates this lesson describes are what standard CI/CD is missing.\n\n**Leaving one stage of the pipeline manual 'for now.'** A single manual step reintroduces exactly the human-error risk (a forgotten step, an out-of-order execution) that every other automated stage was built to eliminate.\n\n**Treating CI/CD as a separate topic from the rest of this course.** A mature ML CI/CD pipeline is the automation layer connecting validation, training, registration, deployment, monitoring, and rollback — not a standalone system bolted on at the end."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ops_ci_cd_for_ml_quiz",
+        "questions": [
+          {
+            "question": "What does ML-specific CI/CD add on top of standard software CI/CD practices?",
+            "options": [
+              "Nothing — ML CI/CD is identical to standard software CI/CD",
+              "Data validation as an automated gate, automated retraining/evaluation with a promotion threshold, and automated deployment via strategies like canary or shadow",
+              "Only the removal of any code review process",
+              "A requirement that deployment always happens manually"
+            ],
+            "correctAnswer": 1,
+            "explanation": "ML CI/CD extends standard code-focused CI/CD with data validation gates, evaluation-threshold-gated model promotion, and automated deployment strategies specific to ML systems.",
+            "id": "q1"
+          },
+          {
+            "question": "How does this lesson describe the relationship between a mature ML CI/CD pipeline and the rest of this course's practices?",
+            "options": [
+              "CI/CD is an entirely separate, unrelated topic from data versioning, experiment tracking, and monitoring",
+              "A mature pipeline wires together virtually every practice from this course — validation, training, registration, deployment, monitoring, rollback — into one automated flow",
+              "CI/CD only applies to the initial training stage and has no connection to deployment or monitoring",
+              "ML CI/CD makes model registries and monitoring unnecessary"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson frames CI/CD as the automation layer connecting every other practice covered in this course into one coherent operational system, not a standalone topic.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is full end-to-end automation the goal rather than a nice-to-have, according to this lesson?",
+            "options": [
+              "Automation is purely a convenience with no reliability benefit",
+              "A pipeline requiring manual execution of each step reintroduces the human-error risk (forgotten or out-of-order steps) that the individual automated practices were designed to eliminate",
+              "Manual execution is always more reliable than automation for ML pipelines",
+              "Full automation is impossible to achieve for machine learning systems"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since each individual practice mitigates a specific risk, leaving their coordination to manual execution reintroduces exactly the kind of error the automation was meant to prevent — full automation is what actually delivers the intended reliability.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, what happens if `metrics[\"precision\"]` is below `PROMOTION_THRESHOLD`?",
+            "options": [
+              "The model is registered and deployed anyway",
+              "The pipeline returns early without registering or deploying the model, since it hasn't cleared the evaluation gate",
+              "The function raises an unhandled exception with no explanation",
+              "PROMOTION_THRESHOLD is automatically lowered to match the model's actual precision"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The threshold check gates promotion explicitly — a model that doesn't clear it is not registered or deployed, directly implementing the 'defined threshold a new model version needs to clear' described in this lesson.",
+            "id": "q4"
+          },
+          {
+            "question": "Why does `ml_ci_cd_pipeline` call `validate_dataset` before `train_and_evaluate` rather than after?",
+            "options": [
+              "Because the order of these calls has no actual effect on the pipeline's behavior",
+              "Because data validation is meant to be a gate that runs before training proceeds, catching bad data before it can produce a bad model, consistent with module 1's validation-as-a-gate lesson",
+              "Because train_and_evaluate cannot accept validated data as input",
+              "Because validate_dataset actually performs the training itself"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This ordering directly reflects the module 1 principle that validation should function as a mandatory gate before training, not an afterthought applied after a model is already trained.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does the pipeline call `rollout_new_version` with a deployment strategy rather than switching all traffic to the new version directly?",
+            "options": [
+              "Because rollout_new_version always fails on the first attempt",
+              "Because this pipeline is meant to combine automated promotion with the canary/shadow deployment strategies from the previous lesson, rather than an all-or-nothing manual switch",
+              "Because the previous lesson's deployment strategies are unrelated to CI/CD",
+              "Because router objects cannot handle more than one model version"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This ties module 3's deployment strategies lesson directly into the CI/CD flow — automated promotion still uses canary or shadow rollout rather than an abrupt, all-at-once switch.",
+            "id": "q6"
+          },
+          {
+            "question": "Why is applying only standard software CI/CD (code review, automated tests) to an ML pipeline identified as a mistake?",
+            "options": [
+              "Because standard CI/CD practices are entirely unnecessary for ML systems",
+              "Because code review and automated tests alone say nothing about data quality or model evaluation, which are exactly what ML-specific CI/CD gates are meant to add",
+              "Because ML pipelines should never include any code review",
+              "Because this approach actually provides complete coverage for ML-specific risks"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson is explicit that ML CI/CD needs to add data validation and evaluation-threshold gates on top of standard practices — code-focused CI/CD alone misses the data and model-quality dimensions unique to ML.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does leaving even one pipeline stage manual 'for now' undermine the reliability goal of ML CI/CD?",
+            "options": [
+              "Because a single manual stage has no effect on overall pipeline reliability",
+              "Because it reintroduces exactly the human-error risk (a forgotten step, an out-of-order execution) that every other automated stage was specifically built to eliminate",
+              "Because manual stages are always faster than automated ones",
+              "Because pipelines cannot function with any manual steps present at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson's core point about full automation is that skipping even one stage leaves the same category of risk (forgotten or misordered steps) that automating the rest was meant to close off.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

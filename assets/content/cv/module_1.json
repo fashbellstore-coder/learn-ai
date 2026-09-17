@@ -1,0 +1,547 @@
+{
+  "id": "module_1",
+  "title": "CNN Architectures for Vision",
+  "description": "From CNN fundamentals to the real backbones powering modern vision: the LeNet-to-ResNet evolution, choosing a backbone, and transfer learning in practice.",
+  "icon": "🏗️",
+  "color": "#5C6BC0",
+  "order": 1,
+  "estimatedHours": 2,
+  "difficulty": "Intermediate",
+  "prerequisites": [
+    "module_0"
+  ],
+  "lessons": [
+    {
+      "id": "cv_cnn_recap",
+      "title": "CNNs for Vision: A Quick, Focused Recap",
+      "description": "Revisit the CNN architecture from the deep learning course, specifically through the lens of image classification.",
+      "duration": "7 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can describe how a CNN processes an image end-to-end for a classification task."
+          },
+          {
+            "title": "🔁 The pieces you already know",
+            "content": "From the deep learning course: convolutional layers detect local patterns using learned filters; pooling layers shrink the spatial size while retaining important information; and stacking several of these blocks builds up from simple features (edges) to complex ones (object parts, whole objects). This module builds directly on that foundation, focusing specifically on how these pieces come together for real image classification tasks."
+          },
+          {
+            "title": "🏁 A full classification pipeline",
+            "content": "```\nInput image (e.g. 224×224×3)\n  → Conv + ReLU + Pool  (edges, colors)\n  → Conv + ReLU + Pool  (textures, simple shapes)\n  → Conv + ReLU + Pool  (object parts)\n  → Flatten\n  → Fully-connected layer(s)\n  → Softmax  → class probabilities (e.g. \"cat\": 0.85, \"dog\": 0.10, \"bird\": 0.05)\n```\n\nThis is the exact architecture pattern from the deep learning course, now applied concretely to a real image classification task with real class labels."
+          },
+          {
+            "title": "📊 What \"good\" looks like for a classifier",
+            "content": "Recall the evaluation metrics from the machine learning course: accuracy, precision, recall, F1, and the confusion matrix all apply directly here too. For a multi-class image classifier (many possible categories, not just two), it's common to also look at **top-5 accuracy** — whether the correct label was among the model's top 5 highest-probability predictions, not just its single top guess — a somewhat more forgiving metric for problems with many similar or easily-confused categories."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Treating computer vision evaluation as fundamentally different from the ML/DL courses' metrics.** The same accuracy, precision/recall, and confusion matrix concepts apply directly — vision classification is still, at its core, a classification task.\n\n**Forgetting that softmax (from the deep learning course) is the standard output layer for multi-class image classification.** It converts raw output scores into a proper probability distribution across all the possible classes.\n\n**Assuming a classifier trained on one set of categories automatically generalizes to new, unseen categories.** A model trained to distinguish cats, dogs, and birds has no built-in way to recognize a completely different category, like \"car,\" unless it was specifically trained with that category included."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "cv_cnn_recap_quiz",
+        "questions": [
+          {
+            "question": "What role does the softmax layer typically play in an image classification CNN?",
+            "options": [
+              "It detects edges in the input image",
+              "It converts the network's raw final output scores into a probability distribution across all possible classes",
+              "It resizes the input image to a fixed size",
+              "It removes noise from the training data"
+            ],
+            "correctAnswer": 1,
+            "explanation": "As covered in the deep learning course, softmax is the standard output activation for multi-class classification — it turns raw scores into valid probabilities that sum to 1 across all the candidate classes.",
+            "id": "q1"
+          },
+          {
+            "question": "What does top-5 accuracy measure, and why is it sometimes used for image classification?",
+            "options": [
+              "Whether the model's single top guess was correct, exactly like standard accuracy",
+              "Whether the correct label appears among the model's top 5 highest-probability predictions — a more forgiving metric for problems with many similar or easily-confused categories",
+              "The accuracy of only the first 5 training examples",
+              "The percentage of images that failed to load correctly"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Top-5 accuracy checks whether the true label is anywhere in the model's 5 most likely predictions, not just its single top guess — useful for datasets with many fine-grained or visually similar categories where a 'close but not quite the top guess' result still reflects reasonably good performance.",
+            "id": "q2"
+          },
+          {
+            "question": "Why can't a classifier trained on cats, dogs, and birds automatically recognize a car?",
+            "options": [
+              "Classifiers can recognize any object without needing specific training",
+              "The model has no built-in way to predict a category it was never trained to distinguish — a new category needs to be included in training",
+              "Cars are physically impossible for a CNN to process",
+              "This is not actually true — classifiers can recognize anything automatically"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A classifier's output is fundamentally limited to the specific categories it was trained on — a model trained only on cats, dogs, and birds has no mechanism to recognize or output a category like 'car' that it never saw during training.",
+            "id": "q3"
+          },
+          {
+            "question": "What is the purpose of the pooling layers in the classification pipeline described in this lesson?",
+            "options": [
+              "To increase the spatial size of feature maps",
+              "To shrink the spatial size while retaining important information",
+              "To add color to grayscale images",
+              "To generate the final class probabilities"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Pooling layers, as covered in the deep learning course, reduce spatial dimensions while preserving the most important information from each region.",
+            "id": "q4"
+          },
+          {
+            "question": "What does the flatten step do in the classification pipeline described in the lesson?",
+            "options": [
+              "It removes all color information from the image",
+              "It reshapes the multi-dimensional feature maps into a vector for the fully-connected layers",
+              "It resizes the input image to a fixed size",
+              "It applies data augmentation"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The flatten step converts the multi-dimensional output of the convolutional/pooling layers into a single vector that fully-connected layers can process, exactly as covered in the deep learning course.",
+            "id": "q5"
+          },
+          {
+            "question": "In the example output probabilities ('cat': 0.85, 'dog': 0.10, 'bird': 0.05), what do these numbers represent?",
+            "options": [
+              "The exact number of pixels belonging to each class",
+              "A probability distribution over the possible classes, produced by the softmax output layer",
+              "The training loss for each class",
+              "The number of training images per class"
+            ],
+            "correctAnswer": 1,
+            "explanation": "These values represent the softmax-produced probability distribution over the possible output classes, summing to 1, exactly as described in the deep learning course.",
+            "id": "q6"
+          },
+          {
+            "question": "Which evaluation concepts from the machine learning course does the lesson say apply directly to image classifiers?",
+            "options": [
+              "Only accuracy, and nothing else",
+              "Accuracy, precision, recall, F1, and the confusion matrix",
+              "Only the confusion matrix",
+              "None of the machine learning course's metrics apply to vision"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson explicitly states that accuracy, precision, recall, F1, and the confusion matrix from the machine learning course all apply directly to evaluating image classifiers.",
+            "id": "q7"
+          },
+          {
+            "question": "Why is top-5 accuracy considered a more forgiving metric than standard top-1 accuracy for some tasks?",
+            "options": [
+              "It requires the model to get every single prediction perfectly correct",
+              "It counts a prediction as correct if the true label is anywhere among the model's top 5 highest-probability guesses, not just its single top choice",
+              "It only evaluates 5 images at a time",
+              "It ignores the model's confidence scores entirely"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Top-5 accuracy is more forgiving because it credits the model if the correct label appears anywhere in its top 5 guesses, useful for datasets with many similar or easily-confused categories.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "cv_classic_backbones",
+      "title": "Classic Backbones: From LeNet to ResNet",
+      "description": "Trace the evolution of CNN architectures and understand why each major advance mattered.",
+      "duration": "9 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can describe the key architectural ideas introduced by LeNet, AlexNet, VGG, and ResNet."
+          },
+          {
+            "title": "🌱 LeNet: the original blueprint",
+            "content": "**LeNet** (1990s) was one of the earliest successful CNNs, originally applied to recognizing handwritten digits. It established the basic pattern still used today: alternating convolution and pooling layers, followed by fully-connected layers — small and simple by modern standards, but the conceptual foundation everything since has built on."
+          },
+          {
+            "title": "📈 AlexNet and VGG: going bigger and deeper",
+            "content": "**AlexNet** (2012) scaled this basic pattern up dramatically and, trained on GPUs, dramatically outperformed non-deep-learning approaches on a major image recognition benchmark (ImageNet) — a widely cited turning point that helped kick off the modern deep learning era in computer vision.\n\n**VGG** (2014) pushed depth further with a very clean, consistent design — stacking many small 3×3 convolutional filters (rather than fewer, larger ones) repeatedly. This showed that consistent depth, done carefully, could meaningfully improve performance."
+          },
+          {
+            "title": "🧗 The problem VGG-style scaling eventually ran into",
+            "content": "Simply stacking more and more layers doesn't keep helping indefinitely — beyond a certain depth, plain networks actually start performing *worse*, even on training data, not just from overfitting. This connects directly to the vanishing gradient problem from the deep learning course: with enough layers, gradients struggle to propagate all the way back to the earliest layers during backpropagation, making very deep plain networks difficult to train effectively at all."
+          },
+          {
+            "title": "🔗 ResNet: skip connections solve the depth problem",
+            "content": "**ResNet** (2015) introduced **skip connections** (also called residual connections) — shortcuts that let information (and gradients) bypass one or more layers directly, rather than being forced through every single layer in sequence.\n\n```\n# Conceptual residual block\n# output = layer(input) + input   ← the '+ input' is the skip connection\n```\n\nThis simple but powerful idea let networks scale to far greater depths (over 100 layers) than was previously practical, since gradients now have a more direct path back to earlier layers during training. ResNet-style skip connections became a standard building block in countless architectures that followed — well beyond just computer vision."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming a deeper network is always strictly better.** As the VGG-to-ResNet story shows, depth alone runs into real training difficulties — architectural innovations like skip connections were specifically needed to make very deep networks trainable at all.\n\n**Underestimating skip connections' broader impact.** This idea, first popularized by ResNet for vision, went on to influence architectures well beyond computer vision, including the Transformer architecture covered in a later course.\n\n**Treating this history as purely trivia.** Understanding *why* each architectural change mattered (not just memorizing names and dates) builds real intuition for how to think about and design your own architectures."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "cv_classic_backbones_quiz",
+        "questions": [
+          {
+            "question": "What key architectural pattern did VGG demonstrate?",
+            "options": [
+              "Using extremely large convolutional filters throughout the network",
+              "That stacking many small (3x3) convolutional filters consistently could meaningfully improve performance through depth",
+              "Removing all pooling layers from the network",
+              "Avoiding the use of any activation functions"
+            ],
+            "correctAnswer": 1,
+            "explanation": "VGG showed that a clean, consistent design using small 3x3 filters repeated across many layers could push performance further through depth, in contrast to earlier architectures with more varied filter sizes.",
+            "id": "q1"
+          },
+          {
+            "question": "What problem do ResNet's skip connections directly address?",
+            "options": [
+              "Slow image loading times",
+              "The difficulty of training very deep networks, since gradients struggle to propagate back through many layers (the vanishing gradient problem)",
+              "The need for data augmentation",
+              "Running out of GPU memory during inference"
+            ],
+            "correctAnswer": 1,
+            "explanation": "By providing shortcuts that let information and gradients bypass layers directly, skip connections give gradients a more direct path back to earlier layers during backpropagation, making it practical to train much deeper networks than was possible before.",
+            "id": "q2"
+          },
+          {
+            "question": "What happened to plain (non-residual) networks as they were made deeper and deeper, beyond a certain point?",
+            "options": [
+              "Performance kept improving indefinitely with no limit",
+              "Performance actually started getting worse, even on training data, due to increasing difficulty in training very deep networks",
+              "They became impossible to run on any hardware",
+              "They automatically converted into ResNet architectures"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Beyond a certain depth, plain stacked networks ran into real training difficulties (connected to the vanishing gradient problem) that caused performance to degrade rather than improve — this specific problem is what motivated ResNet's skip connection innovation.",
+            "id": "q3"
+          },
+          {
+            "question": "What task was LeNet originally applied to?",
+            "options": [
+              "Object detection in street scenes",
+              "Recognizing handwritten digits",
+              "Video processing",
+              "Text translation"
+            ],
+            "correctAnswer": 1,
+            "explanation": "LeNet, one of the earliest successful CNNs, was originally designed and applied to recognizing handwritten digits.",
+            "id": "q4"
+          },
+          {
+            "question": "What was significant about AlexNet's performance on ImageNet in 2012?",
+            "options": [
+              "It performed worse than all previous approaches",
+              "It dramatically outperformed non-deep-learning approaches, becoming a widely cited turning point for deep learning in computer vision",
+              "It was the first model to ever process color images",
+              "It had fewer parameters than LeNet"
+            ],
+            "correctAnswer": 1,
+            "explanation": "AlexNet's dramatic outperformance of non-deep-learning approaches on ImageNet in 2012 is described as a widely cited turning point that helped kick off the modern deep learning era in computer vision.",
+            "id": "q5"
+          },
+          {
+            "question": "What design choice characterized VGG's architecture?",
+            "options": [
+              "Using very large convolutional filters exclusively",
+              "Stacking many small 3x3 convolutional filters repeatedly, in a clean, consistent design",
+              "Avoiding pooling layers entirely",
+              "Using only fully-connected layers with no convolutions"
+            ],
+            "correctAnswer": 1,
+            "explanation": "VGG's key contribution was demonstrating that a clean, consistent design built from stacking many small 3x3 filters could meaningfully improve performance through depth.",
+            "id": "q6"
+          },
+          {
+            "question": "What did researchers discover about plain networks as they scaled well beyond VGG's depth?",
+            "options": [
+              "Performance kept improving indefinitely with no issues",
+              "Performance actually started getting worse, even on training data, connecting to the vanishing gradient problem",
+              "They became impossible to represent digitally",
+              "They automatically gained skip connections"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Beyond a certain depth, plain stacked networks began performing worse even on training data — a problem connected to the vanishing gradient issue from the deep learning course, which motivated ResNet's innovation.",
+            "id": "q7"
+          },
+          {
+            "question": "Beyond computer vision, where else does the lesson say ResNet's skip connection idea had influence?",
+            "options": [
+              "Nowhere else — it remained exclusive to vision architectures",
+              "It influenced architectures well beyond computer vision, including the Transformer architecture",
+              "It was abandoned shortly after ResNet's introduction",
+              "It only applies to grayscale image processing"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson notes that ResNet's skip connections became a standard building block in countless architectures beyond vision, including the Transformer architecture covered in a later course.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "cv_modern_backbones",
+      "title": "Modern Backbones and Choosing One",
+      "description": "Get practical guidance on today's landscape of CNN architectures and how to pick one for a project.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can describe the key considerations when choosing a backbone architecture for a vision project."
+          },
+          {
+            "title": "🏗️ What \"backbone\" means",
+            "content": "A **backbone** is the core feature-extracting part of a vision model — typically everything up through the last convolutional layers, before the final task-specific layers (like a classification head). The same backbone can be reused across many different tasks (classification, detection, segmentation) by swapping out just the final layers — directly connecting to the transfer learning covered in the deep learning course."
+          },
+          {
+            "title": "⚖️ Key tradeoffs when choosing a backbone",
+            "content": "• **Accuracy vs. speed** — larger, deeper backbones (like deeper ResNet variants) tend to be more accurate but slower and more computationally expensive\n• **Model size** — a backbone that needs to run on a mobile device or embedded hardware has very different constraints than one running on a powerful cloud server\n• **Available pretrained weights** — a backbone with strong, widely-available pretrained weights (like on ImageNet) is usually a better transfer learning starting point than one with limited or no pretrained options"
+          },
+          {
+            "title": "🛠️ Practical selection guidance",
+            "content": "```python\n# Conceptual: loading a pretrained backbone for transfer learning\n# model = load_pretrained_backbone(\"resnet50\")\n# — swap in a new final layer, and fine-tune per the deep learning course's guidance\n```\n\n• **Resource-constrained / real-time** (mobile apps, edge devices) — favor smaller, efficient architectures explicitly designed for this (like MobileNet)\n• **Accuracy-focused, resources available** — favor larger, well-established backbones (like ResNet-50/101, or newer architectures)\n• **When in doubt** — a well-established, widely-used backbone (like ResNet-50) with strong pretrained weights is a very reasonable, safe default starting point for most projects"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Automatically reaching for the largest, most accurate-on-paper backbone regardless of actual deployment constraints.** A highly accurate but slow, large model can be entirely impractical for a real-time or mobile application.\n\n**Ignoring the availability of pretrained weights.** Starting from strong pretrained weights (transfer learning) is usually far more practical than training a large backbone entirely from scratch, especially with limited task-specific data.\n\n**Not benchmarking on your actual task and data.** General accuracy leaderboards (like ImageNet rankings) don't always perfectly predict which backbone will perform best on your own specific dataset and task."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "cv_modern_backbones_quiz",
+        "questions": [
+          {
+            "question": "What does 'backbone' refer to in a vision model?",
+            "options": [
+              "The final classification layer only",
+              "The core feature-extracting part of the model, which can be reused across different tasks by swapping the final task-specific layers",
+              "The dataset used to train the model",
+              "The loss function used during training"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The backbone is the shared feature-extraction portion of a vision model (typically the convolutional layers) — the same backbone can support classification, detection, or segmentation by changing only the final task-specific layers, connecting directly to transfer learning.",
+            "id": "q1"
+          },
+          {
+            "question": "Why might a mobile app favor a smaller, more efficient backbone architecture over a larger, more accurate one?",
+            "options": [
+              "Mobile devices cannot process images of any kind",
+              "Resource-constrained environments (like mobile or edge devices) have real constraints on speed and model size that a larger, more accurate but slower and heavier model may not meet",
+              "Smaller backbones are always more accurate than larger ones",
+              "This tradeoff doesn't actually exist in practice"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Choosing a backbone involves a genuine practical tradeoff between accuracy and efficiency — a resource-constrained deployment (like a mobile app) often needs to prioritize speed and size, even if that means somewhat lower peak accuracy than a larger model could achieve.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is the availability of strong pretrained weights an important consideration when selecting a backbone?",
+            "options": [
+              "Pretrained weights are never actually useful for real projects",
+              "A backbone with strong, widely-available pretrained weights is usually a much more practical transfer learning starting point than one without, especially with limited task-specific data",
+              "Pretrained weights make a model run slower",
+              "Only backbones without pretrained weights can be fine-tuned"
+            ],
+            "correctAnswer": 1,
+            "explanation": "As covered in the deep learning course's transfer learning lesson, starting from strong pretrained weights saves enormous time and data compared to training from scratch — so a backbone with good pretrained options available is often a more practical choice than one without.",
+            "id": "q3"
+          },
+          {
+            "question": "According to the lesson, what backbone architecture is described as a well-established, safe default starting point when unsure?",
+            "options": [
+              "A brand-new, untested architecture",
+              "A well-established, widely-used backbone like ResNet-50 with strong pretrained weights",
+              "The largest available backbone regardless of task",
+              "A backbone with no available pretrained weights"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson recommends a well-established backbone like ResNet-50 with strong pretrained weights as a safe, reasonable default when the right choice is unclear.",
+            "id": "q4"
+          },
+          {
+            "question": "What kind of backbone architecture does the lesson recommend for resource-constrained, real-time applications?",
+            "options": [
+              "The largest, deepest ResNet variant available",
+              "Smaller, efficient architectures explicitly designed for this, like MobileNet",
+              "Any backbone with no pretrained weights",
+              "An architecture with no convolutional layers at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson specifically recommends smaller, efficient architectures like MobileNet for resource-constrained or real-time deployment scenarios such as mobile apps.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does the lesson caution against relying purely on general accuracy leaderboards like ImageNet rankings?",
+            "options": [
+              "ImageNet rankings are always perfectly predictive of performance on any dataset",
+              "General accuracy leaderboards don't always perfectly predict which backbone will perform best on your own specific dataset and task",
+              "ImageNet rankings only apply to text classification",
+              "Leaderboards cannot be used to compare any two architectures"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson warns that benchmarking on your own actual task and data is important, since general leaderboard rankings don't always translate directly to your specific use case.",
+            "id": "q6"
+          },
+          {
+            "question": "What does the lesson identify as a key benefit of choosing a backbone with strong pretrained weight availability?",
+            "options": [
+              "It guarantees the fastest possible inference speed",
+              "It provides a far more practical starting point for transfer learning than training from scratch, especially with limited task-specific data",
+              "It eliminates the need for any preprocessing",
+              "It automatically increases the model's accuracy to 100%"
+            ],
+            "correctAnswer": 1,
+            "explanation": "As with the deep learning course's transfer learning guidance, starting from strong pretrained weights is far more practical than training from scratch, particularly when task-specific data is limited.",
+            "id": "q7"
+          },
+          {
+            "question": "What does 'backbone' refer to, according to the lesson?",
+            "options": [
+              "Only the final classification layer of a model",
+              "The core feature-extracting part of a vision model, reusable across different tasks by swapping final layers",
+              "The dataset used to evaluate a model",
+              "The specific hardware used to train a model"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A backbone is the core feature-extraction portion of a vision model, which can support different tasks (classification, detection, segmentation) by swapping only the final task-specific layers.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "cv_transfer_learning_practice",
+      "title": "Transfer Learning for Image Classification in Practice",
+      "description": "Apply the transfer learning concepts from deep learning to a concrete image classification project.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can outline the practical steps for building an image classifier using transfer learning."
+          },
+          {
+            "title": "🔁 A recap, now made concrete",
+            "content": "Recall from the deep learning course: transfer learning starts from a network pretrained on a large general dataset (like ImageNet) and adapts it to a new task. For image classification specifically, this typically means: load a pretrained backbone, replace its final classification layer with a new one matching your specific categories, then train (with feature extraction or fine-tuning, per the deep learning course's guidance)."
+          },
+          {
+            "title": "🛠️ A concrete conceptual workflow",
+            "content": "```python\n# Conceptual PyTorch-style workflow\n# 1. Load a pretrained backbone\n# model = load_pretrained_model(\"resnet50\")\n#\n# 2. Replace the final layer to match your number of classes\n# model.final_layer = new_layer(output_size=num_your_classes)\n#\n# 3. Freeze early layers (feature extraction) or use a small\n#    learning rate on them (fine-tuning) — per your data size,\n#    following the deep learning course's guidance\n#\n# 4. Train on your task-specific dataset, with appropriate\n#    preprocessing matching what the pretrained model expects\n#\n# 5. Evaluate on a held-out test set, using accuracy/precision/\n#    recall/confusion matrix as appropriate for the task\n```"
+          },
+          {
+            "title": "🎯 A worked example scenario",
+            "content": "Imagine classifying product photos into 10 categories for an e-commerce catalog, with only 2,000 labeled example images available — far too few to train a large CNN from scratch effectively. Starting from a backbone pretrained on ImageNet (which has already learned excellent general-purpose visual features) and fine-tuning just its later layers on your 2,000 product photos is a highly practical, realistic approach — exactly the kind of situation transfer learning is designed for."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Training a CNN completely from scratch when only a small task-specific dataset is available.** As covered in deep learning, this is a near-guaranteed recipe for overfitting — transfer learning is almost always the better starting point in this situation.\n\n**Forgetting to match preprocessing to what the pretrained model expects.** Image size, normalization statistics, and channel order all need to match — a mismatch here quietly hurts performance without an obvious error.\n\n**Not validating that the pretrained model's original domain is reasonably close to your task.** A backbone pretrained on natural photos (ImageNet) transfers well to many photo-based tasks, but may transfer less effectively to a very different domain, like medical scans — it can still help, but expectations should adjust."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "cv_transfer_learning_practice_quiz",
+        "questions": [
+          {
+            "question": "What's the first practical step in adapting a pretrained backbone for a new image classification task?",
+            "options": [
+              "Immediately start training on the new dataset with no modifications",
+              "Replace the final classification layer with a new one matching the number of categories in your specific task",
+              "Delete all the pretrained weights and reinitialize them randomly",
+              "Convert all images to grayscale"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since a pretrained model's final layer is built for its original set of categories, the standard transfer learning workflow replaces that final layer with a new one sized for your specific task's categories, while keeping the valuable pretrained feature-extraction layers.",
+            "id": "q1"
+          },
+          {
+            "question": "In the e-commerce example with only 2,000 labeled product photos, why is transfer learning a better approach than training from scratch?",
+            "options": [
+              "2,000 images is actually more than enough to train any CNN from scratch effectively",
+              "With such a limited dataset, training a large CNN from scratch would very likely overfit — starting from pretrained weights already encoding useful general visual features is far more practical",
+              "Transfer learning is required by law for e-commerce applications",
+              "Pretrained models cannot be used for product classification"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A small dataset like 2,000 images is generally far too little to train a large CNN from scratch without severe overfitting — reusing a backbone already pretrained on a much larger, general dataset (like ImageNet) gives a much stronger starting point.",
+            "id": "q2"
+          },
+          {
+            "question": "Why might a backbone pretrained on ImageNet transfer less effectively to a medical imaging task than to another natural-photo task?",
+            "options": [
+              "ImageNet-pretrained backbones can never be used for any other task",
+              "Medical images can differ significantly in visual characteristics from ImageNet's natural photos, so the pretrained features may be less directly applicable, even though transfer learning can still help",
+              "Medical imaging tasks don't actually involve images",
+              "There's no meaningful difference between domains for transfer learning purposes"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Transfer learning tends to work best when the pretrained domain and the new task's domain share some visual similarity — a backbone pretrained on natural photos still often helps with medical images, but the domain gap means results and expectations may need more careful adjustment than transferring to another natural-photo task.",
+            "id": "q3"
+          },
+          {
+            "question": "In the e-commerce example, how many labeled product photos were available for the 10-category classification task?",
+            "options": [
+              "200,000",
+              "2,000",
+              "20",
+              "2 million"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The worked example describes a scenario with only 2,000 labeled example images available, illustrating a realistic transfer learning use case.",
+            "id": "q4"
+          },
+          {
+            "question": "What preprocessing considerations must be matched when using a pretrained backbone for a new task?",
+            "options": [
+              "Only the file format of the images",
+              "Image size, normalization statistics, and channel order",
+              "The programming language used to write the training script",
+              "The number of GPUs used during original pretraining"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson stresses that image size, normalization, and channel order all need to match what the pretrained model expects, or performance can quietly degrade.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is training a CNN completely from scratch on a small task-specific dataset considered risky?",
+            "options": [
+              "It's actually never risky regardless of dataset size",
+              "It's a near-guaranteed recipe for overfitting, as covered in the deep learning course",
+              "Training from scratch is technically impossible with any amount of data",
+              "Small datasets always train faster with better results"
+            ],
+            "correctAnswer": 1,
+            "explanation": "As covered in the deep learning course, training a large CNN from scratch on limited data is highly prone to overfitting — transfer learning is almost always the better starting point in this situation.",
+            "id": "q6"
+          },
+          {
+            "question": "What should be evaluated after training a transfer-learned image classifier, according to the lesson?",
+            "options": [
+              "Nothing further is needed once training completes",
+              "Performance on a held-out test set, using accuracy/precision/recall/confusion matrix as appropriate",
+              "Only the training loss value",
+              "The number of parameters in the pretrained backbone"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The workflow explicitly includes evaluating on a held-out test set using the same metrics (accuracy, precision, recall, confusion matrix) covered in the machine learning course.",
+            "id": "q7"
+          },
+          {
+            "question": "Why might a backbone pretrained on ImageNet transfer less effectively to medical scans than to another natural-photo task?",
+            "options": [
+              "ImageNet-pretrained backbones can never be used for any other task",
+              "Medical scans can differ significantly in visual characteristics from ImageNet's natural photos, creating a domain gap, though transfer learning can still help",
+              "Medical imaging tasks don't involve any images at all",
+              "There's no meaningful difference between domains for transfer learning"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The domain gap between ImageNet's natural photos and medical scans means the pretrained features may be less directly applicable, even though transfer learning can still provide a useful starting point.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

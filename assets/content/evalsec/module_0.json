@@ -1,0 +1,569 @@
+{
+  "id": "sec_evaluation_foundations",
+  "title": "Evaluation Foundations",
+  "description": "What makes a good evaluation, the strengths and limits of automated generation metrics, RAG-specific (Ragas-style) evaluation frameworks, and the real limitations of public benchmarks.",
+  "icon": "📊",
+  "color": "#C62828",
+  "order": 0,
+  "estimatedHours": 5,
+  "difficulty": "beginner",
+  "prerequisites": [],
+  "lessons": [
+    {
+      "id": "sec_what_makes_a_good_eval",
+      "title": "What Makes a Good Evaluation",
+      "description": "Pulling together the evaluation principles scattered across this curriculum into one coherent picture of what 'a good eval' actually requires.",
+      "duration": 13,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "State the core properties a trustworthy evaluation needs, drawing together the evaluation lessons from across this curriculum."
+          },
+          {
+            "title": "🔗 A recap of what's already been covered",
+            "content": "The Fine-Tuning course established that loss isn't enough and that reading real outputs matters. The Agents course distinguished outcome, trajectory, and component-level evaluation. The RAG course covered retrieval-specific metrics and building an eval set. The LLMOps course covered continuous, gated evaluation and LLM-as-judge at scale. This course's evaluation module isn't introducing a new framework from scratch — it's consolidating these into general principles, then extending them specifically toward safety and security evaluation, which is this course's actual focus."
+          },
+          {
+            "title": "✅ The core properties of a trustworthy eval",
+            "content": "Representative: covering the actual range of inputs a system will face, not just easy cases (a theme repeated across the Fine-Tuning, Agents, and LLMOps courses' eval lessons). Reliable: producing consistent results on repeated runs, so a change's effect can be distinguished from evaluation noise — directly connecting to the LLMOps course's LLM-as-judge-consistency concerns. Actionable: telling you specifically what's wrong, not just that something is wrong, so a failing eval result leads to a fix rather than just an alarm. Aligned with what actually matters: measuring the dimension of quality that genuinely matters for the application, not just whatever happens to be easy to measure automatically."
+          },
+          {
+            "title": "🎯 Why this course adds a fifth property: adversarial robustness",
+            "content": "Every evaluation principle so far has implicitly assumed inputs come from ordinary, well-intentioned users. This course's actual focus — safety and security — requires evaluating against inputs specifically designed to break the system, which is a different mindset than evaluating average-case quality, and is why this course exists as a distinct topic rather than being folded entirely into the evaluation lessons already scattered across earlier courses."
+          },
+          {
+            "title": "💻 Scoring a response against the eval properties",
+            "content": "Below is a small, illustrative scorer that walks a single (response, expected_keywords) pair through the five properties from this lesson, rather than collapsing them into one number.\n\n```python\nfrom dataclasses import dataclass\n\n@dataclass\nclass EvalResult:\n    property_name: str\n    passed: bool\n    detail: str\n\ndef score_against_trustworthy_eval(response, expected_keywords, is_adversarial_input):\n    \"\"\"Toy scorer illustrating the five trustworthy-eval properties.\"\"\"\n    results = []\n\n    # Reliable: a stand-in for 'would this response look the same on a repeat run' —\n    # here, penalize vague hedging language that tends to vary run to run.\n    is_reliable = \"as an ai\" not in response.lower()\n    results.append(EvalResult(\"reliable\", is_reliable,\n                               \"avoids high-variance hedging language\"))\n\n    # Actionable: a failing check should say exactly what's missing, not just 'bad'.\n    missing = [kw for kw in expected_keywords if kw.lower() not in response.lower()]\n    results.append(EvalResult(\"actionable\", len(missing) == 0,\n                               f\"missing required content: {missing}\" if missing\n                               else \"all required content present\"))\n\n    # Aligned: close enough to what actually matters, not just fluent.\n    results.append(EvalResult(\"aligned\", len(missing) <= 1,\n                               \"covers what matters\" if len(missing) <= 1\n                               else \"misses what matters\"))\n\n    # Adversarial robustness: only scored when the input was deliberately adversarial.\n    if is_adversarial_input:\n        refused = (\"i can't help with that\" in response.lower()\n                   or \"cannot assist\" in response.lower())\n        results.append(EvalResult(\"adversarial_robustness\", refused,\n                                   \"handled the adversarial input safely\" if refused\n                                   else \"adversarial input was not handled safely\"))\n\n    return results\n```\n\nRun against a batch of (response, expected_keywords, is_adversarial_input) triples, this returns a list of pass/fail details per property instead of a single pass/fail verdict — which is exactly what makes a failure actionable rather than just alarming."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Collapsing all five properties into one aggregate score.** A single number can hide which specific property failed — a response might be perfectly reliable and representative but still unsafe against adversarial input, and averaging that away makes the eval unactionable, defeating the point of the actionable property itself.\n\n**Only testing with ordinary, well-intentioned inputs.** An eval suite built entirely from typical user queries will never surface the adversarial-robustness gaps this course exists to catch; representative coverage for a security-focused eval has to deliberately include adversarial cases, not just realistic-but-benign ones.\n\n**Treating a single eval run as conclusive.** Without checking that repeated runs on the same inputs produce consistent results, you can't tell whether a score change reflects a real improvement or just evaluation noise — reliability has to be checked, not assumed."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "sec_what_makes_a_good_eval_quiz",
+        "questions": [
+          {
+            "question": "What is this course's evaluation module's relationship to the evaluation lessons from earlier courses?",
+            "options": [
+              "It introduces an entirely new, unrelated evaluation framework",
+              "It consolidates evaluation principles from the Fine-Tuning, Agents, RAG, and LLMOps courses into general principles, then extends them toward safety and security evaluation specifically",
+              "It contradicts and replaces everything covered in those earlier courses",
+              "Evaluation was never actually covered before this course"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This lesson explicitly frames itself as pulling together already-established evaluation principles rather than starting from scratch, then extending them toward this course's safety/security focus.",
+            "id": "q1"
+          },
+          {
+            "question": "What does it mean for an evaluation to be 'actionable'?",
+            "options": [
+              "It runs as quickly as technically possible",
+              "It tells you specifically what's wrong, not just that something is wrong, so a failing result leads to an actual fix",
+              "It only uses automated metrics with no human involvement",
+              "It requires no test cases at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "An actionable evaluation pinpoints the specific problem rather than just flagging that quality has degraded somehow, which is what actually enables a fix.",
+            "id": "q2"
+          },
+          {
+            "question": "Why does this course add adversarial robustness as a distinct evaluation property beyond what earlier courses covered?",
+            "options": [
+              "Adversarial robustness is identical to representativeness and adds nothing new",
+              "Earlier evaluation principles implicitly assumed well-intentioned inputs, while this course's safety/security focus requires evaluating against inputs specifically designed to break the system",
+              "This course does not actually add any new evaluation property",
+              "Adversarial robustness only matters for classical ML systems, never LLMs"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Evaluating against deliberately adversarial inputs is a genuinely different mindset from average-case quality evaluation, which is why this course treats it as a distinct focus rather than folding it into prior courses' eval lessons.",
+            "id": "q3"
+          },
+          {
+            "question": "Which earlier course's concept does the 'reliable' eval property directly connect to, according to this lesson?",
+            "options": [
+              "The Embeddings course's vector-similarity lessons",
+              "The LLMOps course's LLM-as-judge-consistency concerns",
+              "The Agents course's tool-calling lessons",
+              "It doesn't connect to any earlier course"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson explicitly ties 'reliable' — producing consistent results on repeated runs — to the LLMOps course's concerns about LLM-as-judge consistency.",
+            "id": "q4"
+          },
+          {
+            "question": "According to the lesson's recap, which earlier course distinguished outcome, trajectory, and component-level evaluation?",
+            "options": [
+              "The Fine-Tuning course",
+              "The Agents course",
+              "The RAG course",
+              "The LLMOps course"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The recap section attributes the outcome/trajectory/component-level evaluation distinction specifically to the Agents course.",
+            "id": "q5"
+          },
+          {
+            "question": "In score_against_trustworthy_eval, what does the 'actionable' check actually compute?",
+            "options": [
+              "The overall latency of generating the response",
+              "Which expected keywords are missing from the response, so the failure detail names exactly what's absent",
+              "Whether the response contains any adversarial content",
+              "A random pass/fail value unrelated to the response"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The actionable check builds a `missing` list of expected keywords not found in the response and reports that list in the failure detail, which is what makes the check actionable rather than a bare pass/fail.",
+            "id": "q6"
+          },
+          {
+            "question": "In score_against_trustworthy_eval, when is the 'adversarial_robustness' EvalResult appended to the results list?",
+            "options": [
+              "On every call, regardless of the input",
+              "Only when is_adversarial_input is True, since it doesn't make sense to score robustness against an input that was never adversarial",
+              "Only when the response is empty",
+              "Only when expected_keywords is an empty list"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The function checks `if is_adversarial_input:` before appending the adversarial_robustness result, since scoring robustness only makes sense when the input was actually deliberately adversarial.",
+            "id": "q7"
+          },
+          {
+            "question": "Why is collapsing all five trustworthy-eval properties into a single aggregate score considered a mistake?",
+            "options": [
+              "Because aggregate scores are always mathematically invalid",
+              "Because it can hide which specific property failed — for example a response could be reliable and representative but still unsafe against adversarial input — which defeats the actionable property itself",
+              "Because aggregate scores take longer to compute than per-property scores",
+              "Because it makes the evaluation run non-deterministically"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A single number averages away exactly the kind of specific failure information an actionable eval needs to surface, so a real safety gap can be masked by otherwise-good scores on the other properties.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "sec_evaluation_metrics_for_generation",
+      "title": "Evaluation Metrics for Generated Text: What They Capture and What They Miss",
+      "description": "Automated text-similarity metrics are convenient and cheap — and measure something meaningfully narrower than 'is this a good response.'",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Describe what reference-based text-generation metrics measure, their known limitations, and when they're actually appropriate to use."
+          },
+          {
+            "title": "📏 Reference-based overlap metrics",
+            "content": "Metrics like ROUGE (measuring n-gram overlap, commonly used for summarization) and BLEU (originally for machine translation) compare generated text against one or more reference texts and produce a score based on word or phrase overlap — cheap to compute, fully automated, and useful as a rough proxy, exactly as the Fine-Tuning course's evaluation lesson described them, with the same caveat that lesson raised: they're a proxy, not ground truth."
+          },
+          {
+            "title": "⚠️ What overlap metrics miss",
+            "content": "Two responses can be semantically equivalent while sharing very little word overlap (paraphrasing scores poorly even when it's a perfectly good response), and conversely, two responses can share a lot of surface-level word overlap while differing in a critical fact (a summary that gets one key number wrong might still score well on overlap metrics if most of the surrounding text matches) — overlap-based metrics are blind to exactly the kind of factual-correctness and semantic-equivalence distinctions that often matter most."
+          },
+          {
+            "title": "🧲 Embedding-based semantic similarity metrics",
+            "content": "Building directly on the Embeddings course: rather than comparing surface text overlap, compute embeddings for the generated and reference text and measure their similarity in embedding space, catching paraphrases that overlap metrics would score poorly while still being sensitive to genuinely different meaning — a meaningful improvement over pure overlap metrics, though still fundamentally a similarity-to-reference measure, not a direct measure of correctness, safety, or the other qualities LLM-as-judge (per the LLMOps course) is often better suited to assess."
+          },
+          {
+            "title": "🎯 When these metrics are actually the right tool",
+            "content": "Reference-based metrics work reasonably well when there's a genuinely narrow range of acceptable outputs (a translation task, a summarization task with a clear reference summary) and poorly for open-ended generation with many equally valid ways to respond — matching the tool to the task is the same principle that's recurred throughout this curriculum's architectural decisions, here applied to choosing an evaluation metric rather than a system design."
+          },
+          {
+            "title": "💻 A toy overlap metric versus a toy semantic check",
+            "content": "The two examples from the previous sections — a good paraphrase scoring poorly, and a wrong fact scoring well — are easy to see once you compute overlap directly.\n\n```python\nimport math\nfrom collections import Counter\n\ndef rouge1_overlap(candidate, reference):\n    \"\"\"Toy unigram overlap score, in the spirit of ROUGE-1 recall.\"\"\"\n    cand_words = candidate.lower().split()\n    ref_words = reference.lower().split()\n    overlap = sum((Counter(cand_words) & Counter(ref_words)).values())\n    return overlap / len(ref_words) if ref_words else 0.0\n\ndef cosine_similarity(vec_a, vec_b):\n    dot = sum(a * b for a, b in zip(vec_a, vec_b))\n    norm_a = math.sqrt(sum(a * a for a in vec_a))\n    norm_b = math.sqrt(sum(b * b for b in vec_b))\n    return dot / (norm_a * norm_b) if norm_a and norm_b else 0.0\n\ndef semantic_similarity(candidate_embedding, reference_embedding, threshold=0.85):\n    \"\"\"Embeddings-course-style check: similar meaning, not similar surface text.\"\"\"\n    return cosine_similarity(candidate_embedding, reference_embedding) >= threshold\n\nreference = \"The store closes at 9pm on weekdays.\"\nparaphrase = \"Weekday closing time is 9 in the evening.\"\nwrong_fact = \"The store closes at 9pm on weekdays and is open on holidays.\"\n\nprint(rouge1_overlap(paraphrase, reference))   # low — good response scores poorly\nprint(rouge1_overlap(wrong_fact, reference))   # high — wrong response scores well\n```\n\nThe paraphrase, despite being an accurate answer, scores low because it barely shares words with the reference; `wrong_fact` scores high because most of its words match, even though it adds an unsupported claim — the exact overlap-metric blind spot the lesson describes. `semantic_similarity` shows the shape of the fix: it compares meaning in embedding space instead of surface words, though it still only measures similarity-to-reference, not correctness."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Treating a high ROUGE or BLEU score as proof the response is correct.** These metrics measure lexical overlap with a reference, not factual accuracy — a response can score well while stating something false, so overlap scores should be read as a proxy, never as ground truth.\n\n**Using reference-based overlap metrics on open-ended generation tasks.** When there are many equally valid ways to respond, penalizing low word overlap with one particular reference punishes perfectly good answers that just happen to be phrased differently — match the metric to how narrow the acceptable-output range actually is.\n\n**Assuming embedding similarity is a stand-in for correctness or safety.** Semantic similarity catches paraphrases that overlap metrics miss, but it's still fundamentally a similarity-to-reference measure — for correctness, safety, or other judgment-heavy qualities, an LLM-as-judge approach is often better suited."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "sec_evaluation_metrics_for_generation_quiz",
+        "questions": [
+          {
+            "question": "What do reference-based overlap metrics like ROUGE and BLEU actually measure?",
+            "options": [
+              "The factual correctness of generated text",
+              "Word or phrase overlap between generated text and one or more reference texts",
+              "The safety of a model's output",
+              "The latency of the generation process"
+            ],
+            "correctAnswer": 1,
+            "explanation": "These metrics score surface-level lexical overlap with reference text, which is a narrower and different thing than measuring correctness or quality directly.",
+            "id": "q1"
+          },
+          {
+            "question": "Why can a factually wrong summary still score well on an overlap-based metric?",
+            "options": [
+              "Overlap metrics always catch factual errors reliably",
+              "If most of the surrounding text matches the reference, a summary can score well on word overlap even if it gets one critical fact wrong, since overlap metrics are blind to that kind of error",
+              "Factually wrong summaries always score zero on any metric",
+              "Overlap metrics only work when there is no reference text at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since these metrics measure overlap rather than factual correctness, a summary that's mostly textually similar to the reference but wrong on one key fact isn't reliably penalized.",
+            "id": "q2"
+          },
+          {
+            "question": "When are reference-based metrics actually the right evaluation tool, per this lesson?",
+            "options": [
+              "They are always the best choice regardless of the task",
+              "When there's a genuinely narrow range of acceptable outputs, like translation or summarization with a clear reference — they work poorly for open-ended generation with many valid responses",
+              "They should never be used under any circumstances",
+              "Only when no reference text is available at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Matching the metric to the task matters — reference-based metrics suit narrow, well-defined output tasks and are a poor fit for open-ended generation with many equally valid answers.",
+            "id": "q3"
+          },
+          {
+            "question": "Per this lesson, what course does embedding-based semantic similarity build directly on?",
+            "options": [
+              "The Agents course",
+              "The Embeddings course",
+              "The LLMOps course",
+              "The Fine-Tuning course"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson explicitly says embedding-based semantic similarity metrics build directly on the Embeddings course, computing and comparing embeddings rather than surface text.",
+            "id": "q4"
+          },
+          {
+            "question": "Even after switching to an embedding-based semantic similarity metric, what limitation still remains according to this lesson?",
+            "options": [
+              "It becomes impossible to compute automatically",
+              "It is still fundamentally a similarity-to-reference measure, not a direct measure of correctness, safety, or other qualities LLM-as-judge is often better suited to assess",
+              "It can no longer detect paraphrases at all",
+              "It requires no reference text whatsoever, making it unusable"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson is explicit that embedding similarity is an improvement over overlap metrics but remains a similarity-to-reference measure, not a direct measure of correctness or safety.",
+            "id": "q5"
+          },
+          {
+            "question": "In the code example, what does rouge1_overlap(candidate, reference) compute?",
+            "options": [
+              "The cosine similarity between two embedding vectors",
+              "The count of shared unigrams between candidate and reference, divided by the number of words in the reference",
+              "Whether candidate and reference are character-for-character identical",
+              "The number of factual errors in the candidate text"
+            ],
+            "correctAnswer": 1,
+            "explanation": "rouge1_overlap sums the overlapping word counts (via Counter intersection) between candidate and reference and divides by the reference's word count, a toy ROUGE-1-style recall score.",
+            "id": "q6"
+          },
+          {
+            "question": "In the code example, why does rouge1_overlap(wrong_fact, reference) score higher than rouge1_overlap(paraphrase, reference)?",
+            "options": [
+              "Because wrong_fact is factually correct and paraphrase is not",
+              "Because wrong_fact shares most of its words with the reference text even though it adds an unsupported claim, while paraphrase uses different words despite being an accurate response",
+              "Because the function checks factual accuracy directly, not word overlap",
+              "Because paraphrase and reference share no words at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "wrong_fact reuses most of the reference's exact wording (so it scores high on lexical overlap) while paraphrase conveys the same meaning with different words (so it scores low) — precisely the blind spot the lesson describes.",
+            "id": "q7"
+          },
+          {
+            "question": "Why is treating a high ROUGE or BLEU score as proof of correctness considered a mistake?",
+            "options": [
+              "Because ROUGE and BLEU scores are randomly generated and meaningless",
+              "Because these metrics measure lexical overlap with a reference, not factual accuracy, so a response can score well while still stating something false",
+              "Because ROUGE and BLEU can only be computed for translation tasks",
+              "Because a high score always means the response is too long"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Overlap metrics are a proxy for similarity to a reference text, not a direct check of factual correctness, so a fluent but factually wrong response can still score well.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "sec_building_evaluation_frameworks_for_rag",
+      "title": "Evaluation Frameworks for RAG: A Closer Look at Ragas-Style Metrics",
+      "description": "RAG's two-part structure — retrieve, then generate — means a good RAG eval framework has to separately assess both halves, not just the final answer.",
+      "duration": 13,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Describe the distinct metric categories a RAG-specific evaluation framework measures and why separating them matters for diagnosis."
+          },
+          {
+            "title": "🔗 Building directly on the RAG course's evaluation lesson",
+            "content": "The RAG course's eval-metrics lesson introduced the idea of measuring retrieval and generation quality separately. This lesson goes one level deeper into how a purpose-built RAG evaluation framework (the kind referenced by this track's 'Ragas' key skill) operationalizes that separation into specific, automatable metrics, often computed using an LLM-as-judge approach per the LLMOps course."
+          },
+          {
+            "title": "🔍 Retrieval-side metrics",
+            "content": "Context precision (of the documents retrieved, how many were actually relevant to the query) and context recall (of the documents that were actually relevant and available in the corpus, how many did retrieval actually find) — these two together diagnose retrieval quality independent of what the generation step does with what it received, directly extending the RAG course's retrieval-evaluation concepts into named, specific metrics."
+          },
+          {
+            "title": "✍️ Generation-side metrics",
+            "content": "Faithfulness (does the generated answer's claims actually follow from the retrieved context, or does it introduce unsupported claims — directly connecting to the RAG course's prompting-for-faithfulness lesson and this course's own hallucination-detection concerns) and answer relevance (does the generated answer actually address the original question, independent of whether it's faithful to the retrieved context — a faithful answer to a misunderstood question is still a bad answer)."
+          },
+          {
+            "title": "🎯 Why separating these four metrics matters for diagnosis",
+            "content": "A RAG system that fails end to end could be failing for any of several reasons — poor retrieval (low context precision/recall), a generation step that ignores good context (low faithfulness despite good retrieval), or a generation step that answers a slightly different question than what was asked (low answer relevance despite everything else being fine) — exactly mirroring this course's earlier point that an actionable evaluation needs to pinpoint the specific problem, not just flag that something is wrong. A single end-to-end quality score would obscure exactly this diagnostic distinction."
+          },
+          {
+            "title": "💻 Computing the four metrics on toy data",
+            "content": "A minimal, non-LLM-judge version of each metric makes the diagnostic separation concrete — real systems typically use an LLM judge for faithfulness and answer relevance, but the arithmetic shape is the same.\n\n```python\ndef context_precision(retrieved_docs, relevant_docs):\n    if not retrieved_docs:\n        return 0.0\n    hits = sum(1 for d in retrieved_docs if d in relevant_docs)\n    return hits / len(retrieved_docs)\n\ndef context_recall(retrieved_docs, relevant_docs):\n    if not relevant_docs:\n        return 0.0\n    hits = sum(1 for d in retrieved_docs if d in relevant_docs)\n    return hits / len(relevant_docs)\n\ndef faithfulness(answer_claims, supported_claims):\n    if not answer_claims:\n        return 0.0\n    supported = sum(1 for c in answer_claims if c in supported_claims)\n    return supported / len(answer_claims)\n\ndef answer_relevance(answer_addresses_question):\n    # In practice this is usually an LLM-judge score in [0, 1]; simplified here.\n    return 1.0 if answer_addresses_question else 0.0\n\nretrieved = [\"doc1\", \"doc4\", \"doc7\"]\nrelevant = {\"doc1\", \"doc2\", \"doc7\"}\nclaims = [\"revenue grew 12%\", \"headquartered in Berlin\"]\nsupported_by_context = {\"revenue grew 12%\"}\n\nprint(context_precision(retrieved, relevant))  # 2/3 retrieved docs were relevant\nprint(context_recall(retrieved, relevant))      # 2/3 relevant docs were found\nprint(faithfulness(claims, supported_by_context))  # 0.5 — one claim unsupported\n```\n\nRetrieval looks decent here (2/3 on both precision and recall), but faithfulness drops to 0.5 because the generation step asserted a headquarters location the retrieved context never actually supported — exactly the kind of failure that a single end-to-end score would blur together with a retrieval problem."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Reporting only a single end-to-end answer-quality score.** Doing so throws away the diagnostic separation these four metrics exist to provide — you can't tell whether a low score comes from bad retrieval or bad generation, so the fix stays a guess instead of a targeted change.\n\n**Assuming a faithful answer is automatically a relevant one (or vice versa).** Faithfulness only checks that claims are supported by retrieved context; an answer can be perfectly faithful while answering the wrong question, so both metrics need to be checked independently.\n\n**Ignoring context recall because context precision looks fine.** A system can retrieve nothing but relevant documents (perfect precision) while still missing most of the relevant material in the corpus (poor recall) — precision alone doesn't tell you whether retrieval found enough."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "sec_building_evaluation_frameworks_for_rag_quiz",
+        "questions": [
+          {
+            "question": "What do context precision and context recall measure in a RAG evaluation framework?",
+            "options": [
+              "Whether the final generated answer is factually correct",
+              "Retrieval quality specifically — how many retrieved documents were relevant (precision) and how many relevant documents were actually found (recall)",
+              "The latency of the entire RAG pipeline",
+              "The token cost of the generation step"
+            ],
+            "correctAnswer": 1,
+            "explanation": "These metrics isolate retrieval quality independently of what the generation step does with the retrieved content, extending the RAG course's retrieval-evaluation concepts into named metrics.",
+            "id": "q1"
+          },
+          {
+            "question": "What does faithfulness measure, and how does it connect to earlier course content?",
+            "options": [
+              "Whether retrieval found any documents at all",
+              "Whether the generated answer's claims actually follow from the retrieved context, directly connecting to the RAG course's prompting-for-faithfulness lesson and hallucination detection",
+              "The overall latency of the RAG system",
+              "Whether the answer is stylistically well-written"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Faithfulness checks that generated claims are actually supported by retrieved context, extending concepts from the RAG course's faithfulness-prompting lesson into a measurable metric.",
+            "id": "q2"
+          },
+          {
+            "question": "Why does separating retrieval-side and generation-side metrics matter for diagnosing a failing RAG system?",
+            "options": [
+              "A single end-to-end score is always sufficient to diagnose any RAG failure",
+              "Different metrics point to different root causes (poor retrieval, ignored good context, or answering the wrong question), so separating them pinpoints the specific problem rather than just flagging general failure",
+              "Separating metrics has no diagnostic value at all",
+              "Retrieval and generation quality are always identical in practice"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Isolating which specific metric is low tells you exactly which part of the pipeline needs attention, echoing this course's actionability principle from the first lesson.",
+            "id": "q3"
+          },
+          {
+            "question": "According to this lesson, what specifically does context precision measure that context recall does not?",
+            "options": [
+              "Context precision measures how many of the retrieved documents were actually relevant, while context recall measures how many of the relevant documents in the corpus were actually retrieved",
+              "Context precision and context recall measure exactly the same thing",
+              "Context precision measures generation quality, not retrieval quality",
+              "Context precision only applies when there is no relevant document in the corpus at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Precision looks at the retrieved set (what fraction was relevant) while recall looks at the relevant set (what fraction was found) — the two answer different questions about retrieval quality.",
+            "id": "q4"
+          },
+          {
+            "question": "Per the lesson's diagnosis section, why would a single end-to-end quality score obscure the real cause of a RAG failure?",
+            "options": [
+              "Because end-to-end scores are always higher than component scores",
+              "Because a failure could stem from poor retrieval, a generation step ignoring good context, or a generation step answering the wrong question, and a single score can't distinguish between these different root causes",
+              "Because end-to-end scores can only be computed by an LLM judge",
+              "Because component-level metrics are never accurate"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson explicitly lists these three distinct failure modes and states that a single end-to-end score would blur them together, defeating the actionability the separated metrics provide.",
+            "id": "q5"
+          },
+          {
+            "question": "In the code example, what does faithfulness(claims, supported_by_context) return, and why?",
+            "options": [
+              "1.0, because both claims are fully supported by the retrieved context",
+              "0.5, because only one of the two claims ('revenue grew 12%') is in supported_by_context while the other ('headquartered in Berlin') is not",
+              "0.0, because neither claim is supported",
+              "It raises an error because claims is a list, not a set"
+            ],
+            "correctAnswer": 1,
+            "explanation": "faithfulness divides the count of supported claims by the total claims; with one of two claims present in supported_by_context, the result is 1/2 = 0.5.",
+            "id": "q6"
+          },
+          {
+            "question": "In the code example, what does context_recall(retrieved, relevant) evaluate to, and what does that value represent?",
+            "options": [
+              "1.0, meaning retrieval found every relevant document in the corpus",
+              "2/3, meaning retrieval found two of the three documents that were actually relevant ('doc1' and 'doc7', while missing 'doc2')",
+              "0.0, meaning retrieval found none of the relevant documents",
+              "3/3, because all three retrieved documents were relevant"
+            ],
+            "correctAnswer": 1,
+            "explanation": "relevant contains {'doc1', 'doc2', 'doc7'}; retrieved contains 'doc1' and 'doc7' from that set (2 hits) out of 3 relevant documents total, giving 2/3.",
+            "id": "q7"
+          },
+          {
+            "question": "Why is assuming a faithful answer is automatically a relevant one considered a mistake?",
+            "options": [
+              "Because faithfulness and answer relevance are actually the same metric under different names",
+              "Because faithfulness only checks whether claims are supported by retrieved context — an answer can be perfectly faithful to the context while still answering the wrong question, so relevance has to be checked separately",
+              "Because faithful answers are always irrelevant by definition",
+              "Because answer relevance can only be measured before retrieval happens"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson notes a faithful answer to a misunderstood question is still a bad answer — faithfulness and relevance measure different things and neither implies the other.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "sec_benchmarks_and_their_limitations",
+      "title": "Benchmarks and Their Limitations",
+      "description": "A model's benchmark score tells you how it does on that benchmark — a claim that's easy to accidentally over-generalize.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain what public benchmarks are useful for and describe the specific ways relying on them can mislead."
+          },
+          {
+            "title": "📊 What benchmarks are good for",
+            "content": "Standardized, publicly available benchmarks let different models be compared on a common, fixed task under the same conditions, and tracking a model's benchmark performance over successive versions gives a rough sense of whether general capability is actually improving — useful as a coarse, comparative signal, exactly the same role standardized classical ML metrics played in the ML course, just applied at the scale of comparing entire models rather than a single project's own outputs."
+          },
+          {
+            "title": "⚠️ Benchmark contamination",
+            "content": "Because benchmarks are often publicly available text, and models are trained on huge scrapes of public text, there's a real risk that benchmark questions (or very similar ones) leaked into a model's training data — a model can score well on a benchmark not because it's genuinely good at the underlying skill, but because it partially memorized the specific benchmark's answers, which inflates the apparent capability without reflecting genuine generalization."
+          },
+          {
+            "title": "🎯 The benchmark-to-real-task gap",
+            "content": "Even an uncontaminated benchmark measures performance on that benchmark's specific task distribution, which may not resemble your actual application's task distribution at all — a model that scores well on a general knowledge benchmark tells you very little about how well it will perform on your specific domain's specialized vocabulary and task patterns, echoing the representativeness principle from this module's first lesson: a benchmark's own test cases need to actually represent your use case, not just exist as a well-known standard."
+          },
+          {
+            "title": "🎯 Why your own evaluation still matters, benchmarks notwithstanding",
+            "content": "Public benchmark scores are a reasonable initial filter when choosing a base model (similar to the Fine-Tuning course's base-model-selection lesson), but they should never be the final word on whether a model or system is actually good enough for your specific application — the eval harness and eval-set principles from the RAG and LLMOps courses, built around your own actual task, remain necessary regardless of how impressive a model's public benchmark scores look."
+          },
+          {
+            "title": "💻 A quick heuristic for flagging likely contamination",
+            "content": "A real contamination check needs a huge training corpus and fuzzy matching; the toy version below keeps just the core idea — look for large n-gram overlap between a benchmark question and a sample of training-like text.\n\n```python\ndef ngrams(text, n=5):\n    words = text.lower().split()\n    return {\" \".join(words[i:i + n]) for i in range(len(words) - n + 1)}\n\ndef contamination_risk(benchmark_question, training_samples, n=5, overlap_threshold=0.5):\n    \"\"\"Flags a benchmark question as at-risk if a training sample shares a\n    large fraction of its n-grams.\"\"\"\n    bench_grams = ngrams(benchmark_question, n)\n    if not bench_grams:\n        return {\"flagged\": False, \"max_overlap\": 0.0, \"matched_sample\": None}\n\n    max_overlap = 0.0\n    matched_sample = None\n    for sample in training_samples:\n        sample_grams = ngrams(sample, n)\n        if not sample_grams:\n            continue\n        overlap = len(bench_grams & sample_grams) / len(bench_grams)\n        if overlap > max_overlap:\n            max_overlap = overlap\n            matched_sample = sample\n\n    return {\n        \"flagged\": max_overlap >= overlap_threshold,\n        \"max_overlap\": max_overlap,\n        \"matched_sample\": matched_sample,\n    }\n\nbenchmark_q = \"What is the capital of the country that borders Germany to the west and has Brussels as its capital?\"\ntraining_data = [\n    \"Random unrelated web page about cooking recipes.\",\n    \"What is the capital of the country that borders Germany to the west and has Brussels as its capital? Belgium.\",\n]\n\nresult = contamination_risk(benchmark_q, training_data)\nprint(result)  # flagged: True — near-verbatim n-gram overlap with a training sample\n```\n\nBecause the second training sample repeats the benchmark question almost word-for-word, its 5-gram overlap with the benchmark question crosses the threshold and `flagged` comes back True — a real leak signal, not proof the model is genuinely skilled at the underlying task."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Treating a high benchmark score as proof of genuine capability.** Without checking for contamination, a high score could reflect partial memorization of the benchmark's own answers rather than real skill at the underlying task — benchmark scores need to be read alongside a contamination check, not taken at face value.\n\n**Only checking for exact-string leakage.** A model can be exposed to a paraphrased or lightly reworded version of a benchmark question during training; naive exact-match or even n-gram-overlap checks like the toy example above will miss paraphrased contamination, so real audits need fuzzier matching too.\n\n**Treating a strong score on a general benchmark as evidence of readiness for a specific application.** Per the benchmark-to-real-task gap, a benchmark's task distribution may not resemble your domain's specialized vocabulary and task patterns at all — general capability and domain-specific readiness are different questions."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "sec_benchmarks_and_their_limitations_quiz",
+        "questions": [
+          {
+            "question": "What is benchmark contamination?",
+            "options": [
+              "A benchmark being physically corrupted or unreadable",
+              "The risk that benchmark questions (or very similar ones) leaked into a model's training data, inflating apparent performance without reflecting genuine generalization",
+              "A benchmark that only tests one specific skill",
+              "The practice of never publishing benchmark results"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Contamination means a model may score well partly because it partially memorized benchmark answers during training, rather than because it's genuinely skilled at the underlying task.",
+            "id": "q1"
+          },
+          {
+            "question": "Why can a model that scores well on a general knowledge benchmark still perform poorly on a specific application?",
+            "options": [
+              "General knowledge benchmarks always perfectly predict performance on any specific task",
+              "The benchmark's task distribution may not resemble the actual application's task distribution, echoing the representativeness principle from this module's first lesson",
+              "Benchmark scores are always fabricated and meaningless",
+              "Specific applications never require any evaluation beyond public benchmarks"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A benchmark only measures performance on its own specific task distribution — a mismatch with your actual use case means the benchmark score doesn't tell you much about real-world performance for your application.",
+            "id": "q2"
+          },
+          {
+            "question": "What role should public benchmark scores play when choosing a model for a specific application, per this lesson?",
+            "options": [
+              "They should be the sole and final determinant of model choice, replacing any other evaluation",
+              "A reasonable initial filter, similar to the Fine-Tuning course's base-model-selection lesson, but not a substitute for your own task-specific evaluation harness",
+              "Benchmark scores should be ignored entirely and never consulted",
+              "Benchmarks are only useful for training, never for model selection"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Benchmarks are useful as a coarse initial filter, but genuine confidence in a model or system for your specific application still requires the task-specific evaluation practices from the RAG and LLMOps courses.",
+            "id": "q3"
+          },
+          {
+            "question": "According to the 'What benchmarks are good for' section, what earlier course played an analogous role to public LLM benchmarks?",
+            "options": [
+              "The Embeddings course",
+              "The ML course, where standardized classical ML metrics played the same comparative role at a project-output scale",
+              "The Agents course",
+              "No earlier course is mentioned in that section"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson explicitly compares public LLM benchmarks to standardized classical ML metrics from the ML course, just applied at the scale of comparing entire models rather than one project's outputs.",
+            "id": "q4"
+          },
+          {
+            "question": "Per the lesson's final section, what remains necessary regardless of how good a model's public benchmark scores look?",
+            "options": [
+              "Nothing further is needed once benchmark scores are strong",
+              "The eval harness and eval-set principles from the RAG and LLMOps courses, built around your own actual task",
+              "Switching to a completely different, unbenchmarked model",
+              "Publishing your own competing benchmark"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson concludes that your own task-specific evaluation, using the eval-harness and eval-set principles from the RAG and LLMOps courses, remains necessary no matter how strong the public benchmark scores are.",
+            "id": "q5"
+          },
+          {
+            "question": "In the code example, what does the ngrams(text, n) function produce?",
+            "options": [
+              "A single similarity score between two texts",
+              "A set of contiguous n-word phrases (a sliding window over the lowercased, whitespace-split words of the text)",
+              "A count of how many sentences are in the text",
+              "A list of every unique character in the text"
+            ],
+            "correctAnswer": 1,
+            "explanation": "ngrams splits the lowercased text into words and builds a set of every contiguous n-word window, which is then used to compare overlap between two texts.",
+            "id": "q6"
+          },
+          {
+            "question": "In the code example, why does contamination_risk flag the benchmark question as True?",
+            "options": [
+              "Because the benchmark question and the second training sample share no words at all",
+              "Because the second training sample repeats the benchmark question almost verbatim, so their shared 5-gram overlap divided by the benchmark question's total 5-grams meets or exceeds the overlap_threshold of 0.5",
+              "Because training_samples is empty",
+              "Because the function always returns flagged: True by design"
+            ],
+            "correctAnswer": 1,
+            "explanation": "max_overlap is computed as the fraction of the benchmark question's n-grams also found in a training sample; the near-identical training sample pushes that fraction at or above the 0.5 threshold, so flagged becomes True.",
+            "id": "q7"
+          },
+          {
+            "question": "Why is only checking for exact-string leakage considered a mistake when auditing for benchmark contamination?",
+            "options": [
+              "Because exact-string checks are computationally impossible to run",
+              "Because a model can be exposed to a paraphrased or reworded version of a benchmark question during training, which naive exact-match or simple overlap checks can miss entirely",
+              "Because exact-string leakage never actually happens in practice",
+              "Because benchmark questions are never repeated in training data under any circumstances"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Contamination isn't limited to verbatim copies — a paraphrased leak can still let a model partially memorize the answer, so audits relying only on exact-string or narrow n-gram matching will miss it.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

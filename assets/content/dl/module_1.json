@@ -1,0 +1,543 @@
+{
+  "id": "module_1",
+  "title": "Training Neural Networks",
+  "description": "The core training loop: how loss functions define the goal, backpropagation computes what to adjust, and optimizers and training settings determine how fast and how well the network learns.",
+  "icon": "⚙️",
+  "color": "#9C27B0",
+  "order": 1,
+  "estimatedHours": 2,
+  "difficulty": "Beginner",
+  "prerequisites": [
+    "module_0"
+  ],
+  "lessons": [
+    {
+      "id": "dl_loss_functions",
+      "title": "Loss Functions",
+      "description": "Learn how a network measures its own mistakes — the number training is actually trying to minimize.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain what a loss function does and match common loss functions to the tasks they're used for."
+          },
+          {
+            "title": "📏 What a loss function does",
+            "content": "A **loss function** measures how wrong a model's predictions are compared to the true values — a single number that training tries to make as small as possible. Training a neural network, at its core, means repeatedly adjusting the weights to reduce this loss."
+          },
+          {
+            "title": "📐 Loss functions for regression",
+            "content": "For predicting numbers, **Mean Squared Error (MSE)** is the standard choice — the same metric from the machine learning course, now used as the training target itself, not just an evaluation metric.\n\n```python\ndef mse_loss(predictions, targets):\n    return sum((p - t) ** 2 for p, t in zip(predictions, targets)) / len(predictions)\n```"
+          },
+          {
+            "title": "🎯 Loss functions for classification",
+            "content": "For classification, **cross-entropy loss** (also called log loss) is standard — it heavily penalizes confident, wrong predictions, and rewards confident, correct ones.\n\n```python\nimport math\n\ndef binary_cross_entropy(prediction, target):\n    # prediction is a probability (0-1), target is 0 or 1\n    return -(target * math.log(prediction) + (1 - target) * math.log(1 - prediction))\n\nprint(binary_cross_entropy(0.9, 1))   # small loss — confident and correct\nprint(binary_cross_entropy(0.1, 1))   # large loss — confident and wrong\n```\n\n• **Binary cross-entropy** — for two-class problems, paired with a sigmoid output\n• **Categorical cross-entropy** — for multi-class problems, paired with a softmax output"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Using MSE for a classification problem.** MSE doesn't push predicted probabilities toward the extremes the way cross-entropy does, and generally trains classifiers less effectively.\n\n**Mismatching the loss function and the output layer's activation.** Cross-entropy loss expects probabilities (from sigmoid or softmax) as input — feeding it raw, unbounded scores produces meaningless results.\n\n**Forgetting that the loss function defines what \"good\" means to the model.** Whatever the loss function penalizes is exactly what training will try to avoid — choosing the right one for the actual goal matters a lot."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "dl_loss_functions_quiz",
+        "questions": [
+          {
+            "question": "What does a loss function measure?",
+            "options": [
+              "How fast the model trains",
+              "How wrong the model's predictions are compared to the true values",
+              "The number of layers in the network",
+              "The size of the training dataset"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A loss function quantifies the gap between predictions and true values as a single number — training works by adjusting weights to make this number as small as possible.",
+            "id": "q1"
+          },
+          {
+            "question": "Which loss function is standard for classification problems?",
+            "options": [
+              "Mean Squared Error",
+              "Cross-entropy (log) loss",
+              "R² score",
+              "Mean Absolute Error"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Cross-entropy loss is designed for probability-based outputs and heavily penalizes confident wrong predictions, making it well-suited to classification, unlike MSE which is built for numeric targets.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is it a problem to use MSE for a classification task instead of cross-entropy?",
+            "options": [
+              "MSE cannot be computed at all for classification data",
+              "MSE doesn't push predicted probabilities toward the correct extremes as effectively, generally leading to weaker training for classifiers",
+              "There is no real difference between the two for classification",
+              "Cross-entropy is only usable for regression"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Cross-entropy is specifically shaped to strongly penalize confidently wrong predictions and reward confidently correct ones, which trains classifiers more effectively than MSE, which was designed for numeric regression targets.",
+            "id": "q3"
+          },
+          {
+            "question": "For which type of task is Mean Squared Error (MSE) the standard loss function?",
+            "options": [
+              "Multi-class classification",
+              "Regression, predicting numeric values",
+              "Binary classification only",
+              "Clustering"
+            ],
+            "correctAnswer": 1,
+            "explanation": "MSE measures the squared difference between predicted and true numeric values, making it the standard loss for regression tasks.",
+            "id": "q4"
+          },
+          {
+            "question": "What does binary cross-entropy loss pair naturally with?",
+            "options": [
+              "A softmax output for many classes",
+              "A sigmoid output producing a single probability",
+              "No output activation at all",
+              "A ReLU output"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Binary cross-entropy expects a single probability value, which is exactly what a sigmoid output layer produces for two-class problems.",
+            "id": "q5"
+          },
+          {
+            "question": "According to the lesson's example, what happens to binary cross-entropy loss when a confident prediction is wrong?",
+            "options": [
+              "The loss becomes zero",
+              "The loss becomes very large, heavily penalizing the mistake",
+              "The loss stays the same regardless of confidence",
+              "The loss becomes negative"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Cross-entropy loss grows sharply as a confident prediction diverges from the true label, strongly penalizing confidently wrong predictions.",
+            "id": "q6"
+          },
+          {
+            "question": "What loss function pairs with a softmax output layer for multi-class problems?",
+            "options": [
+              "Binary cross-entropy",
+              "Categorical cross-entropy",
+              "Mean squared error",
+              "Hinge loss"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Categorical cross-entropy is designed to work with a softmax output distributed across multiple classes.",
+            "id": "q7"
+          },
+          {
+            "question": "What is the practical consequence of choosing the wrong loss function for a task?",
+            "options": [
+              "The model trains faster",
+              "The model is pushed to optimize for the wrong notion of 'good,' hurting real performance",
+              "It has no effect since all losses are equivalent",
+              "The network automatically corrects the mismatch"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since the loss function defines exactly what training tries to minimize, a mismatched loss steers the model toward optimizing the wrong objective.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "dl_backprop",
+      "title": "Backpropagation: How Networks Actually Learn",
+      "description": "Build intuition for the algorithm that computes how to adjust every single weight in a network.",
+      "duration": "10 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain, at an intuitive level, what backpropagation computes and why it's needed."
+          },
+          {
+            "title": "❓ The problem: crediting blame across many layers",
+            "content": "After a forward pass, you know the loss (how wrong the prediction was) — but a network might have millions of weights spread across many layers. **Backpropagation** answers the question: \"how much did each individual weight contribute to this error, and which direction should it change to reduce it?\""
+          },
+          {
+            "title": "⛓️ The chain rule, applied layer by layer",
+            "content": "Backpropagation works backward from the output layer to the input layer, using calculus's **chain rule** to compute the gradient (the rate of change) of the loss with respect to every weight in the network.\n\n```\n# Conceptually, moving backward:\ndLoss/dOutput_layer_weights = (how the loss changes as those weights change)\ndLoss/dHidden_layer_weights = dLoss/dOutput * dOutput/dHidden  (chain rule)\n... and so on backward through every layer\n```\n\nEach layer's gradient depends on the gradient of the layer *after* it — hence the name \"back\"-propagation: the error signal flows backward through the network."
+          },
+          {
+            "title": "🎯 Why this matters practically",
+            "content": "You'll almost never implement backpropagation by hand — deep learning frameworks like PyTorch and TensorFlow compute it automatically (this is called **automatic differentiation**). But understanding what's happening under the hood helps you reason about training problems.\n\n```python\n# Conceptual PyTorch-style workflow (not runnable as-is)\n# loss = loss_function(predictions, targets)\n# loss.backward()      # computes all gradients automatically, via backprop\n# optimizer.step()     # updates every weight using those gradients\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Thinking backpropagation and gradient descent are the same thing.** Backpropagation *computes the gradients*; gradient descent (or a variant like Adam) *uses* those gradients to actually update the weights — they're complementary, not the same step.\n\n**Assuming backprop only affects the last layer.** The whole point is that it computes gradients for every weight in every layer, all the way back to the input.\n\n**Not connecting this back to the calculus you already know.** Backpropagation is a systematic, efficient application of the chain rule — the same chain rule from the math course, just applied repeatedly across many layers."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "dl_backprop_quiz",
+        "questions": [
+          {
+            "question": "What does backpropagation compute?",
+            "options": [
+              "The final prediction of the network",
+              "The gradient of the loss with respect to every weight in the network",
+              "A random shuffling of the training data",
+              "The number of layers needed"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Backpropagation systematically computes how much each individual weight, across every layer, contributed to the overall loss — that's the gradient information used to update the weights.",
+            "id": "q1"
+          },
+          {
+            "question": "What mathematical rule does backpropagation rely on to work backward through multiple layers?",
+            "options": [
+              "The Pythagorean theorem",
+              "The chain rule from calculus",
+              "Bayes' theorem",
+              "The law of large numbers"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Backpropagation applies the chain rule repeatedly, layer by layer, to compute how the loss depends on weights that are several layers removed from the output — that's what makes multi-layer training possible.",
+            "id": "q2"
+          },
+          {
+            "question": "What's the relationship between backpropagation and gradient descent?",
+            "options": [
+              "They are the exact same algorithm with different names",
+              "Backpropagation computes the gradients; gradient descent (or a variant) uses those gradients to actually update the weights",
+              "Backpropagation updates weights directly, without needing gradient descent at all",
+              "Gradient descent computes gradients, and backpropagation applies them"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The two work together but do different jobs: backpropagation figures out the gradient (direction and size of needed change) for each weight, and gradient descent (or Adam, etc.) is the update rule that actually moves the weights using that information.",
+            "id": "q3"
+          },
+          {
+            "question": "What question does backpropagation answer for each weight in the network?",
+            "options": [
+              "How many training examples were used",
+              "How much that weight contributed to the error, and which direction to adjust it",
+              "What the final test accuracy will be",
+              "How many layers the network has"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Backpropagation computes, for every weight, its gradient with respect to the loss — telling training how much and in which direction to adjust it.",
+            "id": "q4"
+          },
+          {
+            "question": "In which direction does backpropagation move through the network?",
+            "options": [
+              "From the input layer to the output layer only",
+              "From the output layer backward toward the input layer",
+              "Randomly between layers",
+              "It doesn't move through layers at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Backpropagation works backward from the output layer, applying the chain rule to compute gradients layer by layer toward the input.",
+            "id": "q5"
+          },
+          {
+            "question": "What is 'automatic differentiation' in the context of deep learning frameworks?",
+            "options": [
+              "A manual process engineers must perform for every model",
+              "The automatic computation of gradients via backpropagation, handled by the framework",
+              "A method for automatically choosing hyperparameters",
+              "A technique for compressing neural networks"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Frameworks like PyTorch and TensorFlow automatically compute all gradients using backpropagation, so practitioners rarely implement it by hand.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does a later layer's gradient depend on the gradient of the layer after it?",
+            "options": [
+              "Because layers are trained independently of each other",
+              "Because the chain rule composes derivatives backward through the network's computation graph",
+              "Because gradients are computed randomly",
+              "Because only the last layer has any gradient"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The chain rule means each layer's gradient calculation incorporates the gradient already computed for the layer downstream of it, which is why the process moves backward.",
+            "id": "q7"
+          },
+          {
+            "question": "What is the key difference between backpropagation and gradient descent?",
+            "options": [
+              "They are identical algorithms",
+              "Backpropagation computes gradients; gradient descent uses them to update weights",
+              "Gradient descent computes gradients; backpropagation updates weights",
+              "Neither involves computing a gradient"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Backpropagation is the method for computing gradients throughout the network, while gradient descent (or a variant) is the separate step that uses those gradients to actually update the weights.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "dl_optimizers",
+      "title": "Gradient Descent Variants and Optimizers",
+      "description": "Learn how modern training algorithms improve on plain gradient descent to train networks faster and more reliably.",
+      "duration": "9 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can describe how SGD, momentum, and Adam differ, and why Adam is such a common default."
+          },
+          {
+            "title": "🔁 A quick recap: gradient descent",
+            "content": "From the math course: gradient descent repeatedly nudges weights in the direction that reduces loss, controlled by a **learning rate**. In deep learning, this update happens using **mini-batches** — small random subsets of the training data — rather than the whole dataset at once, which is faster and adds a helpful bit of randomness. This variant is called **Stochastic Gradient Descent (SGD)**."
+          },
+          {
+            "title": "🏃 Momentum: remembering recent direction",
+            "content": "Plain SGD can zigzag inefficiently, especially in narrow valleys of the loss landscape. **Momentum** adds a \"memory\" of recent update directions, smoothing out the path and speeding up convergence — much like a ball rolling downhill builds up speed instead of stopping and restarting at every step.\n\n```python\n# Conceptually:\n# velocity = momentum * velocity - learning_rate * gradient\n# weights = weights + velocity\n```"
+          },
+          {
+            "title": "⚡ Adam: the common modern default",
+            "content": "**Adam (Adaptive Moment Estimation)** combines momentum with an *adaptive* learning rate for each individual weight — automatically taking bigger steps for weights that need it and smaller steps for others. This adaptivity generally makes it fast, robust, and forgiving of a not-perfectly-tuned learning rate, which is why it's the default optimizer for a huge share of deep learning projects.\n\n```python\n# Conceptual PyTorch-style setup\n# optimizer = torch.optim.Adam(model.parameters(), lr=0.001)\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming plain SGD is outdated and never worth using.** SGD (often with momentum) can still generalize better than Adam in some settings, especially with careful tuning — it's still a reasonable, sometimes preferred, choice.\n\n**Not tuning the learning rate at all, even with Adam.** Adam is more forgiving, not immune — a badly chosen learning rate can still cause slow or unstable training.\n\n**Confusing the optimizer with the loss function.** The loss function defines *what* to minimize; the optimizer defines *how* to update the weights to minimize it — they're separate, complementary choices."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "dl_optimizers_quiz",
+        "questions": [
+          {
+            "question": "What does Stochastic Gradient Descent (SGD) use for each weight update, compared to plain gradient descent on the whole dataset?",
+            "options": [
+              "The entire dataset, exactly like plain gradient descent",
+              "A small random mini-batch of the training data",
+              "Only a single fixed example, chosen at the start of training",
+              "No data at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "SGD updates weights using small random mini-batches rather than the full dataset at once, which speeds up training and introduces some helpful randomness into the optimization process.",
+            "id": "q1"
+          },
+          {
+            "question": "What does momentum add to the gradient descent update?",
+            "options": [
+              "A random shuffling of weights",
+              "A 'memory' of recent update directions, smoothing the path and speeding convergence",
+              "An extra loss function",
+              "A guarantee of finding the global minimum"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Momentum accumulates a running average of past gradient directions, which helps smooth out zigzagging updates and speeds up progress, especially in narrow or elongated regions of the loss landscape.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is Adam such a popular default optimizer for deep learning?",
+            "options": [
+              "It requires no learning rate to be set at all",
+              "It combines momentum with per-weight adaptive learning rates, making it fast, robust, and relatively forgiving to tune",
+              "It's the only optimizer that works with neural networks",
+              "It always converges to a better result than every other optimizer"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Adam's combination of momentum and adaptive per-parameter learning rates tends to train quickly and robustly across a wide range of problems without needing extremely careful learning-rate tuning — a big part of why it's so widely used by default.",
+            "id": "q3"
+          },
+          {
+            "question": "What distinguishes Stochastic Gradient Descent (SGD) from plain (batch) gradient descent?",
+            "options": [
+              "SGD never updates the weights",
+              "SGD updates weights using small random mini-batches instead of the whole dataset at once",
+              "SGD requires no learning rate",
+              "SGD can only be used for classification"
+            ],
+            "correctAnswer": 1,
+            "explanation": "SGD computes updates from small random subsets (mini-batches) of the data rather than the entire dataset, making training faster and introducing helpful randomness.",
+            "id": "q4"
+          },
+          {
+            "question": "What analogy is used in the lesson to describe how momentum helps training?",
+            "options": [
+              "A car braking suddenly",
+              "A ball rolling downhill and building up speed",
+              "A coin flip",
+              "A tree growing branches"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Momentum is compared to a ball rolling downhill, building speed instead of restarting at every step, which smooths out the optimization path.",
+            "id": "q5"
+          },
+          {
+            "question": "What does Adam combine to achieve fast, robust training?",
+            "options": [
+              "Only a fixed learning rate with no momentum",
+              "Momentum with per-weight adaptive learning rates",
+              "Random weight initialization with dropout",
+              "Batch normalization with weight decay"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Adam blends the idea of momentum with an adaptive learning rate for each individual parameter, which is why it trains quickly and robustly across many settings.",
+            "id": "q6"
+          },
+          {
+            "question": "Is plain SGD (with momentum) still a reasonable choice compared to Adam?",
+            "options": [
+              "No, SGD is always strictly worse",
+              "Yes, SGD can sometimes generalize better than Adam with careful tuning",
+              "SGD cannot be used with neural networks",
+              "SGD and Adam are the exact same algorithm"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson notes that SGD, especially with momentum, can still generalize better than Adam in some settings when properly tuned — it remains a valid choice.",
+            "id": "q7"
+          },
+          {
+            "question": "What is the relationship between the loss function and the optimizer?",
+            "options": [
+              "They are the same thing",
+              "The loss function defines what to minimize; the optimizer defines how to update weights to minimize it",
+              "The optimizer defines what to minimize; the loss function updates the weights",
+              "Neither is needed for training a neural network"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The loss function specifies the training objective (what 'good' means), while the optimizer is the algorithm that adjusts weights to pursue that objective.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "dl_training_knobs",
+      "title": "Batch Size, Epochs, and Learning Rate",
+      "description": "Get practical intuition for the three settings you'll tune on almost every training run.",
+      "duration": "9 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain what batch size, epochs, and learning rate control, and describe the tradeoffs of each."
+          },
+          {
+            "title": "📦 Batch size",
+            "content": "**Batch size** is how many training examples are used in one weight update. \n\n• **Smaller batches** — noisier, more frequent updates; can help escape shallow local minima, but training is less stable and can be slower per epoch on capable hardware\n• **Larger batches** — smoother, more accurate gradient estimates per step, and better use of parallel hardware; but can require more memory, and sometimes generalizes slightly worse without other adjustments\n\nCommon values are powers of 2 (32, 64, 128, 256), often chosen based on what fits comfortably in available memory."
+          },
+          {
+            "title": "🔁 Epochs",
+            "content": "One **epoch** means the model has seen the entire training dataset exactly once. Training typically runs for many epochs, so the model sees the data repeatedly, gradually improving.\n\n```python\n# Conceptual training loop\n# for epoch in range(num_epochs):\n#     for batch in training_data:\n#         predictions = model(batch)\n#         loss = loss_function(predictions, batch.targets)\n#         loss.backward()\n#         optimizer.step()\n```\n\nToo few epochs risks underfitting (the model hasn't learned enough yet); too many risks overfitting (the model starts memorizing training data) — this is exactly why a validation set is checked throughout training, not just at the end."
+          },
+          {
+            "title": "🎚️ Learning rate",
+            "content": "The **learning rate** controls how big each weight update step is.\n\n• **Too high** — updates overshoot, and training can become unstable or fail to converge at all\n• **Too low** — training crawls along extremely slowly, and can get stuck in a poor solution\n\nA **learning rate schedule** — starting higher and gradually decreasing it during training — is a common practical technique that gets the benefits of both: fast initial progress, and fine, stable adjustments later on."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Picking a learning rate once and never revisiting it.** If training loss stalls, oscillates wildly, or diverges, the learning rate is often the very first thing worth adjusting.\n\n**Training for a fixed number of epochs without watching validation performance.** Monitoring validation loss and stopping when it stops improving (a technique called early stopping, covered later) is more reliable than guessing a fixed epoch count.\n\n**Assuming a larger batch size is always strictly better.** It's a genuine tradeoff involving memory, speed, and sometimes final model quality — not a setting to maximize blindly."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "dl_training_knobs_quiz",
+        "questions": [
+          {
+            "question": "What does one epoch mean in training?",
+            "options": [
+              "One single weight update",
+              "The model has seen the entire training dataset exactly once",
+              "The final evaluation on the test set",
+              "The total training time in seconds"
+            ],
+            "correctAnswer": 1,
+            "explanation": "An epoch is a complete pass through the entire training dataset — training usually runs for many epochs so the model sees the data repeatedly and gradually improves.",
+            "id": "q1"
+          },
+          {
+            "question": "What tends to happen if the learning rate is set too high?",
+            "options": [
+              "Training always converges faster and more reliably",
+              "Updates can overshoot, making training unstable or preventing it from converging at all",
+              "The model automatically corrects the learning rate on its own",
+              "Nothing — learning rate has no real effect on training stability"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A learning rate that's too large causes each weight update to overshoot the direction that would actually reduce loss, which can make training oscillate wildly or fail to converge.",
+            "id": "q2"
+          },
+          {
+            "question": "Why might a learning rate schedule (starting high, then decreasing) be used during training?",
+            "options": [
+              "To make the total number of epochs shorter",
+              "To get fast initial progress from a higher rate, then fine, stable adjustments later from a lower rate",
+              "Learning rate schedules have no real practical benefit",
+              "To avoid needing a validation set"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A higher starting rate speeds up early training when big steps are still useful, while gradually lowering it later helps the model settle into a good solution with smaller, more precise updates — combining the strengths of both regimes.",
+            "id": "q3"
+          },
+          {
+            "question": "What is a typical tradeoff of using a very small batch size?",
+            "options": [
+              "Training becomes perfectly stable with no downsides",
+              "Updates become noisier and training can be less stable, though it may help escape shallow local minima",
+              "It removes the need for a learning rate",
+              "It guarantees faster convergence than any other batch size"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Small batches produce noisier gradient estimates, which can help escape shallow local minima but generally makes each update less stable.",
+            "id": "q4"
+          },
+          {
+            "question": "What does it mean for the model to complete one epoch?",
+            "options": [
+              "It has processed one single training example",
+              "It has seen the entire training dataset exactly once",
+              "Training has fully converged",
+              "The learning rate has been reduced to zero"
+            ],
+            "correctAnswer": 1,
+            "explanation": "An epoch represents one complete pass of the model through every example in the training dataset.",
+            "id": "q5"
+          },
+          {
+            "question": "What risk comes with training for too many epochs without monitoring validation performance?",
+            "options": [
+              "The model will underfit only",
+              "The model risks overfitting, memorizing the training data instead of generalizing",
+              "Training will halt automatically",
+              "The learning rate will increase uncontrollably"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Continuing to train for too long without checking validation performance risks the model overfitting to the training set.",
+            "id": "q6"
+          },
+          {
+            "question": "What is a common practical value range used for batch size?",
+            "options": [
+              "Any random number between 1 and a million",
+              "Powers of 2, like 32, 64, 128, or 256",
+              "Always exactly the size of the full dataset",
+              "Always exactly 1"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Batch sizes are commonly chosen as powers of 2 (32, 64, 128, 256), often based on what comfortably fits in available memory.",
+            "id": "q7"
+          },
+          {
+            "question": "What benefit does a learning rate schedule (starting high, then decreasing) provide?",
+            "options": [
+              "It eliminates the need to choose a batch size",
+              "Fast initial progress from a higher rate, then fine, stable adjustments later from a lower rate",
+              "It removes the need for a validation set entirely",
+              "It guarantees the global minimum will be found"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A learning rate schedule combines the benefits of large early steps (faster initial progress) with smaller later steps (more precise convergence).",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

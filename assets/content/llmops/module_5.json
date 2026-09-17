@@ -1,0 +1,575 @@
+{
+  "id": "llo_cost_and_reliability",
+  "title": "Cost, Latency, and Reliability at Scale",
+  "description": "Token economics and budgeting, latency optimization and SLOs, caching strategies, and rollback for prompts and models bringing every practice in this course together.",
+  "icon": "💰",
+  "color": "#6A1B9A",
+  "order": 5,
+  "estimatedHours": 5,
+  "difficulty": "advanced",
+  "prerequisites": [
+    "llo_rag_and_agent_ops"
+  ],
+  "lessons": [
+    {
+      "id": "llo_token_economics_and_budgeting",
+      "title": "Token Economics and Budgeting",
+      "description": "Extending the LLM Engineering course's context-window economics into an actual operational budgeting practice across a whole product.",
+      "duration": 13,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Apply token-cost economics operationally: track cost drivers, set budgets, and identify concrete cost-reduction levers."
+          },
+          {
+            "title": "🔗 Building directly on the LLM Engineering course",
+            "content": "The LLM Engineering course's context-window-economics lesson covered how token usage translates to cost per call. This lesson extends that from a per-call understanding into an operational practice: tracking cost in aggregate across an entire product's traffic, per feature, per prompt version (using the per-span token tracing from module 2), and setting actual budgets and alerts around it, mirroring the MLOps course's alerting-threshold approach applied to cost specifically."
+          },
+          {
+            "title": "📊 Identifying the actual cost drivers",
+            "content": "Because per-span token tracking (module 2) reveals exactly which step in a pipeline consumes the most tokens, cost optimization can be targeted rather than guessed at — a RAG system's cost might be dominated by how much retrieved context gets packed into every prompt (per the RAG course's context-packing lesson), while an agent's cost might be dominated by how many loop iterations the average task takes (per this module's agent-monitoring lesson) — the fix looks completely different depending on which driver actually dominates."
+          },
+          {
+            "title": "💰 Concrete cost-reduction levers",
+            "content": "Reducing unnecessary context (tighter retrieval, per the RAG course's reranking and context-assembly lessons, rather than packing in more than actually needed). Using a smaller or cheaper model for steps that don't need the most capable model available (a classification or routing step in an agent, per the Agents course's tool-selection-at-scale lesson, doesn't necessarily need the same model as the main reasoning step). Caching (covered in depth in the next lesson) to avoid redundant, repeated calls for the same or similar requests."
+          },
+          {
+            "title": "🎯 Budgeting as a first-class operational practice",
+            "content": "Setting actual cost budgets per feature or per user tier, with alerting when actual spend approaches or exceeds budget (mirroring the MLOps course's alerting lesson directly), turns cost from something discovered after the fact on a monthly bill into a proactively-managed operational metric — exactly the same shift from reactive to proactive that this course's evaluation-gating module made for quality."
+          },
+          {
+            "title": "💻 Tracking cost against a per-feature budget",
+            "content": "Turning the ideas above into code means combining per-span token counts with a running ledger and a budget threshold, so an alert fires before spend becomes a surprise on a bill.\n\n```python\ndef track_token_cost(\n    feature: str,\n    prompt_tokens: int,\n    completion_tokens: int,\n    price_per_1k_prompt: float,\n    price_per_1k_completion: float,\n    budgets: dict,\n    spend_ledger: dict,\n) -> dict:\n    cost = (prompt_tokens / 1000) * price_per_1k_prompt\n    cost += (completion_tokens / 1000) * price_per_1k_completion\n\n    spend_ledger[feature] = spend_ledger.get(feature, 0.0) + cost\n    budget = budgets.get(feature)\n\n    alert = None\n    if budget is not None:\n        ratio = spend_ledger[feature] / budget\n        if ratio >= 1.0:\n            alert = f\"BUDGET EXCEEDED for {feature}: ${spend_ledger[feature]:.2f} / ${budget:.2f}\"\n        elif ratio >= 0.8:\n            alert = f\"BUDGET WARNING for {feature}: {ratio:.0%} of ${budget:.2f} spent\"\n\n    return {\n        \"feature\": feature,\n        \"call_cost\": round(cost, 4),\n        \"total_spend\": round(spend_ledger[feature], 2),\n        \"alert\": alert,\n    }\n\n\nbudgets = {\"support_chatbot\": 50.0}\nledger = {}\nresult = track_token_cost(\"support_chatbot\", 1200, 400, 0.005, 0.015, budgets, ledger)\nprint(result)\n```\n\n`spend_ledger` accumulates cost per feature the same way per-span tracing accumulates tokens per step, and the 80%/100% thresholds are the same kind of proactive alerting the MLOps course's alerting lesson established — a budget only does its job if it warns before it's actually blown."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Tracking total spend but not per-feature or per-version spend.** Aggregate-only tracking hides which specific feature or prompt version is actually driving cost, defeating the diagnostic value that per-span tracing was meant to provide.\n\n**Treating a smaller model as a free win without checking quality.** Swapping in a cheaper model purely for cost savings, without re-running it through the evaluation gates, can silently degrade quality even while the budget looks healthy.\n\n**Setting a budget with no alert threshold below 100%.** Waiting until spend has already exceeded budget to notice removes any chance to react before the overage happens, which defeats the entire point of proactive budgeting."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "llo_token_economics_and_budgeting_quiz",
+        "questions": [
+          {
+            "question": "How does this lesson extend the LLM Engineering course's context-window-economics concept?",
+            "options": [
+              "It doesn't extend it — cost tracking is a completely separate topic",
+              "It extends per-call cost understanding into an aggregate operational practice: tracking cost per feature and prompt version, and setting budgets and alerts",
+              "It replaces the need for understanding context-window economics entirely",
+              "Cost tracking is only relevant during initial development, never in production"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This lesson takes the per-call cost understanding from LLM Engineering and operationalizes it into product-wide budgeting and alerting, mirroring the MLOps course's approach to thresholds.",
+            "id": "q1"
+          },
+          {
+            "question": "Why does per-span token tracing (from module 2) matter for cost optimization specifically?",
+            "options": [
+              "It has no relevance to cost optimization",
+              "It reveals exactly which step in a pipeline consumes the most tokens, letting cost optimization be targeted rather than guessed at",
+              "Token tracing can only be used for debugging quality issues, never cost",
+              "Per-span tracing eliminates the need for any cost optimization at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Granular, per-step token data lets teams identify the actual cost driver (excessive context packing, too many agent loop iterations) rather than optimizing blindly.",
+            "id": "q2"
+          },
+          {
+            "question": "What shift does treating cost budgeting as a first-class operational practice represent, per this lesson?",
+            "options": [
+              "A shift from proactive to reactive cost management",
+              "A shift from discovering cost problems after the fact on a bill to proactively managing cost as an operational metric, mirroring the same shift evaluation-gating made for quality",
+              "Budgeting has no meaningful shift associated with it",
+              "Cost should never actually be tracked or budgeted for LLM systems"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Just as evaluation gating moved quality assurance from reactive to proactive, treating cost as a budgeted, alerted operational metric moves cost management from after-the-fact discovery to proactive control.",
+            "id": "q3"
+          },
+          {
+            "question": "According to the lesson, why can a RAG system's cost be dominated by a different driver than an agent's cost?",
+            "options": [
+              "They are always dominated by the exact same driver",
+              "Per-span token tracking may show a RAG system's cost coming from context packed into prompts while an agent's cost comes from loop iterations, so the right fix depends on the actual driver",
+              "Cost drivers become irrelevant once per-span tracing exists",
+              "Agents never actually incur meaningful token cost"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Per-span data reveals the actual dominant cost driver, which differs across system types, so optimization needs to target whichever driver is really responsible rather than assuming one answer fits all systems.",
+            "id": "q4"
+          },
+          {
+            "question": "Which of the following is listed as a concrete lever for reducing LLM cost, per this lesson?",
+            "options": [
+              "Always using the largest available model for every step",
+              "Using a smaller or cheaper model for steps that don't need the most capable model available, such as classification or routing",
+              "Removing all caching to keep every response freshly generated",
+              "Ignoring context size when constructing prompts"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson names using a smaller or cheaper model for steps that don't require peak capability as one of its concrete cost-reduction levers, alongside tighter retrieval and caching.",
+            "id": "q5"
+          },
+          {
+            "question": "In the track_token_cost example, what does the function return when spend for a feature reaches 85% of its budget?",
+            "options": [
+              "Nothing — alerts only fire once spend reaches 100%",
+              "A dict with alert set to a BUDGET WARNING message noting the percentage of budget spent",
+              "An exception is raised to halt further calls",
+              "The ledger for that feature is reset to zero"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The function's ratio >= 0.8 branch produces a BUDGET WARNING message before spend actually exceeds the budget, which is what makes the alert proactive rather than after-the-fact.",
+            "id": "q6"
+          },
+          {
+            "question": "In the track_token_cost function, what role does spend_ledger play?",
+            "options": [
+              "It stores the price per 1k tokens for each model",
+              "It accumulates running total spend per feature across calls, so budgets are checked against cumulative cost rather than just one call's cost",
+              "It logs the exact timestamp of each call",
+              "It is unused and has no effect on the function's behavior"
+            ],
+            "correctAnswer": 1,
+            "explanation": "spend_ledger.get(feature, 0.0) + cost accumulates cost per feature across repeated calls, which is what lets the budget check reflect total spend rather than a single call.",
+            "id": "q7"
+          },
+          {
+            "question": "A team tracks only total company-wide LLM spend, with no breakdown by feature or prompt version. Per this lesson's common mistakes, what problem does this create?",
+            "options": [
+              "No problem — aggregate tracking is sufficient for any use case",
+              "It hides which specific feature or prompt version is actually driving cost, undermining targeted optimization",
+              "It automatically triggers far too many budget alerts",
+              "It eliminates the need for a budget entirely"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Aggregate-only tracking defeats the diagnostic value of per-span tracing by hiding exactly which feature or version is responsible for cost, which is the first listed common mistake.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "llo_latency_optimization_and_slos",
+      "title": "Latency Optimization and Service-Level Objectives",
+      "description": "Setting a real latency target for an LLM feature, and the concrete levers available to actually hit it.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Define a latency SLO for an LLM feature and describe the main levers available to meet it, using per-span latency tracing."
+          },
+          {
+            "title": "📏 What an SLO is and why LLM systems need explicit ones",
+            "content": "A service-level objective is a concrete, measurable target (e.g., '95% of requests complete within 3 seconds') rather than a vague goal of 'be fast' — LLM applications need explicit SLOs specifically because generation latency scales with output length and model size in a way that's much less predictable than typical software response times, making 'it feels roughly fast enough' an unreliable substitute for an actual measured target."
+          },
+          {
+            "title": "🔍 Diagnosing latency with per-span tracing",
+            "content": "Building directly on module 2's per-span latency tracking: is the bottleneck the model call itself (which might mean a smaller/faster model, or streaming to improve perceived latency even if total latency is unchanged), a retrieval step (which might mean a faster index or a less exhaustive search, per the RAG course's vector-index lessons), or an agent making more loop iterations than necessary (per this module's agent-monitoring lesson) — the fix is completely different depending on which span is actually dominating, exactly the diagnostic value tracing was built to provide."
+          },
+          {
+            "title": "⚡ Concrete latency-reduction levers",
+            "content": "Streaming output (per the LangGraph course's streaming lesson) to improve perceived latency, showing partial results as they're generated rather than making a user wait for the complete response. Using a smaller or faster model for latency-sensitive steps where the largest available model isn't actually necessary for acceptable quality. Reducing unnecessary sequential steps — parallelizing independent operations (per the Agents course's planning-and-parallelism lesson) rather than running them one after another when they don't actually depend on each other's results."
+          },
+          {
+            "title": "⚖️ The quality-latency-cost trade-off triangle",
+            "content": "Nearly every lever available (a smaller model, less retrieved context, fewer agent steps) trades off against quality or cost in some way — a comprehensive latency strategy has to be evaluated against the same quality gates from module 3 and the cost budgets from the previous lesson, not optimized for latency in isolation, since a fast but low-quality or unexpectedly expensive system isn't actually a win."
+          },
+          {
+            "title": "💻 Checking span data against a latency SLO",
+            "content": "Turning an SLO into something that's actually checked, not just stated, means computing a percentile over per-span durations and pointing at the specific span responsible when it's breached.\n\n```python\nimport math\n\n\ndef latency_slo_check(spans: list, slo_target_seconds: float, slo_percentile: float = 0.95) -> dict:\n    durations = sorted(s[\"duration_seconds\"] for s in spans if s[\"name\"] == \"model_call\")\n    if not durations:\n        return {\"status\": \"no_data\"}\n\n    idx = min(len(durations) - 1, math.ceil(slo_percentile * len(durations)) - 1)\n    p95 = durations[idx]\n    breached = p95 > slo_target_seconds\n\n    slowest_span = max(spans, key=lambda s: s[\"duration_seconds\"])\n    return {\n        \"p95_seconds\": round(p95, 3),\n        \"slo_target_seconds\": slo_target_seconds,\n        \"breached\": breached,\n        \"likely_bottleneck\": slowest_span[\"name\"] if breached else None,\n    }\n\n\nspans = [\n    {\"name\": \"retrieval\", \"duration_seconds\": 0.4},\n    {\"name\": \"model_call\", \"duration_seconds\": 2.1},\n    {\"name\": \"model_call\", \"duration_seconds\": 3.4},\n    {\"name\": \"model_call\", \"duration_seconds\": 1.8},\n]\nprint(latency_slo_check(spans, slo_target_seconds=3.0))\n```\n\nComputing p95 rather than an average is what makes this an actual SLO check, and pointing at `slowest_span` reuses the same per-span diagnostic idea from module 2 to say which step to fix, not just that the SLO was missed."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Measuring average latency instead of a percentile.** An average hides the slow tail that actually frustrates users, which is exactly why SLOs are defined on percentiles like p95 rather than a mean.\n\n**Optimizing the model call when retrieval or agent loops are the real bottleneck.** Without per-span data guiding the fix, teams often swap in a faster model while the actual bottleneck sits elsewhere in the pipeline.\n\n**Chasing latency without checking the quality-cost trade-off.** A faster system reached by cutting context or steps that quietly fails the quality gates from module 3 isn't actually a win."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "llo_latency_optimization_and_slos_quiz",
+        "questions": [
+          {
+            "question": "Why do LLM applications need explicit, measurable SLOs rather than a vague 'be fast' goal?",
+            "options": [
+              "Vague goals are always sufficient for any software system",
+              "Generation latency scales with output length and model size in a way that's less predictable than typical software response times, making a concrete measured target necessary",
+              "LLM applications never actually have any latency concerns",
+              "SLOs are only relevant for classical ML systems, never LLM-based ones"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The unpredictability of LLM generation latency compared to typical software makes a concrete, measurable target more necessary than it might be for more predictable systems.",
+            "id": "q1"
+          },
+          {
+            "question": "How does per-span latency tracing (from module 2) help diagnose an LLM application's latency problem?",
+            "options": [
+              "It has no diagnostic value for latency issues",
+              "It reveals whether the bottleneck is the model call, a retrieval step, or excessive agent loop iterations, since the appropriate fix differs completely depending on which one dominates",
+              "Latency tracing can only be used to diagnose quality problems, never latency itself",
+              "Tracing eliminates the need for any latency optimization at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Just as per-span data helps pinpoint cost drivers, it also pinpoints latency bottlenecks, letting optimization efforts target the actual dominant factor rather than guessing.",
+            "id": "q2"
+          },
+          {
+            "question": "Why should latency optimization be evaluated against quality gates and cost budgets rather than in isolation?",
+            "options": [
+              "Latency, quality, and cost have no relationship to each other",
+              "Nearly every latency-reduction lever (smaller model, less context, fewer steps) trades off against quality or cost, so a fast but low-quality or expensive result isn't actually a win",
+              "Quality and cost should always be sacrificed entirely to maximize latency improvements",
+              "Evaluating trade-offs together is unnecessary since latency is the only metric that matters"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since latency levers generally trade off against quality or cost, a genuinely good outcome requires considering all three together rather than optimizing latency at the expense of the other two.",
+            "id": "q3"
+          },
+          {
+            "question": "Per this lesson, how does streaming output help with latency even when total generation time is unchanged?",
+            "options": [
+              "It reduces the actual number of tokens the model generates",
+              "It improves perceived latency by showing partial results as they're generated rather than making the user wait for the full response",
+              "It bypasses the need for a model call entirely",
+              "It always reduces total latency to zero regardless of output length"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Streaming doesn't necessarily change total generation time, but showing partial output as it arrives improves how fast the response feels to the user.",
+            "id": "q4"
+          },
+          {
+            "question": "What does the lesson recommend for independent operations in a latency-sensitive pipeline?",
+            "options": [
+              "Always run them sequentially to keep things simple",
+              "Parallelize them rather than running them one after another when they don't actually depend on each other's results",
+              "Cache them instead of ever executing them",
+              "Remove them from the pipeline entirely"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson lists parallelizing independent operations, per the Agents course's planning-and-parallelism lesson, as a concrete lever for reducing unnecessary sequential latency.",
+            "id": "q5"
+          },
+          {
+            "question": "In the latency_slo_check example, what determines the 'likely_bottleneck' value when the SLO is breached?",
+            "options": [
+              "It's always set to the retrieval span, regardless of the data",
+              "It's the name of whichever span had the maximum recorded duration",
+              "It's chosen at random from the list of spans",
+              "It's always \"model_call\" no matter what the durations show"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The function computes slowest_span as the span with the maximum duration_seconds and reports its name as the likely bottleneck when the SLO is breached.",
+            "id": "q6"
+          },
+          {
+            "question": "What does the latency_slo_check function compute to decide if the SLO is breached?",
+            "options": [
+              "The average of all span durations across the whole trace",
+              "The configured percentile (p95 by default) of model_call span durations, compared against the target",
+              "The total sum of every span's duration added together",
+              "Simply the number of spans recorded in the trace"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The function sorts model_call durations and selects the value at the requested percentile index, then compares that percentile — not an average or a sum — against the SLO target.",
+            "id": "q7"
+          },
+          {
+            "question": "A team reports 'our average latency is 1.2 seconds' as evidence that a feature meets its SLO. What's the problem with this, per this lesson?",
+            "options": [
+              "There is no problem — average latency is the correct measure for an SLO",
+              "Average latency hides the slow tail that SLOs are meant to guard against; a percentile like p95 should be used instead",
+              "Averages are always mathematically higher than percentiles",
+              "SLOs cannot be measured using per-span trace data at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This is the lesson's first listed common mistake: measuring an average instead of a percentile hides exactly the slow-tail experience that a latency SLO exists to catch.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "llo_caching_strategies",
+      "title": "Caching Strategies for LLM Applications",
+      "description": "The cheapest LLM call is the one you don't make — but knowing when a cached response is actually still valid is the real challenge.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Describe caching strategies for LLM applications and the specific validity challenges that make LLM caching harder than typical software caching."
+          },
+          {
+            "title": "💾 Exact-match caching",
+            "content": "The simplest form: if the exact same request (same prompt, same inputs) has been seen before and a cached response is still valid, return it directly without calling the model again — straightforward to implement and completely safe when it applies, but only helps for genuinely repeated identical requests, which may be a small fraction of total traffic for a highly personalized or context-dependent application."
+          },
+          {
+            "title": "🔍 Semantic caching",
+            "content": "Building directly on the Embeddings course's similarity-search concepts: rather than requiring an exact match, cache based on semantic similarity — if a new request is similar enough (per embedding similarity) to a previously cached one, return the cached response, or use it as a strong starting point — this catches a much larger fraction of effectively-repeated traffic (different phrasings of the same underlying question) than exact-match caching alone, at the cost of needing to define and tune a similarity threshold for what counts as 'close enough.'"
+          },
+          {
+            "title": "📚 Caching in RAG systems specifically",
+            "content": "Retrieved context itself can be cached (avoiding re-running retrieval for a repeated or similar query, per the RAG course's retrieval pipeline), separately from caching the final generated answer — this is often a bigger win than caching final answers alone, since retrieval can be a meaningful cost and latency contributor in its own right, and a cached retrieval result can still feed into a fresh generation call if the exact final answer shouldn't be reused."
+          },
+          {
+            "title": "⚠️ The validity challenge that makes LLM caching harder",
+            "content": "A cached response's validity depends on whether the underlying knowledge is still current (directly connecting to the RAG course's index-staleness concern from this course's earlier module) and whether it's appropriate to reuse for this specific user or context (a cached response might have been personalized or context-dependent in a way that makes reuse for a different user actually wrong, not just stale) — unlike caching a typical static web resource, an LLM cache needs an invalidation strategy that accounts for both time-based staleness and context-appropriateness, not just a simple expiration timer."
+          },
+          {
+            "title": "💻 A semantic cache lookup",
+            "content": "Semantic caching in practice means comparing a new request's embedding against cached entries and only returning a hit when similarity clears a tuned threshold.\n\n```python\ndef semantic_cache_lookup(query_embedding, cache, similarity_threshold=0.92):\n    def cosine_similarity(a, b):\n        dot = sum(x * y for x, y in zip(a, b))\n        norm_a = sum(x * x for x in a) ** 0.5\n        norm_b = sum(y * y for y in b) ** 0.5\n        return dot / (norm_a * norm_b) if norm_a and norm_b else 0.0\n\n    best_entry, best_score = None, 0.0\n    for entry in cache:\n        score = cosine_similarity(query_embedding, entry[\"embedding\"])\n        if score > best_score:\n            best_entry, best_score = entry, score\n\n    if best_entry and best_score >= similarity_threshold:\n        return {\"hit\": True, \"response\": best_entry[\"response\"], \"similarity\": round(best_score, 3)}\n    return {\"hit\": False, \"response\": None, \"similarity\": round(best_score, 3)}\n\n\ncache = [\n    {\"embedding\": [0.9, 0.1, 0.0], \"response\": \"Our refund window is 30 days.\", \"cached_at\": \"2026-08-01\"},\n]\nresult = semantic_cache_lookup([0.88, 0.12, 0.0], cache, similarity_threshold=0.9)\nprint(result)\n```\n\nThe `similarity_threshold` argument is exactly the tuning knob the section above describes: raise it and only near-identical requests hit the cache; lower it and more phrasing variants hit, at greater risk of returning a subtly wrong cached answer."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Setting the similarity threshold too low.** A loose threshold returns cached answers for questions that are only superficially similar, serving a wrong answer with high confidence.\n\n**Caching final answers but never invalidating on staleness or context.** A cache with no invalidation strategy will happily serve an outdated or user-inappropriate response long after it stopped being correct.\n\n**Ignoring retrieval-stage caching in a RAG system.** Only caching the final generated answer misses the often-larger cost and latency win available from caching the retrieval step itself."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "llo_caching_strategies_quiz",
+        "questions": [
+          {
+            "question": "What is the main limitation of exact-match caching for LLM applications?",
+            "options": [
+              "It's unsafe and can return incorrect responses",
+              "It only helps for genuinely repeated identical requests, which may be a small fraction of traffic for a highly personalized or context-dependent application",
+              "Exact-match caching is technically impossible to implement",
+              "It requires an embedding model to function at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "While safe, exact-match caching only catches truly identical repeated requests, missing the larger opportunity of semantically similar but differently-phrased requests.",
+            "id": "q1"
+          },
+          {
+            "question": "How does semantic caching build on the Embeddings course's concepts?",
+            "options": [
+              "It has no relationship to the Embeddings course",
+              "It uses embedding similarity to cache based on semantic closeness rather than requiring an exact match, catching a larger fraction of effectively-repeated traffic",
+              "Semantic caching requires no similarity computation at all",
+              "It replaces the need for any embeddings entirely"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Semantic caching directly applies the similarity-search concepts from the Embeddings course to identify requests that are different in wording but similar enough in meaning to reuse a cached response.",
+            "id": "q2"
+          },
+          {
+            "question": "Why does LLM cache invalidation need to account for more than simple time-based expiration?",
+            "options": [
+              "Time-based expiration is always fully sufficient for any caching scenario",
+              "A cached response's validity also depends on whether it's appropriate to reuse for a specific user or context, not just whether enough time has passed, connecting to the index-staleness concern from earlier in this course",
+              "LLM caches never actually need any invalidation strategy at all",
+              "Context-appropriateness is irrelevant to caching validity"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Beyond staleness over time, a cached response might have been context- or user-specific in a way that makes blind reuse actually incorrect, requiring a more nuanced invalidation strategy than a simple expiration timer.",
+            "id": "q3"
+          },
+          {
+            "question": "Per this lesson, why might caching retrieved context be a bigger win than only caching final answers in a RAG system?",
+            "options": [
+              "Retrieval is never a meaningful cost or latency contributor",
+              "Retrieval can be a meaningful cost and latency contributor in its own right, and a cached retrieval result can still feed into a fresh generation call",
+              "Final answers should never be cached under any circumstances",
+              "Caching retrieved context replaces the need for generation entirely"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson notes that retrieval can itself be a significant cost and latency contributor, so caching it separately from the final answer can be a bigger win than answer caching alone.",
+            "id": "q4"
+          },
+          {
+            "question": "What must be defined and tuned to use semantic caching effectively, per this lesson?",
+            "options": [
+              "The number of GPUs available for inference",
+              "A similarity threshold for what counts as 'close enough' between a new request and a cached one",
+              "The exact wording match rule used by exact-match caching",
+              "The model's maximum context window size"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Semantic caching trades exact matching for a similarity threshold that has to be tuned — too loose and it risks wrong answers, too strict and it misses effectively-repeated traffic.",
+            "id": "q5"
+          },
+          {
+            "question": "In the semantic_cache_lookup example, what happens if the best similarity score found is below the threshold?",
+            "options": [
+              "The function raises an error and halts execution",
+              "It returns hit: False with the response set to None",
+              "It returns the cached response anyway, regardless of similarity",
+              "It deletes the low-scoring entry from the cache"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The function only returns the cached response when best_score >= similarity_threshold; otherwise it reports a miss with response set to None.",
+            "id": "q6"
+          },
+          {
+            "question": "What similarity measure does the semantic_cache_lookup example use to compare embeddings?",
+            "options": [
+              "Euclidean distance between the two vectors",
+              "Cosine similarity, computed from the dot product and vector norms",
+              "An exact string match on the request text",
+              "Jaccard similarity over token sets"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The helper function computes cosine similarity via the dot product divided by the product of the vector norms, which is the standard measure for embedding similarity.",
+            "id": "q7"
+          },
+          {
+            "question": "A cache is deployed with a similarity threshold of 0.5. What risk does this create, per this lesson's common mistakes?",
+            "options": [
+              "No risk — lower thresholds are always safer than higher ones",
+              "A loose threshold returns cached answers for questions that are only superficially similar, serving a wrong answer with high confidence",
+              "It guarantees the cache is effectively never used",
+              "It forces every request to bypass the cache entirely"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This matches the lesson's first common mistake: setting the similarity threshold too low lets weakly-related requests hit the cache and receive a confidently wrong response.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "llo_rollback_for_prompts_and_models",
+      "title": "Rollback for Prompts and Models",
+      "description": "Bringing the MLOps course's rollback discipline home for the artifact that changes most often in an LLM product: the prompt.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Design a rollback plan for LLM-specific artifacts (prompts and models), applying the MLOps course's rollback lesson directly and noting where LLM systems add nuance."
+          },
+          {
+            "title": "⚡ Direct application of the MLOps rollback lesson",
+            "content": "Everything the MLOps course's rollback lesson established applies unchanged: the priority is to stop ongoing harm quickly rather than diagnosing in place, this is fast specifically because of the registry and deployment-strategy discipline built in from the start (this course's prompt-registry lesson, plus the canary/blue-green strategies from the MLOps course), and rollback procedures should be practiced before they're actually needed in a real incident."
+          },
+          {
+            "title": "📝 What's specific to rolling back a prompt",
+            "content": "Because prompts change far more often than models (per this course's fundamentals module), prompt rollback needs to be even faster and lower-friction than model rollback typically is — a prompt registry with clear versioning (module 1) makes 'revert to the previous prompt version' a near-instant operation, which matters given how often a prompt-level incident is likely to occur relative to a model-level one."
+          },
+          {
+            "title": "🔀 Rolling back a multi-component change",
+            "content": "Because an LLM system incident might trace back to a combination of a prompt change and a retrieval strategy change and a model version change all shipped together (mirroring the multi-agent module's error-propagation concern, just for deployment changes instead of agent handoffs), rollback sometimes needs to revert multiple coordinated components together, not just one — which is exactly why deploying multiple significant changes simultaneously (rather than one at a time, per standard software engineering practice) makes incident diagnosis and rollback both harder, an argument for smaller, more frequent, more isolated deployments over large bundled ones."
+          },
+          {
+            "title": "🎯 The complete picture: this course's final integration",
+            "content": "A genuinely operationally mature LLM system has: versioned prompts and models (module 1, MLOps course), tracing to diagnose problems (module 2), evaluation gates to prevent many problems before they ship (module 3), monitoring for RAG/agent/hallucination-specific failure modes (module 4), and cost/latency management plus fast rollback (this module) — every practice across this course's five modules working together as one coherent operational system, mirroring exactly the same 'every practice feeding into one coherent system' conclusion the MLOps course reached in its own final lesson."
+          },
+          {
+            "title": "💻 Rolling back a prompt or model version",
+            "content": "A registry that records version history for each component is what makes 'revert' a lookup instead of a scramble — including reverting several coordinated components together when an incident traces back to a bundled deployment.\n\n```python\ndef rollback_prompt_or_model(component: str, registry: dict, incident_components: list) -> dict:\n    actions = []\n    for name in incident_components:\n        history = registry.get(name, {}).get(\"history\", [])\n        if len(history) < 2:\n            actions.append({\"component\": name, \"action\": \"no_previous_version\", \"reverted_to\": None})\n            continue\n        previous_version = history[-2]\n        registry[name][\"current\"] = previous_version\n        actions.append({\"component\": name, \"action\": \"rolled_back\", \"reverted_to\": previous_version})\n    return {\"incident_components\": incident_components, \"actions\": actions}\n\n\nregistry = {\n    \"support_prompt\": {\"current\": \"v14\", \"history\": [\"v12\", \"v13\", \"v14\"]},\n    \"retrieval_strategy\": {\"current\": \"v3\", \"history\": [\"v2\", \"v3\"]},\n    \"model\": {\"current\": \"gpt-x-2026-08\", \"history\": [\"gpt-x-2026-06\", \"gpt-x-2026-08\"]},\n}\nresult = rollback_prompt_or_model(\"support_prompt\", registry, [\"support_prompt\", \"retrieval_strategy\"])\nprint(result)\n```\n\nPassing a list of `incident_components` rather than a single name is what lets this handle the multi-component case above: when a prompt and a retrieval strategy shipped together caused the incident, both get reverted in the same operation instead of leaving one of them live."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Diagnosing the root cause before rolling back.** Stopping ongoing harm quickly should come first; diagnosis can happen after the system is already stable again.\n\n**Rolling back only one of several components shipped together.** When a prompt, retrieval strategy, and model version all changed at once, reverting just one may leave the incident-causing combination partially in place.\n\n**Never practicing the rollback procedure before an incident.** A rollback path that's only ever tested during a live incident is the worst possible time to discover that it doesn't actually work."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "llo_rollback_for_prompts_and_models_quiz",
+        "questions": [
+          {
+            "question": "What does this lesson say carries over unchanged from the MLOps course's rollback lesson?",
+            "options": [
+              "Nothing carries over — LLM rollback requires an entirely different approach",
+              "The priority of stopping ongoing harm quickly rather than diagnosing in place, the reliance on registry/deployment-strategy discipline for speed, and the value of practicing rollback before it's needed",
+              "Only the concept of a model registry, with no other overlap",
+              "Rollback speed has nothing to do with prior infrastructure decisions in either context"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson explicitly states that the MLOps course's core rollback principles apply directly and unchanged to LLM systems, with prompt-specific nuance layered on top.",
+            "id": "q1"
+          },
+          {
+            "question": "Why does prompt rollback need to be even faster and lower-friction than typical model rollback?",
+            "options": [
+              "Prompt rollback is actually less important than model rollback",
+              "Prompts change far more often than models, so prompt-level incidents are likely to occur more frequently, making near-instant rollback via the registry especially valuable",
+              "Prompts cannot actually be rolled back at all",
+              "Model rollback and prompt rollback have identical frequency needs"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Given how much more frequently prompts change compared to models, the relative frequency of prompt-level incidents makes fast, registry-enabled rollback especially important.",
+            "id": "q2"
+          },
+          {
+            "question": "Why does shipping multiple significant changes (prompt, retrieval strategy, model version) simultaneously complicate incident response?",
+            "options": [
+              "Bundling changes together always makes incidents easier to diagnose",
+              "An incident might trace back to a combination of changes, making rollback and diagnosis harder than with smaller, more isolated deployments",
+              "Multiple simultaneous changes are technically impossible to deploy together",
+              "Bundling changes has no effect on incident diagnosis whatsoever"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Similar to the multi-agent error-propagation concern, bundling multiple changes together makes it harder to isolate which change actually caused a problem, arguing for smaller, more frequent, isolated deployments instead.",
+            "id": "q3"
+          },
+          {
+            "question": "Per this lesson, why is rollback fast in a genuinely mature LLM system?",
+            "options": [
+              "Because rollback is never actually needed in a mature system",
+              "Because of registry and deployment-strategy discipline (clear versioning, canary/blue-green strategies) built in from the start",
+              "Because prompts and models never change once deployed",
+              "Because models are rolled back automatically with no human involvement"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Rollback speed comes from discipline built in ahead of time — a versioned registry and canary/blue-green deployment strategies — not from anything special done during the incident itself.",
+            "id": "q4"
+          },
+          {
+            "question": "What does this lesson identify as the complete, final picture of an operationally mature LLM system?",
+            "options": [
+              "Having only a model registry and nothing else",
+              "Versioned prompts and models, tracing, evaluation gates, RAG/agent/hallucination monitoring, and cost/latency management with fast rollback, all working together",
+              "Monitoring for hallucinations alone, independent of any other practice",
+              "Ignoring cost entirely so long as latency stays acceptable"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson explicitly ties together every module of the course — versioning, tracing, evaluation gates, specialized monitoring, and cost/latency/rollback — as one coherent operational system.",
+            "id": "q5"
+          },
+          {
+            "question": "In the rollback_prompt_or_model example, what does the function do when a component's history has fewer than two entries?",
+            "options": [
+              "It raises an exception and stops processing",
+              "It records the action as 'no_previous_version' with reverted_to set to None, since there's nothing earlier to revert to",
+              "It reverts the component to its current version anyway",
+              "It deletes the component entirely from the registry"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The function checks len(history) < 2 and, when true, appends a 'no_previous_version' action instead of attempting a revert that has no valid target.",
+            "id": "q6"
+          },
+          {
+            "question": "In the rollback_prompt_or_model example, which version does a component get reverted to?",
+            "options": [
+              "The very first version ever recorded for that component",
+              "The second-to-last entry in its history list — the version before the current one",
+              "A randomly selected version from its past history",
+              "The next version, which hasn't been released yet"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The function sets previous_version = history[-2], which is the entry immediately before the current version at history[-1].",
+            "id": "q7"
+          },
+          {
+            "question": "An incident traces back to a prompt change, a retrieval strategy change, and a model version change that all shipped in the same deployment, but the team rolls back only the model version. Per this lesson, what's the risk?",
+            "options": [
+              "No risk — the model version is always the sole cause of any incident",
+              "The incident-causing combination may remain partially in place, since the prompt and retrieval strategy changes are still live",
+              "Rolling back any single component always fixes issues caused by all changed components",
+              "The registry becomes permanently corrupted by a partial rollback"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This matches the lesson's common mistake about rolling back only one of several bundled components: the actual incident-causing combination can persist if the other changed components stay live.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

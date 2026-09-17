@@ -1,0 +1,559 @@
+{
+  "id": "lg_intro_to_langgraph",
+  "title": "Introduction to LangGraph",
+  "description": "StateGraph's nodes, edges, and state; conditional branching; implementing an agent loop as a cycle; and when a graph actually earns its complexity over a chain.",
+  "icon": "🕸️",
+  "color": "#00ACC1",
+  "order": 1,
+  "estimatedHours": 5,
+  "difficulty": "intermediate",
+  "prerequisites": [
+    "lg_langchain_fundamentals"
+  ],
+  "lessons": [
+    {
+      "id": "lg_stategraph_basics",
+      "title": "StateGraph: Nodes, Edges, and State",
+      "description": "LangGraph's three core building blocks map directly onto the agent control loop's ingredients from the Agents course.",
+      "duration": "13 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Define what a node, an edge, and state each represent in a LangGraph StateGraph, and map them onto the Agents course's control loop."
+          },
+          {
+            "title": "🧱 Nodes: units of work",
+            "content": "A **node** is a function (often wrapping the LLM calls, tool calls, or logic that would have lived inside a chain) that takes the current state, does some work, and returns an update to that state. Each node maps roughly onto one step of the Agents course's control loop — a reasoning step, a tool-calling step, an observation-processing step — as a discrete, named, individually-testable unit.\n\n```python\ndef reasoning_node(state):\n    response = llm.invoke(state[\"messages\"])\n    return {\"messages\": [response]}  # a state UPDATE, not a full replacement\n\ngraph = StateGraph(AgentState)\ngraph.add_node(\"reason\", reasoning_node)\n```"
+          },
+          {
+            "title": "🔀 Edges: how control flows between nodes",
+            "content": "A basic edge connects one node directly to another, always taken. A **conditional edge** evaluates the current state and routes to one of several possible next nodes based on that evaluation — this is exactly how a graph expresses the 'should I call another tool, or am I done?' decision from the Agents course's control loop, as explicit, inspectable graph structure instead of implicit logic buried inside a single function."
+          },
+          {
+            "title": "📦 State: what flows through the graph",
+            "content": "The state is a shared structure (typically a schema you define) that every node reads from and writes updates to — directly corresponding to the 'state' concept from the Agents course's control loop lesson: the goal, the history so far, and anything else nodes need. Because state is explicit and typed, it's inspectable at any point in the graph's execution, which is a real debugging advantage over control flow and state implicitly threaded through nested function calls."
+          },
+          {
+            "title": "🔁 Where cycles come from",
+            "content": "Because an edge can point back to a node that already ran earlier in the same execution, a graph naturally expresses a loop — a reasoning node that conditionally routes back to itself (or to an earlier node) is precisely how LangGraph implements the same cyclic control loop the Agents course covered conceptually, just now as an explicit graph structure with a defined entry point and defined conditions for continuing versus stopping."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Having a node return an entirely new state object instead of an update.** LangGraph nodes are meant to return a partial update that gets merged into state, following each field's reducer — returning a full replacement can silently discard fields the node never touched.\n\n**Treating a node as a one-off script rather than a reusable, testable function.** A node is still just a function; skipping the discipline of clear inputs and outputs makes it just as hard to test in isolation as an untested step buried inside a monolithic agent loop.\n\n**Forgetting that state must be explicitly defined before nodes can read or write it.** Unlike an ad hoc dictionary passed through a hand-rolled loop, a StateGraph's schema is what makes state inspectable and type-checkable — skipping that definition loses the debugging benefit this lesson highlights."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "lg_stategraph_basics_quiz",
+        "questions": [
+          {
+            "question": "What does a node in a LangGraph StateGraph represent?",
+            "options": [
+              "A fixed, unconditional edge between two other nodes",
+              "A function that takes the current state, does some work, and returns a state update — roughly one step of the agent control loop",
+              "The entire graph's final output only",
+              "A configuration file with no executable logic"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Nodes are the discrete units of work in the graph, each corresponding to a step like reasoning or tool-calling from the Agents course's control loop.",
+            "id": "q1"
+          },
+          {
+            "question": "How does a conditional edge implement the 'should I continue or stop' decision from the Agents course?",
+            "options": [
+              "It cannot express this decision at all",
+              "It evaluates the current state and routes to one of several possible next nodes based on that evaluation, as explicit graph structure",
+              "It always routes to the same node regardless of state",
+              "It removes the need for any state in the graph"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Conditional edges make the agent's continue-or-stop (or which-action-next) decision an explicit, inspectable part of the graph's structure rather than logic buried in a single function.",
+            "id": "q2"
+          },
+          {
+            "question": "How does LangGraph implement the cyclic behavior central to agent control loops?",
+            "options": [
+              "Cycles are impossible in LangGraph; it only supports linear chains",
+              "An edge can point back to a node that already ran earlier, letting a graph loop through reasoning and action steps",
+              "By running every node exactly once with no repetition",
+              "By requiring a separate graph for every iteration of the loop"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since edges can route back to previously-executed nodes, a graph can naturally express the same reason-act-observe-repeat loop from the Agents course as explicit structure.",
+            "id": "q3"
+          },
+          {
+            "question": "In this lesson's code example, what does reasoning_node return?",
+            "options": [
+              "A dictionary with a 'messages' key holding the new response, as a state update",
+              "A completely new AgentState object with every field reset",
+              "Nothing — the function has no return value",
+              "The raw string content of the LLM's response only"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example shows reasoning_node returning {\"messages\": [response]}, a partial update rather than a full state replacement.",
+            "id": "q4"
+          },
+          {
+            "question": "In this lesson's code example, what does graph.add_node(\"reason\", reasoning_node) do?",
+            "options": [
+              "Registers reasoning_node as a named node called \"reason\" within the graph",
+              "Deletes the reasoning_node function",
+              "Immediately executes reasoning_node once",
+              "Creates a conditional edge with no associated node"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example uses add_node to register the function under the name \"reason\", making it available as a node the graph's edges can route to.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does this lesson say explicit, typed state gives 'a real debugging advantage' over implicit state threaded through nested function calls?",
+            "options": [
+              "Because it's inspectable at any point in the graph's execution, unlike state hidden inside nested function calls",
+              "Because typed state makes the graph run without needing any nodes",
+              "Because explicit state eliminates the need for conditional edges",
+              "Because implicit state is always faster to debug than explicit state"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explains that a schema-defined, explicit state structure can be inspected directly, unlike state that's only implicitly passed through layers of function calls.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson warn against having a node return an entirely new state object instead of an update?",
+            "options": [
+              "Because LangGraph nodes are meant to return a partial update merged via each field's reducer, and a full replacement can silently discard untouched fields",
+              "Because returning any value from a node is technically forbidden",
+              "Because a full state replacement always executes faster than a partial update",
+              "Because nodes are incapable of returning any data at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is misunderstanding the node contract — a full-object return risks discarding state fields the node didn't intend to touch, rather than merging cleanly.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson caution that state must be explicitly defined before nodes can read or write it?",
+            "options": [
+              "Because a StateGraph's schema is what makes state inspectable and type-checkable, unlike an ad hoc dictionary in a hand-rolled loop",
+              "Because explicit state definition is entirely optional and has no practical benefit",
+              "Because nodes can read arbitrary undefined fields with no schema at all",
+              "Because state definition only matters for graphs with no conditional edges"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is skipping the schema definition, which is precisely what provides the inspectability and type-checking advantage highlighted earlier in the lesson.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "lg_conditional_edges_and_branching",
+      "title": "Conditional Edges and Branching Logic",
+      "description": "The routing function behind a conditional edge is where an agent's 'what do I do next' decision becomes visible, testable code.",
+      "duration": "12 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Write the logic for a conditional edge's routing function and explain why making this decision explicit is valuable."
+          },
+          {
+            "title": "🧭 What a routing function does",
+            "content": "A conditional edge is backed by a function that inspects the current state and returns the name of the next node to execute (or a special value indicating the graph should end). This is a plain function — inspectable, unit-testable in isolation, and debuggable independently of the LLM calls happening inside the nodes it connects, unlike routing logic implicitly embedded in a single large agent loop function.\n\n```python\ndef route_after_reasoning(state):\n    last_message = state[\"messages\"][-1]\n    if last_message.tool_calls:\n        return \"tools\"       # route to the tool-execution node\n    return END              # a final answer was produced\n\ngraph.add_conditional_edges(\"reason\", route_after_reasoning)\n```"
+          },
+          {
+            "title": "🌳 Multi-way branching",
+            "content": "A routing function isn't limited to a binary choice — it can route to any of several possible next nodes depending on the state, implementing something like the tool-selection-at-scale routing patterns from the Agents course (route to a 'search' node, a 'calculate' node, or a 'respond' node, depending on what the current reasoning step decided) as explicit graph branches rather than implicit dispatch logic."
+          },
+          {
+            "title": "🔗 Combining conditional and fixed edges",
+            "content": "A graph typically mixes both: some transitions are always the same (after retrieving, always go to a formatting node), while others depend on runtime state (after reasoning, route conditionally to a tool node or an end node). This mirrors exactly the mixed chain-versus-dynamic-routing distinction from the orchestration-patterns lesson in the Agents course, just expressed as one unified graph structure instead of a choice between separate architectural patterns."
+          },
+          {
+            "title": "🧪 Why explicit routing helps debugging",
+            "content": "When something goes wrong, being able to point to the exact routing function and the exact state that caused a particular (possibly wrong) routing decision is much more tractable than trying to reconstruct why an opaque agent loop decided to do what it did — this observability advantage compounds as graphs get more complex, which is exactly when the underlying logic is hardest to debug without it."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Burying routing logic inside a node function instead of a dedicated routing function.** Keeping the 'what do I do next' decision as its own named, testable function is what makes it inspectable in isolation — folding it into a node's own logic loses that separation.\n\n**Writing a routing function that doesn't return a valid node name or END.** A routing function's contract is to return exactly one of the graph's known next steps — returning anything else breaks the graph's ability to continue.\n\n**Adding branches to a routing function without testing each one independently.** Since a routing function is a plain, unit-testable function, skipping direct tests for each of its possible outcomes forfeits exactly the debugging advantage this lesson describes."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "lg_conditional_edges_and_branching_quiz",
+        "questions": [
+          {
+            "question": "What does a routing function backing a conditional edge actually do?",
+            "options": [
+              "It always executes every node in the graph regardless of state",
+              "It inspects the current state and returns the name of the next node to execute (or signals the graph should end)",
+              "It trains the underlying LLM used in the graph",
+              "It deletes state after each node runs"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Routing functions are the explicit decision-making logic that determines which node runs next based on the current state, making this decision inspectable and testable.",
+            "id": "q1"
+          },
+          {
+            "question": "Can a conditional edge's routing function route to more than two possible next nodes?",
+            "options": [
+              "No, conditional edges are strictly binary",
+              "Yes, a routing function can route to any of several possible next nodes depending on the state",
+              "Only if the graph has no cycles",
+              "Only when using a specific LLM provider"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Routing functions support multi-way branching, similar to routing among several specialized options as covered in the Agents course's tool-selection-at-scale lesson.",
+            "id": "q2"
+          },
+          {
+            "question": "Why does explicit routing logic help with debugging compared to an opaque agent loop function?",
+            "options": [
+              "It doesn't help — opaque loops are easier to debug",
+              "You can point to the exact routing function and state that caused a specific routing decision, rather than reconstructing implicit logic",
+              "Explicit routing eliminates the need for any state at all",
+              "It removes the need for testing entirely"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Having routing decisions as visible, isolated functions makes it much easier to trace exactly why a particular path was taken, especially as graphs grow more complex.",
+            "id": "q3"
+          },
+          {
+            "question": "In this lesson's code example, what does route_after_reasoning check to decide where to route?",
+            "options": [
+              "Whether the last message in state[\"messages\"] has tool_calls",
+              "The total number of nodes in the graph",
+              "The name of the LLM provider being used",
+              "Whether the graph has any conditional edges at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example inspects last_message.tool_calls to decide whether to route to the tools node or to END.",
+            "id": "q4"
+          },
+          {
+            "question": "In this lesson's code example, what does graph.add_conditional_edges(\"reason\", route_after_reasoning) do?",
+            "options": [
+              "Registers route_after_reasoning as the routing function used after the \"reason\" node executes",
+              "Deletes the \"reason\" node from the graph",
+              "Runs route_after_reasoning immediately, once, at graph-definition time",
+              "Creates a fixed, unconditional edge with no routing logic"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example wires the routing function to the \"reason\" node, so it's called after that node runs to decide the next step.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does this lesson compare multi-way routing functions to the tool-selection-at-scale patterns from the Agents course?",
+            "options": [
+              "Because both involve dispatching to one of several specialized options based on a decision, just expressed as explicit graph branches instead of implicit dispatch logic",
+              "Because tool-selection-at-scale has no relationship to routing functions",
+              "Because multi-way routing is only possible with exactly two options",
+              "Because the Agents course never discusses any form of routing"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson draws this parallel to show that a routing function's multi-way branching mirrors the same underlying dispatch-to-a-specialist idea, just made explicit as graph structure.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson warn against burying routing logic inside a node function instead of a dedicated routing function?",
+            "options": [
+              "Because keeping the 'what do I do next' decision as its own named, testable function is what makes it inspectable in isolation",
+              "Because node functions are technically incapable of containing any logic",
+              "Because dedicated routing functions always run faster than logic inside a node",
+              "Because burying routing logic inside a node has no effect on debuggability"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is collapsing the separation between doing work (a node) and deciding what's next (a routing function), which loses the isolated testability this lesson emphasizes.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson caution against writing a routing function that doesn't return a valid node name or END?",
+            "options": [
+              "Because a routing function's contract is to return exactly one of the graph's known next steps, and returning anything else breaks the graph's ability to continue",
+              "Because routing functions are not actually required to return anything",
+              "Because returning an invalid value always causes the graph to restart from the beginning automatically",
+              "Because END is optional and can be safely omitted from every routing function"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is violating the routing function's basic contract, which is essential for the graph engine to know where to send control next.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "lg_cycles_and_agent_loops_in_langgraph",
+      "title": "Implementing an Agent Loop as a Cycle",
+      "description": "Putting it together: a reasoning node, a tool node, and a conditional edge between them is a complete, minimal LangGraph agent.",
+      "duration": "13 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Describe the structure of a minimal ReAct-style agent implemented as a LangGraph cycle, node by node."
+          },
+          {
+            "title": "🧱 The minimal shape",
+            "content": "A **reasoning node** that takes the current state (the task and history so far) and produces either a final answer or a decision to call a tool — this is where the ReAct-style 'Thought' and action-selection from the Agents course happens. A **tool-execution node** that actually calls whatever tool the reasoning node decided on and appends the result (the 'Observation') to state. A **conditional edge** after the reasoning node: if it decided to call a tool, route to the tool node; if it produced a final answer, route to the graph's end.\n\n```python\ngraph = StateGraph(AgentState)\ngraph.add_node(\"reason\", reasoning_node)\ngraph.add_node(\"tools\", tool_node)\ngraph.add_conditional_edges(\"reason\", route_after_reasoning)  # tools, or END\ngraph.add_edge(\"tools\", \"reason\")   # closes the loop\ngraph.set_entry_point(\"reason\")\napp = graph.compile()\n```"
+          },
+          {
+            "title": "🔁 Closing the loop",
+            "content": "After the tool-execution node runs, a fixed edge routes back to the reasoning node — this is the cycle that implements the Agents course's control loop, now as explicit graph structure: reason → (conditionally) act → observe → reason again, repeating until the reasoning node's conditional edge routes to the end instead of back to the tool node."
+          },
+          {
+            "title": "🛑 Where stopping conditions live",
+            "content": "The routing function's own logic (stop when the reasoning node produces a final answer) is the primary stopping mechanism, but exactly like the Agents course's stopping-conditions lesson recommended, a real implementation adds an external safeguard too — commonly a maximum recursion/step limit configured on the graph's execution itself, so a reasoning node stuck in an unproductive pattern still can't run forever, independent of whether its own routing logic would have caught that."
+          },
+          {
+            "title": "🎯 Why this is worth building explicitly, even though frameworks provide pre-built agent constructs",
+            "content": "Higher-level LangGraph utilities exist that assemble a common ReAct-style agent pattern like this one for you with less manual graph-wiring. Understanding the underlying node/edge/state/cycle structure this lesson walked through is what lets you actually debug, customize, or deviate from those pre-built patterns when a real project's requirements don't fit the default shape exactly — which happens often enough that understanding what's underneath is worth the investment."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Forgetting to add the fixed edge from the tool node back to the reasoning node.** Without that edge, the graph has a tool-execution step with nowhere to go afterward — the cycle that actually implements the agent loop simply doesn't exist.\n\n**Relying solely on the routing function's logic with no external recursion limit.** This is precisely the gap the stopping-conditions lesson from the Agents course warned against — internal logic alone doesn't protect against a reasoning node stuck in an unproductive pattern.\n\n**Reaching straight for a pre-built high-level agent construct without understanding the underlying node/edge/state structure.** Pre-built utilities save wiring effort, but debugging or customizing them when a project's needs don't fit the default shape requires exactly the understanding this lesson builds."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "lg_cycles_and_agent_loops_in_langgraph_quiz",
+        "questions": [
+          {
+            "question": "In a minimal LangGraph agent, what does the conditional edge after the reasoning node decide?",
+            "options": [
+              "Whether to restart the entire graph from scratch",
+              "Whether to route to the tool-execution node (if a tool call was decided) or to the graph's end (if a final answer was produced)",
+              "Which LLM provider to switch to",
+              "Whether to delete the current state"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This conditional edge implements the core reason-then-decide-what's-next logic: continue to act, or finish with a final answer.",
+            "id": "q1"
+          },
+          {
+            "question": "What edge closes the loop in a minimal ReAct-style LangGraph agent?",
+            "options": [
+              "An edge from the end node back to the start",
+              "A fixed edge from the tool-execution node back to the reasoning node",
+              "There is no loop — LangGraph cannot express cycles",
+              "An edge from the reasoning node directly to itself with no tool step"
+            ],
+            "correctAnswer": 1,
+            "explanation": "After a tool executes and its result (observation) is added to state, control returns to the reasoning node to decide the next step, forming the loop.",
+            "id": "q2"
+          },
+          {
+            "question": "Why does a real LangGraph agent implementation still need an external step-limit safeguard, even with routing logic that should stop the loop?",
+            "options": [
+              "Because LangGraph cannot support any form of routing logic",
+              "Mirroring the Agents course's stopping-conditions lesson: a reasoning node stuck in an unproductive pattern shouldn't be able to run forever, regardless of whether its own logic would eventually stop it",
+              "Because step limits are required by LangGraph's license",
+              "Step limits are unnecessary since routing logic alone is always sufficient"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Just as the Agents course recommended an external safeguard beyond relying on the model's own judgment to stop, a graph-level recursion/step limit protects against a stuck reasoning node regardless of its internal logic.",
+            "id": "q3"
+          },
+          {
+            "question": "In this lesson's code example, what does graph.add_edge(\"tools\", \"reason\") accomplish?",
+            "options": [
+              "Creates the fixed edge that routes from the tool-execution node back to the reasoning node, closing the loop",
+              "Deletes the tools node from the graph",
+              "Creates a conditional edge instead of a fixed one",
+              "Sets \"tools\" as the graph's entry point"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example uses add_edge (a fixed, unconditional edge) specifically to route from tools back to reason, forming the cycle.",
+            "id": "q4"
+          },
+          {
+            "question": "In this lesson's code example, what does graph.set_entry_point(\"reason\") do?",
+            "options": [
+              "Designates the \"reason\" node as where graph execution begins",
+              "Deletes all other nodes except \"reason\"",
+              "Marks \"reason\" as the graph's final, terminating node",
+              "Creates a new conditional edge with no target"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example uses set_entry_point to specify that execution starts at the \"reason\" node when the compiled graph is invoked.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does this lesson say understanding the underlying node/edge/state structure matters even though pre-built agent constructs exist?",
+            "options": [
+              "Because it's what lets you actually debug, customize, or deviate from those pre-built patterns when a project's requirements don't fit the default shape exactly",
+              "Because pre-built constructs are always broken and unusable",
+              "Because understanding the underlying structure eliminates the need for pre-built constructs entirely",
+              "Because pre-built constructs cannot use nodes, edges, or state at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explains that customizing or debugging beyond the default pattern is common enough that the underlying knowledge from this lesson is worth having, even when higher-level utilities exist.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson warn against forgetting to add the fixed edge from the tool node back to the reasoning node?",
+            "options": [
+              "Because without that edge, the graph has a tool-execution step with nowhere to go afterward, and the actual agent loop cycle doesn't exist",
+              "Because the tool node is technically incapable of ever being reached",
+              "Because omitting this edge always causes the graph to run faster",
+              "Because the reasoning node can loop back to itself with no tool node involved at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is a structural omission that breaks the very cycle this lesson describes as the core of a minimal LangGraph agent.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson caution against reaching straight for a pre-built high-level agent construct without understanding the underlying structure?",
+            "options": [
+              "Because debugging or customizing them when a project's needs don't fit the default shape requires exactly the node/edge/state understanding this lesson builds",
+              "Because pre-built constructs are never usable in any real project",
+              "Because using a pre-built construct is always strictly worse than building one manually",
+              "Because understanding the underlying structure is only useful for graphs with no cycles"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is skipping the foundational understanding that becomes necessary the moment a project's requirements diverge from what the pre-built pattern assumes.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "lg_when_to_reach_for_langgraph",
+      "title": "When to Reach for LangGraph (and When a Chain Is Enough)",
+      "description": "Not every LLM application needs a graph — the same 'start simple, escalate deliberately' principle from the Agents course applies here too.",
+      "duration": "12 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Apply the Agents course's when-to-use-an-agent decision framework to choose between an LCEL chain and a LangGraph graph for a given application."
+          },
+          {
+            "title": "➡️ When a chain (or no framework at all) is enough",
+            "content": "A fixed sequence of steps with no need to loop, branch based on runtime results, or maintain evolving state across many steps — exactly the profile the Agents course identified as not needing a full agentic loop at all. If the whole task is 'retrieve context, then generate an answer,' an LCEL chain (or even a single well-structured call) is simpler to build, test, and reason about than standing up a graph for something that has no actual cycles or branches."
+          },
+          {
+            "title": "🕸️ When a graph earns its complexity",
+            "content": "The task genuinely needs the **loop-until-done** pattern (an agent that keeps taking actions until a goal is met). The control flow has real **conditional branches** that depend on runtime results (route to different specialized logic depending on what a previous step discovered). You need the **state-inspection, checkpointing** (covered next module), or **human-in-the-loop** (covered later in this course) capabilities that LangGraph provides as first-class features, rather than something you'd have to build yourself on top of a plain chain."
+          },
+          {
+            "title": "🎯 A quick self-check",
+            "content": "Ask: does this application's control flow ever need to go back to an earlier logical step based on something learned later? Does the number of steps vary depending on runtime conditions rather than being fixed in advance? If yes to either, a graph is probably earning its complexity. If the answer is a clear no to both, a chain (or something simpler) is very likely the better, more maintainable choice.\n\n```python\n# Self-check, as code:\nneeds_loop_or_branch = (\n    revisits_earlier_step or\n    step_count_varies_at_runtime\n)\nuse_langgraph = needs_loop_or_branch  # otherwise, a chain is simpler and enough\n```"
+          },
+          {
+            "title": "🔄 They're not mutually exclusive",
+            "content": "It's common for a real system to use LCEL chains for the fixed, linear pieces (formatting a final response, a retrieval step with no branching) while using them as the logic inside LangGraph nodes for the parts that do need the graph's cyclic, stateful structure — bringing this full circle to the earlier lesson's point that chains typically become the logic running inside graph nodes, not something that disappears once you adopt LangGraph."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Defaulting to LangGraph for every new LLM application, regardless of its actual control-flow needs.** This lesson's whole self-check exists because a fixed, linear task doesn't need a graph's added complexity — reaching for it by default trades simplicity for capability the task doesn't use.\n\n**Treating chains and graphs as an all-or-nothing choice for an entire system.** Real systems commonly mix both — a chain for the genuinely linear pieces, a graph for the cyclic or branching ones — rather than forcing one paradigm onto every part of the application.\n\n**Migrating a working chain to LangGraph the moment any complexity is anticipated, before it's actually needed.** The self-check in this lesson is about the control flow the task genuinely requires right now, not speculative future flexibility that may never materialize."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "lg_when_to_reach_for_langgraph_quiz",
+        "questions": [
+          {
+            "question": "Which of these scenarios is best served by a simple LCEL chain rather than a LangGraph graph?",
+            "options": [
+              "A task requiring an unpredictable number of tool calls that depend on intermediate results",
+              "A fixed 'retrieve context, then generate an answer' sequence with no loops or runtime branching",
+              "A multi-agent system with conditional handoffs between specialists",
+              "A task requiring checkpointing and human-in-the-loop approval"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A fixed, linear sequence with no cycles or runtime-dependent branching is exactly the profile that doesn't need a graph's added complexity — a chain suits it well.",
+            "id": "q1"
+          },
+          {
+            "question": "What is a good self-check question for deciding whether a task needs LangGraph's graph structure?",
+            "options": [
+              "Does the task use any LLM at all?",
+              "Does the control flow ever need to revisit an earlier step based on something learned later, or does the number of steps vary at runtime?",
+              "Is the task written in Python?",
+              "Does the task involve more than one word in the prompt?"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Needing to loop back to earlier logic or having a runtime-variable number of steps are the concrete signals that a graph's cyclic, conditional structure is actually needed.",
+            "id": "q2"
+          },
+          {
+            "question": "How do LCEL chains and LangGraph graphs typically coexist in a real system?",
+            "options": [
+              "They cannot be used together in the same system",
+              "Chains are commonly used for fixed, linear pieces, including as the logic running inside individual graph nodes",
+              "LangGraph completely replaces the need for any chain-based logic",
+              "Chains can only be used before a graph runs, never inside it"
+            ],
+            "correctAnswer": 1,
+            "explanation": "It's common to use LCEL chains for genuinely linear sub-pieces (potentially as node logic within a larger graph), rather than treating chains and graphs as mutually exclusive choices.",
+            "id": "q3"
+          },
+          {
+            "question": "In this lesson's code example, what does needs_loop_or_branch represent?",
+            "options": [
+              "Whether the task revisits an earlier step or has a step count that varies at runtime",
+              "The total number of nodes defined in a graph",
+              "Whether the application uses a prompt template",
+              "The name of the LLM provider in use"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example combines revisits_earlier_step and step_count_varies_at_runtime into needs_loop_or_branch, directly reflecting the self-check questions posed in the lesson.",
+            "id": "q4"
+          },
+          {
+            "question": "In this lesson's code example, what does use_langgraph ultimately equal?",
+            "options": [
+              "needs_loop_or_branch — the graph is used only when the self-check signals it's actually needed",
+              "Always True, regardless of the self-check",
+              "Always False, since chains are always sufficient",
+              "A random boolean chosen at runtime"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example sets use_langgraph = needs_loop_or_branch, directly tying the decision to the self-check rather than defaulting either way.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does this lesson describe the LangGraph decision as applying the 'same start simple, escalate deliberately principle' from the Agents course?",
+            "options": [
+              "Because just as the Agents course cautioned against defaulting to a full agentic loop, this lesson cautions against defaulting to LangGraph when a chain is enough",
+              "Because the Agents course never discusses when to use simpler approaches",
+              "Because LangGraph and simple agent loops are entirely unrelated concepts",
+              "Because escalating to LangGraph is always the wrong choice in every case"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson draws a direct parallel: just as the Agents course's when-to-use-an-agent lesson favored simplicity until real complexity is needed, this lesson applies the same reasoning to choosing between a chain and a graph.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson warn against defaulting to LangGraph for every new LLM application regardless of its control-flow needs?",
+            "options": [
+              "Because a fixed, linear task doesn't need a graph's added complexity, and defaulting to it trades simplicity for capability the task doesn't use",
+              "Because LangGraph is technically incapable of running any linear task",
+              "Because chains are always slower than graphs regardless of the task",
+              "Because using LangGraph for a simple task always causes it to fail"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is over-applying LangGraph by default, when the self-check exists specifically to identify when its added structure is actually warranted.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson caution against migrating a working chain to LangGraph the moment any complexity is anticipated, before it's actually needed?",
+            "options": [
+              "Because the self-check in this lesson is about the control flow the task genuinely requires right now, not speculative future flexibility that may never materialize",
+              "Because migrating to LangGraph is always technically impossible once a chain exists",
+              "Because anticipating future complexity is always the correct approach regardless of current needs",
+              "Because chains cannot ever be migrated to LangGraph under any circumstances"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is premature escalation based on speculative future needs rather than the task's actual, current control-flow requirements.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

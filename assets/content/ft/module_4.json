@@ -1,0 +1,551 @@
+{
+  "id": "ft_practical_workflows",
+  "title": "Practical Fine-Tuning Workflows",
+  "description": "Choosing a base model, planning for hardware constraints, using Trainer/PEFT/TRL together, and merging adapters for deployment.",
+  "icon": "🏗️",
+  "color": "#FB8C00",
+  "order": 4,
+  "estimatedHours": 5,
+  "difficulty": "intermediate",
+  "prerequisites": [
+    "ft_preference_optimization"
+  ],
+  "lessons": [
+    {
+      "id": "ft_choosing_a_base_model",
+      "title": "Choosing a Base Model to Fine-Tune",
+      "description": "The base model you start from constrains everything downstream — license, capability ceiling, and hardware needs.",
+      "duration": "12 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can list the main factors to weigh when picking a base model for a fine-tuning project."
+          },
+          {
+            "title": "📜 License and usage terms",
+            "content": "Some open-weight models come with permissive licenses suitable for commercial use; others restrict commercial use, require attribution, or have usage restrictions on specific applications. This is a legal and business question as much as a technical one, and it's worth checking before any other evaluation — the best-performing model is irrelevant if its license doesn't allow your use case."
+          },
+          {
+            "title": "📏 Size versus hardware budget",
+            "content": "Larger base models generally have a higher capability ceiling after fine-tuning, but need more memory to fine-tune (even with PEFT methods) and more to serve at inference time. A smaller model that fits comfortably in your hardware budget and can be fine-tuned quickly and iterated on rapidly often beats a larger model you can barely afford to experiment with."
+          },
+          {
+            "title": "🧠 Starting capability matters",
+            "content": "Fine-tuning shapes behavior, but it doesn't replace raw ability — a base model that's already reasonably strong at reasoning, following instructions, or the domain in question will generally end up better after fine-tuning than a much weaker base model pushed hard with the same amount of fine-tuning data. Check public benchmarks and, more importantly, try the base model directly on a handful of realistic prompts from your actual task before committing.\n\n```python\n# A quick pre-commitment sanity check\nfor prompt in your_realistic_task_prompts[:10]:\n    print(base_model.generate(prompt))\n# read the raw outputs before spending a single GPU-hour on fine-tuning\n```"
+          },
+          {
+            "title": "🔧 Instruction-tuned vs. raw base checkpoints",
+            "content": "Most fine-tuning projects should start from an already instruction-tuned checkpoint (one that's already been through SFT, and often preference tuning) rather than a raw pretrained base — you get the instruction-following foundation for free and your fine-tuning data only needs to teach the incremental behavior you actually care about, rather than instruction-following from scratch."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Evaluating capability before checking the license.** A model that performs best on paper is irrelevant if its license doesn't permit your use case.\n\n**Choosing the largest model you can technically fit, rather than one you can comfortably iterate on.** Slow experimentation cycles often cost more than a smaller model's lower capability ceiling.\n\n**Starting from a raw pretrained base when an instruction-tuned checkpoint is available.** This means paying, in fine-tuning data and effort, to teach instruction-following you could have gotten for free."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ft_choosing_a_base_model_quiz",
+        "questions": [
+          {
+            "question": "Why should license terms be checked before other evaluation criteria when choosing a base model?",
+            "options": [
+              "Licenses never actually restrict anything in practice",
+              "The best-performing model is irrelevant if its license doesn't permit your intended use case",
+              "License terms determine the LoRA rank automatically",
+              "Only open-source models have licenses"
+            ],
+            "correctAnswer": 1,
+            "explanation": "License and usage restrictions are a hard constraint — a model that performs best but can't legally be used for your purpose isn't actually a viable choice.",
+            "id": "q1"
+          },
+          {
+            "question": "Why might a smaller model that fits your hardware budget be a better practical choice than a larger one you can barely afford?",
+            "options": [
+              "Smaller models are always more accurate",
+              "It allows faster, more iterative experimentation, whereas a barely-affordable large model limits how much you can experiment",
+              "Smaller models never need fine-tuning",
+              "Larger models cannot be fine-tuned at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Being able to iterate quickly and run many experiments often matters more in practice than starting from the largest model you can technically fit.",
+            "id": "q2"
+          },
+          {
+            "question": "Why do most fine-tuning projects start from an instruction-tuned checkpoint rather than a raw pretrained base?",
+            "options": [
+              "Raw pretrained models cannot be loaded into memory",
+              "The instruction-following foundation comes for free, so fine-tuning data only needs to teach the incremental behavior you actually want",
+              "Instruction-tuned models are always smaller in size",
+              "It's a strict technical requirement of every fine-tuning library"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Starting from an instruction-tuned base means your fine-tuning data doesn't need to teach basic instruction-following from scratch — it can focus purely on the specific new behavior.",
+            "id": "q3"
+          },
+          {
+            "question": "In this lesson's code example, what is the purpose of generating outputs on realistic task prompts before fine-tuning?",
+            "options": [
+              "To read the raw outputs and assess starting capability before spending any GPU-hours on fine-tuning",
+              "To automatically calculate the exact LoRA rank needed",
+              "To permanently modify the base model's weights before training begins",
+              "To generate the final training dataset from scratch"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example is a quick sanity check: generate on realistic prompts and read the results, informing the base model choice before any training investment.",
+            "id": "q4"
+          },
+          {
+            "question": "According to this lesson, what should you check in addition to public benchmarks when assessing a base model's starting capability?",
+            "options": [
+              "Its behavior directly on a handful of realistic prompts from your actual task",
+              "Only its total parameter count, with nothing else considered",
+              "Only its release date, with nothing else considered",
+              "Only the size of its training dataset, with nothing else considered"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson recommends trying the base model on realistic prompts from your actual task, not relying on public benchmarks alone.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does this lesson say a base model's raw ability isn't replaced by fine-tuning?",
+            "options": [
+              "Because a base model that's already reasonably strong will generally end up better after fine-tuning than a much weaker base pushed hard with the same data",
+              "Because fine-tuning always makes every base model equally capable regardless of starting point",
+              "Because raw ability has no bearing on how a model performs after fine-tuning",
+              "Because fine-tuning replaces a model's underlying architecture entirely"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explains that fine-tuning shapes behavior but doesn't substitute for a model's underlying capability, so starting strength still matters for the final result.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson warn against evaluating a base model's capability before checking its license?",
+            "options": [
+              "Because a model that performs best on paper is irrelevant if its license doesn't permit your intended use case",
+              "Because license terms have no bearing on whether a model can be legally used for a given purpose",
+              "Because capability evaluation should always come before any legal consideration",
+              "Because every open-weight model has an identical license with no variation"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is checking capability first, when a license restriction can rule out an otherwise excellent model entirely.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson warn against starting from a raw pretrained base when an instruction-tuned checkpoint is available?",
+            "options": [
+              "Because doing so means paying, in fine-tuning data and effort, to teach instruction-following you could have gotten for free",
+              "Because raw pretrained models are always technically incompatible with any fine-tuning method",
+              "Because instruction-tuned checkpoints are always significantly larger than raw pretrained bases",
+              "Because raw pretrained bases already include instruction-following by default"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is skipping an available instruction-tuned checkpoint, which needlessly spends fine-tuning effort re-teaching a capability that's already available for free.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ft_hardware_and_memory_planning",
+      "title": "Hardware and Memory Planning",
+      "description": "Before you write a training script, work out whether the job will even fit on the hardware you have.",
+      "duration": "13 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can roughly estimate what drives GPU memory usage during fine-tuning and identify the main levers for reducing it."
+          },
+          {
+            "title": "🧮 What eats memory during training",
+            "content": "The model weights themselves (or the quantized version if using QLoRA), the **optimizer state** (which for common optimizers like Adam can be 2x or more the size of the trainable parameters, since it tracks running statistics per parameter), gradients for every trainable parameter, and activations kept in memory for the backward pass. Full fine-tuning needs all of this for every parameter in the model; PEFT methods dramatically shrink the optimizer state and gradient memory since only a small fraction of parameters are trainable, though the frozen base model's weights still need to be loaded (which is exactly the problem QLoRA's quantization addresses).\n\n```python\n# Rough memory budget, conceptually\nmemory = model_weights + gradients + optimizer_state + activations\n# full fine-tune: gradients & optimizer_state scale with ALL parameters\n# LoRA: gradients & optimizer_state scale with just the small adapter\n```"
+          },
+          {
+            "title": "🔧 Levers for reducing memory usage",
+            "content": "**Quantization** (QLoRA-style) shrinks the frozen base model's footprint. **Gradient checkpointing** trades compute for memory by not storing all activations and recomputing some during the backward pass instead — slower per step, but can be the difference between fitting and not fitting. **Gradient accumulation** simulates a larger effective batch size without needing the memory for one large batch, by accumulating gradients over several smaller batches before updating. **Mixed precision training** (using 16-bit for most computation while keeping some parts in higher precision) reduces memory and often speeds up training on hardware that supports it."
+          },
+          {
+            "title": "📐 A rough planning approach",
+            "content": "Start from the smallest configuration likely to work (PEFT method like QLoRA, small batch size, gradient checkpointing on) and confirm the job fits and runs correctly before optimizing for speed. Only relax the memory-saving settings (larger batch size, checkpointing off) if you have memory headroom to spare and want to improve training throughput. Trying to start from the fastest possible configuration and back off when it fails to fit usually wastes more time than starting conservative and scaling up."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Starting from the fastest, most memory-hungry configuration and scaling back after out-of-memory errors.** This usually wastes more iteration time than starting conservative.\n\n**Forgetting that the frozen base model still needs to be loaded, even with LoRA.** PEFT shrinks trainable-parameter memory, not the cost of holding the base model itself — that's specifically what quantization addresses.\n\n**Treating gradient checkpointing as free.** It saves memory at the direct cost of extra compute per step, so it's a genuine trade-off, not a strictly better setting."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ft_hardware_and_memory_planning_quiz",
+        "questions": [
+          {
+            "question": "Why does the Adam optimizer typically use more memory than just the model's own parameters would suggest?",
+            "options": [
+              "Adam requires storing running statistics per trainable parameter, often 2x or more the parameter memory itself",
+              "Adam always doubles the model's weight precision",
+              "Adam requires a separate copy of the entire dataset in memory",
+              "Adam is only used for inference, not training"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Adam-style optimizers track per-parameter running statistics (like momentum and variance estimates), which can add up to more memory than the trainable parameters themselves.",
+            "id": "q1"
+          },
+          {
+            "question": "What does gradient checkpointing trade off to save memory?",
+            "options": [
+              "It trades model accuracy for memory savings",
+              "It trades additional compute (recomputing some activations during the backward pass) for reduced memory usage",
+              "It trades dataset size for training speed",
+              "It eliminates the need for a GPU entirely"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Gradient checkpointing avoids storing all activations by recomputing some during the backward pass — slower per step, but often the difference between a job fitting in memory or not.",
+            "id": "q2"
+          },
+          {
+            "question": "What's the recommended planning approach for a new fine-tuning job?",
+            "options": [
+              "Start with the fastest, most memory-hungry configuration and scale back only if it fails",
+              "Start from the smallest likely-to-work configuration (PEFT, small batch, checkpointing on), confirm it works, then relax constraints if there's headroom",
+              "Always use full fine-tuning regardless of hardware",
+              "Memory planning isn't necessary if using any PEFT method"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Starting conservative and confirming correctness first, then optimizing for speed only if there's spare memory, avoids wasted iteration compared to starting maximal and scaling back after failures.",
+            "id": "q3"
+          },
+          {
+            "question": "In this lesson's conceptual memory budget, which two components scale with ALL of the model's parameters during full fine-tuning?",
+            "options": [
+              "Gradients and optimizer state",
+              "Only the model weights, with nothing else scaling",
+              "Only activations, with nothing else scaling",
+              "Only the dataset size, with nothing else scaling"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's memory budget comment notes that gradients and optimizer state scale with all parameters in a full fine-tune, versus scaling with just the small adapter under LoRA.",
+            "id": "q4"
+          },
+          {
+            "question": "According to this lesson, what specific problem does QLoRA's quantization address that LoRA alone doesn't?",
+            "options": [
+              "The memory cost of loading the frozen base model's weights, which LoRA alone still requires in full precision",
+              "The memory cost of the optimizer state, which QLoRA alone eliminates entirely",
+              "The need for a validation dataset during training",
+              "The choice of which layers to target for adaptation"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explains that even with LoRA, the frozen base model's weights still need to be loaded in memory — quantization is specifically what shrinks that particular cost.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does mixed precision training often reduce memory usage and speed up training simultaneously?",
+            "options": [
+              "Because using 16-bit precision for most computation, while keeping some parts in higher precision, reduces memory and runs faster on hardware that supports it",
+              "Because mixed precision always requires more memory than full 32-bit precision",
+              "Because mixed precision eliminates the need for a GPU during training",
+              "Because precision has no relationship to memory usage or training speed"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson describes mixed precision as using 16-bit computation for most of training, which both cuts memory usage and often speeds things up on supporting hardware.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson warn against starting from the fastest, most memory-hungry configuration and scaling back after failures?",
+            "options": [
+              "Because this approach usually wastes more iteration time than starting conservative and confirming the job fits before optimizing for speed",
+              "Because starting with the fastest configuration always succeeds on the first attempt regardless of hardware",
+              "Because scaling back after an out-of-memory error is always faster than starting conservative",
+              "Because configuration choice has no effect on how much iteration time a project uses"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is starting maximal and scaling back, which the lesson explicitly says usually wastes more time than starting from a conservative, likely-to-work configuration.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson caution against treating gradient checkpointing as a strictly free memory-saving option?",
+            "options": [
+              "Because it saves memory at the direct cost of extra compute per step, making it a genuine trade-off rather than an unconditionally better setting",
+              "Because gradient checkpointing always makes training both faster and cheaper with no downside",
+              "Because gradient checkpointing has no actual effect on either memory usage or compute cost",
+              "Because gradient checkpointing can only ever be used together with full fine-tuning"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is treating checkpointing as free, when it explicitly trades additional recomputation for reduced memory — a real cost, not a pure win.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ft_trainer_peft_trl_in_practice",
+      "title": "Using Trainer, PEFT, and TRL Together",
+      "description": "The Hugging Face ecosystem's three libraries that cover SFT, parameter-efficient adapters, and preference tuning respectively.",
+      "duration": "13 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can describe what role each of Trainer, PEFT, and TRL plays in a typical fine-tuning workflow, and how they compose."
+          },
+          {
+            "title": "🏋️ Trainer: the training loop, handled for you",
+            "content": "Building on the Hugging Face course's Trainer coverage, the **Trainer** class handles the training loop mechanics — batching, the optimizer step, checkpointing, logging, and evaluation loop — so you configure behavior through a `TrainingArguments` object (learning rate, epochs, batch size, gradient accumulation, mixed precision, and so on) rather than hand-writing the loop. This is the same Trainer used for full fine-tuning; the PEFT library is what layers parameter-efficient training on top of it."
+          },
+          {
+            "title": "🧩 PEFT: LoRA and friends, ready to attach",
+            "content": "The **PEFT** library implements LoRA, QLoRA-style quantized loading, prefix tuning, and other methods covered in the second module, as configuration objects you attach to a base model — specify the target modules, rank, and a few other settings, wrap the model, and the rest of your training code (including calling Trainer) barely changes. This is what makes going from 'I have a base model' to 'I have a LoRA-adapted model in training' a small amount of configuration rather than custom low-level code.\n\n```python\n# Conceptual: PEFT + Trainer together\nfrom peft import LoraConfig, get_peft_model\n\nlora_cfg = LoraConfig(r=8, target_modules=[\"q_proj\", \"v_proj\"])\nmodel = get_peft_model(base_model, lora_cfg)  # base model + LoRA, ready to train\ntrainer = Trainer(model=model, args=training_args, train_dataset=sft_dataset)\ntrainer.train()\n```"
+          },
+          {
+            "title": "🎯 TRL: preference tuning and RLHF-family methods",
+            "content": "**TRL** (Transformer Reinforcement Learning) builds on top of Trainer and PEFT to implement the preference optimization methods from the third module — DPO, PPO-based RLHF, and others — as their own trainer classes (like a `DPOTrainer`) that expect preference-formatted data and handle the method-specific training logic, while still letting you attach PEFT adapters underneath for parameter efficiency. In practice, a full pipeline (SFT with Trainer+PEFT, then DPO with TRL+PEFT on top of the SFT result) is a common, well-supported path."
+          },
+          {
+            "title": "🔗 How they typically compose",
+            "content": "Load and quantize the base model (PEFT's quantization config, mirroring QLoRA). Wrap it with a PEFT LoRA config specifying target modules and rank. Run SFT via Trainer (or TRL's SFT-specific trainer) on your instruction dataset. Optionally, run a further DPO pass via TRL on preference data, starting from the SFT checkpoint. Each stage produces a checkpoint (or adapter) that feeds into the next."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Hand-writing a training loop instead of using Trainer.** This reimplements mechanics (batching, checkpointing, logging) that Trainer already handles correctly, and introduces more surface area for subtle bugs.\n\n**Forgetting that TRL's trainers still expect the PEFT config to be attached beforehand.** Preference tuning doesn't remove the need to decide how the model is parameter-efficiently adapted.\n\n**Skipping the SFT stage and going straight to TRL's DPO trainer on a raw base model.** DPO assumes a policy that can already produce reasonable responses to compare — jumping straight there without an SFT stage undermines the preference signal."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ft_trainer_peft_trl_in_practice_quiz",
+        "questions": [
+          {
+            "question": "What does the Trainer class primarily handle?",
+            "options": [
+              "Generating training data automatically",
+              "The training loop mechanics — batching, optimizer steps, checkpointing, logging — configured via TrainingArguments",
+              "Quantizing the base model",
+              "Serving the model to end users"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Trainer abstracts away the loop mechanics so you configure behavior via TrainingArguments rather than hand-writing the training loop yourself.",
+            "id": "q1"
+          },
+          {
+            "question": "What does the PEFT library let you do with a base model?",
+            "options": [
+              "Delete unused layers permanently",
+              "Attach parameter-efficient adapters (like LoRA) via configuration, without hand-writing custom low-level training code",
+              "Automatically generate a chat template",
+              "Replace the tokenizer"
+            ],
+            "correctAnswer": 1,
+            "explanation": "PEFT turns 'attach a LoRA adapter with this rank and these target modules' into a small configuration step rather than custom implementation work.",
+            "id": "q2"
+          },
+          {
+            "question": "What is TRL used for in this ecosystem?",
+            "options": [
+              "Only for quantizing models to 4-bit",
+              "Implementing preference optimization methods like DPO and PPO-based RLHF as dedicated trainer classes",
+              "Generating synthetic pretraining data",
+              "Building chat templates from scratch"
+            ],
+            "correctAnswer": 1,
+            "explanation": "TRL provides trainer classes (like DPOTrainer) specifically for preference-tuning methods, building on top of Trainer and composing with PEFT adapters.",
+            "id": "q3"
+          },
+          {
+            "question": "In this lesson's code example, what does get_peft_model(base_model, lora_cfg) return?",
+            "options": [
+              "The base model wrapped with the LoRA configuration, ready to be trained",
+              "A fully quantized model with no trainable parameters",
+              "A completely separate model unrelated to base_model",
+              "A trained reward model"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example shows get_peft_model wrapping the base model with the LoRA config, producing a model ready to hand to Trainer for training.",
+            "id": "q4"
+          },
+          {
+            "question": "According to this lesson, what is a common, well-supported pipeline combining these three libraries?",
+            "options": [
+              "SFT with Trainer+PEFT, then DPO with TRL+PEFT on top of the SFT result",
+              "Only ever using TRL alone, with no role for Trainer or PEFT",
+              "Only ever using Trainer alone, with no role for PEFT or TRL",
+              "Running DPO before SFT in every case"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly describes this staged pipeline — SFT first via Trainer and PEFT, then DPO via TRL and PEFT — as a common, well-supported real-world path.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does this lesson say TRL's DPOTrainer still lets you attach PEFT adapters underneath?",
+            "options": [
+              "Because parameter efficiency still matters during preference tuning, just as it does during SFT",
+              "Because TRL removes the need for any base model during preference tuning",
+              "Because DPOTrainer cannot function unless full fine-tuning is used",
+              "Because PEFT adapters are incompatible with any TRL trainer class"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson notes that TRL's trainers compose with PEFT, so the same parameter-efficiency benefits from earlier modules still apply during preference tuning.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson warn against hand-writing a training loop instead of using Trainer?",
+            "options": [
+              "Because this reimplements mechanics Trainer already handles correctly, introducing more surface area for subtle bugs",
+              "Because Trainer cannot actually handle any of the training loop's core mechanics",
+              "Because hand-writing a loop always produces a faster, more efficient result than using Trainer",
+              "Because Trainer only works with full fine-tuning, never with PEFT"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is hand-writing the loop, which redoes work Trainer already does reliably and risks introducing new bugs.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson caution against skipping the SFT stage and going straight to TRL's DPO trainer on a raw base model?",
+            "options": [
+              "Because DPO assumes a policy that can already produce reasonable responses to compare, and skipping SFT undermines that preference signal",
+              "Because DPO can only ever be run on a model that has already completed full fine-tuning",
+              "Because a raw base model always produces better DPO results than an SFT-tuned one",
+              "Because the SFT stage has no bearing on how well DPO can subsequently refine the model"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is skipping SFT before DPO, since DPO's preference comparisons assume a policy already capable of producing reasonable candidate responses.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ft_merging_and_exporting_adapters",
+      "title": "Merging and Exporting Adapters",
+      "description": "Once training is done, you often need to turn a base model plus adapter into something you can serve simply.",
+      "duration": "12 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain the difference between serving a base model with an adapter attached versus a merged model, and when to choose each."
+          },
+          {
+            "title": "🔗 Keeping base and adapter separate",
+            "content": "You can serve the base model with the LoRA adapter applied at inference time (the adapter's small matrices are added to the relevant weights on the fly). This keeps the adapter as a small, separate, swappable file — useful if you're serving multiple task-specific adapters on the same base model and want to switch between them cheaply, which some serving frameworks support directly, loading multiple adapters alongside one shared base model in memory."
+          },
+          {
+            "title": "🧬 Merging into a single model",
+            "content": "Alternatively, you can merge the adapter's weights directly into the base model's weights, producing a single standalone model with no separate adapter step needed at inference. This is simpler to deploy (one set of weights, works with any serving stack that doesn't specifically support adapters), and removes the small computational overhead of applying the adapter at inference time, but loses the ability to swap adapters cheaply, and you lose the small-file convenience — the merged model is exactly as large as the original base model.\n\n```python\n# Conceptual merge vs. keep-separate\nmerged_model = base_model.merge_and_unload(lora_adapter)  # one standalone model\n# vs.\nserved_model = base_model  # adapter applied on the fly at inference\nserved_model.set_adapter(\"customer_42_adapter\")            # swappable\n```"
+          },
+          {
+            "title": "⚖️ Choosing between them",
+            "content": "Serve unmerged, multiple adapters if: you have several task-specific adapters sharing one base model and want to switch between them without loading multiple full copies of the base model. Merge if: you're deploying a single, fixed fine-tuned model, want maximum compatibility with generic serving infrastructure, or want to squeeze out any remaining inference overhead from adapter application. Many teams merge for production and keep the unmerged adapter checkpoint around for future re-training or comparison."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Merging early during experimentation, before the model is finalized.** This loses the cheap ability to try a different rank or retrain a fresh adapter without redoing everything from the merged state.\n\n**Discarding the unmerged adapter checkpoint after merging.** Keeping it around costs almost nothing and preserves the option to retrain or compare later.\n\n**Assuming a merged model is always the right production choice.** For many similar-but-distinct adapters sharing one base model, unmerged serving is often the more memory-efficient production setup, not just a development convenience."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ft_merging_and_exporting_adapters_quiz",
+        "questions": [
+          {
+            "question": "What is an advantage of keeping a LoRA adapter separate from the base model at inference time?",
+            "options": [
+              "It always makes inference faster than a merged model",
+              "Multiple task-specific adapters can share one base model in memory and be swapped cheaply",
+              "It removes the need for a base model entirely",
+              "It's the only way to run the model at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Serving unmerged lets multiple small adapters share one loaded base model, which is efficient when you need to switch between several task-specific behaviors.",
+            "id": "q1"
+          },
+          {
+            "question": "What happens when you merge a LoRA adapter into the base model?",
+            "options": [
+              "The base model becomes smaller than before",
+              "You get a single standalone model of the same size as the original base, with no separate adapter step needed at inference",
+              "The adapter becomes reusable across different base models",
+              "Training must be restarted from scratch"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Merging combines the adapter's weights into the base model's weights, producing one deployable model at the original base model's size, simplifying serving but losing swappability.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is merging early during experimentation considered a common mistake?",
+            "options": [
+              "Merged models cannot be used for inference",
+              "It loses the cheap ability to try a different rank or retrain a fresh adapter without redoing everything from the merged state",
+              "Merging is technically impossible before training finishes",
+              "It makes the model file smaller than the base model"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Keeping the adapter separate during iteration preserves flexibility to experiment; merging is best saved for once you're confident in the final version.",
+            "id": "q3"
+          },
+          {
+            "question": "In this lesson's code example, what does base_model.merge_and_unload(lora_adapter) produce?",
+            "options": [
+              "A single standalone merged model, with the adapter's weights folded into the base",
+              "A brand new base model completely unrelated to the original",
+              "A quantized version of the adapter only",
+              "Two separate, still-independent model files"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example shows merge_and_unload combining the adapter into the base model, producing one standalone merged model.",
+            "id": "q4"
+          },
+          {
+            "question": "In this lesson's code example, what does served_model.set_adapter('customer_42_adapter') illustrate?",
+            "options": [
+              "Swapping which adapter is applied to a shared base model at inference time",
+              "Permanently merging an adapter into the base model",
+              "Deleting the base model entirely",
+              "Training a brand new adapter from scratch"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example shows set_adapter as the mechanism for cheaply swapping which adapter is active on a shared base model, illustrating the unmerged serving approach.",
+            "id": "q5"
+          },
+          {
+            "question": "According to this lesson, why might a team keep the unmerged adapter checkpoint around even after merging for production?",
+            "options": [
+              "To preserve the option to retrain or compare against it in the future",
+              "Because merged models cannot actually be deployed to production at all",
+              "Because keeping the unmerged checkpoint is legally required",
+              "Because the unmerged checkpoint is always larger than the merged model"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson notes that many teams merge for production but keep the unmerged adapter checkpoint around for future re-training or comparison purposes.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson warn against merging an adapter early during experimentation?",
+            "options": [
+              "Because it loses the cheap ability to try a different rank or retrain a fresh adapter without redoing everything from the merged state",
+              "Because merging always improves the model's quality regardless of when it's done",
+              "Because early merging is technically impossible with most serving frameworks",
+              "Because merging has no effect on the flexibility to continue experimenting"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is merging too early, since it forecloses cheap experimentation with different ranks or fresh adapters that unmerged checkpoints preserve.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson caution against assuming a merged model is always the right production choice?",
+            "options": [
+              "Because for many similar-but-distinct adapters sharing one base model, unmerged serving is often the more memory-efficient production setup",
+              "Because merged models are always strictly better for every production use case with no exceptions",
+              "Because unmerged serving is never actually usable in a real production environment",
+              "Because merging and unmerged serving always produce identical memory usage in production"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is defaulting to merging, when unmerged, multi-adapter serving is often the better production fit when many similar adapters share one base model.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

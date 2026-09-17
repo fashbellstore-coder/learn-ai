@@ -1,0 +1,551 @@
+{
+  "id": "ft_production",
+  "title": "Fine-Tuning in Production",
+  "description": "Catastrophic forgetting, continual fine-tuning, serving fine-tuned models, and the common mistakes that show up again and again.",
+  "icon": "🚀",
+  "color": "#FB8C00",
+  "order": 5,
+  "estimatedHours": 5,
+  "difficulty": "advanced",
+  "prerequisites": [
+    "ft_practical_workflows"
+  ],
+  "lessons": [
+    {
+      "id": "ft_catastrophic_forgetting_and_regression",
+      "title": "Catastrophic Forgetting and Regression Testing",
+      "description": "A model that's dramatically better at your new task can quietly get worse at everything else — you have to go looking for it.",
+      "duration": "13 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain what catastrophic forgetting is, why it's easy to miss, and how to design a regression test suite that catches it."
+          },
+          {
+            "title": "🧠 What catastrophic forgetting is",
+            "content": "Because fine-tuning adjusts the same weights that encode all of a model's prior capabilities, aggressive training on a narrow new task can degrade unrelated skills the model previously had — general knowledge, reasoning on unrelated topics, safety behaviors, or even basic instruction-following outside the fine-tuning domain. It's called '**catastrophic**' because the degradation can be severe and comes as a surprise if you were only measuring performance on the fine-tuning task itself, where everything looks like it's improving."
+          },
+          {
+            "title": "🔍 Why it's easy to miss",
+            "content": "Every metric you're actively tracking during fine-tuning — training loss, validation loss, task-specific eval — is about the new task, and all of those numbers can look great while something unrelated silently regresses. This is exactly why the evaluation lesson emphasized comparing against the base model on out-of-distribution tasks: without an explicit regression suite, forgetting is invisible until a user complains about behavior that used to work."
+          },
+          {
+            "title": "🛡️ Building a regression suite",
+            "content": "Curate a fixed set of prompts covering:\n\n- General knowledge and reasoning unrelated to the fine-tuning task.\n- Basic instruction-following in a few varied formats.\n- Safety-relevant prompts (refusals, sensitive topic handling) if the base model had specific behaviors there.\n- Any other capability the model needs that isn't the fine-tuning target.\n\nRun this suite before and after fine-tuning and compare — ideally with the same rubric-based or LLM-judge approach used for task evaluation — and treat a regression here as seriously as a failure on the actual target task.\n\n```python\nbase_scores = evaluate(base_model, regression_suite)\nft_scores = evaluate(finetuned_model, regression_suite)\nfor category in regression_suite.categories:\n    if ft_scores[category] < base_scores[category] - THRESHOLD:\n        print(f\"REGRESSION in {category}\")\n```"
+          },
+          {
+            "title": "🎛️ Mitigation techniques",
+            "content": "Lower learning rates and fewer epochs reduce how aggressively weights shift, directly reducing forgetting risk. PEFT methods (LoRA and friends) inherently forget less than full fine-tuning, since the vast majority of the original weights stay completely frozen. Mixing a small amount of general-purpose instruction data into the fine-tuning set (sometimes called **replay**) can help anchor broad capabilities while still teaching the new behavior."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Only tracking metrics about the new fine-tuning task.** Every one of them can look great while an unrelated capability quietly regresses, invisible until a user notices.\n\n**Skipping a fixed regression suite entirely.** Without one, catastrophic forgetting has no systematic way to surface before it reaches production.\n\n**Treating a regression suite failure as less serious than a target-task failure.** A model that's great at the new task but broken at general reasoning isn't actually a successful fine-tune."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ft_catastrophic_forgetting_and_regression_quiz",
+        "questions": [
+          {
+            "question": "What is catastrophic forgetting in the context of fine-tuning?",
+            "options": [
+              "The model forgetting its own training data after deployment",
+              "Aggressive fine-tuning on a narrow task degrading unrelated capabilities the model previously had",
+              "A GPU running out of memory during training",
+              "The loss of a fine-tuning dataset due to a storage error"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Catastrophic forgetting is when fine-tuning on a new task inadvertently damages unrelated skills the model had before, because it's adjusting the same shared weights.",
+            "id": "q1"
+          },
+          {
+            "question": "Why is catastrophic forgetting easy to miss during a normal fine-tuning workflow?",
+            "options": [
+              "It doesn't actually happen in practice",
+              "All the metrics typically tracked (loss, task-specific eval) are about the new task and can look great even as unrelated skills regress",
+              "It only affects models larger than 100 billion parameters",
+              "It's automatically caught by the training loss curve"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Without an explicit regression test on unrelated capabilities, every metric being tracked can look like clear improvement while something else quietly gets worse.",
+            "id": "q2"
+          },
+          {
+            "question": "Which mitigation technique is mentioned for reducing catastrophic forgetting?",
+            "options": [
+              "Increasing the learning rate substantially",
+              "Using PEFT methods like LoRA, which keep most original weights frozen, and/or mixing in some general-purpose data (replay)",
+              "Training for many more epochs than needed",
+              "Removing the validation set entirely"
+            ],
+            "correctAnswer": 1,
+            "explanation": "PEFT methods forget less because they freeze most weights, and mixing in general instruction data (replay) helps anchor broad capabilities during narrow fine-tuning.",
+            "id": "q3"
+          },
+          {
+            "question": "In this lesson's code example, what condition triggers the 'REGRESSION' print statement?",
+            "options": [
+              "The fine-tuned model's score for a category falls below the base model's score by more than a threshold",
+              "The base model's score is higher than the fine-tuned model's score by any amount at all",
+              "The fine-tuned model's score is identical to the base model's score",
+              "Any score above zero for either model"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example checks whether ft_scores[category] falls below base_scores[category] minus THRESHOLD, flagging a meaningful regression rather than any tiny fluctuation.",
+            "id": "q4"
+          },
+          {
+            "question": "According to this lesson's regression suite outline, what four categories of prompts should it cover?",
+            "options": [
+              "General knowledge/reasoning, basic instruction-following, safety-relevant prompts, and other non-target capabilities",
+              "Only prompts directly from the fine-tuning training set",
+              "Only prompts about the specific new task being fine-tuned for",
+              "Only prompts written in a language other than English"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly lists these four categories of prompts as what a regression suite should cover, all deliberately outside the fine-tuning task itself.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does this lesson recommend using the same rubric-based or LLM-judge approach for the regression suite as for task evaluation?",
+            "options": [
+              "Because it makes results directly comparable across the two forms of evaluation, using a consistent standard",
+              "Because using different evaluation methods for each purpose always produces more reliable results",
+              "Because rubrics can only ever be applied to the fine-tuning task, never to a regression suite",
+              "Because LLM judges cannot be used for anything other than the specific fine-tuning task"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson recommends consistency between task evaluation and regression testing methodology so results can be meaningfully compared using the same standard.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson warn against only tracking metrics about the new fine-tuning task?",
+            "options": [
+              "Because every one of those metrics can look great while an unrelated capability quietly regresses, invisible until a user notices",
+              "Because task-specific metrics always perfectly capture every aspect of model quality, including unrelated capabilities",
+              "Because tracking only the new task's metrics guarantees no capability will ever regress",
+              "Because unrelated capabilities can never actually regress during fine-tuning"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is tracking only new-task metrics, since they give no visibility into capabilities that could be silently degrading elsewhere.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson argue a regression suite failure should be treated as seriously as a target-task failure?",
+            "options": [
+              "Because a model that's great at the new task but broken at general reasoning isn't actually a successful fine-tune",
+              "Because regression suite failures are always less important than target-task performance",
+              "Because a regression suite failure has no bearing on whether a fine-tune should be considered successful",
+              "Because target-task performance is the only thing that ever matters for a fine-tuned model"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is downgrading the importance of regression failures, when a genuinely successful fine-tune needs to preserve capabilities outside its narrow target task too.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ft_continual_and_domain_adaptation",
+      "title": "Continual Fine-Tuning and Domain Adaptation",
+      "description": "Real products need models that keep improving over time without repeatedly relearning everything from scratch.",
+      "duration": "12 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can describe the challenge of continual fine-tuning and name at least one strategy for handling it."
+          },
+          {
+            "title": "🔄 The continual fine-tuning problem",
+            "content": "Products evolve — new features, new edge cases discovered in production, updated style guidelines. The naive approach is to keep adding fine-tuning rounds on top of the previous fine-tuned model, but each additional round increases the risk of the catastrophic forgetting covered in the last lesson, compounding across rounds. There's also the practical question of whether to fine-tune on top of the previous adapter/checkpoint, or go back to the original base model each time with an updated, combined dataset."
+          },
+          {
+            "title": "📦 Going back to the base model with a combined dataset",
+            "content": "Often the more robust approach: rather than repeatedly fine-tuning on top of fine-tuned checkpoints, maintain a growing, curated dataset (adding new examples as they're identified, potentially retiring or fixing old ones that are now understood to be lower quality) and re-run fine-tuning from the original base model each time. This avoids compounding forgetting across multiple fine-tuning rounds, at the cost of redoing the full training run each time rather than incrementally updating.\n\n```python\n# Conceptual: restart from base each round, rather than stacking\ncombined_dataset = load_and_merge(round_1_data, round_2_data, round_3_data)\nnew_model = finetune(original_base_model, combined_dataset)  # not previous_finetuned_model\n```"
+          },
+          {
+            "title": "🧪 Domain adaptation as a related but distinct problem",
+            "content": "**Domain adaptation** — getting a general model fluent in a specialized domain's vocabulary and patterns (legal, medical, a specific codebase) — sometimes benefits from an intermediate step: further pretraining (continuing the unsupervised, next-token-prediction objective) on a large corpus of in-domain text before instruction fine-tuning, which can help the model develop better in-domain 'intuitions' before being taught to follow instructions within that domain. This is a heavier step than typical instruction fine-tuning and is usually only worth it when the domain is very specialized and general instruction fine-tuning alone isn't cutting it."
+          },
+          {
+            "title": "📊 Tracking what changed and why",
+            "content": "As a fine-tuning setup evolves across multiple rounds, keeping clear records — which dataset version, which base model, which hyperparameters, which regression suite results — for each round becomes essential for debugging regressions and understanding what actually drove an improvement or a problem, especially once several rounds have happened and memory of exactly what changed starts to fade."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Repeatedly stacking fine-tuning rounds on top of each other by default.** This compounds catastrophic forgetting risk across rounds instead of controlling it.\n\n**Reaching for further pretraining on in-domain text before confirming standard instruction fine-tuning genuinely isn't enough.** It's a heavier, more expensive step that's only worth it once a real capability gap is demonstrated.\n\n**Not recording which dataset version, base model, and hyperparameters produced each round.** Once several rounds have passed, this makes debugging a regression or understanding an improvement much harder than it needs to be."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ft_continual_and_domain_adaptation_quiz",
+        "questions": [
+          {
+            "question": "What is a risk of repeatedly fine-tuning on top of the previous fine-tuned checkpoint across multiple rounds?",
+            "options": [
+              "It's technically impossible to do more than once",
+              "Catastrophic forgetting risk compounds across rounds",
+              "It always improves the model with no downside",
+              "It requires deleting the original base model"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Each additional fine-tuning round on top of a previous one adds more opportunity for forgetting to accumulate, which is why going back to the base model with an updated combined dataset is often more robust.",
+            "id": "q1"
+          },
+          {
+            "question": "What is a more robust alternative to repeatedly stacking fine-tuning rounds on top of each other?",
+            "options": [
+              "Fine-tuning on random noise between rounds",
+              "Maintaining a growing curated dataset and re-running fine-tuning from the original base model each time",
+              "Never updating the fine-tuning dataset",
+              "Always using a larger learning rate each round"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Restarting from the base model with an updated, curated combined dataset avoids compounding forgetting across multiple stacked fine-tuning rounds, at the cost of redoing training each time.",
+            "id": "q2"
+          },
+          {
+            "question": "When might further pretraining on in-domain text be worth doing before instruction fine-tuning?",
+            "options": [
+              "Always, for every fine-tuning project regardless of domain",
+              "When the target domain is very specialized and general instruction fine-tuning alone isn't sufficient",
+              "Only when using full fine-tuning, never with PEFT",
+              "It's never useful in any scenario"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Further pretraining is a heavier step reserved for cases where a domain is specialized enough that the model needs deeper in-domain fluency before instruction tuning can work well.",
+            "id": "q3"
+          },
+          {
+            "question": "In this lesson's code example, what does new_model = finetune(original_base_model, combined_dataset) illustrate?",
+            "options": [
+              "Restarting fine-tuning from the original base model with a merged, updated dataset rather than stacking on the previous fine-tuned model",
+              "Fine-tuning directly on top of the previous round's fine-tuned checkpoint",
+              "Deleting the original base model entirely after the first round",
+              "Skipping fine-tuning altogether in favor of prompting"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example explicitly fine-tunes from original_base_model rather than a previously fine-tuned checkpoint, illustrating the restart-from-base strategy.",
+            "id": "q4"
+          },
+          {
+            "question": "According to this lesson, what should a growing curated dataset do over multiple continual fine-tuning rounds?",
+            "options": [
+              "Add new examples as they're identified, and potentially retire or fix old ones understood to be lower quality",
+              "Stay completely frozen and unchanged across every round",
+              "Only ever grow, with old examples never revisited or removed",
+              "Be discarded and rebuilt from scratch for every single round"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson describes the dataset as actively growing and being refined — adding new examples and revisiting old ones — rather than staying static or being rebuilt from nothing each time.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does this lesson say tracking dataset version, base model, and hyperparameters becomes more important across multiple rounds?",
+            "options": [
+              "Because as more rounds accumulate, memory of exactly what changed starts to fade, making debugging harder without clear records",
+              "Because tracking these details only matters for the very first fine-tuning round, never later ones",
+              "Because dataset version and hyperparameters have no bearing on debugging a regression",
+              "Because later rounds never actually need any of this information"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explains that as rounds accumulate, clear records of what changed become essential for debugging regressions and understanding what actually drove any given result.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson warn against repeatedly stacking fine-tuning rounds on top of each other by default?",
+            "options": [
+              "Because this compounds catastrophic forgetting risk across rounds instead of controlling it",
+              "Because stacking fine-tuning rounds always eliminates any forgetting risk entirely",
+              "Because stacking rounds is technically impossible with any current fine-tuning library",
+              "Because forgetting risk is identical whether you stack rounds or restart from the base model"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is defaulting to stacking rounds, when this compounds the forgetting risk that restarting from the base model with an updated dataset avoids.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson caution against reaching for further pretraining before confirming standard instruction fine-tuning isn't enough?",
+            "options": [
+              "Because it's a heavier, more expensive step that's only worth it once a real capability gap is demonstrated",
+              "Because further pretraining is always cheaper and faster than standard instruction fine-tuning",
+              "Because further pretraining should always be the very first step for any fine-tuning project",
+              "Because standard instruction fine-tuning can never actually address any domain-specific need"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is reaching for further pretraining prematurely, when it's a heavier investment that should be justified by a demonstrated gap standard fine-tuning can't close.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ft_serving_finetuned_models",
+      "title": "Serving Fine-Tuned Models",
+      "description": "Training is only half the job — getting the result into production reliably has its own set of decisions.",
+      "duration": "12 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can list the main considerations for serving a fine-tuned model in production, including adapter-serving options."
+          },
+          {
+            "title": "🗂️ Version management",
+            "content": "Treat fine-tuned checkpoints like any other production artifact: version them clearly, keep a record of which dataset and hyperparameters produced each version, and maintain the ability to roll back quickly if a new version regresses on the production traffic it actually sees (which is why the regression suite from earlier in this module matters operationally, not just during development)."
+          },
+          {
+            "title": "🔀 Adapter-serving infrastructure",
+            "content": "Several serving frameworks explicitly support loading a single base model in memory alongside multiple LoRA adapters, routing each request to the right adapter based on which customer or task it belongs to — this is much more memory-efficient than deploying multiple full merged models when you have many similar but distinct fine-tuning targets (for example, one adapter per enterprise customer with their own style preferences).\n\n```python\n# Conceptual multi-adapter serving\nserver.load_base_model(\"base-model-7b\")\nserver.load_adapter(\"customer_a\", \"adapters/customer_a\")\nserver.load_adapter(\"customer_b\", \"adapters/customer_b\")\nresponse = server.generate(request.prompt, adapter=request.customer_id)\n```"
+          },
+          {
+            "title": "📈 Monitoring in production",
+            "content": "Production traffic inevitably drifts from whatever the fine-tuning and evaluation data looked like — new types of queries appear, edge cases emerge. Ongoing monitoring (sampling real production outputs for periodic human or LLM-judge review, tracking user feedback signals like thumbs up/down or regeneration requests) closes the loop and feeds back into what the next fine-tuning round's dataset should include."
+          },
+          {
+            "title": "🔁 The full lifecycle",
+            "content": "Curate/update data → fine-tune → evaluate against task metrics and the regression suite → deploy (merged or adapter-based) → monitor production behavior → feed findings back into the next round's dataset. This loop, more than any single technique in this course, is what separates a one-off fine-tuning experiment from a fine-tuned model that keeps getting better over time in production."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Skipping version management because 'it's just one model.'** The need for a quick rollback path doesn't disappear just because there's currently only one deployed version.\n\n**Deploying separate merged models per customer when an adapter-serving framework would work.** This wastes memory that multi-adapter serving would use far more efficiently.\n\n**Treating deployment as the end of the lifecycle rather than a step in an ongoing loop.** Without production monitoring feeding back into future rounds, a fine-tuned model stops improving the moment it ships."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ft_serving_finetuned_models_quiz",
+        "questions": [
+          {
+            "question": "Why is version management important for fine-tuned model checkpoints in production?",
+            "options": [
+              "It's a legal requirement in every jurisdiction",
+              "It enables tracking which data/hyperparameters produced each version and rolling back quickly if a new version regresses",
+              "It reduces the model's file size",
+              "It's only relevant for full fine-tuning, not PEFT"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Clear versioning lets a team quickly identify and roll back to a known-good version if a new fine-tuned model regresses on real production traffic.",
+            "id": "q1"
+          },
+          {
+            "question": "What benefit do adapter-serving frameworks provide when you have many similar but distinct fine-tuning targets (e.g., per-customer adapters)?",
+            "options": [
+              "They eliminate the need for a base model",
+              "They let one base model in memory serve many LoRA adapters, routing requests appropriately, which is far more memory-efficient than deploying many full merged models",
+              "They automatically merge all adapters into one",
+              "They only work with full fine-tuning"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Serving many adapters against one shared base model saves substantial memory compared to deploying a fully separate merged model per customer or task.",
+            "id": "q2"
+          },
+          {
+            "question": "What closes the loop between production behavior and future fine-tuning rounds?",
+            "options": [
+              "Ignoring production traffic entirely once a model is deployed",
+              "Ongoing monitoring of real production outputs and user feedback, feeding findings back into the next round's dataset",
+              "Re-running the exact same training job with no changes",
+              "Deleting the regression suite after the first deployment"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Monitoring real production behavior and feeding what's learned back into future dataset curation is what turns fine-tuning into an improving lifecycle rather than a one-off experiment.",
+            "id": "q3"
+          },
+          {
+            "question": "In this lesson's code example, what determines which adapter is used to generate a given response?",
+            "options": [
+              "The adapter parameter, set based on the request's customer_id",
+              "A randomly selected adapter, chosen fresh for every single request",
+              "The size of the incoming prompt in tokens",
+              "The time of day the request was received"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example shows server.generate(request.prompt, adapter=request.customer_id), routing each request to the adapter matching its customer.",
+            "id": "q4"
+          },
+          {
+            "question": "According to this lesson, what are two examples of user feedback signals worth tracking in production?",
+            "options": [
+              "Thumbs up/down and regeneration requests",
+              "Only the total number of requests received per day",
+              "Only the exact GPU utilization percentage",
+              "Only the model's file size on disk"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly names thumbs up/down and regeneration requests as example user feedback signals worth tracking as part of production monitoring.",
+            "id": "q5"
+          },
+          {
+            "question": "According to this lesson's full lifecycle description, what step comes immediately after 'deploy'?",
+            "options": [
+              "Monitor production behavior",
+              "Curate/update data",
+              "Fine-tune",
+              "Evaluate against task metrics and the regression suite"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's lifecycle explicitly lists monitoring production behavior as the step following deployment, before findings feed back into the next round's data curation.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson warn against skipping version management because 'it's just one model'?",
+            "options": [
+              "Because the need for a quick rollback path doesn't disappear just because there's currently only one deployed version",
+              "Because version management is only ever necessary once a team has deployed at least ten different models",
+              "Because a single deployed model can never actually regress in production",
+              "Because rollback capability has no relationship to how many model versions currently exist"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is skipping versioning for a single deployed model, when the value of a rollback path exists regardless of how many versions currently exist.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson caution against treating deployment as the end of the fine-tuning lifecycle?",
+            "options": [
+              "Because without production monitoring feeding back into future rounds, a fine-tuned model stops improving the moment it ships",
+              "Because deployment is always genuinely the final step with nothing meaningful happening afterward",
+              "Because monitoring production behavior after deployment has no effect on future model quality",
+              "Because a deployed fine-tuned model never actually needs any further attention"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is treating deployment as the finish line, when the full lifecycle's value comes from feeding production learnings back into future fine-tuning rounds.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ft_common_mistakes_and_pitfalls",
+      "title": "Common Fine-Tuning Mistakes",
+      "description": "The failure modes that show up again and again across real fine-tuning projects.",
+      "duration": "12 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can recognize the most common fine-tuning pitfalls covered across this course and how to avoid each one."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Fine-tuning to teach facts instead of using RAG,** then being surprised by hallucinated details and no way to cite sources or update information cheaply.\n\n**Prioritizing dataset size over quality,** diluting a strong signal with noisy, inconsistent, or low-quality examples.\n\n**Mismatching chat templates between training and inference,** causing a silent, hard-to-diagnose quality regression.\n\n**Training for too many epochs on a small dataset,** causing the model to memorize training examples instead of generalizing the underlying skill.\n\n**Only measuring loss and task-specific metrics,** missing catastrophic forgetting on capabilities outside the fine-tuning distribution because there was no regression suite.\n\n**Merging adapters too early during experimentation,** losing the flexibility to retrain or adjust rank cheaply.\n\n**Skipping a genuinely diverse, high-quality preference dataset** when doing DPO or RLHF and being surprised the results don't move the needle.\n\n**Reaching for full PPO-based RLHF or full fine-tuning by default** without the infrastructure, team size, or actual need for that extra flexibility and cost."
+          },
+          {
+            "title": "✅ How this course's arc addresses each one",
+            "content": "Fine-tuning vs. RAG (module 1) heads off the facts mistake. Data quality principles (module 1) and the SFT data lessons (module 3) head off the quality-over-quantity mistake. Chat template and hyperparameter lessons (module 3) head off the silent format and overfitting mistakes. The evaluation lesson (module 3) and the catastrophic forgetting lesson (this module) head off the missing-regression-suite mistake. The merging lesson (module 5) heads off premature merging. The preference optimization module heads off both the data-quality-for-DPO mistake and the reach-for-PPO-by-default mistake."
+          },
+          {
+            "title": "🎯 The one habit that prevents most of these",
+            "content": "Before calling a fine-tuning run 'done,' read actual model outputs on realistic, held-out prompts — not just a loss number, not just a task-specific automatic metric.\n\n```python\n# The one habit, as a checklist item\nfor prompt in realistic_held_out_prompts:\n    output = finetuned_model.generate(prompt)\n    print(output)  # actually read this before shipping\n```\n\nNearly every mistake in this lesson is one that becomes obvious the moment a human actually reads what the model is producing, and nearly every one of them can hide behind metrics that look fine if nobody does."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ft_common_mistakes_and_pitfalls_quiz",
+        "questions": [
+          {
+            "question": "What mistake does fine-tuning on documents purely to add facts (instead of using RAG) tend to cause?",
+            "options": [
+              "Faster inference with no downsides",
+              "Hallucinated details with no way to cite sources or cheaply update information",
+              "Automatic catastrophic forgetting prevention",
+              "Elimination of the need for any evaluation"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This is the classic facts-vs-behavior mistake covered early in the course: fine-tuning is a poor substitute for RAG when the actual need is retrievable, updatable, citable facts.",
+            "id": "q1"
+          },
+          {
+            "question": "What silent failure mode results from mismatched chat templates between training and inference?",
+            "options": [
+              "An immediate crash with a clear error message",
+              "A hard-to-diagnose quality regression, since the model performs worse without any obvious error",
+              "Faster training speed",
+              "Automatic correction by the training framework"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Template mismatches don't throw errors — they just quietly degrade quality, which is exactly what makes them a common and dangerous mistake.",
+            "id": "q2"
+          },
+          {
+            "question": "What single habit does this lesson identify as preventing most common fine-tuning mistakes?",
+            "options": [
+              "Always using the largest possible base model",
+              "Reading actual model outputs on realistic, held-out prompts before calling a run 'done'",
+              "Skipping evaluation to save time",
+              "Merging adapters as early as possible"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Nearly every mistake covered becomes obvious once a human actually reads real outputs — metrics alone can look fine while any of these problems are quietly present.",
+            "id": "q3"
+          },
+          {
+            "question": "In this lesson's checklist code example, what is the point of the comment '# actually read this before shipping'?",
+            "options": [
+              "To emphasize that a human should genuinely look at each generated output, not just check that generation completed without error",
+              "To indicate that the output should be automatically deleted after printing",
+              "To signal that this step should be skipped for large datasets",
+              "To mark the code as a broken example that shouldn't be used"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's comment reinforces the core recommendation: printing outputs is only useful if a human actually reads them, not just runs the loop and moves on.",
+            "id": "q4"
+          },
+          {
+            "question": "According to this lesson, which module's content is credited with heading off the premature-merging mistake?",
+            "options": [
+              "The merging lesson in module 5",
+              "The RLHF pipeline lesson in module 3",
+              "The base model selection lesson in module 4",
+              "The chat template lesson in module 3"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly attributes prevention of the premature-merging mistake to the dedicated merging lesson earlier in this same module (module 5).",
+            "id": "q5"
+          },
+          {
+            "question": "According to this lesson, what heads off both the data-quality-for-DPO mistake and the reach-for-PPO-by-default mistake?",
+            "options": [
+              "The preference optimization module",
+              "The hardware and memory planning lesson",
+              "The chat template lesson",
+              "The base model selection lesson"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly credits the preference optimization module (module 3) with addressing both of these related preference-tuning mistakes.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson say prioritizing dataset size over quality is a mistake, consistent with earlier modules?",
+            "options": [
+              "Because it dilutes a strong signal with noisy, inconsistent, or low-quality examples, echoing the data-quality lessons from earlier in the course",
+              "Because larger datasets always produce strictly better fine-tuning results regardless of quality",
+              "Because dataset size has no relationship to fine-tuning outcome quality",
+              "Because quality only matters for preference tuning, never for supervised fine-tuning"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake directly echoes the earlier data-quality-over-quantity principle: more low-quality data dilutes signal rather than strengthening it.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson emphasize that nearly every mistake it lists 'becomes obvious the moment a human actually reads what the model is producing'?",
+            "options": [
+              "Because these mistakes can hide behind metrics that look fine if nobody actually reads real outputs",
+              "Because reading model outputs is never actually useful for catching any of these mistakes",
+              "Because metrics always immediately reveal every one of these mistakes without needing human review",
+              "Because these mistakes are only detectable through automated tooling, never human review"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's core closing point is that these failure modes commonly hide behind acceptable-looking metrics, and only direct human review of outputs reliably surfaces them.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

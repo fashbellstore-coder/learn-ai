@@ -1,0 +1,547 @@
+{
+  "id": "module_4",
+  "title": "Evaluating & Building Vision Pipelines",
+  "description": "The practical side of computer vision: mAP and Dice score for evaluation, building a real pipeline with OpenCV, common real-world pitfalls, and a first look at video.",
+  "icon": "🛠️",
+  "color": "#5C6BC0",
+  "order": 4,
+  "estimatedHours": 2,
+  "difficulty": "Intermediate",
+  "prerequisites": [
+    "module_3"
+  ],
+  "lessons": [
+    {
+      "id": "cv_evaluating_detection_segmentation",
+      "title": "Evaluating Detection and Segmentation Models",
+      "description": "Learn the specialized metrics used to judge how well detection and segmentation models actually perform.",
+      "duration": "9 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain mAP for detection and IoU/Dice score for segmentation."
+          },
+          {
+            "title": "📊 mAP: mean Average Precision, for detection",
+            "content": "Recall from module 2: a detection is \"correct\" if both its label and IoU (location accuracy) clear certain thresholds. **Average Precision (AP)** summarizes, for one object category, how well the model's confidence-ranked detections trade off precision and recall (concepts from the machine learning course) as you adjust the confidence threshold — similar in spirit to the area under a precision-recall curve. **mAP (mean Average Precision)** simply averages AP across all object categories, producing one overall detection quality score.\n\n```\n# Conceptual: mAP calculation\n# AP(\"person\") = 0.82, AP(\"car\") = 0.75, AP(\"dog\") = 0.88\n# mAP = average of these = 0.817\n```\n\nmAP is the standard headline metric reported for object detection benchmarks and papers."
+          },
+          {
+            "title": "🎨 Evaluating segmentation: IoU and Dice score",
+            "content": "For segmentation, IoU (from module 2) is computed pixel-wise rather than box-wise — comparing the overlap between the predicted segmentation mask and the true mask.\n\nThe **Dice score** (also called the F1 score for segmentation — recall F1 from the machine learning course) is a closely related, commonly used alternative:\n\n```\nDice = (2 × overlap area) / (predicted mask area + true mask area)\n```\n\nDice and IoU are mathematically related and generally tell a similar story, but Dice is somewhat more forgiving of smaller discrepancies — the choice between them is often more a matter of field convention (Dice is especially common in medical imaging) than a fundamentally different judgment."
+          },
+          {
+            "title": "🎯 Why detection/segmentation thresholds matter",
+            "content": "Both mAP and segmentation metrics depend on chosen thresholds (like the IoU threshold used to decide a \"correct\" detection). It's common to see metrics reported at multiple thresholds (like mAP@0.5 and mAP@0.75) — a stricter threshold (0.75) demands more precise localization than a looser one (0.5), and a model's relative performance can shift depending on which threshold matters most for your actual application."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Comparing mAP scores computed at different IoU thresholds as if they were directly comparable.** mAP@0.5 and mAP@0.75 measure meaningfully different things — always check which threshold a reported number uses.\n\n**Reporting only overall mAP without checking per-category performance.** A model might perform very well on common categories (like \"person\") while performing poorly on rarer ones — averaging can hide this important difference.\n\n**Assuming IoU and Dice score are totally different metrics requiring separate intuition.** They're closely mathematically related and generally move together — the choice between them is largely a matter of field convention rather than a fundamentally different way of judging quality."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "cv_evaluating_detection_segmentation_quiz",
+        "questions": [
+          {
+            "question": "What does mAP (mean Average Precision) summarize for an object detection model?",
+            "options": [
+              "The exact pixel count of every detected object",
+              "An overall detection quality score, averaging how well the model trades off precision and recall across all object categories",
+              "The training time required for the model",
+              "The number of layers in the detection network"
+            ],
+            "correctAnswer": 1,
+            "explanation": "mAP averages the Average Precision (a precision-recall tradeoff summary) across every object category, producing one standard overall score for comparing detection model quality — it's the standard headline metric in detection benchmarks.",
+            "id": "q1"
+          },
+          {
+            "question": "What does the Dice score measure in the context of segmentation?",
+            "options": [
+              "The training speed of a segmentation model",
+              "How well a predicted segmentation mask overlaps with the true mask, similar in spirit to IoU but computed slightly differently and somewhat more forgiving",
+              "The number of distinct object classes in the dataset",
+              "The resolution of the input image"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Dice score, like IoU, measures overlap between predicted and true segmentation masks — the two metrics are closely mathematically related, with Dice being a commonly used, somewhat more forgiving alternative, especially common in medical imaging.",
+            "id": "q2"
+          },
+          {
+            "question": "Why might mAP@0.5 and mAP@0.75 give meaningfully different results for the same model?",
+            "options": [
+              "They are actually identical measurements with different names",
+              "mAP@0.75 requires stricter, more precise bounding box localization (a higher IoU threshold) to count a detection as correct, compared to the looser mAP@0.5 threshold",
+              "mAP@0.75 only evaluates 75% of the test images",
+              "The threshold number has no actual effect on the calculation"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The number after '@' specifies the IoU threshold required for a detection to count as correct — a stricter threshold (0.75) demands more precise bounding box localization than a looser one (0.5), so a model's score (and relative ranking against other models) can genuinely shift between the two.",
+            "id": "q3"
+          },
+          {
+            "question": "What does Average Precision (AP) summarize for a single object category?",
+            "options": [
+              "The total number of objects in that category across the dataset",
+              "How well the model's confidence-ranked detections trade off precision and recall as the confidence threshold is adjusted",
+              "The exact pixel count of every object in that category",
+              "The training time needed for that category"
+            ],
+            "correctAnswer": 1,
+            "explanation": "AP summarizes the precision-recall tradeoff for one category across different confidence thresholds, similar to the area under a precision-recall curve.",
+            "id": "q4"
+          },
+          {
+            "question": "How is mAP calculated from individual category AP scores?",
+            "options": [
+              "By taking only the highest AP score across all categories",
+              "By averaging the AP scores across all object categories",
+              "By multiplying all the AP scores together",
+              "By ignoring all but one randomly selected category"
+            ],
+            "correctAnswer": 1,
+            "explanation": "mAP (mean Average Precision) is computed by averaging the AP scores across every object category, producing one overall detection quality score.",
+            "id": "q5"
+          },
+          {
+            "question": "What formula does the lesson give for the Dice score?",
+            "options": [
+              "(overlap area) / (predicted mask area only)",
+              "(2 × overlap area) / (predicted mask area + true mask area)",
+              "(predicted mask area) - (true mask area)",
+              "(true mask area) / (2 × overlap area)"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The Dice score formula given in the lesson doubles the overlap area and divides by the sum of the predicted and true mask areas.",
+            "id": "q6"
+          },
+          {
+            "question": "In which field does the lesson note Dice score is especially common?",
+            "options": [
+              "Natural language processing",
+              "Medical imaging",
+              "Audio processing",
+              "Software engineering"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson specifically notes that Dice score is especially common as a segmentation metric in medical imaging.",
+            "id": "q7"
+          },
+          {
+            "question": "Why is it important to check per-category performance rather than relying only on overall mAP?",
+            "options": [
+              "Per-category performance is never useful information",
+              "A model might perform very well on common categories while performing poorly on rarer ones, which overall averaging can hide",
+              "mAP is always identical across every category by definition",
+              "Checking per-category performance has no practical benefit"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson warns that averaging across categories in a single mAP score can mask important weaknesses on rarer categories, even if the overall average looks good.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "cv_opencv_pipeline",
+      "title": "Building a Vision Pipeline with OpenCV",
+      "description": "Learn how the practical, non-model pieces of a real computer vision pipeline fit together.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can describe the typical stages of a practical vision pipeline built around OpenCV."
+          },
+          {
+            "title": "🛠️ Why a pipeline needs more than just a model",
+            "content": "A trained model is only one piece of a real, working vision system — real images need to be decoded, resized, normalized, and eventually the model's raw output needs to be turned into something usable. **OpenCV** is the standard library for handling most of these practical, non-model steps efficiently."
+          },
+          {
+            "title": "🔄 A typical pipeline, stage by stage",
+            "content": "```python\nimport cv2\n\n# 1. Decode: load the raw image file into a usable array\nimage = cv2.imread(\"photo.jpg\")\n\n# 2. Resize / letterbox: match the model's expected input size,\n#    padding to preserve aspect ratio when needed (module 0)\nresized = cv2.resize(image, (640, 640))\n\n# 3. Color conversion: BGR (OpenCV's default) → RGB, if the model expects RGB\nrgb_image = cv2.cvtColor(resized, cv2.COLOR_BGR2RGB)\n\n# 4. Normalize: scale pixel values appropriately (module 0)\nnormalized = rgb_image / 255.0\n\n# 5. Run the model, then post-process its raw output\n# predictions = model.predict(normalized)\n# boxes = apply_non_max_suppression(predictions)   # module 2\n\n# 6. Visualize or use the results\n# cv2.rectangle(image, box_top_left, box_bottom_right, color, thickness)\n```\n\nThis pipeline pulls together nearly every concept from this course so far: preprocessing (module 0), the model itself (modules 1-3), and post-processing steps like NMS (module 2)."
+          },
+          {
+            "title": "🎥 Beyond single images: video",
+            "content": "For video, this same pipeline typically runs frame by frame, often with an added step to track objects across frames (so \"the same car\" is recognized as continuous across frames, rather than as a brand new, unrelated detection each time) — video-specific techniques like optical flow and object tracking build on top of the same single-frame detection and segmentation foundations covered in this course."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Underestimating how much of a real vision system is \"plumbing\" rather than the model itself.** Decoding, resizing, color conversion, and post-processing are all essential, easy-to-get-subtly-wrong steps that exist entirely separately from the model architecture itself.\n\n**Forgetting to match every preprocessing step to what the specific model expects.** Input size, normalization, and color order all need to align exactly with the model's training-time expectations — a mismatch in any one of these can silently and significantly hurt performance.\n\n**Treating a video pipeline as \"just\" running the image pipeline repeatedly with no changes.** While the frame-level processing is often similar, real video applications frequently need additional considerations like tracking objects consistently across frames."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "cv_opencv_pipeline_quiz",
+        "questions": [
+          {
+            "question": "Why does a real computer vision system need more than just a trained model?",
+            "options": [
+              "Trained models can process raw image files directly with no additional steps needed",
+              "Real images need practical preprocessing (decoding, resizing, normalization) before reaching the model, and its raw output needs post-processing to become usable",
+              "Models are actually unnecessary for computer vision systems",
+              "OpenCV replaces the need for a trained model entirely"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A trained model expects specifically formatted input and produces raw output that needs further processing — the surrounding pipeline (decoding, resizing, normalizing, and post-processing predictions) is just as essential as the model itself for a working system.",
+            "id": "q1"
+          },
+          {
+            "question": "Why is it important to match preprocessing steps exactly to what a specific model expects?",
+            "options": [
+              "Preprocessing has no real effect on model performance",
+              "A mismatch in input size, normalization, or color order compared to what the model was trained with can silently and significantly hurt its performance",
+              "Models automatically detect and correct any preprocessing mismatch",
+              "Only the model's architecture matters, not its input format"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This echoes earlier lessons in this course — a model's learned weights implicitly assume input processed in a specific way (size, normalization, channel order), so mismatched preprocessing can quietly degrade performance without producing an obvious error.",
+            "id": "q2"
+          },
+          {
+            "question": "What additional consideration often comes up when extending a single-image pipeline to video?",
+            "options": [
+              "Video pipelines never need any additional considerations beyond single-image processing",
+              "Tracking objects consistently across frames, so the same real object isn't treated as a brand new, unrelated detection in every single frame",
+              "Video cannot be processed using the same underlying detection and segmentation techniques",
+              "Video always requires a completely different, unrelated set of models"
+            ],
+            "correctAnswer": 1,
+            "explanation": "While video processing often reuses the same single-frame detection/segmentation techniques, applications frequently need an additional layer — object tracking — to maintain a consistent identity for the same real object as it appears across multiple consecutive frames.",
+            "id": "q3"
+          },
+          {
+            "question": "What is the purpose of the color conversion step (BGR to RGB) in the OpenCV pipeline example?",
+            "options": [
+              "To resize the image to a fixed size",
+              "To convert from OpenCV's default BGR channel order to RGB, if that's what the model expects",
+              "To apply data augmentation",
+              "To compress the image file size"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since OpenCV loads images in BGR order by default, this step converts to RGB to match what many models expect, avoiding the channel-order mismatch bug described in module 0.",
+            "id": "q4"
+          },
+          {
+            "question": "What post-processing step is applied to raw model predictions in the pipeline example, and what module does it come from?",
+            "options": [
+              "Data augmentation, from module 0",
+              "Non-Maximum Suppression, from module 2",
+              "Tokenization, from the NLP course",
+              "Batch normalization, from the deep learning course"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The pipeline example applies Non-Maximum Suppression to the model's raw predictions, a technique covered in module 2 on object detection.",
+            "id": "q5"
+          },
+          {
+            "question": "What does the lesson say is added to the pipeline specifically when processing video rather than single images?",
+            "options": [
+              "Nothing — video uses the exact same pipeline with zero changes",
+              "An added step to track objects across frames, so the same object is recognized as continuous rather than a new detection each frame",
+              "A requirement to convert every frame to grayscale first",
+              "A step that removes the need for any preprocessing"
+            ],
+            "correctAnswer": 1,
+            "explanation": "For video, the lesson notes the same pipeline typically runs per frame, but with an added tracking step so objects maintain continuous identity across frames rather than being treated as brand new each time.",
+            "id": "q6"
+          },
+          {
+            "question": "According to the lesson, what portion of a real vision system does 'plumbing' like decoding, resizing, and color conversion represent?",
+            "options": [
+              "An unimportant, optional part of the system",
+              "An essential part of the system that exists entirely separately from the model architecture itself",
+              "The only part of the system that actually matters",
+              "A part of the system that has been completely automated and requires no attention"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson emphasizes that this practical plumbing is essential and easy to get subtly wrong, existing as a critical component of a real vision system separate from the model itself.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does OpenCV remain a standard tool even in deep-learning-centric vision pipelines?",
+            "options": [
+              "OpenCV replaces the need for any trained model",
+              "It efficiently handles the practical, non-model steps like decoding, resizing, normalizing, and visualizing results",
+              "OpenCV can only be used with classic (non-deep-learning) techniques",
+              "OpenCV is required to train neural networks"
+            ],
+            "correctAnswer": 1,
+            "explanation": "OpenCV handles the practical plumbing stages of a vision pipeline efficiently, remaining a staple tool even when the core prediction is made by a deep learning model.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "cv_common_pitfalls",
+      "title": "Common Computer Vision Pitfalls",
+      "description": "Learn the practical, real-world traps that catch even well-trained vision models off guard.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can list common real-world computer vision pitfalls and explain why each one occurs."
+          },
+          {
+            "title": "💡 Lighting and environmental variation",
+            "content": "A model trained mostly on well-lit, daytime photos can perform noticeably worse on images taken at night, in fog, or under unusual lighting conditions — if the training data doesn't reflect this real-world variation, the model has no way to have learned to handle it. This directly echoes the data science course's guidance: training data needs to represent the conditions the model will actually face in deployment."
+          },
+          {
+            "title": "🙈 Occlusion",
+            "content": "**Occlusion** — when an object is partially blocked from view by something else (a person partly hidden behind a car, an object at the edge of the frame) — is a persistent real-world challenge. Models can struggle significantly when only part of an object is visible, especially if the training data didn't include many similarly occluded examples."
+          },
+          {
+            "title": "⚖️ Class imbalance in vision datasets",
+            "content": "Just like the class imbalance concern from the machine learning course, some object categories are naturally far more common in a dataset than others (many \"cars\" and \"people\" in street scenes, but very few \"bicycles\" or \"traffic cones\") — this can bias a model toward performing well on common categories while performing poorly on rare ones, unless specifically addressed."
+          },
+          {
+            "title": "🎯 Dataset bias more broadly",
+            "content": "A vision dataset collected in one specific setting (a particular country, climate, time of day, or camera type) may not represent the full diversity of conditions a deployed model will actually encounter. This is exactly the same broader data science principle — training data needs to represent deployment conditions — applied specifically to the visual domain: different geographies, demographics, camera qualities, and environments can all differ significantly from what's captured in a single training dataset."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Evaluating a model only under the same clean conditions it was trained under.** This can badly overestimate how the model will actually perform once deployed in the real world's messier variety of conditions.\n\n**Not specifically checking performance on rare categories or occluded examples.** Overall aggregate metrics (like mAP) can look strong while masking serious systematic weaknesses on specific, less common situations.\n\n**Assuming a vision dataset is representative just because it's large.** A large dataset can still be narrow or biased in important ways if it wasn't deliberately collected to reflect real-world diversity — size alone doesn't guarantee genuine representativeness."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "cv_common_pitfalls_quiz",
+        "questions": [
+          {
+            "question": "Why might a model trained mostly on well-lit daytime photos struggle with nighttime images?",
+            "options": [
+              "Nighttime images cannot be represented digitally at all",
+              "The training data didn't reflect this real-world lighting variation, so the model had no opportunity to learn to handle those conditions",
+              "Vision models are technically incapable of processing dark images",
+              "Lighting conditions have no actual effect on model performance"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This mirrors the data science course's core principle — a model can only learn to handle conditions actually represented in its training data, so if nighttime or unusual lighting wasn't well represented, the model has no learned basis for handling those conditions well.",
+            "id": "q1"
+          },
+          {
+            "question": "What is occlusion, and why is it a challenge for computer vision models?",
+            "options": [
+              "A type of image compression algorithm",
+              "When an object is partially blocked from view by something else, which can make it significantly harder for a model to recognize, especially without many similar training examples",
+              "A specific type of camera lens",
+              "A synonym for image resolution"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Occlusion refers to an object being partly hidden from view, and models often struggle to correctly recognize partially visible objects — particularly if their training data didn't include enough similarly occluded examples to learn from.",
+            "id": "q2"
+          },
+          {
+            "question": "Why can a large vision dataset still be considered biased or unrepresentative?",
+            "options": [
+              "Dataset size alone always guarantees full representativeness",
+              "A large dataset can still be narrow in important ways (like only covering one geography, camera type, or set of conditions) if it wasn't deliberately collected to reflect real-world diversity",
+              "Bias is impossible in datasets containing more than 1,000 images",
+              "Large datasets cannot be analyzed for potential bias"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Size alone doesn't guarantee that a dataset captures the full diversity of real-world conditions — a large dataset collected under narrow, similar circumstances (like one specific country or camera type) can still be significantly biased in ways that hurt real-world model performance.",
+            "id": "q3"
+          },
+          {
+            "question": "What broader data science principle does the lighting variation pitfall connect to?",
+            "options": [
+              "Training data needs to represent the conditions the model will actually face in deployment",
+              "Models never need diverse training data to perform well",
+              "Lighting conditions have no effect on any type of model",
+              "Larger models are automatically immune to lighting variation"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly connects this pitfall to the data science course's guidance that training data must represent real deployment conditions to generalize well.",
+            "id": "q4"
+          },
+          {
+            "question": "What is occlusion, as defined in the lesson?",
+            "options": [
+              "A type of data augmentation technique",
+              "When an object is partially blocked from view by something else",
+              "A metric for evaluating segmentation quality",
+              "A method for compressing images"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Occlusion refers to an object being partially blocked from view, which the lesson identifies as a persistent real-world challenge for vision models.",
+            "id": "q5"
+          },
+          {
+            "question": "How does class imbalance in vision datasets relate to a concept from the machine learning course?",
+            "options": [
+              "It's an entirely new concept unrelated to anything in the ML course",
+              "It directly parallels the class imbalance concern from the machine learning course, where some categories are naturally much rarer than others",
+              "Class imbalance only affects text data, never images",
+              "Vision datasets are never imbalanced in practice"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson draws a direct parallel to the ML course's class imbalance concept — some object categories (like bicycles) are naturally much rarer in street scene datasets than others (like cars).",
+            "id": "q6"
+          },
+          {
+            "question": "Why can a large vision dataset still exhibit dataset bias?",
+            "options": [
+              "Large datasets are always perfectly representative of every possible condition",
+              "A dataset collected in one specific setting (country, climate, camera type) may not represent the full diversity of real deployment conditions, regardless of its size",
+              "Dataset bias is impossible once a dataset exceeds a certain size",
+              "Bias only affects datasets with fewer than 100 images"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson emphasizes that dataset size alone doesn't guarantee representativeness — a large dataset collected under narrow conditions can still be significantly biased.",
+            "id": "q7"
+          },
+          {
+            "question": "Why is evaluating a model only under the same clean conditions it was trained under considered a mistake?",
+            "options": [
+              "Clean evaluation conditions always perfectly predict real-world performance",
+              "It can badly overestimate how the model will actually perform once deployed in the real world's messier variety of conditions",
+              "Evaluation under clean conditions is technically impossible to perform",
+              "This has no effect on the reliability of the reported results"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson warns that evaluating only under ideal, clean conditions can give a misleadingly optimistic picture of real-world deployment performance, which is typically much messier and more varied.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "cv_video_intro",
+      "title": "Extending Vision to Video",
+      "description": "Get a brief, practical introduction to how vision techniques extend from single images to video over time.",
+      "duration": "7 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain what optical flow and object tracking add on top of single-frame vision techniques."
+          },
+          {
+            "title": "🎞️ Video is just a sequence of images, plus time",
+            "content": "A video is fundamentally a sequence of individual image frames played in order — every technique covered so far in this course (classification, detection, segmentation) can be run on each frame independently. But video also carries genuinely new information that single, independent frames don't: **motion** and **temporal continuity** between consecutive frames."
+          },
+          {
+            "title": "🌊 Optical flow: estimating motion between frames",
+            "content": "**Optical flow** estimates how pixels (or regions) move between two consecutive video frames — essentially, a motion vector at each point in the image, describing the apparent direction and speed of movement.\n\n```\n# Conceptual optical flow output between frame N and frame N+1\n# for each pixel/region: (motion_x, motion_y)\n# — captures which direction and how fast things are moving\n```\n\nThis is genuinely new information beyond what any single frame alone can tell you — a static image can't reveal whether (or how fast) something is moving."
+          },
+          {
+            "title": "🎯 Object tracking: maintaining identity across frames",
+            "content": "**Object tracking** takes per-frame detections (module 2) and links them together across consecutive frames, maintaining a consistent identity for each specific object over time — rather than treating detections in each frame as entirely new, unrelated objects.\n\n```\nFrame 1: detected \"car\" at position A → assigned track ID 7\nFrame 2: detected \"car\" at position B (nearby) → matched to the same track ID 7\nFrame 3: detected \"car\" at position C (nearby) → still track ID 7\n# → this is understood as one continuous car moving across frames,\n#   not three separate, unrelated detections\n```\n\nThis connects conceptually back to the sequence modeling ideas from the deep learning and NLP courses — tracking is fundamentally about maintaining information (an object's identity) across a sequence, here a sequence of video frames rather than words."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Treating video purely as a set of independent images with no temporal relationship.** This misses genuinely useful information — motion and object continuity — that only becomes available by considering multiple frames together over time.\n\n**Assuming tracking is \"solved\" by just re-running detection every single frame.** Without an explicit tracking or matching mechanism, the same physical object would be treated as a brand new, unrelated detection every frame, losing its identity over time.\n\n**Underestimating how much additional complexity video adds.** Beyond running per-frame detection or segmentation, real video applications often need to handle occlusion over time, objects entering and leaving the frame, and maintaining track identity through brief, temporary disappearances."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "cv_video_intro_quiz",
+        "questions": [
+          {
+            "question": "What genuinely new information does video provide beyond what a single static image frame can offer?",
+            "options": [
+              "Video contains no additional information beyond a single frame",
+              "Motion and temporal continuity between consecutive frames — information about how things move and change over time",
+              "Video frames are always higher resolution than single images",
+              "Video eliminates the need for any object detection"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A single static image can't reveal motion or how a scene changes over time — video's sequence of frames captures genuinely new information (motion, continuity) that techniques operating on independent single frames alone would miss.",
+            "id": "q1"
+          },
+          {
+            "question": "What does optical flow estimate?",
+            "options": [
+              "The exact category label of each object in a frame",
+              "How pixels or regions move between two consecutive video frames, essentially a motion vector at each point",
+              "The total number of frames in a video",
+              "The compression format of the video file"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Optical flow computes, for each point (or region) in the image, an estimate of its apparent motion direction and speed between one frame and the next — capturing movement information that a single static frame alone cannot provide.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is object tracking needed on top of running detection independently on every frame?",
+            "options": [
+              "Detection alone already perfectly maintains object identity across frames with no additional work needed",
+              "Without explicit tracking, the same real object detected in consecutive frames would be treated as entirely new, unrelated detections each time, losing its continuous identity",
+              "Object tracking replaces the need for detection entirely",
+              "Tracking is only relevant for audio processing, not video"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Running detection independently on each frame has no inherent way of knowing that a detection in frame 2 is the same physical object as one in frame 1 — tracking explicitly links detections across frames to maintain a consistent identity for each object over time.",
+            "id": "q3"
+          },
+          {
+            "question": "What fundamentally is a video, according to the lesson?",
+            "options": [
+              "A single static image displayed continuously",
+              "A sequence of individual image frames played in order",
+              "A 3D representation of a scene with no time component",
+              "An audio file with no visual content"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson defines video as fundamentally a sequence of individual frames played in order, on top of which motion and temporal continuity add new information.",
+            "id": "q4"
+          },
+          {
+            "question": "What does optical flow estimate between two consecutive frames?",
+            "options": [
+              "The exact class label of each object",
+              "A motion vector at each point in the image, describing the direction and speed of apparent movement",
+              "The total file size of the video",
+              "The number of objects present in each frame"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Optical flow computes motion vectors describing how pixels or regions appear to move between consecutive frames, capturing genuinely new temporal information.",
+            "id": "q5"
+          },
+          {
+            "question": "In the tracking example, what allows the same car detected in frames 1, 2, and 3 to be understood as one continuous object?",
+            "options": [
+              "Each frame is processed completely independently with no connection between them",
+              "A consistent track ID is maintained by matching detections across nearby positions in consecutive frames",
+              "The car is manually labeled by a human in every frame",
+              "Tracking is not actually possible across multiple frames"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Object tracking links detections across frames by maintaining a consistent track ID, recognizing that nearby detections in consecutive frames likely represent the same continuous object.",
+            "id": "q6"
+          },
+          {
+            "question": "What does the lesson say tracking conceptually connects back to, from the deep learning and NLP courses?",
+            "options": [
+              "Convolutional filter design",
+              "The idea of maintaining information (identity) across a sequence, just applied to video frames instead of words",
+              "The bag-of-words representation",
+              "The Dice score formula"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson draws a conceptual parallel between tracking's job of maintaining an object's identity across a sequence of frames and sequence modeling's job of maintaining context across a sequence of words.",
+            "id": "q7"
+          },
+          {
+            "question": "What additional challenges does the lesson say real video applications often need to handle, beyond basic per-frame detection?",
+            "options": [
+              "None — per-frame detection alone is always sufficient",
+              "Occlusion over time, objects entering and leaving the frame, and maintaining track identity through brief disappearances",
+              "Only the total number of frames in the video",
+              "The video's file compression format"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson lists occlusion over time, objects entering/leaving frame, and maintaining identity through brief disappearances as additional real-world complexities video applications often need to address.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,525 @@
+{
+  "id": "module_0",
+  "title": "What Embeddings Actually Are",
+  "description": "Embeddings as a map of meaning rather than a database of facts, how contrastive training builds an embedding space, what dimensionality and normalization trade off, and how to choose an embedding model for a real task.",
+  "icon": "🧭",
+  "color": "#26A69A",
+  "order": 0,
+  "estimatedHours": 2,
+  "difficulty": "Beginner",
+  "prerequisites": [],
+  "lessons": [
+    {
+      "id": "emb_what_is_an_embedding",
+      "title": "What an Embedding Actually Is",
+      "description": "Revisit embeddings with a sharper focus: a fixed-length vector that places meaning in geometric space.",
+      "duration": "7 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain what an embedding is and why treating it as a 'map, not a database' matters."
+          },
+          {
+            "title": "📍 A fixed-length address in meaning-space",
+            "content": "An **embedding** is a fixed-length vector of numbers, trained so that semantically similar inputs land near each other in that vector space. This isn't a new idea — the transformers course's discussion of embeddings and the generative AI course's CLIP lesson both touched on this — but this track goes deep on the geometry and the systems built around it, since making semantic search actually work in production is its own discipline."
+          },
+          {
+            "title": "🗺️ A map, not a database of facts",
+            "content": "It's worth restating clearly: an embedding captures similarity, not truth. Two texts landing close together in embedding space means they're semantically related in whatever way the training process learned to represent — it doesn't mean either one is factually correct, and nearest-neighbor results are not the same as verified facts.\n\n```python\n# Conceptual: two very different sentences can be \"close\"\n# because they share topic/meaning, not because either is \"true\"\n# \"The Eiffel Tower is in Paris\" <-> \"Paris has many famous landmarks\"\n# these can embed close together despite neither confirming the other\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Treating embedding similarity as factual confirmation.** Similarity reflects learned semantic relatedness, not a truth check — this distinction becomes critical once embeddings feed into retrieval-augmented generation later in the curriculum.\n\n**Assuming all embeddings from different models are comparable.** Two embeddings are only meaningfully comparable if they came from the same model (or models specifically trained to share a space) — comparing vectors from unrelated models is meaningless.\n\n**Forgetting embeddings are trained artifacts with their own biases and blind spots.** An embedding model's notion of \"similar\" reflects whatever patterns existed in its own training data."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "emb_what_is_an_embedding_quiz",
+        "questions": [
+          {
+            "question": "What does it mean for two pieces of text to have similar embeddings?",
+            "options": [
+              "That one confirms the other is factually true",
+              "That the embedding model learned to represent them as semantically related, placing them near each other in the vector space",
+              "That the two texts are identical, word for word",
+              "That both texts were written by the same author"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Embedding similarity reflects learned semantic relatedness according to the training process — it says nothing directly about factual truth, authorship, or exact wording.",
+            "id": "q1"
+          },
+          {
+            "question": "Why can't embeddings from two completely different, unrelated models generally be compared to each other?",
+            "options": [
+              "Embeddings from any model can always be directly compared with no issue",
+              "Each model learns its own vector space during training, so two embeddings are only meaningfully comparable if they came from the same model or models specifically trained to share a space",
+              "Embeddings are never numeric, so comparison is technically impossible",
+              "Only embeddings of exactly one dimension can ever be compared"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The specific geometry of an embedding space is a product of that model's own training — comparing vectors from unrelated models is comparing two different, arbitrary coordinate systems that have no meaningful relationship to each other.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is it a mistake to treat embedding similarity as a factual confirmation, especially heading into later retrieval-based systems?",
+            "options": [
+              "Embedding similarity is always factually accurate by design",
+              "Similarity reflects learned semantic relatedness rather than verified truth, so treating a semantically close match as confirmed fact risks acting on something that is related but not actually correct",
+              "This distinction only matters for image embeddings, not text",
+              "Factual confirmation and semantic similarity are the same concept"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since embeddings capture relatedness rather than truth, mistaking a semantically similar result for a verified fact is a real risk — one that becomes especially important once embeddings are used to retrieve information that a downstream system will treat as reliable.",
+            "id": "q3"
+          },
+          {
+            "question": "In the lesson's Eiffel Tower example, why can two very different sentences embed close together?",
+            "options": [
+              "Because they share topic/meaning, not because either sentence is verified as true",
+              "Because both sentences are exactly the same length",
+              "Because the embedding model checks facts before placing vectors",
+              "Because only false statements ever embed near each other"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's example shows two sentences embedding close together purely due to shared topic and meaning, explicitly not because either statement is confirmed true by the other.",
+            "id": "q4"
+          },
+          {
+            "question": "According to this lesson, what earlier courses already touched on the idea of embeddings?",
+            "options": [
+              "The transformers course's discussion of embeddings and the generative AI course's CLIP lesson",
+              "Only the math course's discussion of matrices",
+              "Only the computer vision course's CNN lesson",
+              "No earlier course mentioned embeddings before this one"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly notes that embeddings were already touched on in the transformers course and the generative AI course's CLIP lesson, with this track going deeper into the geometry and systems around them.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does this lesson say an embedding model's notion of 'similar' reflects its own biases and blind spots?",
+            "options": [
+              "Because embeddings are trained artifacts, so their similarity notion reflects whatever patterns existed in their own training data",
+              "Because embeddings are hand-crafted by engineers with no training data involved",
+              "Because embedding models never actually learn any patterns from data",
+              "Because bias only affects generative models, never embedding models"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is forgetting that embeddings are trained artifacts — like any trained model, their sense of similarity is shaped by whatever patterns existed in their training data, biases included.",
+            "id": "q6"
+          },
+          {
+            "question": "Why is comparing embeddings from two completely unrelated models described as meaningless in this lesson?",
+            "options": [
+              "Because each model learns its own distinct vector space, so vectors from different models have no comparable relationship to each other",
+              "Because unrelated models always produce identical vector spaces",
+              "Because embeddings can never be represented numerically",
+              "Because comparison is only meaningless for image embeddings, not text"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explains that each model's embedding space is a specific product of its own training, so two vectors from unrelated models represent two different, arbitrary coordinate systems with no meaningful relationship.",
+            "id": "q7"
+          },
+          {
+            "question": "According to this lesson, why does the 'map, not a database' framing become critical for retrieval-augmented generation later in the curriculum?",
+            "options": [
+              "Because mistaking a semantically similar match for a verified fact risks a downstream system treating unverified, related content as reliable",
+              "Because retrieval-augmented generation never actually uses embeddings",
+              "Because databases and embeddings are functionally identical concepts",
+              "Because RAG systems ignore semantic similarity entirely"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson stresses that this distinction — similarity is not truth — becomes especially important once embeddings feed into retrieval systems that a downstream process will treat as a reliable source.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "emb_how_embedding_models_are_trained",
+      "title": "How Embedding Models Are Trained",
+      "description": "See the contrastive training idea, extended from CLIP to general-purpose text embedding models.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain, at a high level, how a text embedding model learns to place similar texts near each other."
+          },
+          {
+            "title": "🎯 Contrastive training, again",
+            "content": "The generative AI course's CLIP lesson introduced contrastive training for image-text pairs: pull matching pairs together, push mismatched pairs apart. Dedicated text embedding models (often called **sentence transformers**, built on the same transformer encoder architecture from the transformers course) are trained the same way — on pairs or triples of text known to be related (or explicitly unrelated), pulling related pairs' embeddings together and push unrelated ones apart."
+          },
+          {
+            "title": "🏗️ From token embeddings to one sentence embedding",
+            "content": "A transformer encoder (like BERT, from the transformers course) naturally produces one vector *per token*, not one vector for a whole sentence. Sentence embedding models add a **pooling** step — commonly averaging all the token vectors, or using a specific token's vector (like BERT's `[CLS]` token) — to collapse that into a single fixed-length sentence-level embedding.\n\n```python\n# Conceptual pipeline for a sentence embedding\ntoken_embeddings = transformer_encoder(sentence)  # one vector per token\nsentence_embedding = mean_pool(token_embeddings)  # one vector for the whole sentence\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming any transformer's raw token outputs are already good sentence embeddings.** Without training specifically for sentence-level similarity (and a sensible pooling strategy), raw token embeddings from a general-purpose language model often perform poorly for semantic search.\n\n**Forgetting the training pairs' quality determines the embedding space's quality.** An embedding model is only as good as its training pairs' definition of \"similar\" — mismatched or noisy pairs produce a less useful similarity space.\n\n**Assuming pooling strategy doesn't matter.** Different pooling approaches (mean pooling vs. `[CLS]` token vs. others) can meaningfully affect embedding quality for a given model."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "emb_how_embedding_models_are_trained_quiz",
+        "questions": [
+          {
+            "question": "How does the contrastive training approach for text embedding models relate to CLIP's training from the generative AI course?",
+            "options": [
+              "They are completely unrelated training methods",
+              "Sentence embedding models use the same core contrastive idea as CLIP — pulling related pairs' embeddings together and pushing unrelated ones apart — just applied to text-text pairs instead of image-text pairs",
+              "CLIP does not use contrastive training at all",
+              "Text embedding models never use any pairs during training, only individual sentences"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The underlying contrastive training principle is the same one covered for CLIP: pull known-related pairs' embeddings closer together, push known-unrelated pairs' embeddings apart — just applied here to text-only pairs rather than image-text pairs.",
+            "id": "q1"
+          },
+          {
+            "question": "Why is a pooling step needed to go from a transformer encoder's output to a single sentence embedding?",
+            "options": [
+              "Pooling is not actually necessary; encoders directly output one vector per sentence",
+              "A transformer encoder naturally produces one vector per token, so pooling (like averaging token vectors or using a specific token's vector) is needed to collapse that into a single fixed-length sentence-level embedding",
+              "Pooling is a step used only for image embeddings, never for text",
+              "Pooling replaces the need for contrastive training entirely"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since a transformer encoder like BERT outputs one vector per token, some aggregation step (pooling) is required to combine those into the single fixed-length vector that represents the whole sentence's meaning.",
+            "id": "q2"
+          },
+          {
+            "question": "Why does the quality of an embedding model's training pairs directly affect the resulting embedding space's usefulness?",
+            "options": [
+              "Training pair quality has no effect on the resulting embedding space",
+              "The model learns its notion of \"similar\" entirely from the pairs it was trained on, so noisy or mismatched pairs produce a less useful, less reliable similarity space",
+              "Training pairs are only used for image embedding models, not text",
+              "A perfect embedding space can be achieved regardless of training pair quality"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since contrastive training shapes the embedding space entirely around the relationships defined by its training pairs, low-quality or inconsistent pairs directly translate into a less reliable and less useful notion of semantic similarity in the resulting space.",
+            "id": "q3"
+          },
+          {
+            "question": "What specific name does this lesson give to dedicated text embedding models built on transformer encoders?",
+            "options": [
+              "Sentence transformers",
+              "Vision transformers",
+              "Diffusion transformers",
+              "Convolutional transformers"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson specifically names dedicated text embedding models 'sentence transformers,' built on the same transformer encoder architecture covered in the transformers course.",
+            "id": "q4"
+          },
+          {
+            "question": "In the lesson's conceptual pipeline, what does mean_pool actually do to token_embeddings?",
+            "options": [
+              "It collapses the per-token vectors into one single vector for the whole sentence",
+              "It deletes all but one token's embedding entirely",
+              "It converts token embeddings into raw text again",
+              "It trains a brand new transformer encoder from scratch"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example shows mean_pool taking the per-token embeddings from the encoder and collapsing them into a single fixed-length sentence-level embedding.",
+            "id": "q5"
+          },
+          {
+            "question": "According to this lesson, what specific token does BERT sometimes use for pooling into a sentence embedding?",
+            "options": [
+              "The [CLS] token",
+              "The [MASK] token",
+              "The [SEP] token",
+              "The [PAD] token"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson specifically names BERT's [CLS] token as one option for the pooling step, alongside averaging all token vectors, to produce a single sentence-level embedding.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson warn against assuming a general transformer's raw token outputs are already good sentence embeddings?",
+            "options": [
+              "Because without training specifically for sentence-level similarity and a sensible pooling strategy, raw token embeddings often perform poorly for semantic search",
+              "Because raw token outputs are always perfect for any downstream task",
+              "Because pooling is never actually necessary for any embedding use case",
+              "Because only image models produce raw token outputs"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is assuming raw outputs from a general-purpose model are ready-made sentence embeddings, when dedicated training and pooling are what actually make them useful for semantic search.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson say pooling strategy choice isn't a trivial detail?",
+            "options": [
+              "Because different pooling approaches, like mean pooling vs. the [CLS] token, can meaningfully affect embedding quality for a given model",
+              "Because pooling strategy has zero effect on the resulting embeddings",
+              "Because only one pooling strategy has ever been proposed",
+              "Because pooling strategy only matters for image embeddings"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is assuming pooling strategy doesn't matter, when in practice different approaches can meaningfully change how well the resulting embeddings perform.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "emb_dimensionality_normalization",
+      "title": "Embedding Dimensionality and Normalization",
+      "description": "Understand what the size of an embedding vector represents, and why normalization matters.",
+      "duration": "7 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain what embedding dimensionality trades off, and why L2 normalization matters for similarity comparisons."
+          },
+          {
+            "title": "📏 More dimensions, more nuance, more cost",
+            "content": "Embedding models produce vectors of a fixed size (common sizes range from a few hundred to over a thousand dimensions). More dimensions can capture finer-grained semantic distinctions, but cost more memory to store and more compute to compare — directly connecting to the memory/compute tradeoffs the deep learning and Hugging Face courses raised about model size generally, just applied here to storage and search cost instead of training cost."
+          },
+          {
+            "title": "📐 Why normalization matters for cosine similarity",
+            "content": "**L2 normalization** rescales a vector to have length (magnitude) exactly 1, without changing its direction. This matters because cosine similarity (covered in depth next module) measures the *angle* between vectors, not their raw magnitude — normalizing removes magnitude differences that would otherwise distort a similarity comparison for reasons unrelated to actual semantic content.\n\n```python\nimport numpy as np\n\ndef l2_normalize(vec):\n    return vec / np.linalg.norm(vec)\n\n# After normalization, every vector has length 1,\n# so comparisons focus purely on direction (meaning), not magnitude\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Comparing unnormalized vectors with cosine similarity code that assumes normalization.** Some implementations expect pre-normalized input; skipping normalization silently produces wrong similarity scores.\n\n**Assuming higher dimensionality is always strictly better.** Beyond a point, additional dimensions can add storage and compute cost without meaningfully improving retrieval quality for a given task — bigger isn't automatically better here either.\n\n**Mixing normalized and unnormalized vectors in the same comparison.** All vectors being compared need consistent treatment, or similarity scores become meaningless."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "emb_dimensionality_normalization_quiz",
+        "questions": [
+          {
+            "question": "What is the general tradeoff of using a higher-dimensional embedding?",
+            "options": [
+              "Higher dimensionality has no tradeoffs whatsoever",
+              "More dimensions can capture finer-grained semantic distinctions but cost more memory to store and more compute to compare, similar to the size/cost tradeoffs seen in other model contexts",
+              "Higher dimensionality always makes search results worse",
+              "Dimensionality has no relationship to storage or compute cost"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Just as larger models trade capability for cost elsewhere in this curriculum, higher-dimensional embeddings can capture more nuance at the cost of more storage and more expensive similarity computations.",
+            "id": "q1"
+          },
+          {
+            "question": "What does L2 normalization do to an embedding vector?",
+            "options": [
+              "It changes the vector's direction while keeping its length the same",
+              "It rescales the vector to have length exactly 1, without changing its direction",
+              "It deletes some of the vector's dimensions entirely",
+              "It converts the vector into a different data type"
+            ],
+            "correctAnswer": 1,
+            "explanation": "L2 normalization adjusts a vector's magnitude to exactly 1 while preserving its direction — the direction is what encodes semantic meaning for cosine similarity purposes.",
+            "id": "q2"
+          },
+          {
+            "question": "Why does normalization matter specifically for cosine similarity comparisons?",
+            "options": [
+              "Cosine similarity is unaffected by whether vectors are normalized or not",
+              "Cosine similarity measures the angle between vectors, not their magnitude, so normalizing removes magnitude differences that could otherwise distort similarity scores for reasons unrelated to actual semantic content",
+              "Normalization is only relevant for Euclidean distance, never cosine similarity",
+              "Cosine similarity requires vectors of different lengths to work correctly"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since cosine similarity is fundamentally about the angle between two vectors, any leftover magnitude differences after normalization would introduce noise unrelated to the actual semantic direction being compared — which is exactly what normalization removes.",
+            "id": "q3"
+          },
+          {
+            "question": "In the lesson's code example, what does l2_normalize do to a vector?",
+            "options": [
+              "It divides the vector by its own norm, rescaling it to length 1",
+              "It multiplies the vector by a random scalar",
+              "It deletes half of the vector's dimensions",
+              "It converts the vector into an integer array"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's l2_normalize function divides the vector by np.linalg.norm(vec), which rescales it to have length exactly 1 while preserving its direction.",
+            "id": "q4"
+          },
+          {
+            "question": "According to this lesson, what range of dimensionality do common embedding models typically produce?",
+            "options": [
+              "A few hundred to over a thousand dimensions",
+              "Always exactly 2 dimensions",
+              "Always exactly 1 million dimensions",
+              "Dimensionality is never fixed for any embedding model"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson states that embedding models produce fixed-size vectors with common sizes ranging from a few hundred to over a thousand dimensions.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does this lesson connect embedding dimensionality tradeoffs to earlier courses?",
+            "options": [
+              "Because it directly parallels the memory/compute tradeoffs the deep learning and Hugging Face courses raised about model size, just applied to storage and search cost",
+              "Because dimensionality has no relationship to any concept from earlier courses",
+              "Because only the math course ever discussed tradeoffs of any kind",
+              "Because embedding dimensionality is unrelated to model size tradeoffs"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly draws this parallel: more dimensions capture more nuance but cost more, mirroring the same general size/cost tradeoff pattern raised for model size in earlier courses.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does the lesson warn against mixing normalized and unnormalized vectors in the same comparison?",
+            "options": [
+              "Because all vectors being compared need consistent treatment, or similarity scores become meaningless",
+              "Because mixing normalized and unnormalized vectors always produces more accurate results",
+              "Because normalization only applies to vectors with an even number of dimensions",
+              "Because unnormalized vectors cannot be stored in the same database as normalized ones"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is mixing normalized and unnormalized vectors in a comparison, which breaks the consistency needed for similarity scores to mean anything reliable.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson caution against assuming higher dimensionality is always strictly better?",
+            "options": [
+              "Because beyond a point, additional dimensions can add storage and compute cost without meaningfully improving retrieval quality for a given task",
+              "Because higher-dimensional embeddings always perform worse than lower-dimensional ones",
+              "Because dimensionality has no effect on storage or compute at all",
+              "Because only odd-numbered dimensionalities are ever useful"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly warns that bigger isn't automatically better here — extra dimensions beyond a certain point can add cost without a meaningful quality improvement for the task at hand.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "emb_choosing_an_embedding_model",
+      "title": "Choosing an Embedding Model",
+      "description": "Apply a decision framework for picking an embedding model, similar to choosing an LLM.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can list the key factors to weigh when choosing an embedding model for a specific application."
+          },
+          {
+            "title": "🎯 Factors that actually matter",
+            "content": "Choosing an embedding model involves weighing: **domain fit** (a model trained mostly on general web text may underperform on specialized domains like legal or medical text — the same domain-mismatch concern raised in the Hugging Face course's model-card lesson), **dimensionality and cost** (from the previous lesson), **multilingual support** (does it need to handle more than one language?), and **licensing** (open-weight vs. API-only, connecting back to the LLM engineering course's hosted-vs-local discussion, but applied to embedding models specifically)."
+          },
+          {
+            "title": "📊 Benchmarks exist, but the same caution applies",
+            "content": "Public embedding benchmarks (like retrieval-focused leaderboards) are a useful starting signal, but the same lesson from the LLM engineering course's evaluation module applies here: a model that tops a general benchmark isn't guaranteed to perform best on your specific domain and data — testing against your own representative examples remains the most reliable check.\n\n```python\n# Conceptual: a lightweight embedding-model comparison\n# for your own domain-specific examples, not just public benchmarks\nfor model in candidate_models:\n    embeddings = model.encode(your_domain_examples)\n    score = evaluate_retrieval_quality(embeddings, your_labeled_pairs)\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Picking the top-ranked model on a general leaderboard without testing on your own data.** The same benchmark-vs-real-task gap from the LLM engineering course applies directly to embedding models.\n\n**Ignoring licensing until deployment time.** Just like with LLMs, checking whether a model can actually be used commercially matters before committing to it.\n\n**Switching embedding models without a migration plan.** Different models produce incompatible vector spaces (from the first lesson) — a later lesson in this course covers exactly why this requires re-embedding everything, not a quick swap."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "emb_choosing_an_embedding_model_quiz",
+        "questions": [
+          {
+            "question": "Why might a general-purpose embedding model underperform on a specialized domain like legal or medical text?",
+            "options": [
+              "General-purpose models always perform equally well on every domain",
+              "A model trained mostly on general web text may not capture the specific vocabulary and semantic relationships that matter in a specialized domain, echoing the domain-mismatch concern from the Hugging Face course",
+              "Specialized domains cannot be represented as embeddings at all",
+              "Domain has no effect on embedding model performance"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Just as a general-purpose language model can underperform on specialized text, an embedding model's training data determines what kinds of semantic relationships it captures well — a mismatch with a specialized domain's vocabulary and concepts can hurt retrieval quality.",
+            "id": "q1"
+          },
+          {
+            "question": "Why is testing an embedding model against your own domain-specific examples more reliable than relying solely on a public leaderboard ranking?",
+            "options": [
+              "Public leaderboards are always a perfect predictor of performance on any task",
+              "The same benchmark-vs-real-task gap covered in the LLM engineering course applies here — a model that tops a general benchmark isn't guaranteed to perform best on your specific domain and data",
+              "Leaderboards and domain-specific testing always produce identical rankings",
+              "Testing on your own data is never necessary for embedding models"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This mirrors the generic-benchmark caution from the LLM engineering course directly: general leaderboard performance is a starting signal, but genuine confidence in a model's fit for your task requires testing against your own representative data.",
+            "id": "q2"
+          },
+          {
+            "question": "Why does switching embedding models require more than just swapping the model in your code?",
+            "options": [
+              "Switching embedding models has no real consequences for existing data",
+              "Different embedding models produce incompatible vector spaces, so previously-stored embeddings from the old model become meaningless when compared against new embeddings from the new model — a migration plan is required",
+              "All embedding models always produce identical, interchangeable vector spaces",
+              "Migration is only a concern when switching between LLMs, never embedding models"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since each embedding model defines its own vector space (from the first lesson in this module), swapping models means old and new embeddings can no longer be meaningfully compared — everything previously embedded needs to be re-embedded, a real migration effort covered later in this course.",
+            "id": "q3"
+          },
+          {
+            "question": "In the lesson's conceptual comparison code, what does the loop actually measure for each candidate model?",
+            "options": [
+              "It evaluates retrieval quality using each model's embeddings on your own domain-specific labeled examples",
+              "It measures only the total file size of each candidate model",
+              "It counts how many parameters each candidate model has",
+              "It checks only whether each model is open-weight or API-only"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's example loop encodes your_domain_examples with each candidate model and calls evaluate_retrieval_quality against your_labeled_pairs, directly measuring task-specific retrieval performance.",
+            "id": "q4"
+          },
+          {
+            "question": "According to this lesson, what four factors matter most when choosing an embedding model?",
+            "options": [
+              "Domain fit, dimensionality and cost, multilingual support, and licensing",
+              "Only the release date of the model",
+              "Only the number of GPUs available",
+              "Only whether the model has a a catchy public name"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly lists domain fit, dimensionality/cost, multilingual support, and licensing as the key factors to weigh when choosing an embedding model for a specific application.",
+            "id": "q5"
+          },
+          {
+            "question": "How does this lesson connect embedding model licensing back to an earlier course?",
+            "options": [
+              "It connects back to the LLM engineering course's hosted-vs-local discussion, applied here to embedding models specifically",
+              "It says licensing was never discussed in any earlier course",
+              "It claims licensing only matters for image generation models",
+              "It states embedding models are never subject to any licensing terms"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly draws this parallel: licensing considerations for embedding models echo the same open-weight vs. API-only discussion from the LLM engineering course's hosted-vs-local lesson.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson warn against ignoring licensing until deployment time?",
+            "options": [
+              "Because just like with LLMs, checking whether a model can actually be used commercially matters before committing to it",
+              "Because licensing terms never actually apply to embedding models",
+              "Because licensing only matters after a system is already fully deployed",
+              "Because all embedding models share identical licensing terms"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is deferring licensing checks to deployment time, when commercial usability should be confirmed before committing to a specific model.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson caution against picking the top-ranked model on a general leaderboard without further testing?",
+            "options": [
+              "Because the same benchmark-vs-real-task gap from the LLM engineering course applies directly to embedding models",
+              "Because leaderboard rankings are always a perfect match for any specific domain",
+              "Because leaderboards never actually rank embedding models",
+              "Because testing on your own data is never useful for embedding models"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly connects this mistake to the LLM engineering course's benchmark-gap lesson — a top leaderboard rank doesn't guarantee the best fit for your specific domain and data.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

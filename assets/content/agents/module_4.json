@@ -1,0 +1,563 @@
+{
+  "id": "agent_multi_agent_systems",
+  "title": "Multi-Agent Systems",
+  "description": "Why to split work across multiple agents, the supervisor/pipeline/peer-to-peer orchestration patterns, designing handoffs, and multi-agent-specific failure modes.",
+  "icon": "🕸️",
+  "color": "#E91E63",
+  "order": 4,
+  "estimatedHours": 5,
+  "difficulty": "advanced",
+  "prerequisites": [
+    "agent_memory_and_state"
+  ],
+  "lessons": [
+    {
+      "id": "agent_why_multiple_agents",
+      "title": "Why Use Multiple Agents Instead of One?",
+      "description": "A single agent with every tool and every responsibility eventually becomes harder to steer than several focused ones working together.",
+      "duration": "12 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain the main reasons to split a system into multiple cooperating agents rather than building one large agent."
+          },
+          {
+            "title": "🎯 Specialization and focus",
+            "content": "A single agent juggling dozens of tools across very different domains (customer data lookups, code execution, web search, financial calculations) faces exactly the tool-selection-at-scale problem covered earlier in this course. Splitting into specialized agents — each with a narrower, focused tool set and a clearer, simpler job — makes each individual agent's decisions more reliable, echoing the same principle as narrowly-scoped tools, just one level up."
+          },
+          {
+            "title": "🧩 Separation of concerns and easier iteration",
+            "content": "A specialized agent's prompt, tools, and behavior can be developed, tested, and improved independently of the others — improving the research agent's search strategy doesn't risk breaking the writing agent's tone, in a way that's much harder to guarantee when everything lives inside one enormous, tangled prompt and tool set responsible for the whole task."
+          },
+          {
+            "title": "⚡ Parallelism",
+            "content": "Independent sub-tasks that don't depend on each other's results can be handled by separate agents running concurrently, rather than a single agent working through everything serially — directly addressing the parallelization opportunity that the planning lesson identified as something a purely reactive single-agent loop can miss.\n\n```python\n# Independent sub-tasks, handled by separate agents concurrently\nresults = await asyncio.gather(\n    research_agent.run(topic),\n    pricing_agent.run(topic),\n)\nfinal = writer_agent.run(topic, research=results[0], pricing=results[1])\n```"
+          },
+          {
+            "title": "⚖️ The real cost of going multi-agent",
+            "content": "More moving parts means more places for coordination to go wrong — handoffs between agents (covered in a later lesson this module) need to reliably pass the right information, and debugging a multi-agent failure means figuring out which agent's decision, and which handoff, actually caused the problem. Multi-agent systems solve real problems but are not automatically better than a well-designed single agent for tasks that don't actually need the specialization or parallelism they provide."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Splitting into multiple agents before a single agent's tool set has actually become unmanageable.** Specialization pays off once a single agent's scope genuinely becomes hard to steer — splitting a system with a handful of tools just adds handoff complexity for no real benefit.\n\n**Assuming more agents always means more parallelism.** Only genuinely independent sub-tasks benefit from running concurrently — agents whose work depends on each other's results still have to run in sequence no matter how the system is architected.\n\n**Underestimating the debugging cost of a multi-agent failure.** Tracing a wrong output back through several agents and their handoffs is a real, ongoing cost, not a one-time setup fee, and it should be weighed against the specialization and parallelism benefits before committing to the architecture."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "agent_why_multiple_agents_quiz",
+        "questions": [
+          {
+            "question": "What core problem does splitting into specialized agents address, echoing an earlier lesson's principle?",
+            "options": [
+              "The problem of the model running out of training data",
+              "The tool-selection-at-scale problem — a narrower tool set per agent makes each agent's decisions more reliable",
+              "The problem of agents needing internet access",
+              "The problem of context windows being too large"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Just as narrowly-scoped tools are easier to select correctly, narrowly-scoped agents with focused tool sets and jobs make individual decisions more reliable than one agent juggling everything.",
+            "id": "q1"
+          },
+          {
+            "question": "What parallelism benefit can multiple agents provide that a single reactive agent might miss?",
+            "options": [
+              "Multi-agent systems always run sequentially, never in parallel",
+              "Independent sub-tasks with no shared dependency can run concurrently across separate agents",
+              "Parallelism is irrelevant to agent systems",
+              "Only single agents can achieve parallelism"
+            ],
+            "correctAnswer": 1,
+            "explanation": "When sub-tasks don't depend on each other's results, separate agents can work on them concurrently, directly addressing a gap identified in the planning lesson.",
+            "id": "q2"
+          },
+          {
+            "question": "What is a real cost of moving to a multi-agent architecture?",
+            "options": [
+              "There are no costs — multi-agent systems are strictly better in every case",
+              "More coordination points (handoffs) create more places for something to go wrong and make debugging harder",
+              "Multi-agent systems cannot use any tools",
+              "Multi-agent systems eliminate the need for stopping conditions"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Added coordination complexity is a genuine cost — multi-agent systems are worth it specifically when the specialization or parallelism benefit outweighs that added complexity, not automatically.",
+            "id": "q3"
+          },
+          {
+            "question": "In this lesson's code example, what does asyncio.gather allow research_agent and pricing_agent to do?",
+            "options": [
+              "Run concurrently, since their work is independent of each other",
+              "Run only after writer_agent has already finished",
+              "Share a single combined tool set with no separation",
+              "Block each other from ever executing"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example uses asyncio.gather to run research_agent and pricing_agent concurrently, since neither depends on the other's result.",
+            "id": "q4"
+          },
+          {
+            "question": "In this lesson's code example, what does writer_agent.run receive as arguments?",
+            "options": [
+              "The topic, plus the research and pricing results from the two concurrently-run agents",
+              "Only the topic, with no other information",
+              "A completely new tool definition",
+              "The raw output of asyncio.gather with no further processing"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example passes topic along with research=results[0] and pricing=results[1] to writer_agent.run, combining the outputs of the two parallel agents.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does this lesson say improving the research agent's search strategy is less risky than modifying one large tangled prompt?",
+            "options": [
+              "Because a specialized agent's prompt and tools can be developed and tested independently, without risking breaking the writing agent's tone",
+              "Because research agents never actually need any prompt changes over time",
+              "Because a single large agent's prompt is always easier to modify safely than a specialized one",
+              "Because specialization eliminates the need for testing entirely"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explains that separation of concerns lets each specialized agent be improved independently, which is much harder to guarantee inside one large, tangled prompt handling everything.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson warn against splitting into multiple agents before a single agent's tool set has actually become unmanageable?",
+            "options": [
+              "Because splitting a system with just a handful of tools adds handoff complexity for no real benefit",
+              "Because multi-agent systems are always strictly worse than single-agent systems in every case",
+              "Because a single agent can never realistically become hard to steer regardless of scope",
+              "Because specialization only ever applies to systems with zero tools"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is over-eagerly splitting into multiple agents, when the specialization benefit is meant to address a genuine tool-management problem, not to be applied by default.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson caution against assuming more agents always means more parallelism?",
+            "options": [
+              "Because only genuinely independent sub-tasks benefit from running concurrently — dependent work still has to run in sequence regardless of architecture",
+              "Because parallelism is only achievable with a single agent, never with multiple agents",
+              "Because adding more agents always guarantees faster execution regardless of task dependencies",
+              "Because sequential execution is impossible once multiple agents are introduced"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is conflating agent count with parallelism, when the real requirement for concurrency is genuine independence between sub-tasks, not simply having more agents available.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "agent_orchestration_patterns",
+      "title": "Orchestration Patterns: Supervisor, Pipeline, and Peer-to-Peer",
+      "description": "Different multi-agent tasks call for different shapes of coordination — a single overview, a fixed relay, or a flatter conversation.",
+      "duration": "13 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Describe the supervisor, pipeline, and peer-to-peer orchestration patterns and identify which fits a given multi-agent scenario."
+          },
+          {
+            "title": "👑 Supervisor (orchestrator) pattern",
+            "content": "One central agent (the supervisor) receives the overall task, decides which specialized sub-agent should handle each piece of it, dispatches work to them, and integrates their results — the sub-agents don't need to know about each other at all, only about the supervisor. This is the most common pattern for tasks that need dynamic routing decisions (which specialist to use depends on the specific request), and it keeps overall control logic in one place, which is easier to reason about and debug than control being distributed everywhere.\n\n```python\ndef supervisor(task):\n    specialist = supervisor_llm.choose_specialist(task)  # dynamic routing\n    result = specialist.run(build_handoff(task))\n    return supervisor_llm.integrate(task, result)\n```"
+          },
+          {
+            "title": "🔗 Pipeline pattern",
+            "content": "Agents are arranged in a fixed sequence, each one's output feeding directly into the next one's input — an outline agent, then a drafting agent, then an editing agent, in that fixed order every time. This is simpler than a supervisor pattern (no dynamic routing decision needed) and is a good fit exactly when the sequence of specialized steps really is fixed and known in advance, similar to how a fixed chain is a good fit when a task's step sequence doesn't need to be decided dynamically."
+          },
+          {
+            "title": "🤝 Peer-to-peer / conversational pattern",
+            "content": "Agents communicate more directly with each other (rather than exclusively through a central supervisor or fixed pipeline), potentially in a back-and-forth conversation — for instance, a 'critic' agent and a 'writer' agent going back and forth until the critic is satisfied. This is more flexible than a fixed pipeline but also harder to keep bounded and predictable, and benefits especially heavily from the stopping-condition safeguards covered earlier in this course, since a peer-to-peer conversation between two agents can loop just as easily as a single agent can."
+          },
+          {
+            "title": "🧭 Choosing a pattern",
+            "content": "- **Supervisor**: the task needs dynamic routing to different specialists based on what's actually being asked.\n- **Pipeline**: the sequence of specialized steps is fixed and known in advance.\n- **Peer-to-peer**: the task genuinely benefits from iterative back-and-forth refinement between specialized roles, and you're prepared to bound it carefully."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Using a supervisor pattern when the step sequence is actually always the same.** If routing never varies, the supervisor's dynamic-decision overhead buys nothing over a simpler pipeline that just runs the same fixed sequence directly.\n\n**Building a peer-to-peer conversation with no max-rounds limit.** This pattern is explicitly called out as needing the stopping-condition thinking from earlier in the course — skipping that safeguard here is exactly as risky as skipping it in a single agent's loop.\n\n**Forcing a genuinely dynamic-routing task into a fixed pipeline.** A pipeline can't adapt when the right next specialist actually depends on what an earlier step discovered — that's precisely the scenario the supervisor pattern exists to handle."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "agent_orchestration_patterns_quiz",
+        "questions": [
+          {
+            "question": "In the supervisor pattern, how do specialized sub-agents typically relate to each other?",
+            "options": [
+              "They communicate directly and extensively with each other, bypassing any central coordinator",
+              "They generally don't need to know about each other — they interact with the central supervisor, which routes work and integrates results",
+              "They all run as a single merged agent",
+              "They operate with no coordination of any kind"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The supervisor pattern centralizes routing and integration decisions in one place, so sub-agents can stay focused on their specialty without needing to coordinate with each other directly.",
+            "id": "q1"
+          },
+          {
+            "question": "When is the pipeline pattern a good fit for a multi-agent task?",
+            "options": [
+              "When the sequence of specialized steps is fixed and known in advance, similar to when a fixed chain suits a single-agent task",
+              "Only when there's exactly one agent involved",
+              "When the task requires dynamic, unpredictable routing between specialists",
+              "Pipelines are never a good fit for any real task"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Pipelines work well precisely when there's no need for dynamic routing decisions — the fixed sequence of specialized agents mirrors when a fixed chain (rather than dynamic routing) suits a single-agent task.",
+            "id": "q2"
+          },
+          {
+            "question": "Why does the peer-to-peer pattern especially need the stopping-condition safeguards covered earlier in the course?",
+            "options": [
+              "Peer-to-peer agents never take any actions",
+              "A back-and-forth conversation between agents can loop unproductively just as easily as a single agent's loop can",
+              "Stopping conditions are irrelevant once multiple agents are involved",
+              "Peer-to-peer patterns automatically terminate after one exchange"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The more flexible, less-bounded nature of peer-to-peer coordination makes it just as susceptible to unproductive loops as a single agent, so the same safeguards matter here too.",
+            "id": "q3"
+          },
+          {
+            "question": "In this lesson's supervisor code example, what does supervisor_llm.choose_specialist(task) accomplish?",
+            "options": [
+              "Dynamically decides which specialist should handle this particular task",
+              "Permanently deletes all specialists except one",
+              "Executes every available specialist regardless of relevance",
+              "Builds a fixed pipeline that never changes"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example uses choose_specialist to make the dynamic routing decision that defines the supervisor pattern, rather than following a fixed, predetermined sequence.",
+            "id": "q4"
+          },
+          {
+            "question": "In this lesson's supervisor code example, what does supervisor_llm.integrate(task, result) do at the end?",
+            "options": [
+              "Combines the specialist's result with the original task into the supervisor's final output",
+              "Deletes the specialist's result without using it",
+              "Sends the raw specialist result directly to another specialist with no processing",
+              "Restarts the entire supervisor function from the beginning"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example calls integrate as the final step, combining the dispatched specialist's result into the supervisor's overall response to the task.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does this lesson compare the pipeline pattern's fit to when a fixed chain suits a single-agent task?",
+            "options": [
+              "Because both are good fits precisely when the sequence of steps doesn't need to be decided dynamically",
+              "Because pipelines and chains are functionally unrelated concepts",
+              "Because a fixed chain always requires a supervisor pattern to function",
+              "Because pipelines can only be used within a single agent, never across multiple agents"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson draws this parallel explicitly, noting that pipelines suit fixed, known-in-advance step sequences the same way a fixed chain suits a single agent facing the same kind of task.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson warn against using a supervisor pattern when the step sequence is actually always the same?",
+            "options": [
+              "Because if routing never varies, the supervisor's dynamic-decision overhead buys nothing over a simpler pipeline running the same fixed sequence directly",
+              "Because supervisor patterns are technically incapable of handling a fixed sequence of steps",
+              "Because pipelines are always slower than supervisor patterns regardless of the task",
+              "Because dynamic routing decisions are always necessary regardless of whether the sequence varies"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is over-engineering with a supervisor's dynamic routing when a simpler pipeline would achieve the same result with less overhead, since the sequence never actually varies.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson caution against building a peer-to-peer conversation with no max-rounds limit?",
+            "options": [
+              "Because this pattern explicitly needs the same stopping-condition thinking from earlier in the course — skipping it here is just as risky as skipping it in a single agent's loop",
+              "Because peer-to-peer conversations always terminate automatically after exactly one exchange",
+              "Because max-rounds limits are only relevant to the supervisor pattern, never to peer-to-peer",
+              "Because stopping conditions have no relevance once more than one agent is involved"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is omitting a max-rounds bound on peer-to-peer exchanges, which recreates the same unbounded-loop risk a single agent faces without a stopping condition.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "agent_communication_and_handoffs",
+      "title": "Agent Communication and Handoffs",
+      "description": "When one agent passes work to another, exactly what gets passed determines whether the receiving agent can actually succeed.",
+      "duration": "12 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Describe what information a handoff between agents needs to include and identify common handoff failure modes."
+          },
+          {
+            "title": "📦 What a handoff needs to carry",
+            "content": "- The specific **sub-task or question** being delegated, stated clearly enough that the receiving agent doesn't have to guess at the intent behind it.\n- **Relevant context** the receiving agent needs but wasn't part of building — background facts, constraints, prior decisions already made — without necessarily forwarding the entire sending agent's full history, which may include irrelevant internal reasoning.\n- A clear **expectation of what a completed response should look like**, so the receiving agent knows when it's actually done with its piece."
+          },
+          {
+            "title": "⚠️ Common handoff failure modes",
+            "content": "- **Under-specification** — the sending agent hands off a vague sub-task, and the receiving agent either has to guess or does something not quite what was intended.\n- **Missing context** — the receiving agent doesn't have information it needed (a constraint mentioned earlier in the conversation, a decision already made) because it wasn't included in the handoff, and it isn't obvious to the receiving agent that anything is even missing.\n- **Over-forwarding** — passing along the sender's entire internal scratchpad and reasoning history rather than a distilled version, which bloats the receiving agent's context with mostly-irrelevant detail."
+          },
+          {
+            "title": "✅ Designing better handoffs",
+            "content": "Treat a handoff like the interface between the sender and receiver — analogous to designing a clear tool call, but between two agents instead of an agent and a tool. A dedicated 'handoff summary' step (having the sending agent explicitly summarize what the receiver needs, rather than just forwarding raw history) often produces much more reliable results than either under- or over-forwarding context.\n\n```python\n# A dedicated handoff-summary step, rather than forwarding raw history\nhandoff = {\n    \"subtask\": \"Find Q3 revenue by region\",\n    \"context\": sender_llm.summarize_for_handoff(sender_state),  # distilled, not raw\n    \"expected_output\": \"A table of revenue per region, in USD\",\n}\nresult = receiver_agent.run(handoff)\n```"
+          },
+          {
+            "title": "🔁 Handoffs in the supervisor pattern specifically",
+            "content": "In a supervisor pattern, the supervisor is usually responsible for constructing this handoff — deciding what context a given specialist actually needs for this particular request — rather than the specialist agent having to figure out what's relevant from a firehose of everything the supervisor has seen so far."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Forwarding raw internal history instead of a dedicated handoff summary.** This is the over-forwarding failure mode in practice — it looks like more information, but it bloats the receiver's context without necessarily making the actual task any clearer.\n\n**Assuming a receiving agent will ask for missing context if it's needed.** A specialist that doesn't know a constraint exists has no way to know something is missing — it will proceed on an incomplete picture rather than flag the gap.\n\n**Skipping a stated 'expected output' in the handoff.** Without a clear target shape for the response, the receiving agent has no way to know when its piece is actually done, which invites either an incomplete answer or unnecessary extra work."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "agent_communication_and_handoffs_quiz",
+        "questions": [
+          {
+            "question": "What should a handoff between agents generally include, beyond the raw sub-task?",
+            "options": [
+              "Nothing beyond the bare sub-task description",
+              "Relevant context the receiver needs, and a clear expectation of what a completed response looks like",
+              "The entire sending agent's raw internal history with no distillation",
+              "A list of every tool that exists in the whole system"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A well-designed handoff includes the sub-task, distilled relevant context, and clear completion expectations — not just a bare task description, and not the entire raw history either.",
+            "id": "q1"
+          },
+          {
+            "question": "What is the 'over-forwarding' handoff failure mode?",
+            "options": [
+              "Failing to pass any context at all to the receiving agent",
+              "Passing along the sender's entire internal scratchpad and reasoning history rather than a distilled, relevant version",
+              "Passing too little detail about the sub-task itself",
+              "Sending a handoff to the wrong agent entirely"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Over-forwarding bloats the receiving agent's context with mostly-irrelevant internal detail from the sender, rather than a focused summary of what's actually needed.",
+            "id": "q2"
+          },
+          {
+            "question": "In a supervisor pattern, who is typically responsible for constructing a good handoff to a specialist?",
+            "options": [
+              "The specialist agent, figuring it out from a firehose of everything the supervisor has seen",
+              "The supervisor, deciding what context this particular specialist actually needs for this request",
+              "No one — handoffs happen automatically with no design needed",
+              "The end user, manually specifying context for every specialist"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The supervisor, which has visibility into the overall task, is usually best positioned to construct a distilled, relevant handoff rather than leaving the specialist to sift through everything.",
+            "id": "q3"
+          },
+          {
+            "question": "In this lesson's handoff code example, what does sender_llm.summarize_for_handoff(sender_state) produce?",
+            "options": [
+              "A distilled version of context, rather than the sender's raw internal state",
+              "The sender's entire unmodified scratchpad and history",
+              "A brand new tool definition unrelated to the handoff",
+              "The receiving agent's expected final output directly"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example uses summarize_for_handoff specifically to distill sender_state into relevant context, avoiding the over-forwarding failure mode of passing raw history.",
+            "id": "q4"
+          },
+          {
+            "question": "In this lesson's handoff code example, what three keys make up the handoff dictionary?",
+            "options": [
+              "subtask, context, and expected_output",
+              "history, scratchpad, and goal",
+              "tool_name, arguments, and result",
+              "prompt, temperature, and max_tokens"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example builds the handoff dict with exactly these three keys, mirroring the lesson's description of what a handoff needs to carry.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does this lesson compare designing a handoff to designing a clear tool call?",
+            "options": [
+              "Because a handoff is analogous to the interface between a sender and receiver, just between two agents instead of an agent and a tool",
+              "Because handoffs and tool calls are executed by exactly the same underlying code with no differences",
+              "Because tool calls never require any interface design at all",
+              "Because this comparison implies agents should be treated as literal callable tools with no distinction"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson draws this analogy specifically to frame a handoff as an interface design problem, similar in spirit to designing a clear, well-scoped tool call.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson warn against forwarding raw internal history instead of a dedicated handoff summary?",
+            "options": [
+              "Because this is the over-forwarding failure mode in practice — it bloats the receiver's context without necessarily making the actual task any clearer",
+              "Because raw internal history is always shorter than a dedicated summary",
+              "Because a dedicated handoff summary is technically impossible to construct in practice",
+              "Because forwarding raw history always produces better results than a distilled summary"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is exactly the over-forwarding pattern described earlier — passing raw history instead of investing in a focused summary.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson caution against assuming a receiving agent will ask for missing context if it's needed?",
+            "options": [
+              "Because a specialist that doesn't know a constraint exists has no way to know something is missing, and will proceed on an incomplete picture instead",
+              "Because receiving agents always automatically detect and request any missing information",
+              "Because missing context never actually affects a receiving agent's ability to complete its task",
+              "Because asking for missing context is the sending agent's responsibility, not the receiver's"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is relying on the receiver to notice a gap it has no visibility into, when the sender is the one who actually knows what context exists and needs to include it proactively.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "agent_multi_agent_failure_modes",
+      "title": "Multi-Agent Failure Modes",
+      "description": "Multi-agent systems don't just inherit single-agent failure modes — they add entirely new ones at the seams between agents.",
+      "duration": "12 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Identify failure modes specific to multi-agent systems, beyond the single-agent failure modes covered earlier in this course."
+          },
+          {
+            "title": "🔄 Coordination loops",
+            "content": "Two or more agents can get stuck passing work back and forth without making real progress — a critic agent that's never quite satisfied, and a writer agent that keeps revising without converging — which is the multi-agent analogue of the single-agent stuck-loop problem, and needs the same kind of external safeguard: a max-rounds limit on inter-agent exchanges, enforced outside any individual agent's own judgment.\n\n```python\nMAX_ROUNDS = 5\nfor round_num in range(MAX_ROUNDS):\n    draft = writer_agent.run(feedback)\n    feedback = critic_agent.review(draft)\n    if feedback.approved:\n        return draft\nreturn draft  # deliver the best attempt rather than loop forever\n```"
+          },
+          {
+            "title": "📉 Error propagation and amplification",
+            "content": "A mistake made early by one agent (a wrong fact, a misunderstood requirement) can get passed along through handoffs and compounded by downstream agents who have no way to independently verify it and reasonably trust the upstream agent's work — meaning a single early error can end up affecting the final output far more than it would in a single-agent system where there's only one place for that kind of mistake to happen."
+          },
+          {
+            "title": "🧭 Inconsistent shared understanding",
+            "content": "When agents don't share complete context (by design, per the handoff lesson) they can end up operating on subtly different or even contradictory understandings of the task — one agent proceeding on an assumption another agent already invalidated, with the mismatch surfacing only in a confusing final result rather than being visible anywhere along the way."
+          },
+          {
+            "title": "🐌 Latency and cost multiplication",
+            "content": "Every additional agent in a pipeline or every additional round of a peer-to-peer conversation adds its own LLM calls, and multi-agent systems can end up notably slower and more expensive than a well-designed single agent for tasks that didn't strictly need the multi-agent structure — a cost worth weighing explicitly against the coordination and specialization benefits from earlier in this module, not assumed away."
+          },
+          {
+            "title": "✅ Mitigations",
+            "content": "- **Max-rounds limits** on agent-to-agent exchanges, mirroring single-agent stopping conditions.\n- **Verification or spot-checking steps** for critical facts passed through handoffs, rather than blind trust in upstream agents.\n- **Logging and tracing** across the whole multi-agent run, so a failure can be traced back to the specific agent and handoff that introduced it, rather than only seeing a confusing final output with no visibility into where things went wrong."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Trusting every upstream agent's output as automatically correct.** This is exactly what allows an early error to propagate and compound instead of being caught — some verification step for critical facts is what breaks that chain.\n\n**Only logging final outputs, not the full trajectory across agents.** When a multi-agent failure does happen, a log with no per-agent, per-handoff detail leaves you guessing which step actually introduced the problem.\n\n**Adding agents to a system without re-checking whether the latency and cost multiplication is still worth it.** A system that made sense with two agents can quietly become far slower and more expensive as more are added, without anyone revisiting whether the specialization gained is still worth that growing cost."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "agent_multi_agent_failure_modes_quiz",
+        "questions": [
+          {
+            "question": "What is a coordination loop in a multi-agent system?",
+            "options": [
+              "A single agent's normal control loop",
+              "Two or more agents passing work back and forth without making real progress, the multi-agent analogue of a single-agent stuck loop",
+              "A required step in every multi-agent pipeline",
+              "A method for training multiple agents simultaneously"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Coordination loops mirror the single-agent stuck-loop problem, but occur between agents (like a critic and writer that never converge) and need similar external safeguards like max-rounds limits.",
+            "id": "q1"
+          },
+          {
+            "question": "Why can a single early error have an outsized effect in a multi-agent system?",
+            "options": [
+              "Errors are automatically corrected by any downstream agent",
+              "Downstream agents may have no way to independently verify an upstream agent's work and reasonably trust it, letting the error propagate and compound",
+              "Multi-agent systems never make errors",
+              "Only the first agent in a system can ever make a mistake"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Without independent verification, a wrong fact or misunderstanding from an early agent can be passed along and compounded by later agents, affecting the final output more than a single-agent mistake would.",
+            "id": "q2"
+          },
+          {
+            "question": "What mitigation is suggested for tracing a multi-agent failure back to its source?",
+            "options": [
+              "Avoiding any logging to keep the system simple",
+              "Logging and tracing across the whole multi-agent run, so a failure can be traced to the specific agent and handoff that introduced it",
+              "Assuming failures are always caused by the first agent in the pipeline",
+              "Removing all handoffs between agents"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Comprehensive tracing across agents and handoffs is what makes it possible to diagnose exactly where a multi-agent failure originated, rather than only seeing a confusing end result.",
+            "id": "q3"
+          },
+          {
+            "question": "In this lesson's code example, what happens if MAX_ROUNDS is reached without the critic approving the draft?",
+            "options": [
+              "The function returns the best attempt so far rather than looping forever",
+              "The program crashes with no output at all",
+              "The loop silently continues past MAX_ROUNDS indefinitely",
+              "A brand new writer_agent is created from scratch"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example falls through to return draft after the for loop over range(MAX_ROUNDS) completes, delivering the best available attempt instead of looping without bound.",
+            "id": "q4"
+          },
+          {
+            "question": "In this lesson's code example, what does feedback.approved control?",
+            "options": [
+              "Whether the loop returns the draft early, before reaching MAX_ROUNDS",
+              "Whether writer_agent.run is called at all",
+              "Whether MAX_ROUNDS is automatically increased",
+              "Whether the critic_agent is deleted from the system"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example checks if feedback.approved to return draft early, exiting the round loop as soon as the critic is satisfied rather than always running the full MAX_ROUNDS.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does this lesson say inconsistent shared understanding can surface 'only in a confusing final result' rather than earlier?",
+            "options": [
+              "Because agents proceeding on different or contradictory assumptions have no shared context to reveal the mismatch until their outputs are actually combined",
+              "Because inconsistent understanding always causes an immediate, obvious crash",
+              "Because every agent in a multi-agent system always shares complete context by default",
+              "Because confusing final results are always caused by coordination loops instead"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explains that when agents don't share complete context, their differing assumptions aren't visible until the mismatch shows up in the combined final output.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson warn against trusting every upstream agent's output as automatically correct?",
+            "options": [
+              "Because this is exactly what allows an early error to propagate and compound instead of being caught by some verification step",
+              "Because upstream agents are technically incapable of ever producing an incorrect output",
+              "Because verification steps always slow down a multi-agent system with no benefit",
+              "Because trusting upstream output has no relationship to error propagation"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is blind trust in upstream agents, which is precisely the gap that lets a single early mistake compound through the rest of the system unchecked.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson caution against adding agents to a system without re-checking whether the latency and cost multiplication is still worth it?",
+            "options": [
+              "Because a system that made sense with two agents can quietly become far slower and more expensive as more are added, without the specialization benefit being re-justified",
+              "Because adding more agents always reduces both latency and cost automatically",
+              "Because latency and cost never actually change as more agents are added to a system",
+              "Because re-checking cost and latency is only relevant for single-agent systems"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is failing to revisit the cost-benefit tradeoff as a system grows, when added agents keep multiplying latency and cost that should be weighed against the ongoing specialization benefit.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

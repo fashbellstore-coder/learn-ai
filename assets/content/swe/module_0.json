@@ -1,0 +1,565 @@
+{
+  "id": "swe_clean_code",
+  "title": "Clean Code Foundations",
+  "description": "Naming, function size, SOLID principles, code smells, refactoring, and code review as a craft.",
+  "icon": "🧭",
+  "color": "#1565C0",
+  "order": 0,
+  "estimatedHours": 3,
+  "difficulty": "beginner",
+  "prerequisites": [],
+  "lessons": [
+    {
+      "id": "swe_naming_and_readable_functions",
+      "title": "Naming and Readable Functions",
+      "description": "Code is read far more often than it's written — naming is the highest-leverage readability investment there is.",
+      "duration": 11,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Apply concrete naming and function-size guidelines that make code easier for someone else — including future you — to read."
+          },
+          {
+            "title": "🏷️ A name should answer 'what', not require reading the body to find out",
+            "content": "A variable named `x` or a function named `process` forces every future reader to open the implementation just to know what it does. A name like `total_price_with_tax` or `send_welcome_email` answers the question on sight — the same principle behind writing a clear docstring or explanation, just compressed into an identifier."
+          },
+          {
+            "title": "✂️ Small functions do one thing",
+            "content": "A function that fits comfortably on one screen and does one identifiable thing is easier to test, easier to name accurately, and easier to reuse than a 200-line function doing five things at once. If a function's name needs the word 'and' to describe it, it's usually a sign it should be two functions."
+          },
+          {
+            "title": "🚫 Avoid the false economy of clever code",
+            "content": "Code that's clever to write is often expensive to read later — for someone unfamiliar with the trick, or for you six months from now with no memory of writing it. Readable, slightly longer code is almost always the better trade in a codebase more than one person (or more than one point in time) will touch."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "A before/after comparison of the same function, showing how naming and size affect readability without changing behavior:\n\n```python\n# Before: a \"clever,\" poorly named function doing two things at once.\ndef f(x, y):\n    z = x * (1 + y)\n    return round(z, 2) if z > 0 else 0.0\n\n\n# After: split into two well-named functions, each doing one thing.\ndef total_price_with_tax(price, tax_rate):\n    return price * (1 + tax_rate)\n\n\ndef clamp_to_nonnegative_cents(amount):\n    return round(amount, 2) if amount > 0 else 0.0\n\n\ndef compute_final_price(price, tax_rate):\n    # The caller's intent is now readable without opening either helper.\n    raw_total = total_price_with_tax(price, tax_rate)\n    return clamp_to_nonnegative_cents(raw_total)\n\n\nprice, tax_rate = 19.99, 0.08\nprint(\"f(19.99, 0.08)          =\", f(price, tax_rate))\nprint(\"compute_final_price(...) =\", compute_final_price(price, tax_rate))\n```\n\nBoth versions produce the exact same numeric result — `f` and `compute_final_price` agree — which is the point: naming and function size are about how easy the code is to understand, not about what it computes. `total_price_with_tax` and `clamp_to_nonnegative_cents` each answer 'what' on sight, and `compute_final_price`'s body reads almost like a sentence describing the steps, unlike `f`'s single opaque line."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Naming a function or variable after its type instead of its purpose.** A variable named `data` or `list1` tells a reader nothing about what the value represents — `total_price_with_tax` or `active_user_ids` is barely longer to type and answers the question a type-based name never could.\n\n**Treating a long function as fine because it \"still works.\"** Working correctly and being maintainable are different properties — a 200-line function can be entirely bug-free today and still be the reason the next change takes three times longer than it should.\n\n**Assuming a comment can substitute for a bad name.** A comment explaining what `x` holds has to be kept in sync with the code manually and is easy to skip past; a name like `total_price_with_tax` carries that same information permanently, right where it's used.\n\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "swe_naming_and_readable_functions_quiz",
+        "questions": [
+          {
+            "question": "Why does a descriptive function name like `send_welcome_email` matter more than a codebase's raw execution speed?",
+            "options": [
+              "Because it lets a reader understand what the code does without opening the implementation, which is a recurring cost paid by every future reader",
+              "Because descriptive names make code run faster",
+              "Because short names are always slower to compile",
+              "Because naming has no effect on maintainability"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Readability pays off every time someone (including the original author later) has to understand the code, which happens far more often than any one-time performance concern.",
+            "id": "q1"
+          },
+          {
+            "question": "What is a warning sign that a function is doing too much?",
+            "options": [
+              "Its accurate description requires the word 'and', suggesting it performs more than one responsibility",
+              "It fits on one screen",
+              "It has a short, descriptive name",
+              "It is called from more than one place"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Needing 'and' to describe a function honestly often reveals it's actually doing multiple jobs that should be separated.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is 'clever' code often a poor trade in a shared codebase?",
+            "options": [
+              "Because its cleverness creates a comprehension cost for every future reader unfamiliar with the trick",
+              "Because clever code is always technically incorrect",
+              "Because clever code cannot be tested",
+              "Because clever code runs slower than plain code by definition"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The upfront cleverness rarely outweighs the repeated cost every subsequent reader pays trying to understand it.",
+            "id": "q3"
+          },
+          {
+            "question": "Per '🏷️ A name should answer \"what\"', what does a name like `total_price_with_tax` accomplish that `x` does not?",
+            "options": [
+              "It answers what the value represents on sight, without requiring a reader to open the implementation",
+              "It makes the underlying computation run faster",
+              "It guarantees the value can never be negative",
+              "It is required by every programming language's syntax rules"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson frames a good name as compressing the same information a docstring would carry directly into the identifier itself, readable at the point of use.",
+            "id": "q4"
+          },
+          {
+            "question": "Per '✂️ Small functions do one thing', what specific signal suggests a function should be split into two?",
+            "options": [
+              "Its honest description needs the word 'and' to cover everything it does",
+              "It has more than one parameter",
+              "It returns a value instead of printing one",
+              "It is shorter than 10 lines"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly names needing 'and' to describe a function as the tell that it's actually covering two responsibilities at once.",
+            "id": "q5"
+          },
+          {
+            "question": "In the code example, what is different about `f(price, tax_rate)` and `compute_final_price(price, tax_rate)`?",
+            "options": [
+              "They return the same numeric result, but compute_final_price splits the same logic into two well-named, single-purpose helper functions",
+              "They return different numeric results because of a rounding bug",
+              "f uses named helper functions while compute_final_price does not",
+              "compute_final_price does not apply the tax rate at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The example prints both calls' results to show they agree numerically, while the code itself demonstrates that only readability, not behavior, changed between the two versions.",
+            "id": "q6"
+          },
+          {
+            "question": "In the code example, what does `clamp_to_nonnegative_cents` do?",
+            "options": [
+              "Rounds a value to 2 decimal places and returns 0.0 if the value isn't positive",
+              "Converts a price from dollars to cents",
+              "Applies the tax rate to a price",
+              "Validates that tax_rate is between 0 and 1"
+            ],
+            "correctAnswer": 0,
+            "explanation": "clamp_to_nonnegative_cents rounds its input via round(amount, 2) when amount > 0, and returns 0.0 otherwise — the same logic as f's ternary expression, just named and isolated.",
+            "id": "q7"
+          },
+          {
+            "question": "Per 'Common mistakes', why can't a comment reliably substitute for a bad variable name?",
+            "options": [
+              "Because a comment has to be kept in sync with the code manually and is easy to skip past, unlike a name that carries the information every time the code is read",
+              "Because comments are not allowed in most programming languages",
+              "Because comments always slow down code execution",
+              "Because a bad variable name is always a syntax error"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The mistakes section explains that a name embeds meaning permanently at the point of use, while a comment requires separate upkeep and can be overlooked.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "swe_solid_principles",
+      "title": "SOLID Principles",
+      "description": "Five guidelines for keeping a codebase changeable as requirements evolve, not just correct on day one.",
+      "duration": 13,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Name the five SOLID principles and explain the problem each one addresses."
+          },
+          {
+            "title": "1️⃣ Single Responsibility",
+            "content": "A class or module should have one reason to change. A class that both validates user input and sends emails has two reasons to change — a validation rule update and an email provider swap — and changes to one risk breaking the other unnecessarily."
+          },
+          {
+            "title": "2️⃣ Open/Closed",
+            "content": "Code should be open for extension but closed for modification — you should be able to add new behavior (like a new payment method) without editing existing, already-tested code, typically by adding a new class that implements a shared interface rather than adding another `if` branch to an existing function."
+          },
+          {
+            "title": "3️⃣ Liskov Substitution",
+            "content": "A subclass should be usable anywhere its parent class is expected, without breaking the caller's assumptions. A `Square` that inherits from `Rectangle` but behaves unexpectedly when its width and height are set independently violates this — the abstraction leaks in a way that surprises callers."
+          },
+          {
+            "title": "4️⃣ Interface Segregation",
+            "content": "Prefer several small, specific interfaces over one large interface that forces implementers to support methods they don't need. A `Printer` interface that also requires implementing `scan()` and `fax()` forces every simple printer implementation to stub out methods it can't meaningfully support."
+          },
+          {
+            "title": "5️⃣ Dependency Inversion",
+            "content": "High-level code should depend on abstractions, not concrete implementations — a payment processor should depend on a `PaymentGateway` interface, not directly on `StripeClient`, so swapping providers later doesn't require rewriting the high-level logic. This is the same pattern behind why the App Dev course recommends abstracting a specific LLM provider behind your own interface."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "A tiny illustration of the Open/Closed and Dependency Inversion principles together: adding a new payment method without touching existing code, by coding against an abstraction:\n\n```python\nfrom abc import ABC, abstractmethod\n\n\nclass PaymentGateway(ABC):\n    # The abstraction high-level code depends on (Dependency Inversion).\n    @abstractmethod\n    def charge(self, amount_cents):\n        ...\n\n\nclass StripeGateway(PaymentGateway):\n    def charge(self, amount_cents):\n        return f\"Charged ${amount_cents / 100:.2f} via Stripe\"\n\n\nclass PaypalGateway(PaymentGateway):\n    # Adding this class required editing zero existing code (Open/Closed).\n    def charge(self, amount_cents):\n        return f\"Charged ${amount_cents / 100:.2f} via PayPal\"\n\n\ndef checkout(gateway: PaymentGateway, amount_cents):\n    # This function only ever depends on the PaymentGateway abstraction,\n    # never on a concrete provider class.\n    return gateway.charge(amount_cents)\n\n\nfor gateway in [StripeGateway(), PaypalGateway()]:\n    print(checkout(gateway, 1999))\n```\n\n`checkout` never imports or mentions `StripeGateway` or `PaypalGateway` by name — it only calls `gateway.charge(...)` through the shared `PaymentGateway` abstraction. Adding `PaypalGateway` required writing one new class and zero changes to `checkout` or `StripeGateway`, which is exactly what \"open for extension, closed for modification\" means in practice."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Adding a new `if`/`elif` branch to an existing function for every new case instead of extending via an interface.** Growing a function's branching logic every time a new case appears means every addition risks breaking the existing, already-tested cases — the opposite of the Open/Closed Principle's goal.\n\n**Depending directly on a concrete class instead of an abstraction \"because it's simpler for now.\"** Code written against `StripeClient` directly works fine until the day a second payment provider is needed, at which point every call site depending on Stripe's specific interface has to be found and rewritten.\n\n**Assuming SOLID means every class needs its own interface, always.** The principles describe trade-offs to reach for when a class is likely to grow multiple responsibilities or implementations, not a mandate to add an abstraction layer to every single class regardless of whether it will ever need one.\n\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "swe_solid_principles_quiz",
+        "questions": [
+          {
+            "question": "The Single Responsibility Principle states that",
+            "options": [
+              "A class or module should have only one reason to change",
+              "A class should implement as many interfaces as possible",
+              "Every class must inherit from a base class",
+              "Code should never be modified once written"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Bundling unrelated responsibilities into one class means unrelated changes end up entangled, increasing the risk each change breaks something unrelated.",
+            "id": "q1"
+          },
+          {
+            "question": "The Open/Closed Principle encourages adding new behavior by",
+            "options": [
+              "Extending the system (e.g. adding a new class implementing a shared interface) rather than modifying existing, already-tested code",
+              "Editing existing functions to add more if/else branches",
+              "Deleting old code whenever new requirements appear",
+              "Avoiding interfaces entirely"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Extension-based design avoids destabilizing code that already works and has already been tested and trusted.",
+            "id": "q2"
+          },
+          {
+            "question": "Dependency Inversion is the principle behind which practice?",
+            "options": [
+              "Depending on an abstraction like a `PaymentGateway` interface instead of a concrete class like `StripeClient` directly",
+              "Always using global variables for shared state",
+              "Writing all code in a single massive file",
+              "Avoiding interfaces in favor of concrete classes"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Coding against an abstraction rather than a specific implementation is exactly what makes swapping out the concrete implementation later low-risk.",
+            "id": "q3"
+          },
+          {
+            "question": "Per '3️⃣ Liskov Substitution', what makes a `Square` that inherits from `Rectangle` a violation of this principle?",
+            "options": [
+              "It behaves unexpectedly when width and height are set independently, breaking assumptions callers make about Rectangle",
+              "Squares cannot be represented as classes in most programming languages",
+              "Rectangle and Square must always have identical method signatures",
+              "Inheritance itself is always a Liskov Substitution violation"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson describes this exact example: a subclass that surprises callers who expect it to behave like its parent class violates Liskov Substitution.",
+            "id": "q4"
+          },
+          {
+            "question": "Per '4️⃣ Interface Segregation', why is a `Printer` interface that also requires `scan()` and `fax()` a problem?",
+            "options": [
+              "It forces every simple printer implementation to stub out methods it can't meaningfully support",
+              "It means the interface cannot be implemented at all",
+              "It violates the Single Responsibility Principle by definition",
+              "It requires every printer to physically support scanning and faxing"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explains that bundling unrelated capabilities into one large interface burdens implementers with methods irrelevant to their actual functionality.",
+            "id": "q5"
+          },
+          {
+            "question": "In the code example, what does the `checkout` function depend on?",
+            "options": [
+              "Only the PaymentGateway abstraction, never a concrete class like StripeGateway or PaypalGateway directly",
+              "StripeGateway specifically, with PaypalGateway support added via an if/elif branch",
+              "Nothing — checkout does not call charge at all",
+              "Both StripeGateway and PaypalGateway by name, imported directly"
+            ],
+            "correctAnswer": 0,
+            "explanation": "checkout's parameter is typed as PaymentGateway and it only ever calls gateway.charge(...), never referencing a concrete provider class by name.",
+            "id": "q6"
+          },
+          {
+            "question": "In the code example, what had to change in `checkout` or `StripeGateway` to add PayPal support?",
+            "options": [
+              "Nothing — PaypalGateway was added as a new class with zero edits to existing code",
+              "checkout needed a new elif branch checking the gateway type",
+              "StripeGateway needed to be renamed",
+              "PaymentGateway's abstract method had to be removed"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The comment in the code and the surrounding prose both emphasize that PaypalGateway was added with zero changes to checkout or StripeGateway — exactly the Open/Closed Principle in action.",
+            "id": "q7"
+          },
+          {
+            "question": "Per 'Common mistakes', why is depending directly on a concrete class like `StripeClient` risky, even if it seems simpler at first?",
+            "options": [
+              "Because it works fine until a second provider is needed, at which point every call site depending on Stripe's specific interface has to be found and rewritten",
+              "Because concrete classes cannot be instantiated in Python",
+              "Because it always causes a runtime crash immediately",
+              "Because abstractions are required by every programming language's compiler"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The mistakes section explains this exact scenario: simplicity now creates a costly rewrite later once a second concrete implementation is actually needed.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "swe_code_smells_and_refactoring",
+      "title": "Code Smells and Refactoring",
+      "description": "Learning to notice the small signals that precede a big, painful rewrite.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Name several common code smells and explain what refactoring changes (and doesn't change) about code."
+          },
+          {
+            "title": "👃 What a code smell is",
+            "content": "A code smell is a surface-level signal that something might be structurally wrong, even though the code technically works — it's a symptom, not a bug report. Common examples: duplicated logic across several places, a function with a long parameter list, deeply nested conditionals, and a class that keeps growing new unrelated responsibilities."
+          },
+          {
+            "title": "🔁 Refactoring changes structure, not behavior",
+            "content": "Refactoring means restructuring existing code — improving names, extracting a repeated block into a function, splitting a large class — without changing what the code actually does from the outside. This is why having tests before refactoring matters so much: passing tests are your evidence that behavior really didn't change."
+          },
+          {
+            "title": "⏳ Refactor continuously, not as a separate 'cleanup phase'",
+            "content": "Treating refactoring as a rare, dedicated 'cleanup sprint' lets code smells accumulate to the point where the eventual cleanup becomes a risky rewrite. Small, continuous refactoring — cleaning up a function you touch anyway while adding a feature — keeps the cost low and the codebase changeable, which is the whole point of applying SOLID principles in the first place."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "A toy smell detector flagging two common signals (long parameter lists, deep nesting), plus a before/after refactor that removes duplicated logic without changing behavior:\n\n```python\nimport inspect\n\n\ndef count_parameters(func):\n    return len(inspect.signature(func).parameters)\n\n\ndef max_nesting_depth(source_lines):\n    # A crude stand-in for real static analysis: count the deepest\n    # indentation level as a proxy for nested conditionals/loops.\n    return max((len(line) - len(line.lstrip(\" \"))) // 4 for line in source_lines if line.strip())\n\n\ndef flag_smells(func, source_lines, param_threshold=4, nesting_threshold=3):\n    smells = []\n    if count_parameters(func) > param_threshold:\n        smells.append(f\"long parameter list ({count_parameters(func)} params)\")\n    depth = max_nesting_depth(source_lines)\n    if depth > nesting_threshold:\n        smells.append(f\"deep nesting (depth {depth})\")\n    return smells\n\n\ndef create_user(name, email, age, country, referral_code, marketing_opt_in):\n    pass\n\n\nsource = [\n    \"    if a:\",\n    \"        if b:\",\n    \"            if c:\",\n    \"                if d:\",\n    \"                    do_something()\",\n]\n\nprint(flag_smells(create_user, source))\n\n# Before: duplicated discount logic in two places.\ndef price_for_member_before(base_price):\n    return base_price * 0.9 if base_price > 0 else 0.0\n\n\ndef price_for_vip_before(base_price):\n    return base_price * 0.9 * 0.95 if base_price > 0 else 0.0  # duplicated `* 0.9`\n\n\n# After: the shared logic is extracted once; behavior is unchanged.\ndef apply_member_discount(base_price):\n    return base_price * 0.9 if base_price > 0 else 0.0\n\n\ndef price_for_member_after(base_price):\n    return apply_member_discount(base_price)\n\n\ndef price_for_vip_after(base_price):\n    return apply_member_discount(base_price) * 0.95\n\n\ntest_price = 100.0\nprint(price_for_member_before(test_price), \"==\", price_for_member_after(test_price))\nprint(price_for_vip_before(test_price), \"==\", price_for_vip_after(test_price))\n```\n\n`flag_smells` catches `create_user`'s six parameters and the sample source's four-level nesting — both textbook smells, even though neither implies a bug. The refactor extracts `apply_member_discount` once instead of repeating the `* 0.9` logic in both pricing functions, and the printed comparisons confirm the before/after pairs still return identical results — exactly the \"structure changes, behavior doesn't\" property refactoring is supposed to preserve."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Treating a code smell as proof of a bug.** A smell like a long parameter list is a signal worth investigating, not evidence the code is broken — plenty of smelly code runs correctly for years before the maintenance cost catches up.\n\n**Refactoring without tests already in place.** Without passing tests to confirm behavior before and after, there's no reliable evidence a \"pure structural change\" didn't quietly alter what the code actually does.\n\n**Saving all refactoring for a dedicated 'cleanup sprint.'** Letting smells accumulate until a rare, large cleanup effort is exactly what turns a series of small, safe changes into one large, risky rewrite — the opposite of the continuous approach this lesson recommends.\n\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "swe_code_smells_and_refactoring_quiz",
+        "questions": [
+          {
+            "question": "What is a code smell?",
+            "options": [
+              "A surface-level signal that code might be structurally problematic, even though it technically works",
+              "A syntax error that prevents code from compiling",
+              "A type of automated test",
+              "A performance benchmark result"
+            ],
+            "correctAnswer": 0,
+            "explanation": "A code smell flags a symptom worth investigating — it isn't a guarantee of a bug, but a sign that structure could be improved.",
+            "id": "q1"
+          },
+          {
+            "question": "What does refactoring change about code?",
+            "options": [
+              "Its internal structure, without changing its external behavior",
+              "Its behavior, without changing its structure",
+              "Both its behavior and its structure simultaneously",
+              "Only its comments and documentation"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Refactoring is specifically about improving structure while preserving what the code does — tests are what verify that behavior stayed the same.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is continuous, incremental refactoring generally preferable to a rare 'cleanup sprint'?",
+            "options": [
+              "Because it keeps the cost of maintaining structure low, instead of letting code smells accumulate into a risky eventual rewrite",
+              "Because cleanup sprints are always faster than incremental refactoring",
+              "Because incremental refactoring requires no tests",
+              "Because code smells disappear on their own over time without any refactoring"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Small, frequent improvements prevent the kind of large-scale structural debt that later requires a risky, disruptive rewrite to fix.",
+            "id": "q3"
+          },
+          {
+            "question": "Per '👃 What a code smell is', which of the following is listed as a common example of a code smell?",
+            "options": [
+              "A function with a long parameter list",
+              "A function with a descriptive name",
+              "A test suite with high coverage",
+              "A class implementing exactly one interface"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly lists a long parameter list, alongside duplicated logic, deep nesting, and classes accumulating unrelated responsibilities, as common smell examples.",
+            "id": "q4"
+          },
+          {
+            "question": "Per '🔁 Refactoring changes structure, not behavior', why does having tests before refactoring matter so much?",
+            "options": [
+              "Because passing tests are the evidence that behavior really didn't change after the structural rework",
+              "Because tests are what actually perform the refactoring automatically",
+              "Because refactoring is impossible without a testing framework installed",
+              "Because tests eliminate the need to review the refactored code"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson frames tests as the concrete evidence needed to confirm a refactor's central claim: that behavior stayed the same while structure changed.",
+            "id": "q5"
+          },
+          {
+            "question": "In the code example, why does flag_smells report a smell for create_user?",
+            "options": [
+              "Because count_parameters(create_user) exceeds param_threshold, since the function takes six parameters",
+              "Because create_user's body raises an exception",
+              "Because create_user is never called anywhere in the example",
+              "Because max_nesting_depth flags create_user's source specifically"
+            ],
+            "correctAnswer": 0,
+            "explanation": "create_user takes six parameters (name, email, age, country, referral_code, marketing_opt_in), which exceeds the default param_threshold of 4, triggering the long-parameter-list smell.",
+            "id": "q6"
+          },
+          {
+            "question": "In the before/after pricing example, what does apply_member_discount eliminate?",
+            "options": [
+              "The duplicated `* 0.9` discount logic that previously appeared separately in both pricing functions",
+              "The need to ever apply a VIP discount",
+              "The base_price parameter entirely",
+              "The difference in results between the member and VIP prices"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Before the refactor, `* 0.9` appears written out separately in both price_for_member_before and price_for_vip_before; after, both call the single apply_member_discount function instead.",
+            "id": "q7"
+          },
+          {
+            "question": "Per 'Common mistakes', why is refactoring without existing tests risky?",
+            "options": [
+              "Because there's no reliable evidence that a supposedly pure structural change didn't quietly alter the code's actual behavior",
+              "Because refactoring without tests always introduces a syntax error",
+              "Because tests are required by Python's runtime to execute any function",
+              "Because untested code cannot be edited at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The mistakes section explains that tests are what let you confirm a refactor's claim — structure changed, behavior didn't — without them that claim is just an assumption.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "swe_code_review_as_a_craft",
+      "title": "Code Review as a Craft",
+      "description": "A good code review catches more than bugs — it's how a team's standards actually get maintained.",
+      "duration": 11,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain what a code review should evaluate beyond 'does it work', and how to give feedback that improves the code without discouraging the author."
+          },
+          {
+            "title": "🔎 What review is actually checking for",
+            "content": "Correctness matters, but review also checks readability, whether the change fits the codebase's existing patterns, whether tests actually cover the new behavior, and whether the change's scope matches its stated purpose — a bug fix that also refactors unrelated code makes review harder and increases risk."
+          },
+          {
+            "title": "💬 Giving feedback that lands",
+            "content": "Frame feedback around the code, not the person — 'this function could be split for clarity' instead of 'you wrote this in a confusing way.' Distinguish must-fix issues from optional suggestions explicitly, so an author isn't left guessing which comments block merging and which are just ideas."
+          },
+          {
+            "title": "🤝 Receiving feedback well",
+            "content": "Treating review comments as information about the code, not a judgment of the author's skill, keeps the process focused on improving the shared codebase rather than becoming personal — the same steady, non-defensive posture that makes any collaborative craft function well over time."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "A toy scorer that flags review comments phrased around the person rather than the code, and whether they're labeled must-fix vs. optional:\n\n```python\nPERSON_FOCUSED_PHRASES = [\"you wrote\", \"you always\", \"you never\", \"your code is\"]\nMUST_FIX_MARKERS = [\"must fix\", \"blocking\", \"required before merge\"]\nSUGGESTION_MARKERS = [\"nit:\", \"optional:\", \"suggestion:\", \"consider\"]\n\n\ndef review_comment_report(comment):\n    lower = comment.lower()\n    is_person_focused = any(phrase in lower for phrase in PERSON_FOCUSED_PHRASES)\n    is_must_fix = any(marker in lower for marker in MUST_FIX_MARKERS)\n    is_suggestion = any(marker in lower for marker in SUGGESTION_MARKERS)\n\n    return {\n        \"comment\": comment,\n        \"person_focused\": is_person_focused,\n        \"labeled\": is_must_fix or is_suggestion,\n        \"priority\": \"must-fix\" if is_must_fix else (\"optional\" if is_suggestion else \"unlabeled\"),\n    }\n\n\ncomments = [\n    \"You wrote this in a confusing way, please redo it.\",\n    \"Blocking: this function doesn't handle the empty-list case, which will crash in production.\",\n    \"Nit: consider renaming `tmp` to something more descriptive.\",\n    \"This logic looks off.\",\n]\n\nfor c in comments:\n    print(review_comment_report(c))\n```\n\n`review_comment_report` flags the first comment as `person_focused` (it targets \"you\" rather than the code) and `unlabeled` — exactly the pattern the lesson recommends against. The second comment is person-neutral, explains the concrete risk, and is clearly labeled `must-fix`; the third is an explicitly labeled `optional` suggestion; the fourth is neither person-focused nor helpful, since it gives the author nothing concrete to act on and no priority label at all."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Phrasing feedback around the author instead of the code.** \"You wrote this in a confusing way\" reads as a judgment of the person; \"this function could be split for clarity\" keeps the conversation about the artifact everyone is trying to improve.\n\n**Leaving every comment unlabeled, forcing the author to guess what blocks merging.** Without an explicit must-fix/optional distinction, an author has to guess at the reviewer's intent, which slows down exactly the review process this lesson is trying to make efficient.\n\n**Reviewing only for correctness and ignoring scope creep.** A change that quietly does more than its stated purpose — a bug fix that also refactors unrelated code — is harder to review carefully and carries more risk than its description suggests, even if every individual line is technically fine.\n\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "swe_code_review_as_a_craft_quiz",
+        "questions": [
+          {
+            "question": "Besides correctness, what else should a code review typically evaluate?",
+            "options": [
+              "Readability, fit with existing patterns, test coverage, and whether the change's scope matches its purpose",
+              "Only whether the code compiles without errors",
+              "Only the total number of lines changed",
+              "Only whether the author has seniority"
+            ],
+            "correctAnswer": 0,
+            "explanation": "A good review looks well beyond 'does it work' to the change's maintainability, structure, and appropriate scope.",
+            "id": "q1"
+          },
+          {
+            "question": "Why is it better to say 'this function could be split for clarity' than 'you wrote this in a confusing way'?",
+            "options": [
+              "Because it frames feedback around the code itself, not the person, keeping the discussion focused and constructive",
+              "Because it takes fewer words to write",
+              "Because it avoids ever needing to request a change",
+              "Because it means the reviewer approves the code as-is"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Focusing critique on the artifact rather than the author keeps review a collaborative, low-friction process rather than a personal judgment.",
+            "id": "q2"
+          },
+          {
+            "question": "Why should reviewers distinguish must-fix issues from optional suggestions explicitly?",
+            "options": [
+              "So the author isn't left guessing which comments block merging and which are just ideas worth considering",
+              "Because optional suggestions are not allowed in code review",
+              "Because all review comments must always be treated as mandatory",
+              "Because distinguishing them slows down the review process unnecessarily"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Clear labeling avoids ambiguity about what actually needs to change before merging versus what's a nice-to-have.",
+            "id": "q3"
+          },
+          {
+            "question": "Per '🔎 What review is actually checking for', why does a bug fix that also refactors unrelated code make review harder?",
+            "options": [
+              "Because its scope no longer matches its stated purpose, making the change harder to review carefully and riskier overall",
+              "Because bug fixes are never allowed to include any refactoring",
+              "Because refactoring always introduces new bugs by definition",
+              "Because reviewers cannot evaluate correctness and readability at the same time"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson specifically calls out scope mismatch — a change doing more than its description suggests — as something review should catch, since it complicates and adds risk to the review.",
+            "id": "q4"
+          },
+          {
+            "question": "Per '🤝 Receiving feedback well', what mindset does the lesson recommend for the author receiving review comments?",
+            "options": [
+              "Treating comments as information about the code, not a judgment of the author's skill",
+              "Assuming every comment is a personal attack that should be defended against",
+              "Ignoring all feedback that isn't explicitly labeled must-fix",
+              "Rejecting any comment that suggests a different approach than the one originally chosen"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson frames a non-defensive, code-focused posture toward incoming feedback as what keeps the collaborative review process functioning well over time.",
+            "id": "q5"
+          },
+          {
+            "question": "In the code example, why is the first comment ('You wrote this in a confusing way, please redo it.') flagged as person_focused?",
+            "options": [
+              "Because it contains the phrase 'you wrote', which matches one of the PERSON_FOCUSED_PHRASES the function checks for",
+              "Because it is longer than the other three comments",
+              "Because it contains the word 'confusing'",
+              "Because it is the first comment in the list"
+            ],
+            "correctAnswer": 0,
+            "explanation": "review_comment_report checks lower for any phrase in PERSON_FOCUSED_PHRASES, and 'you wrote' is an exact match, triggering person_focused=True.",
+            "id": "q6"
+          },
+          {
+            "question": "In the code example, how does review_comment_report classify the second comment ('Blocking: this function doesn't handle the empty-list case...')?",
+            "options": [
+              "priority='must-fix', person_focused=False",
+              "priority='optional', person_focused=True",
+              "priority='unlabeled', person_focused=False",
+              "priority='must-fix', person_focused=True"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The comment contains 'blocking', matching MUST_FIX_MARKERS (so priority is 'must-fix'), and contains none of the PERSON_FOCUSED_PHRASES, so person_focused is False.",
+            "id": "q7"
+          },
+          {
+            "question": "Per 'Common mistakes', what problem does leaving every review comment unlabeled cause?",
+            "options": [
+              "The author has to guess which comments block merging and which are optional, slowing down the review process",
+              "It makes the codebase impossible to compile",
+              "It automatically marks the pull request as rejected",
+              "It has no real downside as long as the comments are polite"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The mistakes section explains that unlabeled feedback forces guesswork about reviewer intent, undermining the efficiency the lesson is trying to achieve.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

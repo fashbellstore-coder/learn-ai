@@ -1,0 +1,559 @@
+{
+  "id": "agent_tool_use",
+  "title": "Tool Use",
+  "description": "Designing tools an agent can select correctly, the mechanics of calling them inside a loop, routing at scale, and handling failures gracefully.",
+  "icon": "🔧",
+  "color": "#E91E63",
+  "order": 1,
+  "estimatedHours": 5,
+  "difficulty": "intermediate",
+  "prerequisites": [
+    "agent_fundamentals"
+  ],
+  "lessons": [
+    {
+      "id": "agent_designing_tools_for_agents",
+      "title": "Designing Tools an Agent Can Actually Use Well",
+      "description": "A tool that's technically callable but confusingly described will get called wrong, constantly.",
+      "duration": "13 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Design a tool definition (name, description, parameters) that an LLM can reliably choose and call correctly."
+          },
+          {
+            "title": "📛 Naming and describing tools clearly",
+            "content": "The LLM decides which tool to call based on its name and description, so both need to unambiguously convey what the tool does and when to use it — building on the tool-calling mechanics covered in the LLM Engineering course. A tool named `search` with the description 'searches things' invites misuse; `search_product_catalog` with 'searches the internal product catalog by name or SKU; does not search the web or general knowledge' tells the model exactly when this is (and isn't) the right choice, especially when multiple similar-sounding tools exist.\n\n```python\n# Vague — invites misuse\n{\"name\": \"search\", \"description\": \"searches things\"}\n\n# Clear — tells the model exactly when to use it, and when not to\n{\n    \"name\": \"search_product_catalog\",\n    \"description\": \"Searches the internal product catalog by name or SKU. \"\n                   \"Does not search the web or general knowledge.\",\n}\n```"
+          },
+          {
+            "title": "📐 Parameter design",
+            "content": "- Keep **required parameters minimal** and give each one a clear description and type.\n- Use **enums** for parameters with a fixed set of valid values (a `status` parameter that can only be 'open', 'closed', or 'pending' should be typed that way, not left as a free-text string the model might misspell).\n- Provide **sensible defaults** for optional parameters so the model doesn't have to guess a value it has no real basis for."
+          },
+          {
+            "title": "🎯 Scoping tools narrowly",
+            "content": "A tool that does one clear thing is easier for the model to select correctly than one that does many things depending on a mode parameter — prefer several narrow, well-named tools over one broad, multi-purpose one, even though it means defining more tools overall. This mirrors good API design generally: narrow, well-named functions are easier to use correctly than one function with a dozen optional behaviors."
+          },
+          {
+            "title": "⚠️ Common tool-design mistakes",
+            "content": "- Vague names and descriptions that don't distinguish a tool from similar ones.\n- Too many tools available at once, increasing the chance the model picks the wrong one (curating a relevant subset per task, when possible, helps).\n- Parameters with unclear types or missing descriptions, forcing the model to guess format or valid values.\n- Tools that silently do something different from what their name and description suggest, which erodes trust in tool selection across the whole agent."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Writing a tool description for a human reader instead of the model.** A description that assumes context a human would have but the model doesn't (like 'the usual catalog') leaves the model guessing exactly what a vague name would.\n\n**Adding a mode or type parameter to avoid defining a second tool.** This is the multi-purpose-tool trap in disguise — it looks like less work, but it hands the model an extra decision to get wrong on every call.\n\n**Never revisiting tool descriptions after seeing real tool-call logs.** The clearest sign a description is ambiguous is watching the model actually misuse it — treating tool definitions as done once written misses this feedback entirely."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "agent_designing_tools_for_agents_quiz",
+        "questions": [
+          {
+            "question": "Why does a vague tool name and description like 'search' / 'searches things' cause problems for an agent?",
+            "options": [
+              "It makes the tool run faster",
+              "The model relies on the name and description to decide when and how to call the tool, so vagueness invites incorrect selection",
+              "Vague descriptions are required by most APIs",
+              "It has no effect since agents ignore tool descriptions"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The LLM's only information for choosing a tool is its name and description — vague ones make correct tool selection much less reliable, especially with multiple similar tools available.",
+            "id": "q1"
+          },
+          {
+            "question": "Why should a parameter with a fixed set of valid values (like a status field) be typed as an enum rather than free text?",
+            "options": [
+              "Enums make the tool run without any parameters",
+              "It prevents the model from guessing an invalid or misspelled value",
+              "Free text is always faster to process",
+              "Enums are required by every programming language"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Constraining a parameter to a known set of valid values removes an entire class of errors where the model produces a value that isn't actually valid.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is it generally better to have several narrow tools rather than one broad multi-purpose tool with a mode parameter?",
+            "options": [
+              "Narrow tools always execute faster",
+              "A tool that does one clear thing is easier for the model to select correctly than one with many behaviors gated by a mode",
+              "Broad tools are not technically possible to implement",
+              "It reduces the total number of tools available to zero"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Clear, single-purpose tools reduce ambiguity in tool selection, even though it means defining more tools overall — this mirrors good API design generally.",
+            "id": "q3"
+          },
+          {
+            "question": "In this lesson's code example, what specifically makes the second tool definition clearer than the first?",
+            "options": [
+              "Its description states what it searches and explicitly says what it does not search",
+              "It uses a shorter name than the first definition",
+              "It removes the description field entirely",
+              "It requires more parameters than the first definition"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's improved example adds a specific description of scope ('internal product catalog') and an explicit exclusion ('does not search the web'), which the vague version lacks entirely.",
+            "id": "q4"
+          },
+          {
+            "question": "According to this lesson, what is one of the listed common tool-design mistakes involving scale?",
+            "options": [
+              "Having too few tools available for the model to choose from",
+              "Having too many tools available at once, increasing the chance of picking the wrong one",
+              "Only ever defining one tool for an entire agent",
+              "Tools always failing regardless of design quality"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson explicitly lists too many simultaneously available tools as a mistake, since it increases confusion, and recommends curating a relevant subset per task when possible.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does this lesson say a tool that silently does something different from what its name and description suggest is especially damaging?",
+            "options": [
+              "Because it erodes trust in tool selection across the whole agent, not just for that one tool",
+              "Because it only ever affects the specific tool involved, with no wider consequence",
+              "Because mismatched behavior is impossible to detect in practice",
+              "Because tool descriptions have no actual effect on model behavior"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson frames this as damaging beyond the single tool, since it undermines the reliability the model needs to place in tool descriptions generally.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson warn against writing a tool description for a human reader instead of the model?",
+            "options": [
+              "Because a description that assumes context a human would have but the model doesn't leaves the model guessing, just like a vague name would",
+              "Because models are incapable of reading any tool description at all",
+              "Because human-oriented descriptions are always technically invalid",
+              "Because the model always has identical context to a human reader by default"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is writing with a human's implicit context in mind, when the model needs the description to be self-contained and explicit.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson caution against adding a mode or type parameter just to avoid defining a second tool?",
+            "options": [
+              "Because this is the multi-purpose-tool trap in disguise — it hands the model an extra decision to get wrong on every call",
+              "Because mode parameters always make a tool easier for the model to use correctly",
+              "Because defining two tools is technically impossible in most frameworks",
+              "Because mode parameters eliminate the need for any parameter validation"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is disguising a broad multi-purpose tool as one tool with a mode switch, which reintroduces the exact selection-ambiguity problem narrow tools are meant to avoid.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "agent_tool_calling_mechanics_in_a_loop",
+      "title": "Tool-Calling Mechanics Inside the Agent Loop",
+      "description": "Every tool call inside a loop needs to be requested, executed, and reported back in a format the model can use for its next decision.",
+      "duration": "12 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Trace the full round trip of a single tool call within an agent's loop, from the model's request to the next decision."
+          },
+          {
+            "title": "📤 The request",
+            "content": "Building on the structured tool-calling formats covered in the LLM Engineering course, the model emits a structured request specifying which tool to call and with what arguments (rather than trying to parse a tool call out of free-form text, which is far less reliable). Most modern LLM APIs support this natively as a first-class output type alongside plain text.\n\n```python\n# The model's structured request (conceptual)\n{\"tool_call\": {\"name\": \"search_product_catalog\", \"arguments\": {\"query\": \"wireless mouse\"}}}\n```"
+          },
+          {
+            "title": "⚙️ Execution",
+            "content": "The orchestrating code receives that structured request, validates the arguments (type-checking, required-field checking — never trust that the model produced perfectly valid arguments on the first try), and actually invokes the corresponding function or external system. This is also the natural place to enforce any safety checks — permission scoping, rate limits, or confirmation steps for higher-risk actions, covered more in the guardrails lesson later in this course.\n\n```python\ndef execute_tool_call(call):\n    tool = registry[call[\"name\"]]\n    validate_arguments(tool.schema, call[\"arguments\"])  # never trust blindly\n    return tool.run(**call[\"arguments\"])\n```"
+          },
+          {
+            "title": "📥 Reporting the result back",
+            "content": "The tool's output (success and its result, or an error and a description of what went wrong) is formatted as an observation and appended to the state that gets fed back into the model for its next decision. Errors need to go back to the model too, not just be silently logged — a model that never sees that its search returned zero results will keep assuming it has an answer it doesn't actually have."
+          },
+          {
+            "title": "🔁 Multiple tool calls per step",
+            "content": "Many modern agent setups allow the model to request several tool calls in a single turn (for example, checking two independent pieces of information at once) rather than strictly one at a time, which can meaningfully reduce the number of loop iterations needed for tasks with genuinely independent sub-steps — though it adds complexity in error handling, since some calls might succeed while others fail."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Trusting the model's arguments without validating them.** A model producing a structured tool call is not the same as producing a *correct* one — type and required-field checks belong in the orchestrating code every time, not just for the first few calls while debugging.\n\n**Swallowing tool errors instead of reporting them as observations.** Logging an error somewhere the model never sees leaves it operating on a false picture, exactly the silent-failure pattern a later lesson in this course calls out explicitly.\n\n**Treating parallel tool calls as automatically safe just because they're independent.** 'Independent' at the data level doesn't mean failure in one call is irrelevant to how the others should be interpreted — a partial-failure result still needs to be reported clearly, not merged silently with the successes."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "agent_tool_calling_mechanics_in_a_loop_quiz",
+        "questions": [
+          {
+            "question": "Why is a structured tool-call format (rather than parsing free-form text) preferred for agent tool calls?",
+            "options": [
+              "Structured formats are slower but more secure",
+              "It's far more reliable than trying to extract tool name and arguments from unstructured text",
+              "Free-form text is required by all LLM APIs",
+              "Structured formats eliminate the need for orchestrating code entirely"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Structured tool-call outputs (a first-class feature of most modern LLM APIs) are much more reliably parsed than trying to extract intent from free-form generated text.",
+            "id": "q1"
+          },
+          {
+            "question": "Why should orchestrating code validate tool arguments before executing them, rather than trusting the model's output directly?",
+            "options": [
+              "Models never make mistakes in argument formatting",
+              "The model can produce invalid or incorrectly typed arguments, so validation catches errors before they cause real damage",
+              "Validation is only needed for read-only tools",
+              "It's purely a stylistic preference with no functional benefit"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since the model's output isn't guaranteed to be perfectly valid, checking types and required fields before executing an action is an important safety and correctness step.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is it important to report tool errors back to the model rather than only logging them?",
+            "options": [
+              "Errors are irrelevant to the model's future decisions",
+              "A model that never sees a failure (like zero search results) will keep acting as if it has information it doesn't actually have",
+              "Logging errors is technically impossible in most systems",
+              "Reporting errors back always stops the agent loop immediately"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The model needs to know when an action failed or returned nothing useful so it can adjust its next step — silently swallowing errors leaves it operating on a false picture of the situation.",
+            "id": "q3"
+          },
+          {
+            "question": "In this lesson's execute_tool_call code example, what happens between looking up the tool and actually running it?",
+            "options": [
+              "The arguments are validated against the tool's schema",
+              "The entire tool registry is deleted",
+              "A brand new LLM call is made with no arguments",
+              "The function returns immediately without running the tool"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example calls validate_arguments(tool.schema, call['arguments']) before tool.run(...), explicitly checking arguments rather than trusting them blindly.",
+            "id": "q4"
+          },
+          {
+            "question": "According to this lesson, what is a benefit of allowing multiple tool calls in a single turn?",
+            "options": [
+              "It can meaningfully reduce the number of loop iterations needed for tasks with genuinely independent sub-steps",
+              "It eliminates the need for any error handling",
+              "It guarantees every tool call will succeed",
+              "It removes the need for a stopping condition"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explains that batching independent tool calls into one turn can cut down on loop iterations, though it adds complexity since some calls might succeed while others fail.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does this lesson say multiple tool calls per turn 'adds complexity in error handling'?",
+            "options": [
+              "Because some calls might succeed while others fail within the same turn, requiring the result to communicate partial success clearly",
+              "Because parallel tool calls always fail together as a single unit",
+              "Because error handling becomes entirely unnecessary once calls are batched",
+              "Because the model can no longer produce structured tool-call requests at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson notes that independent calls in the same turn can have mixed outcomes, meaning the observation needs to convey which succeeded and which failed rather than a single pass/fail signal.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson warn against trusting the model's arguments without validating them?",
+            "options": [
+              "Because a model producing a structured tool call is not the same as producing a correct one — validation belongs in orchestrating code every time",
+              "Because structured tool calls are always guaranteed to be valid by the LLM API itself",
+              "Because validation is only useful during initial development and can be removed later",
+              "Because argument validation has no relationship to tool call correctness"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is skipping validation because the call is structured, when structure guarantees format, not correctness, of the arguments themselves.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson caution against treating parallel tool calls as automatically safe just because they're independent?",
+            "options": [
+              "Because independence at the data level doesn't mean a partial failure among them can be safely ignored or merged silently with the successes",
+              "Because parallel tool calls can never actually fail under any circumstances",
+              "Because independent calls always need to be run one at a time regardless of framework support",
+              "Because reporting partial failures clearly has no effect on the model's next decision"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is assuming independence removes the need to handle partial failure carefully, when the observation still needs to distinguish which calls succeeded and which didn't.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "agent_tool_selection_and_routing",
+      "title": "Tool Selection and Routing at Scale",
+      "description": "Ten well-designed tools is manageable. A hundred is a different problem entirely.",
+      "duration": "12 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Describe strategies for helping an agent choose correctly among a large number of available tools."
+          },
+          {
+            "title": "📈 Why scale changes the problem",
+            "content": "With a handful of tools, clear names and descriptions (covered earlier in this module) are usually enough. As the number of available tools grows into the dozens or hundreds, the sheer volume competing for the model's attention in the prompt increases the odds of picking a similar-sounding wrong one, and can eat meaningfully into the context budget just listing them all."
+          },
+          {
+            "title": "🗂️ Curating a relevant subset per request",
+            "content": "Rather than exposing every tool on every single call, retrieve or select a smaller, relevant subset based on the current task or query — essentially applying retrieval (much like the RAG course's retrieval concepts, but for tools instead of documents) to narrow down which tool definitions actually get shown to the model this turn. This shrinks both the selection difficulty and the prompt size.\n\n```python\n# Retrieval, but for tools instead of documents\nrelevant_tools = retrieve_top_k(query=current_task, candidates=all_tools, k=8)\nresponse = llm.decide(state, tools=relevant_tools)  # not all_tools\n```"
+          },
+          {
+            "title": "🌲 Hierarchical / router-based tool organization",
+            "content": "Group related tools under categories and use a lightweight first step (sometimes a smaller, cheaper model, or even the same model with a simpler prompt) to pick the right category before exposing the full set of tools within it — narrowing the search space in stages rather than presenting a flat list of everything at once. This mirrors how a large organization routes a request to the right department before it reaches the specific person who can act on it."
+          },
+          {
+            "title": "🧪 Testing tool selection directly",
+            "content": "Because tool selection is its own source of failure independent of what happens after a tool is correctly chosen, it's worth testing in isolation: given a set of realistic queries, does the agent choose the correct tool (and correct arguments) often enough? This is a narrower, more diagnosable check than end-to-end task success, and it isolates whether tool-selection quality or something downstream is the actual source of a failure."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Exposing every available tool on every call as the tool count grows.** This is exactly the scaling problem this lesson opens with — the fix is curation or hierarchy, not hoping clear naming alone will keep working at any scale.\n\n**Skipping isolated tool-selection testing and only checking end-to-end success.** A wrong-tool failure and a right-tool-wrong-argument failure look identical from the outside if you only measure the final answer, making them much harder to fix.\n\n**Building a router/hierarchy before it's actually needed.** For a genuinely small, stable tool set, the added complexity of a category router is pure overhead — this lesson's techniques earn their cost specifically at scale, not by default."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "agent_tool_selection_and_routing_quiz",
+        "questions": [
+          {
+            "question": "Why does having a very large number of available tools (dozens or hundreds) make tool selection harder?",
+            "options": [
+              "Large tool sets always run faster",
+              "More tools competing for attention increases the odds of a wrong pick and can eat into context budget just listing them",
+              "The model ignores tool descriptions past the tenth tool",
+              "It has no effect on selection accuracy"
+            ],
+            "correctAnswer": 1,
+            "explanation": "As the number of options grows, so does the chance of confusion between similar tools, and simply listing every tool definition can consume a meaningful share of the prompt's context budget.",
+            "id": "q1"
+          },
+          {
+            "question": "What does curating a relevant subset of tools per request borrow conceptually from the RAG course?",
+            "options": [
+              "Chunking text into smaller pieces",
+              "The idea of retrieval — selecting only the most relevant items (tools, here) for the current query rather than exposing everything",
+              "Cross-encoder reranking of chat messages",
+              "Vector quantization of model weights"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Just as RAG retrieves relevant documents rather than dumping the whole corpus into context, tool curation retrieves relevant tool definitions rather than exposing every tool on every call.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is testing tool selection in isolation valuable, separate from end-to-end task success?",
+            "options": [
+              "It's not valuable — only end-to-end testing matters",
+              "It isolates whether tool-selection quality or something downstream is the actual source of a failure, since tool selection is its own failure point",
+              "It removes the need for any tools at all",
+              "It guarantees the agent will never fail"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Testing selection specifically narrows down and diagnoses failures more precisely than only checking whether the whole task succeeded end to end.",
+            "id": "q3"
+          },
+          {
+            "question": "In this lesson's code example, what does retrieve_top_k(query=current_task, candidates=all_tools, k=8) accomplish?",
+            "options": [
+              "It selects a small, relevant subset of tools to expose to the model for this particular call",
+              "It permanently deletes every tool except the top 8 from the system",
+              "It trains a brand new model specialized in tool selection",
+              "It disables tool calling entirely for this turn"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example shows retrieving the 8 most relevant tools for the current task and passing only those to llm.decide, rather than the full tool set.",
+            "id": "q4"
+          },
+          {
+            "question": "According to this lesson, what does a hierarchical/router-based approach do before exposing the full set of tools within a category?",
+            "options": [
+              "Uses a lightweight first step to pick the right category, narrowing the search space in stages",
+              "Immediately exposes every tool in every category at once",
+              "Deletes all categories except one at random",
+              "Requires the user to manually select a category"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson describes a staged approach: a lightweight routing step picks the relevant category first, and only then are that category's tools exposed to the model.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does this lesson compare hierarchical tool routing to how a large organization handles requests?",
+            "options": [
+              "Because routing a request to the right department first, before it reaches a specific person, mirrors narrowing the search space in stages rather than presenting everything flat at once",
+              "Because organizations never use any form of hierarchy or routing",
+              "Because this comparison implies tools should be assigned to human departments",
+              "Because organizational routing has no relationship to narrowing a search space"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson uses this analogy specifically to illustrate the staged narrowing that hierarchical tool organization provides, similar to departmental routing in a large organization.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson warn against exposing every available tool on every call as the tool count grows?",
+            "options": [
+              "Because this is exactly the scaling problem the lesson opens with, and the fix is curation or hierarchy rather than relying on naming alone",
+              "Because exposing more tools always improves the model's selection accuracy at any scale",
+              "Because tool count has no actual effect on selection difficulty",
+              "Because curation and hierarchy are never actually necessary regardless of tool count"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is failing to scale the tool-exposure strategy as the tool count grows, when curation or a router is specifically what addresses that scaling problem.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson caution against building a router or hierarchy before it's actually needed?",
+            "options": [
+              "Because for a genuinely small, stable tool set, the added complexity of a category router is pure overhead",
+              "Because routers and hierarchies are always required regardless of how many tools exist",
+              "Because a small tool set always benefits more from a router than clear naming alone",
+              "Because building a router early guarantees better tool-selection accuracy than doing so later"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is over-engineering with a router before scale actually demands it, when these techniques are meant to earn their cost specifically once tool count becomes a real problem.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "agent_handling_tool_failures",
+      "title": "Handling Tool Failures Gracefully",
+      "description": "Tools fail — APIs time out, arguments are invalid, permissions are denied. An agent needs a real plan for that, not just hope.",
+      "duration": "12 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Design an agent's response to a tool failure so it can recover, retry sensibly, or fail safely rather than getting stuck or producing a wrong answer."
+          },
+          {
+            "title": "🧩 Types of tool failures",
+            "content": "- **Transient failures** (a network timeout, a rate limit) that might succeed if retried after a short delay.\n- **Invalid-argument failures** (the model passed something the tool rejects) that need different arguments, not a blind retry.\n- **Permission or authorization failures** that no retry will fix and that need to be surfaced honestly rather than worked around.\n- Genuine **'no result' outcomes** (a search that legitimately found nothing) that aren't errors at all but still need to be communicated clearly so the model doesn't assume success."
+          },
+          {
+            "title": "🔁 Retry strategy",
+            "content": "Retrying blindly on every failure wastes steps on failures that will never succeed (like a permissions error) and can look like the stuck-loop problem from the stopping-conditions lesson. A better pattern: retry transient failures a small, bounded number of times (often with a brief backoff), but surface invalid-argument and permission failures directly to the model as observations, so it can decide to adjust its approach rather than mechanically repeating the same failing call.\n\n```python\ndef call_with_retry(tool, args, max_retries=2):\n    for attempt in range(max_retries + 1):\n        result = tool.run(**args)\n        if result.is_transient_error and attempt < max_retries:\n            backoff(attempt)\n            continue\n        return result  # success, permanent failure, or retries exhausted\n```"
+          },
+          {
+            "title": "📢 Surfacing failure clearly to the model",
+            "content": "The observation returned after a failure should distinguish clearly between 'this failed, here's why' and 'this succeeded, here's an empty result,' since the model needs different follow-up behavior for each — assuming an empty-but-successful search means try different terms, while an outright failure might mean the tool or approach needs to change entirely."
+          },
+          {
+            "title": "🛑 Failing safely when nothing works",
+            "content": "When an agent genuinely can't complete a step after reasonable retries, the right behavior is to say so honestly — return a partial result with a clear explanation of what couldn't be done, rather than fabricating a plausible-looking but incorrect answer to satisfy the appearance of success. A transparent partial failure is almost always more useful downstream than a confident wrong answer."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Retrying every failure type the same way.** A permission error retried five times wastes exactly as many steps as it would take zero times to fix, since no amount of retrying changes an authorization outcome.\n\n**Merging a genuine empty result with an error into one generic 'failed' observation.** The model needs to know whether to try different search terms or abandon the approach entirely — collapsing both into the same signal removes the information it needs to choose correctly.\n\n**Producing a plausible-sounding answer when a step genuinely couldn't be completed.** A confidently wrong answer is worse than an honest partial failure, because a partial failure at least tells the downstream consumer exactly what's missing."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "agent_handling_tool_failures_quiz",
+        "questions": [
+          {
+            "question": "Why is a blind retry-on-every-failure strategy a poor default for tool failures?",
+            "options": [
+              "Retries are always free and instantaneous",
+              "It wastes steps retrying failures (like permission errors) that will never succeed no matter how many times you try",
+              "Blind retries are technically impossible to implement",
+              "It guarantees the agent will never fail"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Not all failures are transient — retrying a permission error or a fundamentally invalid argument repeatedly wastes steps without any chance of success, similar to the stuck-loop problem.",
+            "id": "q1"
+          },
+          {
+            "question": "Why does the observation returned after a tool call need to clearly distinguish 'failed with an error' from 'succeeded with an empty result'?",
+            "options": [
+              "Both cases require identical follow-up behavior from the model",
+              "The model needs different follow-up behavior for each — adjusting approach for a failure versus trying different search terms for an empty-but-successful result",
+              "This distinction is only relevant for tools that never fail",
+              "It has no effect on the agent's subsequent decisions"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Conflating an error with a legitimately empty result would lead the model to the wrong conclusion about what went wrong and what to try next.",
+            "id": "q2"
+          },
+          {
+            "question": "What is the recommended behavior when an agent genuinely cannot complete a step after reasonable retries?",
+            "options": [
+              "Fabricate a plausible-looking answer to appear successful",
+              "Return a partial result with a clear, honest explanation of what couldn't be done",
+              "Continue retrying indefinitely regardless of the stopping condition",
+              "Silently return an empty response with no explanation"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Transparent partial failure is far more useful and trustworthy than a confidently wrong answer produced just to look like a complete success.",
+            "id": "q3"
+          },
+          {
+            "question": "In this lesson's call_with_retry code example, under what condition does the loop retry instead of returning immediately?",
+            "options": [
+              "The result is a transient error and the attempt count hasn't yet reached max_retries",
+              "Any failure at all, regardless of type",
+              "The result is a permission error",
+              "The result indicates a genuinely empty but successful search"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example only continues the loop (retries) when result.is_transient_error is true and attempts remain, returning immediately for success, permanent failures, or exhausted retries.",
+            "id": "q4"
+          },
+          {
+            "question": "According to this lesson, which of the four failure types listed does NOT actually represent an error at all?",
+            "options": [
+              "A genuine 'no result' outcome, like a search that legitimately found nothing",
+              "A transient network timeout",
+              "An invalid-argument failure",
+              "A permission or authorization failure"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly distinguishes a legitimately empty result from the other three categories, which are all genuine failures needing different handling than a plain empty success.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does this lesson say invalid-argument failures need different arguments rather than a blind retry?",
+            "options": [
+              "Because retrying with the exact same invalid arguments will simply produce the same rejection again",
+              "Because invalid-argument failures always resolve themselves automatically after a brief delay",
+              "Because invalid arguments are indistinguishable from permission failures",
+              "Because tools never actually validate their own arguments"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson groups invalid-argument failures with permission failures as ones no blind retry will fix, since the same bad arguments will simply fail the same way again.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson warn against retrying every failure type the same way?",
+            "options": [
+              "Because a permission error retried multiple times wastes exactly as many steps as it would take zero times to fix, since retrying can't change an authorization outcome",
+              "Because retrying transient failures is always a mistake regardless of context",
+              "Because all failure types are functionally identical and require no differentiation",
+              "Because retries always succeed on the second attempt regardless of failure type"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is applying uniform retry logic, when only transient failures can plausibly be fixed by retrying — permission and invalid-argument failures need a different response entirely.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson caution against merging a genuine empty result with an error into one generic 'failed' observation?",
+            "options": [
+              "Because the model needs to know whether to try different search terms or abandon the approach entirely, and collapsing both signals removes that information",
+              "Because empty results and errors are functionally identical from the model's perspective",
+              "Because a generic 'failed' observation always leads to better agent decisions",
+              "Because distinguishing between the two has no bearing on what the model should try next"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is losing this distinction, since an empty-but-successful result calls for different follow-up (try different terms) than an outright failure (reconsider the approach).",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

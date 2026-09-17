@@ -1,0 +1,272 @@
+{
+  "id": "distributed_depth_m3",
+  "stableId": "distributed_depth_m3",
+  "title": "Data Parallelism & Sharding",
+  "description": "Study ddp and gradient collectives, gradient buckets and overlap, zero stages and state ownership, and fully sharded training lifecycle. Each lesson includes a worked example and an applied practice task.",
+  "lessons": [
+    {
+      "id": "distributed_depth_m3_l1",
+      "stableId": "distributed_depth_m3_l1",
+      "title": "DDP and gradient collectives",
+      "description": "Draw the collective sequence for two ranks and mark a mismatched branch.",
+      "duration": 10,
+      "xpReward": 50,
+      "conceptOverview": "Data parallel ranks process different data with replicated model state and combine gradients. All ranks must execute compatible collectives; divergent control flow can hang synchronization. Data sampling and loss weighting determine whether the combined update matches the intended objective.",
+      "whyItMatters": "Collective participation and ordering must agree across ranks.",
+      "engineerDeepDive": "Data parallel ranks process different data with replicated model state and combine gradients. All ranks must execute compatible collectives; divergent control flow can hang synchronization. Data sampling and loss weighting determine whether the combined update matches the intended objective.",
+      "content": {
+        "sections": [
+          {
+            "title": "Concept",
+            "content": "Data parallel ranks process different data with replicated model state and combine gradients. All ranks must execute compatible collectives; divergent control flow can hang synchronization. Data sampling and loss weighting determine whether the combined update matches the intended objective."
+          },
+          {
+            "title": "Worked example",
+            "content": "One rank skipping backward while peers enter a gradient collective can stall the job."
+          },
+          {
+            "title": "Practice & verification",
+            "content": "Draw the collective sequence for two ranks and mark a mismatched branch. Write down your reasoning and check it against the concept before continuing."
+          }
+        ]
+      },
+      "keyTakeaways": [
+        "Collective participation and ordering must agree across ranks."
+      ],
+      "commonMistakes": [
+        "Ranks can independently skip any collective without coordinating."
+      ],
+      "relatedProjectIds": [
+        "portfolio_distributed"
+      ],
+      "version": "2026.2",
+      "lastUpdated": "2026-09-09",
+      "quiz": {
+        "questions": [
+          {
+            "id": "distributed_depth_m3_l1_check",
+            "stableId": "distributed_depth_m3_l1_check",
+            "question": "One rank skipping backward while peers enter a gradient collective can stall the job.\n\nWhich conclusion is justified?",
+            "type": "singleChoice",
+            "options": [
+              {
+                "id": "supported",
+                "text": "Collective participation and ordering must agree across ranks.",
+                "isCorrect": true,
+                "explanation": "Data parallel ranks process different data with replicated model state and combine gradients. All ranks must execute compatible collectives; divergent control flow can hang synchronization. Data sampling and loss weighting determine whether the combined update matches the intended objective."
+              },
+              {
+                "id": "unsupported",
+                "text": "Ranks can independently skip any collective without coordinating.",
+                "isCorrect": false,
+                "explanation": "Collective participation and ordering must agree across ranks."
+              }
+            ],
+            "explanation": "Collective participation and ordering must agree across ranks. Data parallel ranks process different data with replicated model state and combine gradients. All ranks must execute compatible collectives; divergent control flow can hang synchronization. Data sampling and loss weighting determine whether the combined update matches the intended objective.",
+            "xpReward": 15,
+            "difficulty": "medium",
+            "topic": "DDP and gradient collectives"
+          }
+        ]
+      }
+    },
+    {
+      "id": "distributed_depth_m3_l2",
+      "stableId": "distributed_depth_m3_l2",
+      "title": "Gradient buckets and overlap",
+      "description": "Inspect a hypothetical backward timeline and identify which communications could overlap remaining compute.",
+      "duration": 10,
+      "xpReward": 50,
+      "conceptOverview": "Gradient communication can overlap backward computation when gradients become ready in groups. Bucket sizing trades launch overhead against the opportunity to start communication early. Model structure and network bandwidth influence the useful configuration; tuning needs a timeline profile.",
+      "whyItMatters": "Tune overlap from readiness and communication timelines.",
+      "engineerDeepDive": "Gradient communication can overlap backward computation when gradients become ready in groups. Bucket sizing trades launch overhead against the opportunity to start communication early. Model structure and network bandwidth influence the useful configuration; tuning needs a timeline profile.",
+      "content": {
+        "sections": [
+          {
+            "title": "Concept",
+            "content": "Gradient communication can overlap backward computation when gradients become ready in groups. Bucket sizing trades launch overhead against the opportunity to start communication early. Model structure and network bandwidth influence the useful configuration; tuning needs a timeline profile."
+          },
+          {
+            "title": "Worked example",
+            "content": "A bucket that becomes ready only at the end of backward offers little overlap."
+          },
+          {
+            "title": "Practice & verification",
+            "content": "Inspect a hypothetical backward timeline and identify which communications could overlap remaining compute. Write down your reasoning and check it against the concept before continuing."
+          }
+        ]
+      },
+      "keyTakeaways": [
+        "Tune overlap from readiness and communication timelines."
+      ],
+      "commonMistakes": [
+        "The largest possible bucket always gives the best overlap."
+      ],
+      "relatedProjectIds": [
+        "portfolio_distributed"
+      ],
+      "version": "2026.2",
+      "lastUpdated": "2026-09-09",
+      "quiz": {
+        "questions": [
+          {
+            "id": "distributed_depth_m3_l2_check",
+            "stableId": "distributed_depth_m3_l2_check",
+            "question": "A bucket that becomes ready only at the end of backward offers little overlap.\n\nWhich conclusion is justified?",
+            "type": "singleChoice",
+            "options": [
+              {
+                "id": "unsupported",
+                "text": "The largest possible bucket always gives the best overlap.",
+                "isCorrect": false,
+                "explanation": "Tune overlap from readiness and communication timelines."
+              },
+              {
+                "id": "supported",
+                "text": "Tune overlap from readiness and communication timelines.",
+                "isCorrect": true,
+                "explanation": "Gradient communication can overlap backward computation when gradients become ready in groups. Bucket sizing trades launch overhead against the opportunity to start communication early. Model structure and network bandwidth influence the useful configuration; tuning needs a timeline profile."
+              }
+            ],
+            "explanation": "Tune overlap from readiness and communication timelines. Gradient communication can overlap backward computation when gradients become ready in groups. Bucket sizing trades launch overhead against the opportunity to start communication early. Model structure and network bandwidth influence the useful configuration; tuning needs a timeline profile.",
+            "xpReward": 15,
+            "difficulty": "medium",
+            "topic": "Gradient buckets and overlap"
+          }
+        ]
+      }
+    },
+    {
+      "id": "distributed_depth_m3_l3",
+      "stableId": "distributed_depth_m3_l3",
+      "title": "ZeRO stages and state ownership",
+      "description": "Make a table of optimizer, gradient, and parameter ownership for three ZeRO stages.",
+      "duration": 10,
+      "xpReward": 50,
+      "conceptOverview": "ZeRO stages progressively partition optimizer state, gradients, and parameters across data-parallel workers. Higher stages reduce replicated state but require more state movement and coordination. Identify exactly which components are partitioned before estimating per-rank memory.",
+      "whyItMatters": "Higher ZeRO stages partition additional model-state components.",
+      "engineerDeepDive": "ZeRO stages progressively partition optimizer state, gradients, and parameters across data-parallel workers. Higher stages reduce replicated state but require more state movement and coordination. Identify exactly which components are partitioned before estimating per-rank memory.",
+      "content": {
+        "sections": [
+          {
+            "title": "Concept",
+            "content": "ZeRO stages progressively partition optimizer state, gradients, and parameters across data-parallel workers. Higher stages reduce replicated state but require more state movement and coordination. Identify exactly which components are partitioned before estimating per-rank memory."
+          },
+          {
+            "title": "Worked example",
+            "content": "Partitioning optimizer state alone does not remove replicated parameter storage."
+          },
+          {
+            "title": "Practice & verification",
+            "content": "Make a table of optimizer, gradient, and parameter ownership for three ZeRO stages. Write down your reasoning and check it against the concept before continuing."
+          }
+        ]
+      },
+      "keyTakeaways": [
+        "Higher ZeRO stages partition additional model-state components."
+      ],
+      "commonMistakes": [
+        "Every ZeRO stage partitions parameters in the same way."
+      ],
+      "relatedProjectIds": [
+        "portfolio_distributed"
+      ],
+      "version": "2026.2",
+      "lastUpdated": "2026-09-09",
+      "quiz": {
+        "questions": [
+          {
+            "id": "distributed_depth_m3_l3_check",
+            "stableId": "distributed_depth_m3_l3_check",
+            "question": "Partitioning optimizer state alone does not remove replicated parameter storage.\n\nWhich conclusion is justified?",
+            "type": "singleChoice",
+            "options": [
+              {
+                "id": "supported",
+                "text": "Higher ZeRO stages partition additional model-state components.",
+                "isCorrect": true,
+                "explanation": "ZeRO stages progressively partition optimizer state, gradients, and parameters across data-parallel workers. Higher stages reduce replicated state but require more state movement and coordination. Identify exactly which components are partitioned before estimating per-rank memory."
+              },
+              {
+                "id": "unsupported",
+                "text": "Every ZeRO stage partitions parameters in the same way.",
+                "isCorrect": false,
+                "explanation": "Higher ZeRO stages partition additional model-state components."
+              }
+            ],
+            "explanation": "Higher ZeRO stages partition additional model-state components. ZeRO stages progressively partition optimizer state, gradients, and parameters across data-parallel workers. Higher stages reduce replicated state but require more state movement and coordination. Identify exactly which components are partitioned before estimating per-rank memory.",
+            "xpReward": 15,
+            "difficulty": "medium",
+            "topic": "ZeRO stages and state ownership"
+          }
+        ]
+      }
+    },
+    {
+      "id": "distributed_depth_m3_l4",
+      "stableId": "distributed_depth_m3_l4",
+      "title": "Fully sharded training lifecycle",
+      "description": "Sketch parameter ownership before, during, and after a sharded block's forward pass.",
+      "duration": 10,
+      "xpReward": 50,
+      "conceptOverview": "Fully sharded approaches materialize needed parameters around computation and reshard state afterward. Peak memory depends on gathered units, prefetching, activations, and optimizer state, not just average shard size. Wrapping boundaries affect both memory and communication.",
+      "whyItMatters": "Account for temporary gathered parameters when estimating peak memory.",
+      "engineerDeepDive": "Fully sharded approaches materialize needed parameters around computation and reshard state afterward. Peak memory depends on gathered units, prefetching, activations, and optimizer state, not just average shard size. Wrapping boundaries affect both memory and communication.",
+      "content": {
+        "sections": [
+          {
+            "title": "Concept",
+            "content": "Fully sharded approaches materialize needed parameters around computation and reshard state afterward. Peak memory depends on gathered units, prefetching, activations, and optimizer state, not just average shard size. Wrapping boundaries affect both memory and communication."
+          },
+          {
+            "title": "Worked example",
+            "content": "Gathering an entire model as one unit can create a larger peak than gathering smaller blocks."
+          },
+          {
+            "title": "Practice & verification",
+            "content": "Sketch parameter ownership before, during, and after a sharded block's forward pass. Write down your reasoning and check it against the concept before continuing."
+          }
+        ]
+      },
+      "keyTakeaways": [
+        "Account for temporary gathered parameters when estimating peak memory."
+      ],
+      "commonMistakes": [
+        "Peak memory always equals the static parameter shard size."
+      ],
+      "relatedProjectIds": [
+        "portfolio_distributed"
+      ],
+      "version": "2026.2",
+      "lastUpdated": "2026-09-09",
+      "quiz": {
+        "questions": [
+          {
+            "id": "distributed_depth_m3_l4_check",
+            "stableId": "distributed_depth_m3_l4_check",
+            "question": "Gathering an entire model as one unit can create a larger peak than gathering smaller blocks.\n\nWhich conclusion is justified?",
+            "type": "singleChoice",
+            "options": [
+              {
+                "id": "unsupported",
+                "text": "Peak memory always equals the static parameter shard size.",
+                "isCorrect": false,
+                "explanation": "Account for temporary gathered parameters when estimating peak memory."
+              },
+              {
+                "id": "supported",
+                "text": "Account for temporary gathered parameters when estimating peak memory.",
+                "isCorrect": true,
+                "explanation": "Fully sharded approaches materialize needed parameters around computation and reshard state afterward. Peak memory depends on gathered units, prefetching, activations, and optimizer state, not just average shard size. Wrapping boundaries affect both memory and communication."
+              }
+            ],
+            "explanation": "Account for temporary gathered parameters when estimating peak memory. Fully sharded approaches materialize needed parameters around computation and reshard state afterward. Peak memory depends on gathered units, prefetching, activations, and optimizer state, not just average shard size. Wrapping boundaries affect both memory and communication.",
+            "xpReward": 15,
+            "difficulty": "medium",
+            "topic": "Fully sharded training lifecycle"
+          }
+        ]
+      }
+    }
+  ]
+}

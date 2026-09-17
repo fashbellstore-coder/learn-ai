@@ -1,0 +1,543 @@
+{
+  "id": "module_1",
+  "title": "Turning Text into Numbers (Classical)",
+  "description": "The classical toolkit for representing text numerically: bag of words, TF-IDF, n-grams, and putting it all together into a working text classifier.",
+  "icon": "🔢",
+  "color": "#00897B",
+  "order": 1,
+  "estimatedHours": 2,
+  "difficulty": "Beginner",
+  "prerequisites": [
+    "module_0"
+  ],
+  "lessons": [
+    {
+      "id": "nlp_bag_of_words",
+      "title": "Bag of Words",
+      "description": "Learn the simplest way to turn a document into a vector of numbers a model can actually use.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain how the bag-of-words representation works and describe its key limitation."
+          },
+          {
+            "title": "👜 The core idea",
+            "content": "**Bag of words (BoW)** represents a document as a vector counting how many times each word in a fixed vocabulary appears — completely ignoring word order, hence the \"bag\" (like dumping all the words into a bag and just counting them).\n\n```python\nfrom sklearn.feature_extraction.text import CountVectorizer\n\ndocs = [\"the cat sat on the mat\", \"the dog sat on the log\"]\n\nvectorizer = CountVectorizer()\nX = vectorizer.fit_transform(docs)\n\nprint(vectorizer.get_feature_names_out())\n# ['cat', 'dog', 'log', 'mat', 'on', 'sat', 'the']\nprint(X.toarray())\n# [[1, 0, 0, 1, 1, 1, 2],   ← \"the cat sat on the mat\"\n#  [0, 1, 1, 0, 1, 1, 2]]   ← \"the dog sat on the log\""
+          },
+          {
+            "title": "✅ Why it's still useful",
+            "content": "Despite (or partly because of) its simplicity, bag-of-words is fast, easy to compute, and works surprisingly well as a baseline for many text classification tasks — especially when the specific vocabulary used (rather than exact phrasing or grammar) is the main useful signal, like distinguishing spam from legitimate email based on which words tend to appear."
+          },
+          {
+            "title": "😕 The obvious limitation: word order is thrown away",
+            "content": "\"The dog bit the man\" and \"the man bit the dog\" produce the *exact same* bag-of-words vector — every word appears the same number of times, just in a different order that BoW completely discards. Any meaning that depends on word order or sentence structure is invisible to this representation."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Using bag-of-words for tasks where word order or grammar genuinely matters.** For translation, generation, or nuanced language understanding, throwing away order loses too much information.\n\n**Not accounting for vocabulary size on large corpora.** A large collection of documents can produce an enormous vocabulary, leading to very high-dimensional (and often sparse) vectors — this is manageable but worth being aware of.\n\n**Assuming bag-of-words captures meaning the way a human would.** It's purely a word-count representation — it has no notion of synonyms, context, or semantic similarity between words."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "nlp_bag_of_words_quiz",
+        "questions": [
+          {
+            "question": "What does a bag-of-words vector represent?",
+            "options": [
+              "The exact sequence of words in a document, preserving order",
+              "How many times each word in a fixed vocabulary appears in a document, ignoring order",
+              "A summary of the document's grammar",
+              "The sentiment score of a document"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Bag of words counts word occurrences per document, completely discarding the order those words appeared in — hence treating the document like an unordered 'bag' of words.",
+            "id": "q1"
+          },
+          {
+            "question": "Why do 'the dog bit the man' and 'the man bit the dog' produce identical bag-of-words vectors?",
+            "options": [
+              "They actually don't produce identical vectors",
+              "Bag of words only counts word frequency and completely ignores the order words appear in, so both sentences have the same word counts",
+              "Bag of words automatically detects and corrects for meaning",
+              "The two sentences use different words"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since bag of words is purely a count of how many times each vocabulary word appears, and both sentences use exactly the same words the same number of times, their BoW vectors are identical — despite having very different meanings.",
+            "id": "q2"
+          },
+          {
+            "question": "For what kind of task does bag of words tend to work reasonably well as a baseline?",
+            "options": [
+              "Tasks that depend heavily on exact word order, like translation",
+              "Tasks where the presence of specific vocabulary words is the main useful signal, like spam detection",
+              "Generating grammatically correct new sentences",
+              "Understanding sarcasm and tone"
+            ],
+            "correctAnswer": 1,
+            "explanation": "When the key signal is simply which words tend to show up (rather than their order or grammatical role), bag of words can be a fast, effective baseline — spam detection is a classic example, since certain words are strongly associated with spam regardless of their position.",
+            "id": "q3"
+          },
+          {
+            "question": "In the bag-of-words example from the lesson, what feature values would 'the' have across two documents that both contain it twice?",
+            "options": [
+              "It would always be 0",
+              "It would be counted as 2 in each document that contains it twice",
+              "Bag of words ignores the word 'the' automatically",
+              "It can only be represented as a fraction"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Bag of words simply counts occurrences — a word appearing twice in a document gets a count of 2 in that document's vector, as shown in the lesson's example.",
+            "id": "q4"
+          },
+          {
+            "question": "What is the dimensionality of a bag-of-words vector typically based on?",
+            "options": [
+              "The number of sentences in a single document",
+              "The size of the fixed vocabulary across the document collection",
+              "The number of documents only",
+              "The length of the shortest document"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Each dimension in a bag-of-words vector corresponds to one word in the vocabulary, so the vector's length matches the vocabulary size.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is 'the cat sat on the mat' and 'the dog sat on the log' example used in the lesson?",
+            "options": [
+              "To show that bag of words cannot process more than one document",
+              "To illustrate how each document is converted to a numeric vector counting word occurrences",
+              "To demonstrate that bag of words can capture word order",
+              "To show that bag of words removes all common words automatically"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The example concretely shows how CountVectorizer transforms each document into a vector of word counts against the shared vocabulary.",
+            "id": "q6"
+          },
+          {
+            "question": "What is a practical benefit of bag of words despite its simplicity?",
+            "options": [
+              "It always outperforms every other text representation",
+              "It's fast, easy to compute, and works well as a baseline for many text classification tasks",
+              "It requires no computation at all",
+              "It automatically understands synonyms"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Despite ignoring word order and meaning, bag of words remains a fast and surprisingly effective baseline, especially for vocabulary-driven tasks like spam detection.",
+            "id": "q7"
+          },
+          {
+            "question": "What information about a document does bag of words completely discard?",
+            "options": [
+              "The total word count",
+              "The order in which words appear",
+              "Which specific words appear at all",
+              "The vocabulary size"
+            ],
+            "correctAnswer": 1,
+            "explanation": "By treating a document as an unordered collection of word counts, bag of words throws away all information about the sequence or order in which words originally appeared.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "nlp_tfidf",
+      "title": "TF-IDF: Weighting Words by How Distinctive They Are",
+      "description": "Learn a smarter version of word counting that downweights common words and highlights distinctive ones.",
+      "duration": "9 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain what TF-IDF measures and why it often outperforms plain word counts."
+          },
+          {
+            "title": "❓ The problem with raw counts",
+            "content": "In plain bag-of-words, a word like \"the\" gets a huge count in every document, while a genuinely distinctive, topic-relevant word (like \"mitochondria\" in a biology article) might appear just once or twice. Raw counts alone don't reflect how *informative* a word actually is for distinguishing one document from another."
+          },
+          {
+            "title": "📊 Term Frequency × Inverse Document Frequency",
+            "content": "**TF-IDF** combines two ideas into one score for each word in each document:\n\n• **Term Frequency (TF)** — how often the word appears in *this* document (like a plain count, often normalized)\n• **Inverse Document Frequency (IDF)** — how *rare* the word is across the *entire collection* of documents — common words across many documents get a low IDF, rare words get a high IDF\n\n```\nTF-IDF(word, document) = TF(word, document) × IDF(word)\n```\n\nA word that appears often in one document but rarely across the whole collection gets a high TF-IDF score — exactly the kind of distinctive, informative word you'd want to weight heavily."
+          },
+          {
+            "title": "🛠️ Using TF-IDF in practice",
+            "content": "```python\nfrom sklearn.feature_extraction.text import TfidfVectorizer\n\ndocs = [\"the cat sat on the mat\", \"the dog sat on the log\"]\n\nvectorizer = TfidfVectorizer()\nX = vectorizer.fit_transform(docs)\n\nprint(vectorizer.get_feature_names_out())\nprint(X.toarray())\n# words like \"the\" (appearing in both documents) get a low weight\n# words like \"cat\"/\"dog\" (distinctive to one document) get a higher weight\n```\n\nTF-IDF remains a strong, fast, interpretable baseline for tasks like document search, information retrieval, and text classification — often outperforming plain bag-of-words counts."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming TF-IDF understands meaning.** It's still fundamentally a word-counting technique — it just weights those counts more cleverly. It has no concept of synonyms or semantic similarity (that's what embeddings, covered next module, are for).\n\n**Forgetting IDF is computed from the whole document collection, not a single document.** A word's IDF score depends on how it's distributed across your *entire* corpus — the same word can have very different IDF scores in different collections.\n\n**Applying TF-IDF and expecting it to handle word order.** Like plain bag-of-words, TF-IDF still ignores the order words appear in within a document."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "nlp_tfidf_quiz",
+        "questions": [
+          {
+            "question": "What does the IDF (inverse document frequency) part of TF-IDF measure?",
+            "options": [
+              "How many times a word appears in one specific document",
+              "How rare a word is across the entire collection of documents — common words get a low value, rare words get a high value",
+              "The total number of documents in the collection",
+              "The grammatical category of a word"
+            ],
+            "correctAnswer": 1,
+            "explanation": "IDF specifically captures rarity across the whole document collection — a word appearing in almost every document gets a low IDF (since it's not distinctive), while a word appearing in only a few documents gets a high IDF.",
+            "id": "q1"
+          },
+          {
+            "question": "Why does TF-IDF typically outperform plain word counts (bag of words) for many tasks?",
+            "options": [
+              "It processes documents faster in every case",
+              "It downweights common, uninformative words and upweights rarer, more distinctive words, better reflecting which words actually carry useful signal",
+              "It captures word order, unlike bag of words",
+              "It requires no vocabulary at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "By combining how often a word appears in a document with how rare it is across the whole collection, TF-IDF highlights genuinely distinctive words rather than just the most frequent ones, which raw counts alone can't do.",
+            "id": "q2"
+          },
+          {
+            "question": "What limitation does TF-IDF share with plain bag-of-words?",
+            "options": [
+              "Neither approach can be computed for large document collections",
+              "Both ignore the order in which words appear within a document",
+              "Both require labeled training data",
+              "Neither can be used for text classification"
+            ],
+            "correctAnswer": 1,
+            "explanation": "TF-IDF is still fundamentally a word-count-based representation — like plain bag of words, it discards the sequence/order of words within a document, so it can't capture meaning that depends on word order.",
+            "id": "q3"
+          },
+          {
+            "question": "What problem with raw word counts does TF-IDF address?",
+            "options": [
+              "Raw counts take too long to compute",
+              "Raw counts don't reflect how informative a word is, since very common words like 'the' get inflated counts regardless of topical relevance",
+              "Raw counts can never be represented as numbers",
+              "TF-IDF actually has no advantage over raw counts"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Plain counts overweight extremely frequent but uninformative words, while TF-IDF's IDF component specifically downweights words that are common across the whole corpus.",
+            "id": "q4"
+          },
+          {
+            "question": "What does Term Frequency (TF) measure in TF-IDF?",
+            "options": [
+              "How rare a word is across the whole corpus",
+              "How often a word appears within a specific document",
+              "The grammatical category of the word",
+              "The total number of documents in the corpus"
+            ],
+            "correctAnswer": 1,
+            "explanation": "TF captures how frequently a specific word appears within a single document, forming one half of the overall TF-IDF score.",
+            "id": "q5"
+          },
+          {
+            "question": "Would a word appearing in every single document in a corpus tend to get a high or low IDF score?",
+            "options": [
+              "A very high IDF score",
+              "A very low IDF score, since it isn't distinctive",
+              "IDF cannot be computed for such a word",
+              "IDF only applies to rare words"
+            ],
+            "correctAnswer": 1,
+            "explanation": "IDF is designed to give common, non-distinctive words (that appear in nearly every document) a low score, since they don't help distinguish one document from another.",
+            "id": "q6"
+          },
+          {
+            "question": "For what kinds of applications does the lesson say TF-IDF remains a strong choice?",
+            "options": [
+              "Only for generating new creative text",
+              "Document search, information retrieval, and text classification",
+              "Only for image classification tasks",
+              "Exclusively for speech recognition"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson highlights document search, information retrieval, and text classification as tasks where TF-IDF remains a strong, fast, and interpretable baseline.",
+            "id": "q7"
+          },
+          {
+            "question": "Does TF-IDF have any built-in concept of word meaning or synonyms?",
+            "options": [
+              "Yes, it fully understands semantic relationships between words",
+              "No, it's still fundamentally a word-counting technique with no concept of synonyms",
+              "TF-IDF only works with synonyms, not exact word matches",
+              "TF-IDF eliminates the need for a vocabulary"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson explicitly warns that TF-IDF is still a word-counting technique — it weights counts more cleverly but has no built-in notion of semantic similarity, which is what embeddings later address.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "nlp_ngrams",
+      "title": "N-grams: Capturing a Little Bit of Word Order",
+      "description": "Learn a simple trick that lets count-based methods capture some local context, without a full sequence model.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain what n-grams are and describe the tradeoff involved in choosing n."
+          },
+          {
+            "title": "🔗 The core idea",
+            "content": "An **n-gram** is a contiguous sequence of `n` tokens. Instead of treating each word as an independent unit, n-grams treat short sequences of consecutive words as single units — recovering a small amount of local word-order information that plain bag-of-words completely throws away.\n\n```python\ntext = \"the cat sat on the mat\"\n\n# unigrams (n=1): individual words\n# [\"the\", \"cat\", \"sat\", \"on\", \"the\", \"mat\"]\n\n# bigrams (n=2): pairs of consecutive words\n# [\"the cat\", \"cat sat\", \"sat on\", \"on the\", \"the mat\"]\n\n# trigrams (n=3): triples of consecutive words\n# [\"the cat sat\", \"cat sat on\", \"sat on the\", \"on the mat\"]\n```"
+          },
+          {
+            "title": "🎯 Why this small change helps",
+            "content": "Bigrams and trigrams can capture short but meaningful phrases that unigrams alone would miss — \"not good\" as a bigram is a very different (and more informative) signal than seeing \"not\" and \"good\" as two unrelated, independent tokens.\n\n```python\nfrom sklearn.feature_extraction.text import CountVectorizer\n\nvectorizer = CountVectorizer(ngram_range=(1, 2))  # unigrams AND bigrams together\nX = vectorizer.fit_transform([\"the movie was not good\"])\nprint(vectorizer.get_feature_names_out())\n# includes both \"not\" and \"not good\" as separate features\n```"
+          },
+          {
+            "title": "⚖️ The tradeoff: vocabulary size explodes",
+            "content": "Every increase in `n` multiplies the number of possible combinations, dramatically growing the vocabulary size — most of those n-grams appearing only once or twice in the data (a **sparsity** problem). In practice, unigrams plus bigrams (occasionally trigrams) is a common sweet spot; going much higher rarely pays off and can hurt more than help, especially with limited data."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming higher n is always better.** Very high-order n-grams create an enormous, extremely sparse vocabulary that's hard to learn useful patterns from, especially with a modest dataset.\n\n**Forgetting n-grams still only capture *local*, short-range context.** A bigram or trigram can't capture a relationship between words far apart in a sentence — for that, you eventually need the sequence models or attention mechanisms covered in Deep Learning and NLP's later modules.\n\n**Not considering the added computational cost.** More n-gram features mean a larger vocabulary and more computation — worth weighing against the actual benefit for your specific task."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "nlp_ngrams_quiz",
+        "questions": [
+          {
+            "question": "What does a bigram represent?",
+            "options": [
+              "A single word",
+              "A pair of two consecutive words treated as one unit",
+              "The entire document as one unit",
+              "A random sample of words from the document"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A bigram (n=2) groups two consecutive tokens together as a single feature, capturing a small amount of local word-order information that individual word counts (unigrams) would miss on their own.",
+            "id": "q1"
+          },
+          {
+            "question": "Why might including bigrams help a sentiment classifier that plain unigrams alone would miss?",
+            "options": [
+              "Bigrams are always faster to compute than unigrams",
+              "A phrase like 'not good' as a bigram captures meaning that treating 'not' and 'good' as separate, independent words would lose",
+              "Unigrams can't be used for sentiment analysis at all",
+              "Bigrams eliminate the need for any vocabulary"
+            ],
+            "correctAnswer": 1,
+            "explanation": "As independent unigrams, 'not' and 'good' don't convey that they're negating each other — capturing 'not good' as a single bigram preserves that locally important relationship between adjacent words.",
+            "id": "q2"
+          },
+          {
+            "question": "What's the main tradeoff of using higher-order n-grams (like n=4 or n=5)?",
+            "options": [
+              "They always improve model accuracy with no downside",
+              "The vocabulary size grows dramatically and most n-grams appear rarely, creating a sparse, harder-to-learn-from feature space",
+              "Higher-order n-grams are only usable for numeric data",
+              "They eliminate the need for tokenization"
+            ],
+            "correctAnswer": 1,
+            "explanation": "As n increases, the number of distinct possible n-grams grows quickly, and most specific ones appear only rarely in real data — this sparsity generally outweighs the benefit beyond unigrams and bigrams (occasionally trigrams) for most practical tasks.",
+            "id": "q3"
+          },
+          {
+            "question": "What does a trigram represent?",
+            "options": [
+              "A single isolated word",
+              "A sequence of three consecutive tokens treated as one unit",
+              "The entire document treated as one token",
+              "Two unrelated words picked at random"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A trigram (n=3) groups three consecutive tokens together, capturing slightly more local context than a bigram or unigram alone.",
+            "id": "q4"
+          },
+          {
+            "question": "According to the lesson, what is a common practical sweet spot for n-gram range in real applications?",
+            "options": [
+              "Only very high-order n-grams like n=10",
+              "Unigrams plus bigrams, occasionally trigrams",
+              "Character-level n-grams exclusively",
+              "n-grams are never combined with unigrams"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson notes that unigrams plus bigrams (sometimes trigrams) is a common practical sweet spot, since going much higher rarely pays off and can hurt more than help.",
+            "id": "q5"
+          },
+          {
+            "question": "What happens to vocabulary size as n increases in n-gram modeling?",
+            "options": [
+              "It stays exactly constant",
+              "It grows dramatically, with most n-grams appearing only once or twice (a sparsity problem)",
+              "It always shrinks",
+              "Vocabulary size is unrelated to n"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Larger n multiplies the number of possible token combinations, causing vocabulary size to explode and most specific n-grams to appear only rarely in the data.",
+            "id": "q6"
+          },
+          {
+            "question": "Can n-grams capture long-range relationships between words far apart in a sentence?",
+            "options": [
+              "Yes, n-grams capture relationships across an entire document",
+              "No — n-grams only capture local, short-range context",
+              "N-grams eliminate the need for any other sequence modeling technique",
+              "N-grams can only be used for single-word sentences"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson explicitly notes that n-grams only capture local, short-range context — for longer-range dependencies, sequence models or attention mechanisms are needed instead.",
+            "id": "q7"
+          },
+          {
+            "question": "In the sklearn example using ngram_range=(1, 2), what does the vectorizer produce?",
+            "options": [
+              "Only bigram features, no unigrams",
+              "Both unigram and bigram features together, like 'not' and 'not good' as separate features",
+              "Only trigram features",
+              "No features at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Setting ngram_range=(1, 2) tells CountVectorizer to include both single-word (unigram) and two-word (bigram) features in the resulting vocabulary.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "nlp_text_classification",
+      "title": "Text Classification with Classical Methods",
+      "description": "Put bag-of-words, TF-IDF, and classical ML together to build a working text classifier.",
+      "duration": "9 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can describe the end-to-end pipeline for building a classical text classifier."
+          },
+          {
+            "title": "🧩 Putting the pieces together",
+            "content": "A classical text classification pipeline combines everything from this module and the machine learning course:\n\n1. **Preprocess** the text (tokenize, optionally remove stop words, stem/lemmatize)\n2. **Vectorize** it into numbers (bag-of-words or TF-IDF, optionally with n-grams)\n3. **Train** a classical ML classifier (logistic regression and Naive Bayes are especially popular choices for text) on the resulting vectors\n4. **Evaluate** using the same metrics from the machine learning course (accuracy, precision/recall, F1 — matched to what actually matters for the task)"
+          },
+          {
+            "title": "🛠️ A conceptual pipeline",
+            "content": "```python\nfrom sklearn.feature_extraction.text import TfidfVectorizer\nfrom sklearn.linear_model import LogisticRegression\nfrom sklearn.pipeline import Pipeline\n\npipeline = Pipeline([\n    (\"tfidf\", TfidfVectorizer(ngram_range=(1, 2), stop_words=\"english\")),\n    (\"classifier\", LogisticRegression()),\n])\n\npipeline.fit(X_train_texts, y_train_labels)\npredictions = pipeline.predict(X_test_texts)\n```\n\nWrapping preprocessing and modeling into a single pipeline (as shown here) also helps avoid data leakage — the vectorizer is fit only on training data, exactly as covered in the data science course."
+          },
+          {
+            "title": "✅ Why this classical approach still matters",
+            "content": "Even in an era of large language models, this classical pipeline remains genuinely useful: it's fast, cheap to train, easy to interpret (you can literally inspect which words drive a prediction), and a strong baseline that's often surprisingly hard to beat for straightforward tasks like spam detection or basic topic classification — especially with limited data or tight computational budgets."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Fitting the vectorizer on the full dataset before splitting into train/test.** Just like scaling or encoding in the data science course, this leaks test-set vocabulary statistics into training — fit the vectorizer on training data only.\n\n**Jumping straight to a complex deep learning model without trying this baseline first.** A classical pipeline is fast to build and often reveals whether a much more expensive approach is actually going to be worth it.\n\n**Ignoring class imbalance in text classification.** Just like in the ML course, if one class (like \"not spam\") vastly outnumbers another, accuracy alone can be misleading — the same precision/recall guidance from the ML course applies directly here."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "nlp_text_classification_quiz",
+        "questions": [
+          {
+            "question": "What are the typical stages of a classical text classification pipeline?",
+            "options": [
+              "Train a model directly on raw text strings with no preprocessing",
+              "Preprocess the text, vectorize it into numbers, train a classical ML model, then evaluate it",
+              "Only vectorization is needed — no model training required",
+              "Skip preprocessing and go straight to deep learning"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A classical pipeline combines text preprocessing (tokenizing, optionally stemming/removing stop words), numerical vectorization (like TF-IDF), classical model training, and evaluation — bringing together techniques from both this course and the machine learning course.",
+            "id": "q1"
+          },
+          {
+            "question": "Why should a TF-IDF vectorizer be fit only on the training data, not the full dataset?",
+            "options": [
+              "Fitting on the full dataset is computationally impossible",
+              "Fitting on the full dataset leaks vocabulary and frequency statistics from the test set into training, similar to the data leakage covered in the data science course",
+              "TF-IDF vectorizers can only be fit once per project",
+              "There's no real issue either way"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This mirrors the exact same data leakage concern from the data science course — fitting any preprocessing step (including a TF-IDF vectorizer) on the full dataset lets test-set information influence training in a way that makes evaluation dishonest.",
+            "id": "q2"
+          },
+          {
+            "question": "Why does a classical text classification pipeline remain useful even with modern large language models available?",
+            "options": [
+              "It always achieves higher accuracy than any other approach",
+              "It's fast, cheap to train, highly interpretable, and often a strong, hard-to-beat baseline for straightforward tasks with limited data or compute",
+              "Large language models cannot process text at all",
+              "Classical approaches are required by law for text classification"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Despite being simpler, classical pipelines remain genuinely practical — fast to train, easy to interpret, and often surprisingly competitive for tasks like spam detection, especially when data or computational resources are limited.",
+            "id": "q3"
+          },
+          {
+            "question": "What is the first stage of a classical text classification pipeline?",
+            "options": [
+              "Training the classifier directly on raw, unprocessed text",
+              "Preprocessing the text, such as tokenizing and optionally removing stop words or stemming/lemmatizing",
+              "Evaluating the model's accuracy",
+              "Deploying the trained model"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The pipeline begins with preprocessing steps like tokenization and optional normalization, before the text is vectorized and used to train a model.",
+            "id": "q4"
+          },
+          {
+            "question": "Which classical models are mentioned as especially popular choices for text classification?",
+            "options": [
+              "K-means and PCA",
+              "Logistic regression and Naive Bayes",
+              "GANs and autoencoders",
+              "Convolutional neural networks only"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson specifically calls out logistic regression and Naive Bayes as especially popular classical model choices for text classification tasks.",
+            "id": "q5"
+          },
+          {
+            "question": "What is a benefit of wrapping preprocessing and modeling into a single sklearn Pipeline object?",
+            "options": [
+              "It makes the code run on a different programming language",
+              "It helps avoid data leakage by fitting the vectorizer only on training data",
+              "It automatically improves accuracy to 100%",
+              "It eliminates the need for any evaluation step"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Using a Pipeline ensures the vectorizer is fit only on the training data during cross-validation or train/test splits, preventing test-set information from leaking into training.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does the lesson recommend being cautious about class imbalance in text classification?",
+            "options": [
+              "Class imbalance never occurs in text data",
+              "If one class vastly outnumbers another, accuracy alone can be misleading, just as in the ML course",
+              "Imbalanced classes always improve model performance",
+              "Precision and recall don't apply to text classification"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Just as in the machine learning course, a highly imbalanced class distribution (like far more 'not spam' than 'spam' examples) can make plain accuracy a misleading metric — precision and recall give a more honest picture.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does a classical text classification pipeline remain useful even in an era of large language models?",
+            "options": [
+              "It's always more accurate than any large language model",
+              "It's fast, cheap to train, interpretable, and a strong baseline especially with limited data or compute",
+              "Large language models cannot process text data at all",
+              "Classical pipelines require no data to train"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson highlights that classical pipelines remain genuinely practical for straightforward tasks, offering speed, interpretability, and strong baseline performance without the cost of large language models.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

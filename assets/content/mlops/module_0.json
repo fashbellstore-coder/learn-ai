@@ -1,0 +1,581 @@
+{
+  "id": "ops_fundamentals",
+  "title": "MLOps Fundamentals",
+  "description": "Why ML needs its own operations discipline, the end-to-end ML lifecycle, the reproducibility and versioning foundation, and how MLOps relates to the upcoming LLMOps course.",
+  "icon": "⚙️",
+  "color": "#546E7A",
+  "order": 0,
+  "estimatedHours": 5,
+  "difficulty": "beginner",
+  "prerequisites": [],
+  "lessons": [
+    {
+      "id": "ops_why_ml_needs_different_ops",
+      "title": "Why Machine Learning Needs Its Own Operations Discipline",
+      "description": "A trained model isn't just code — it's code plus data plus a training process, and any of the three can silently make it wrong.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain what makes operating a machine learning system different from operating traditional software, and why that difference matters."
+          },
+          {
+            "title": "💻 What traditional software operations assumes",
+            "content": "Standard software engineering practice — **version control**, **CI/CD**, **testing**, **deployment** — assumes that the same code, run the same way, produces the same behavior every time, and that behavior is verified once (via tests) and stays correct until the code changes again. This assumption mostly holds for traditional applications."
+          },
+          {
+            "title": "🎲 Why ML breaks that assumption",
+            "content": "A model's behavior depends on **three things**, not one:\n\n- The **code** (how it's trained and served)\n- The **data it was trained on**\n- The **data it sees in production** — which can drift away from what it was trained on over time even if the code never changes at all\n\nA model that was correct on launch day can become wrong months later with **zero code changes**, purely because the world it's operating in shifted. Traditional software has no real analogue for a bug that appears purely because reality changed."
+          },
+          {
+            "title": "🔁 What this means for the discipline needed",
+            "content": "Beyond the version control and CI/CD that traditional software already has, ML systems need:\n\n- **Data versioning** — so you can reproduce exactly what a model was trained on\n- **Reproducible training pipelines** — so \"retrain the model\" is a reliable, repeatable operation, not a one-off script run manually\n- **Model registries** — tracking exactly which trained model artifact is deployed where\n- **Ongoing monitoring for drift** — since correctness isn't a one-time property verified at launch, it has to be continuously reassessed against changing production data"
+          },
+          {
+            "title": "🎯 MLOps as software engineering's disciplines, extended",
+            "content": "MLOps isn't a wholesale replacement for the software engineering practices covered in the Software Engineering course — it's **those same practices** (versioning, testing, CI/CD, monitoring) **extended** to account for the data and drift dimensions that traditional software operations doesn't need to handle. Every practice in this course either has a direct software-engineering analogue extended for ML's needs, or fills a genuinely new gap that only exists because ML systems depend on data in a way traditional software doesn't."
+          },
+          {
+            "title": "💻 A traditional deploy versus an ML deploy",
+            "content": "```python\n# Traditional software: correctness is a property of the code alone.\ndef calculate_shipping(order):\n    return order.weight * RATE_PER_KG  # RATE_PER_KG never silently changes\n\n# This function is correct today, and will still be correct in a year,\n# unless someone edits the code.\n\n# An ML model: correctness depends on code AND data, including data\n# that hasn't been observed yet.\nclass FraudModel:\n    def predict(self, transaction):\n        return self.model.predict(featurize(transaction))\n\n# This function's *code* never changes, but a new fraud pattern that\n# emerges after training can make its predictions systematically wrong\n# with no line of code touched — which is exactly why monitoring for\n# drift has to be a permanent, ongoing discipline rather than a one-time\n# check performed at launch.\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Treating a passing test suite as proof a model will stay correct.** Tests check code logic, not whether tomorrow's production data still resembles training data — that requires ongoing monitoring, not a one-time test pass.\n\n**Assuming 'no code changes' means 'no behavior changes.'** A model's behavior can degrade purely because the world shifted underneath it — the absence of a code diff is not evidence that a model is still correct.\n\n**Bolting ML onto existing software practices without adding the data dimension.** Reusing CI/CD and version control alone, without adding data versioning, reproducible pipelines, and drift monitoring, leaves exactly the gap this lesson describes."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ops_why_ml_needs_different_ops_quiz",
+        "questions": [
+          {
+            "question": "What does traditional software operations assume that doesn't reliably hold for machine learning systems?",
+            "options": [
+              "That code should be version controlled",
+              "That the same code, run the same way, produces correct behavior indefinitely, with no need to reassess correctness after launch",
+              "That testing is unnecessary for software",
+              "That deployment should never be automated"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Traditional software assumes correctness verified once (via tests) stays valid until the code changes — ML breaks this because production data can drift, making a previously-correct model wrong with no code changes at all.",
+            "id": "q1"
+          },
+          {
+            "question": "Why can a model that was correct on launch day become wrong months later with no code changes?",
+            "options": [
+              "Models spontaneously corrupt their own weights over time",
+              "The data the model sees in production can drift away from its training data, even though the code and model itself never changed",
+              "This scenario is impossible — models never change behavior after deployment",
+              "Every model automatically retrains itself weekly"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Data drift — a shift in real-world data away from the training distribution — can silently invalidate a model's correctness with zero changes to the code or model artifact itself, something traditional software has no real equivalent for.",
+            "id": "q2"
+          },
+          {
+            "question": "How does this lesson frame the relationship between MLOps and standard software engineering practices?",
+            "options": [
+              "MLOps is a completely separate discipline with no relationship to software engineering",
+              "MLOps extends software engineering's versioning, testing, CI/CD, and monitoring practices to also account for data and drift, which traditional software operations doesn't need to handle",
+              "MLOps replaces the need for version control and CI/CD entirely",
+              "Software engineering practices are irrelevant once machine learning is involved"
+            ],
+            "correctAnswer": 1,
+            "explanation": "MLOps builds on the same foundational software engineering disciplines, extending them specifically to handle the data-dependence and drift concerns unique to ML systems.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, why does FraudModel.predict's unchanged code not guarantee unchanged correctness?",
+            "options": [
+              "Because Python functions degrade with age regardless of what they do",
+              "Because the function's correctness depends on featurize() and self.model reflecting a data distribution that production traffic may no longer match",
+              "Because the function contains a syntax error",
+              "Because RATE_PER_KG and self.model are the same kind of value"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The code path itself never changes, but the model's learned mapping from features to predictions was fit to a training distribution — if production data drifts from that distribution, predictions can degrade with the code completely unchanged.",
+            "id": "q4"
+          },
+          {
+            "question": "According to this lesson, which of the following is a genuinely new requirement for ML systems, with no direct traditional-software equivalent?",
+            "options": [
+              "Version controlling source code",
+              "Ongoing monitoring for data drift, since correctness must be continuously reassessed rather than verified once",
+              "Writing unit tests for functions",
+              "Using a deployment pipeline of any kind"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Traditional software verifies correctness once and expects it to hold until the next code change; ML systems need continuous reassessment because the data reality they depend on can shift independently of the code.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is 'the model has no code changes' insufficient evidence that a deployed model is still performing well?",
+            "options": [
+              "It's actually sufficient evidence — no code changes means no behavior changes",
+              "Because the model's correctness depends on the production data continuing to resemble its training data, and that can silently stop being true",
+              "Because code changes are the only thing that can ever affect predictions",
+              "Because tests are never run on ML systems"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This is precisely the 'common mistake' this lesson warns against: absence of a code diff says nothing about whether the world the model operates in has shifted.",
+            "id": "q6"
+          },
+          {
+            "question": "A model registry is listed in this lesson as addressing which specific gap?",
+            "options": [
+              "Knowing exactly which trained model artifact is deployed where",
+              "Writing the model's training code",
+              "Formatting the API response returned to users",
+              "Choosing which programming language to train in"
+            ],
+            "correctAnswer": 0,
+            "explanation": "A model registry is one of the four additions this lesson lists beyond standard software practices, specifically for tracking exactly which model artifact is live and where.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does the lesson frame MLOps as an extension of software engineering rather than a wholly separate discipline?",
+            "options": [
+              "Because ML systems don't actually need version control or CI/CD",
+              "Because every MLOps practice either extends an existing software-engineering analogue or fills a genuinely new gap created specifically by ML's dependence on data",
+              "Because MLOps and software engineering are unrelated by definition",
+              "Because software engineering practices are obsolete once a model is involved"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson explicitly frames MLOps practices as either extensions of familiar software-engineering disciplines or new additions needed only because of ML's data-dependence — not a replacement of software engineering.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ops_the_ml_lifecycle_end_to_end",
+      "title": "The ML Lifecycle, End to End",
+      "description": "From raw data to a retired model, there's a recurring cycle — and MLOps is largely about making every stage of that cycle reliable and repeatable.",
+      "duration": 13,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Name the stages of the end-to-end ML lifecycle and describe what MLOps adds at each one."
+          },
+          {
+            "title": "📊 Data collection and preparation",
+            "content": "Gathering, cleaning, and validating the data a model will be trained on — this stage benefits from the **data versioning** and **validation** practices covered in the next module, ensuring that what a model was actually trained on is known and reproducible, not lost the moment the training run finishes."
+          },
+          {
+            "title": "🏋️ Training and experimentation",
+            "content": "Building on the modeling techniques from the ML course itself, this stage in an MLOps context is about making training a **reliable, repeatable, trackable** process:\n\n- **Experiment tracking** (module 2) records what was tried and what worked\n- **Reproducible training pipelines** mean \"retrain with this data and these settings\" is an operation anyone on the team can run and trust, not a fragile manual process only one person remembers how to do"
+          },
+          {
+            "title": "📦 Packaging and registering",
+            "content": "A successfully trained model needs to become a versioned, deployable artifact — tracked in a **model registry** (module 3) that records exactly which model version is which, what data and code produced it, and what its evaluation results were, extending the versioning discipline from earlier stages all the way through to deployment."
+          },
+          {
+            "title": "🚀 Deployment and serving",
+            "content": "Getting a registered model into production, serving real predictions — using **deployment strategies** (canary releases, shadow deployments, covered in module 3) that let a new model version be introduced carefully rather than as an all-or-nothing switch."
+          },
+          {
+            "title": "📈 Monitoring and maintenance",
+            "content": "Once live, a model needs ongoing observation for **drift and performance degradation** (module 4), with a plan for **retraining or rollback** (module 5) when something goes wrong — this stage is what makes the lifecycle a genuine cycle rather than a one-way pipeline, since monitoring findings routinely feed back into new data collection and retraining."
+          },
+          {
+            "title": "🔄 Why 'lifecycle' and not 'pipeline'",
+            "content": "Calling this a **lifecycle** rather than a one-way pipeline matters: monitoring findings feed back into new data collection, retraining feeds back into a new registered model version, and a new version feeds back into deployment — practically every stage eventually loops back to an earlier one, which is exactly the same 'closing the loop' pattern the Fine-Tuning and Agents courses described for their own respective production processes, just now for the classical ML models this course focuses on."
+          },
+          {
+            "title": "💻 The lifecycle as a loop, not a line",
+            "content": "```python\n# A naive mental model treats the lifecycle as a straight line:\n# collect -> train -> package -> deploy -> done\n\n# The actual lifecycle is a loop with a feedback edge:\ndef ml_lifecycle(data):\n    while True:\n        clean_data = collect_and_validate(data)\n        model = train(clean_data)                # module 2\n        registered = register(model)             # module 3\n        deploy(registered, strategy=\"canary\")     # module 3\n        signal = monitor(registered)             # module 4\n        if signal.drift_detected or signal.performance_degraded:\n            data = collect_more_recent_data()    # feeds back to the top\n        # rollback (module 5) is the emergency exit from this loop\n        # if a deployed version turns out to be unsafe\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Treating deployment as the finish line.** A model that's live but unmonitored has simply moved the risk downstream — deployment is a stage in the loop, not the end of it.\n\n**Building a one-way pipeline with no feedback path.** Without a route for monitoring findings to trigger new data collection or retraining, degradation just accumulates silently until someone notices by accident.\n\n**Skipping stages under time pressure and calling it done anyway.** Packaging without a registry, or deploying without a rollback plan, leaves a gap that only shows up later, usually during an incident when it's most expensive to discover."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ops_the_ml_lifecycle_end_to_end_quiz",
+        "questions": [
+          {
+            "question": "Why is the ML lifecycle better understood as a cycle rather than a one-way pipeline?",
+            "options": [
+              "Because ML models never actually reach a deployment stage",
+              "Because monitoring findings routinely feed back into new data collection and retraining, and each stage eventually loops back to an earlier one",
+              "Because training only happens once per model, with no further iteration",
+              "Because a pipeline and a cycle are exactly the same thing"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lifecycle's stages feed back into each other — monitoring findings prompt new data collection and retraining — mirroring the same closing-the-loop pattern described for fine-tuned models and agents in earlier courses.",
+            "id": "q1"
+          },
+          {
+            "question": "What does a model registry track, per this lesson?",
+            "options": [
+              "Only the current day's weather",
+              "Exactly which model version is which, what data and code produced it, and what its evaluation results were",
+              "The personal preferences of the development team",
+              "Nothing related to versioning or deployment"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A model registry extends the versioning discipline from data and training through to deployment, tracking a model artifact's full provenance and evaluation history.",
+            "id": "q2"
+          },
+          {
+            "question": "What does the training and experimentation stage of the lifecycle contribute in an MLOps context, beyond the modeling techniques themselves?",
+            "options": [
+              "Nothing — the ML course's modeling techniques are entirely sufficient on their own",
+              "Making training a reliable, repeatable, trackable process, so retraining is an operation anyone on the team can trust rather than a fragile manual process",
+              "Eliminating the need for any evaluation of a trained model",
+              "Replacing the need for a model registry"
+            ],
+            "correctAnswer": 1,
+            "explanation": "MLOps adds reliability and repeatability around training itself — tracking experiments and building reproducible pipelines — on top of the modeling techniques the ML course already covered.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example's `ml_lifecycle` loop, what triggers a return to `collect_and_validate`?",
+            "options": [
+              "The registry rejecting a model on aesthetic grounds",
+              "The monitoring signal indicating drift was detected or performance degraded",
+              "A fixed timer that fires once per day regardless of any signal",
+              "The deployment strategy being set to canary"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The loop's feedback edge is driven by the monitoring signal from module 4 — drift or degradation is what triggers collecting more recent data and re-entering the cycle.",
+            "id": "q4"
+          },
+          {
+            "question": "What role does rollback (module 5) play in the code example's loop?",
+            "options": [
+              "It replaces the training step entirely",
+              "It acts as an emergency exit from the loop if a deployed version turns out to be unsafe",
+              "It is called on every single iteration regardless of model health",
+              "It is unrelated to the deployment stage"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Rollback is framed as the safety valve for the loop — a way out when a deployed version needs to be reverted rather than progressed forward through more monitoring and retraining.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is treating deployment as 'the finish line' identified as a mistake in this lesson?",
+            "options": [
+              "Because deployment is actually the very first stage of the lifecycle",
+              "Because it moves risk downstream rather than eliminating it — a live but unmonitored model still needs monitoring and maintenance to catch degradation",
+              "Because models are never deployed more than once",
+              "Because deployment strategies don't matter once a model is live"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Deployment is one stage among several in a loop; treating it as an endpoint skips the monitoring and maintenance stage that actually catches problems after a model goes live.",
+            "id": "q6"
+          },
+          {
+            "question": "Which module does this lesson say covers deployment strategies like canary releases and shadow deployments?",
+            "options": [
+              "Module 1",
+              "Module 2",
+              "Module 3",
+              "Module 5"
+            ],
+            "correctAnswer": 2,
+            "explanation": "The lesson explicitly points to module 3 (registries & deployment) as where canary and shadow deployment strategies are covered in depth.",
+            "id": "q7"
+          },
+          {
+            "question": "What is the consequence of building a pipeline with no feedback path from monitoring back to data collection, per the 'common mistakes' section?",
+            "options": [
+              "No consequence — a one-way pipeline is just as effective as a loop",
+              "Degradation accumulates silently until someone notices by accident, since there's no route for monitoring findings to trigger retraining",
+              "The model registry automatically compensates for the missing feedback path",
+              "This only matters for models using batch serving"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Without a feedback path, monitoring findings have nowhere to go — degradation isn't acted on and can accumulate until discovered incidentally rather than through a designed response.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ops_reproducibility_and_versioning_basics",
+      "title": "Reproducibility and Versioning: The Foundation Everything Else Builds On",
+      "description": "If you can't reproduce exactly what produced a given model, you can't debug it, audit it, or trust that retraining will give you something comparable.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain what needs to be versioned to make a training run genuinely reproducible, beyond just the code."
+          },
+          {
+            "title": "💻 Code versioning: the part software engineering already covers",
+            "content": "Version-controlling the **training code**, the **model architecture definition**, and any **preprocessing logic** is standard software engineering practice — nothing new here, and it's a prerequisite for everything else, not a sufficient condition on its own."
+          },
+          {
+            "title": "📊 Data versioning: the part that's genuinely new",
+            "content": "The exact dataset (or exact version of a larger, evolving dataset) used for a given training run needs to be **identifiable and retrievable later** — \"we trained on the customer data as of this snapshot\" needs to mean something concrete and reproducible, not an approximate description of an ever-changing table. Without this, two people running \"the same\" training code weeks apart could be training on meaningfully different data without realizing it, making any comparison between the two runs' results meaningless."
+          },
+          {
+            "title": "⚙️ Configuration and environment versioning",
+            "content": "**Hyperparameters**, **library versions**, and even **hardware/software environment** details (a specific library version fixing or introducing a subtle numerical difference) can affect a training run's outcome — recording these alongside the code and data version is what makes \"reproduce this exact result\" an achievable request rather than a hopeful one."
+          },
+          {
+            "title": "🔗 Tying it all together: the full provenance of a model",
+            "content": "A genuinely reproducible model has a complete, recorded chain: **this exact code version**, trained on **this exact data version**, with **this exact configuration**, produced **this exact model artifact**, with **these exact evaluation results**. Missing any link in that chain means an inevitable future question — \"why did this model behave this way\" or \"can we reproduce this result\" — becomes unanswerable, which is precisely the gap the rest of this course's tooling (experiment tracking, model registries, data versioning systems) exists to close."
+          },
+          {
+            "title": "💻 What a provenance record actually looks like",
+            "content": "```python\n# A minimal provenance record tying every link of the chain together\nprovenance = {\n    \"code_version\": \"git:4a1c9e2\",\n    \"data_version\": \"customer_data:snapshot_2026-08-14\",\n    \"config\": {\n        \"learning_rate\": 0.001,\n        \"batch_size\": 64,\n        \"library_versions\": {\"torch\": \"2.3.1\", \"numpy\": \"1.26.4\"},\n    },\n    \"model_artifact\": \"models/fraud_v17.pt\",\n    \"eval_metrics\": {\"precision\": 0.91, \"recall\": 0.87},\n}\n\n# Missing any one field breaks the chain: a code_version with no\n# data_version can't say what it was actually trained on; a\n# model_artifact with no eval_metrics can't say whether it was any good.\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Versioning code but treating data as a fixed, unversioned thing.** This is the single most common gap — code history is preserved while the dataset silently changes underneath it, breaking reproducibility for exactly the part that's actually hardest to reconstruct later.\n\n**Recording hyperparameters but not library or environment versions.** A subtle numerical difference between library versions can be enough to make 'reproduce this exact result' fail even with identical code, data, and hyperparameters.\n\n**Treating provenance as optional documentation instead of a required record.** A provenance chain that's missing even one link — data version, config, or eval results — turns a future 'can we reproduce this' or 'why did this model behave this way' into an unanswerable question."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ops_reproducibility_and_versioning_basics_quiz",
+        "questions": [
+          {
+            "question": "Why is versioning the training code alone insufficient for true ML reproducibility?",
+            "options": [
+              "Code versioning is actually unnecessary for ML systems",
+              "The exact data, configuration, and environment used also affect the outcome, and without versioning those too, 'the same code' can still produce meaningfully different results",
+              "Code versioning guarantees identical results regardless of any other factor",
+              "This lesson claims code versioning is the only thing that matters"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A training run's outcome depends on data, configuration, and environment in addition to code — versioning code alone leaves the other factors free to vary, undermining true reproducibility.",
+            "id": "q1"
+          },
+          {
+            "question": "What problem does data versioning specifically solve?",
+            "options": [
+              "It makes code review unnecessary",
+              "It ensures the exact dataset used for a given training run is identifiable and retrievable later, so 'trained on this data' has a concrete, reproducible meaning",
+              "It replaces the need for a model registry entirely",
+              "It only matters for datasets that never change"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Without data versioning, an evolving dataset makes it impossible to know exactly what a past training run actually used, making comparisons between runs unreliable.",
+            "id": "q2"
+          },
+          {
+            "question": "What does a 'complete provenance chain' for a model include?",
+            "options": [
+              "Only the final model file, with no other information",
+              "The exact code version, data version, configuration, and resulting evaluation results, all recorded together",
+              "A random sample of the training data with no other detail",
+              "Just the name of the person who trained the model"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Full provenance ties together code, data, configuration, and results so that questions about why a model behaves a certain way, or whether a result can be reproduced, are actually answerable.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example's `provenance` dictionary, why does `library_versions` sit inside `config` rather than being omitted?",
+            "options": [
+              "Because library versions never actually affect a training run's outcome",
+              "Because library versions are part of the environment that can produce subtle numerical differences, so they belong in the recorded configuration alongside hyperparameters",
+              "Because Python requires all dictionaries to include a `library_versions` key",
+              "Because `torch` and `numpy` are the only libraries that ever matter"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson explicitly calls out library versions as something that can affect a training run's outcome, so a complete provenance record needs to capture them, not just the hyperparameters.",
+            "id": "q4"
+          },
+          {
+            "question": "What would be missing if a provenance record included `code_version` and `model_artifact` but no `eval_metrics`?",
+            "options": [
+              "Nothing important — evaluation results are optional",
+              "The ability to know whether the resulting model was actually any good, breaking the chain's usefulness for answering 'why did this model behave this way'",
+              "The code version itself would become invalid",
+              "The data version would automatically become unrecoverable"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Per the code example's comment, a model artifact with no eval metrics can't say whether it was any good — every link in the chain, including evaluation results, is needed for the record to be useful.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is 'treating data as a fixed, unversioned thing' called out as a common mistake in this lesson?",
+            "options": [
+              "Because data never actually changes in real ML systems",
+              "Because it's the most common gap — code history is preserved while the dataset silently changes, breaking reproducibility for the part that's hardest to reconstruct later",
+              "Because versioning data is technically impossible",
+              "Because this mistake has no real consequence for reproducibility"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson identifies this as the single most common gap: teams diligently version code while letting the underlying dataset drift untracked, undermining the reproducibility that code versioning alone can't provide.",
+            "id": "q6"
+          },
+          {
+            "question": "Why can identical code, data, and hyperparameters still fail to reproduce an exact result without environment versioning?",
+            "options": [
+              "Because hyperparameters are more important than any other factor",
+              "Because a subtle numerical difference between library versions can be enough to change a training run's outcome",
+              "Because identical inputs always guarantee identical outputs regardless of environment",
+              "Because environment versioning is unrelated to reproducibility"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson specifically notes that library version differences can introduce subtle numerical differences, meaning even matching code, data, and hyperparameters isn't sufficient without also matching the environment.",
+            "id": "q7"
+          },
+          {
+            "question": "According to this lesson, what tooling exists specifically to close the provenance gap described here?",
+            "options": [
+              "Only code review checklists",
+              "The rest of this course's tooling — experiment tracking, model registries, and data versioning systems",
+              "Nothing — the gap is considered unsolvable",
+              "A single all-in-one tool that replaces the need for any versioning practice"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson points forward to experiment tracking, model registries, and data versioning systems (covered later in this course) as the concrete tooling that closes this provenance gap.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ops_mlops_vs_llmops_preview",
+      "title": "MLOps vs. LLMOps: Related but Distinct",
+      "description": "The core discipline is shared, but classical ML models and large language models fail, drift, and get evaluated in different enough ways to warrant their own focus.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Describe what MLOps and LLMOps share and where their concerns genuinely diverge, previewing the distinction the next course will build on."
+          },
+          {
+            "title": "🤝 What's shared",
+            "content": "Both need:\n\n- **Versioning** (of data, code, and the resulting model artifact)\n- A **registry** tracking what's deployed where\n- **Monitoring** for degradation in production\n- A plan for **rolling back or retraining** when something goes wrong\n\nThe core lifecycle and discipline from this course's earlier lessons applies to both classical ML models and large language models."
+          },
+          {
+            "title": "📊 Where classical ML's concerns are distinct",
+            "content": "This course's focus: models are typically **trained from scratch** (or fine-tuned in the more traditional sense) on a specific, often tabular or structured dataset for a specific task, evaluation tends to use **well-established metrics** (from the ML course) that are relatively straightforward to compute automatically, and **drift detection** can often lean on statistical comparisons between training and production data distributions, which tend to be more tractable for structured data than for open-ended text."
+          },
+          {
+            "title": "🤖 Where LLM-specific concerns diverge",
+            "content": "The next course in this sequence, LLMOps, will cover:\n\n- **Evaluating open-ended text generation** — a much harder problem than classical ML's typically well-defined metrics, connecting back to the evaluation challenges from the Fine-Tuning course\n- **Managing prompts** as a versioned artifact alongside or instead of model weights\n- **Cost and latency** considerations specific to serving large models\n- Monitoring concerns like **hallucination rate** that have no real classical-ML analogue"
+          },
+          {
+            "title": "🎯 Why this course still matters even in an LLM-focused curriculum",
+            "content": "Many real-world ML systems — fraud detection, recommendation systems, demand forecasting, classical classification and regression tasks — are **not LLMs at all**, and the discipline this course covers is exactly what operates them reliably. Additionally, understanding classical MLOps first makes the LLMOps course's distinctions clearer, since you'll be comparing LLM-specific practices against the concrete, well-established classical-ML baseline this course establishes, rather than trying to learn both sets of ideas from scratch simultaneously."
+          },
+          {
+            "title": "💻 The same lifecycle, two different drift checks",
+            "content": "```python\n# Classical ML: drift detection leans on tractable statistical tests\ndef check_classical_drift(training_dist, production_dist):\n    return statistical_distance(training_dist, production_dist) > THRESHOLD\n\n# LLMOps: there's no clean 'distribution' for open-ended text output,\n# so monitoring needs different signals entirely\ndef check_llm_health(recent_outputs):\n    return {\n        \"hallucination_rate\": estimate_hallucination_rate(recent_outputs),\n        \"cost_per_request\": average_token_cost(recent_outputs),\n        \"latency_p95\": measure_latency(recent_outputs),\n    }\n\n# Same underlying discipline (monitor, alert, act) — genuinely\n# different signals, because the failure modes are different.\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming LLMOps makes classical MLOps obsolete.** Most production ML systems — fraud, recommendations, forecasting — are not LLMs, and the discipline this course covers is exactly what keeps them reliable.\n\n**Applying classical drift-detection statistics directly to LLM outputs.** Open-ended text doesn't have the same tractable distributional structure as structured data — treating the two identically misses failure modes like hallucination that have no classical-ML analogue.\n\n**Skipping the classical-ML foundation and jumping straight to LLMOps.** Without the concrete baseline this course establishes, the LLM-specific distinctions in the next course are harder to recognize as distinctions at all."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ops_mlops_vs_llmops_preview_quiz",
+        "questions": [
+          {
+            "question": "What core disciplines do MLOps and LLMOps share, according to this lesson?",
+            "options": [
+              "Neither discipline involves any form of versioning",
+              "Versioning, a registry tracking deployed models, monitoring for degradation, and a plan for rollback or retraining",
+              "LLMOps and MLOps share nothing in common at all",
+              "Only evaluation metrics are shared between the two"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The fundamental lifecycle and operational discipline — versioning, registries, monitoring, rollback/retraining plans — applies to both classical ML and LLM-based systems.",
+            "id": "q1"
+          },
+          {
+            "question": "What is a distinctly LLM-specific concern that the upcoming LLMOps course will cover, per this lesson?",
+            "options": [
+              "Data versioning, which is unique to LLMs",
+              "Evaluating open-ended text generation and monitoring for hallucination rate, which have no real classical-ML analogue",
+              "Model registries, which only apply to LLMs",
+              "CI/CD pipelines, which are exclusive to LLM systems"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Open-ended text evaluation and hallucination monitoring are examples of genuinely LLM-specific challenges that don't have a direct equivalent in classical ML's well-established, more straightforward metrics.",
+            "id": "q2"
+          },
+          {
+            "question": "Why does this lesson argue that classical MLOps still matters within an LLM-focused curriculum?",
+            "options": [
+              "Because LLMs have completely replaced all classical ML use cases",
+              "Because many real-world systems (fraud detection, recommendation, forecasting) are not LLMs at all, and understanding classical MLOps first gives a concrete baseline for contrasting with LLM-specific practices later",
+              "Because classical ML and LLMs require identical operational practices with no distinction needed",
+              "Because the ML course made this course entirely redundant"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Non-LLM ML systems remain common and important in practice, and having a solid classical-MLOps foundation makes the LLM-specific distinctions in the next course easier to understand by comparison.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, why does `check_llm_health` return a dictionary of different signals instead of a single boolean like `check_classical_drift`?",
+            "options": [
+              "Because Python functions cannot return booleans",
+              "Because open-ended text generation doesn't have a clean statistical distribution to compare, so LLM health needs different, LLM-specific signals like hallucination rate, cost, and latency",
+              "Because LLMs never actually need any health monitoring",
+              "Because classical drift detection and LLM monitoring use identical signals"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The code example illustrates that the same monitor-alert-act discipline applies to both, but the actual signals differ because LLM failure modes (hallucination, cost, latency) aren't well captured by classical statistical distribution comparisons.",
+            "id": "q4"
+          },
+          {
+            "question": "What does `check_classical_drift` rely on that the lesson says tends to be more tractable for structured data than for open-ended text?",
+            "options": [
+              "Hallucination rate estimation",
+              "Statistical distance comparisons between training and production distributions",
+              "Token cost accounting",
+              "Prompt versioning"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson explicitly notes that statistical comparisons between training and production distributions are more tractable for structured data, which is why classical drift detection leans on this approach.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is 'assuming LLMOps makes classical MLOps obsolete' identified as a mistake?",
+            "options": [
+              "Because LLMOps doesn't actually exist as a discipline",
+              "Because most production ML systems (fraud detection, recommendations, forecasting) are not LLMs, and classical MLOps discipline is what keeps them reliable",
+              "Because classical ML models never need any operational discipline",
+              "Because LLMs and classical models are identical in every respect"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson stresses that many real-world systems remain non-LLM classical ML, meaning the discipline this course covers continues to matter regardless of how much attention LLMs receive.",
+            "id": "q6"
+          },
+          {
+            "question": "Why would applying classical drift-detection statistics directly to LLM outputs be a mistake?",
+            "options": [
+              "Because classical statistics are always more accurate than any other method",
+              "Because open-ended text doesn't have the same tractable distributional structure as structured data, so this approach misses LLM-specific failure modes like hallucination",
+              "Because LLMs never produce any output that could be measured",
+              "Because this approach is actually the recommended one for LLMs too"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson's contrast between the two code functions shows that LLM monitoring needs different signals entirely, since text output doesn't reduce to the same kind of distribution comparison structured data does.",
+            "id": "q7"
+          },
+          {
+            "question": "According to this lesson, what benefit comes from learning classical MLOps before LLMOps?",
+            "options": [
+              "No benefit — the order doesn't matter",
+              "The LLM-specific distinctions in the next course become easier to recognize when compared against a concrete, well-established classical-ML baseline",
+              "Classical MLOps makes LLMOps entirely unnecessary to learn",
+              "It guarantees identical monitoring code will work for both"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson frames the sequencing deliberately: a solid classical-ML baseline makes the genuinely new LLM-specific concerns easier to identify as distinctions, rather than learning both from scratch simultaneously.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

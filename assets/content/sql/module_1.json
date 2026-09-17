@@ -1,0 +1,527 @@
+{
+  "id": "module_1",
+  "title": "Aggregating & Grouping Data",
+  "description": "Summarize rows into numbers with COUNT/SUM/AVG/MIN/MAX, group them with GROUP BY, and filter groups with HAVING",
+  "icon": "📊",
+  "color": "#336791",
+  "order": 1,
+  "estimatedHours": 2,
+  "difficulty": "Beginner",
+  "prerequisites": [
+    "SQL Fundamentals"
+  ],
+  "lessons": [
+    {
+      "id": "lesson_1_1",
+      "title": "Aggregate Functions",
+      "description": "Turn many rows into one summary number with COUNT, SUM, AVG, MIN, and MAX",
+      "duration": "12 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Use COUNT, SUM, AVG, MIN, and MAX to summarize a whole column into a single value."
+          },
+          {
+            "title": "📊 From many rows to one number",
+            "content": "So far every query has returned a list of rows. **Aggregate functions** do the opposite — they collapse a whole column down into a single summary value.\n\n**The five you'll use constantly:**\n• `COUNT(*)` — how many rows\n• `SUM(column)` — total of a numeric column\n• `AVG(column)` — average of a numeric column\n• `MIN(column)` / `MAX(column)` — smallest / largest value\n\n```sql\nSELECT COUNT(*) AS total_orders,\n       SUM(total_amount) AS revenue,\n       AVG(total_amount) AS avg_order_value\nFROM orders;\n```\n\nThis returns exactly **one row** — the whole table boiled down to three numbers."
+          },
+          {
+            "title": "🔢 COUNT(*) vs COUNT(column)",
+            "content": "These look similar but answer different questions:\n\n• `COUNT(*)` counts every row, no matter what's in it\n• `COUNT(column)` counts only rows where that column is **not NULL**\n\n```sql\nSELECT COUNT(*) AS all_employees,\n       COUNT(manager_id) AS employees_with_a_manager\nFROM employees;\n```\n\nIf some employees have no manager (manager_id is NULL), the two numbers will differ — and that difference itself is useful information."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "Mixing an aggregate function with a plain column in the same SELECT without GROUP BY (covered next lesson) — most databases will reject this or give a confusing result. Assuming AVG ignores NULLs the way you'd expect without checking — it does skip NULLs, but it's worth confirming for the database you're using."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "quiz_lesson_1_1",
+        "questions": [
+          {
+            "question": "What does SUM(total_amount) return when run over the whole orders table?",
+            "options": [
+              "One row per order, showing its amount",
+              "A single number: the total of all total_amount values",
+              "The largest total_amount value",
+              "The number of orders"
+            ],
+            "correctAnswer": 1,
+            "explanation": "SUM adds up every value in the column across all matching rows and returns one total.",
+            "id": "q1"
+          },
+          {
+            "question": "If manager_id is NULL for some employees, what's true about COUNT(*) vs COUNT(manager_id)?",
+            "options": [
+              "They always return the same number",
+              "COUNT(*) counts all rows; COUNT(manager_id) skips rows where manager_id is NULL, so it can be smaller",
+              "COUNT(manager_id) always errors on NULL values",
+              "COUNT(*) only counts rows where every column is non-NULL"
+            ],
+            "correctAnswer": 1,
+            "explanation": "COUNT(*) counts rows regardless of content. COUNT(column) only counts rows where that specific column has a non-NULL value.",
+            "id": "q2"
+          },
+          {
+            "question": "Which function would you use to find the single most expensive product in the products table?",
+            "options": [
+              "AVG(price)",
+              "COUNT(price)",
+              "MAX(price)",
+              "SUM(price)"
+            ],
+            "correctAnswer": 2,
+            "explanation": "MAX(price) returns the largest value in the price column across all rows — exactly the most expensive product's price.",
+            "id": "q3"
+          },
+          {
+            "question": "What does the AVG() function calculate?",
+            "options": [
+              "The average (mean) of a numeric column across matching rows",
+              "The total count of rows",
+              "The largest value in a column",
+              "The smallest value in a column"
+            ],
+            "correctAnswer": 0,
+            "explanation": "AVG() computes the mean of the values in the specified column.",
+            "id": "q4"
+          },
+          {
+            "question": "What does COUNT(*) count?",
+            "options": [
+              "The total number of rows, regardless of NULLs in any column",
+              "Only rows where every column is non-NULL",
+              "The number of columns in the table",
+              "The number of distinct values in the table"
+            ],
+            "correctAnswer": 0,
+            "explanation": "COUNT(*) counts rows themselves, not values in a specific column, so NULLs don't exclude a row.",
+            "id": "q5"
+          },
+          {
+            "question": "What does MIN(price) return?",
+            "options": [
+              "The smallest price value among matching rows",
+              "The largest price value",
+              "The average price",
+              "The number of distinct prices"
+            ],
+            "correctAnswer": 0,
+            "explanation": "MIN() finds the smallest value in the specified column.",
+            "id": "q6"
+          },
+          {
+            "question": "Can aggregate functions like SUM() and AVG() be used together in one SELECT?",
+            "options": [
+              "Yes, you can compute multiple aggregates in the same query",
+              "No, only one aggregate function is allowed per query",
+              "Only if the table has fewer than 100 rows",
+              "Only if GROUP BY is omitted"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Multiple aggregate functions can appear together in a single SELECT statement.",
+            "id": "q7"
+          },
+          {
+            "question": "What does SUM(quantity) return if the quantity column has some NULL values?",
+            "options": [
+              "NULLs are ignored, and non-NULL quantities are summed",
+              "The whole query fails with an error",
+              "NULL values count as zero automatically breaking the sum",
+              "SUM() cannot be used on any column containing NULLs"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Aggregate functions like SUM() skip NULL values rather than erroring or miscounting.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "lesson_1_2",
+      "title": "Grouping Rows with GROUP BY",
+      "description": "Get one summary row per category instead of one for the whole table",
+      "duration": "14 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Use GROUP BY to compute an aggregate per category instead of over the whole table."
+          },
+          {
+            "title": "🗂️ One summary per group",
+            "content": "Aggregate functions alone collapse the *entire* table into one row. `GROUP BY` changes that: it collapses the table into **one row per distinct value** of a column.\n\n```sql\nSELECT category, COUNT(*) AS product_count, AVG(price) AS avg_price\nFROM products\nGROUP BY category;\n```\n\nThis answers \"for each category, how many products and what's the average price?\" — instead of one number for the whole store, you get one row per category."
+          },
+          {
+            "title": "🧩 The rule: every non-aggregated column must be grouped",
+            "content": "Any column in `SELECT` that isn't wrapped in an aggregate function **must** appear in `GROUP BY` — otherwise the database wouldn't know which value to show for that group.\n\n```sql\n-- Works: category is grouped, product_count is aggregated\nSELECT category, COUNT(*) AS product_count\nFROM products\nGROUP BY category;\n\n-- Fails: name isn't grouped and isn't aggregated either\nSELECT category, name, COUNT(*)\nFROM products\nGROUP BY category;\n```\n\nYou can group by more than one column too — `GROUP BY category, city` gives one row per unique **combination** of category and city."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "Forgetting to add a column to GROUP BY when it's also in SELECT. Grouping by a column you don't actually need in the output, which multiplies the number of result rows unexpectedly. Expecting the output rows to be in a particular order — add ORDER BY if it matters."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "quiz_lesson_1_2",
+        "questions": [
+          {
+            "question": "What does GROUP BY category do to a products query?",
+            "options": [
+              "Sorts products alphabetically by category",
+              "Collapses the results into one row per distinct category value",
+              "Removes the category column from the output",
+              "Filters out products with no category"
+            ],
+            "correctAnswer": 1,
+            "explanation": "GROUP BY collapses rows sharing the same value in the grouped column(s) into a single summary row per group.",
+            "id": "q1"
+          },
+          {
+            "question": "Why does SELECT category, name, COUNT(*) FROM products GROUP BY category; usually fail?",
+            "options": [
+              "COUNT(*) can't be used with GROUP BY",
+              "name is neither aggregated nor included in GROUP BY, so the database doesn't know which name to show per group",
+              "category must always be aggregated",
+              "GROUP BY requires exactly one column in SELECT"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Every selected column that isn't inside an aggregate function must appear in GROUP BY — otherwise there could be many different name values within one category group, and SQL won't guess which to show.",
+            "id": "q2"
+          },
+          {
+            "question": "What does GROUP BY category, city produce?",
+            "options": [
+              "One row per category only",
+              "One row per city only",
+              "One row for each unique combination of category and city",
+              "An error, since GROUP BY only accepts one column"
+            ],
+            "correctAnswer": 2,
+            "explanation": "Grouping by multiple columns produces one row per unique combination of those columns' values.",
+            "id": "q3"
+          },
+          {
+            "question": "What must every non-aggregated column in a SELECT be, when GROUP BY is used?",
+            "options": [
+              "Listed in the GROUP BY clause",
+              "Wrapped in a COUNT() function",
+              "Removed from the SELECT entirely",
+              "Placed only in the WHERE clause"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Any column that's not inside an aggregate function must appear in GROUP BY, or the query is invalid in standard SQL.",
+            "id": "q4"
+          },
+          {
+            "question": "What does `GROUP BY category` produce, when paired with COUNT(*)?",
+            "options": [
+              "One row per distinct category, with a count of rows in that category",
+              "One row per original row in the table",
+              "A single row summing the whole table",
+              "An error, since GROUP BY needs no aggregate"
+            ],
+            "correctAnswer": 0,
+            "explanation": "GROUP BY collapses rows sharing the same category value into one summary row per category.",
+            "id": "q5"
+          },
+          {
+            "question": "Can you GROUP BY more than one column at once?",
+            "options": [
+              "Yes, grouping by multiple columns creates one row per unique combination of those columns",
+              "No, GROUP BY only accepts a single column",
+              "Only if the columns are the same data type",
+              "Only in combination with ORDER BY"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Multiple columns in GROUP BY create groups based on the combination of all listed columns.",
+            "id": "q6"
+          },
+          {
+            "question": "What happens to rows with a NULL value in the GROUP BY column?",
+            "options": [
+              "They form their own group of NULLs",
+              "They are silently dropped from the results",
+              "They cause the whole query to fail",
+              "They are merged into a random existing group"
+            ],
+            "correctAnswer": 0,
+            "explanation": "SQL treats NULL as its own group value for grouping purposes, rather than excluding those rows.",
+            "id": "q7"
+          },
+          {
+            "question": "Does the order of columns in GROUP BY need to match the order in SELECT?",
+            "options": [
+              "No, but the same columns still need to appear in both",
+              "Yes, they must be in the exact same order",
+              "GROUP BY columns can never overlap with SELECT columns",
+              "Order never matters for any part of a SQL query"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The columns need to be consistent between SELECT and GROUP BY, but their listed order relative to each other isn't required to match.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "lesson_1_3",
+      "title": "Filtering Groups with HAVING",
+      "description": "Filter on the aggregated result, not the raw rows",
+      "duration": "12 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain the difference between WHERE and HAVING, and use HAVING to filter grouped/aggregated results."
+          },
+          {
+            "title": "🚧 Why WHERE isn't enough",
+            "content": "`WHERE` filters rows **before** grouping happens — so it can't reference an aggregate like COUNT(*) or AVG(price), because those don't exist yet at that point. `HAVING` filters **after** grouping, on the aggregated results:\n\n```sql\nSELECT category, COUNT(*) AS product_count\nFROM products\nGROUP BY category\nHAVING COUNT(*) > 5;\n```\n\nThis finds categories with **more than 5 products** — a question that only makes sense after grouping."
+          },
+          {
+            "title": "🔀 Using WHERE and HAVING together",
+            "content": "They aren't mutually exclusive — most real queries use both, because they filter at different stages:\n\n```sql\nSELECT category, AVG(price) AS avg_price\nFROM products\nWHERE stock_qty > 0            -- filter rows first: only in-stock items\nGROUP BY category\nHAVING AVG(price) > 20;        -- then filter the grouped result\n```\n\n**The order to remember:** `WHERE` (raw rows) → `GROUP BY` (form groups) → `HAVING` (filter groups)."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "Trying to use an aggregate function inside WHERE — it belongs in HAVING instead. Using HAVING for a filter that doesn't involve an aggregate — that filter should be in WHERE, since it's simpler and faster there."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "quiz_lesson_1_3",
+        "questions": [
+          {
+            "question": "What's the key difference between WHERE and HAVING?",
+            "options": [
+              "They're interchangeable and always do the same thing",
+              "WHERE filters rows before grouping; HAVING filters groups after aggregation",
+              "HAVING only works with SELECT *",
+              "WHERE can only be used with numbers, HAVING only with text"
+            ],
+            "correctAnswer": 1,
+            "explanation": "WHERE filters individual rows before GROUP BY runs. HAVING filters the resulting groups, so it can reference aggregate functions like COUNT() or AVG().",
+            "id": "q1"
+          },
+          {
+            "question": "Which clause would you use to find categories with an average price above 20?",
+            "options": [
+              "WHERE AVG(price) > 20",
+              "HAVING AVG(price) > 20",
+              "GROUP BY AVG(price) > 20",
+              "ORDER BY AVG(price) > 20"
+            ],
+            "correctAnswer": 1,
+            "explanation": "AVG(price) only exists after grouping, so filtering on it requires HAVING, not WHERE.",
+            "id": "q2"
+          },
+          {
+            "question": "In a query with WHERE, GROUP BY, and HAVING all present, what order do they logically apply in?",
+            "options": [
+              "HAVING, then GROUP BY, then WHERE",
+              "GROUP BY, then WHERE, then HAVING",
+              "WHERE, then GROUP BY, then HAVING",
+              "They all apply at the same time"
+            ],
+            "correctAnswer": 2,
+            "explanation": "SQL first filters raw rows with WHERE, then forms groups with GROUP BY, then filters those groups with HAVING.",
+            "id": "q3"
+          },
+          {
+            "question": "Can HAVING reference an aggregate function like SUM() or COUNT()?",
+            "options": [
+              "Yes, that's exactly what HAVING is designed for",
+              "No, aggregates can only appear in SELECT",
+              "Only if WHERE is also present",
+              "Only for COUNT(), never SUM() or AVG()"
+            ],
+            "correctAnswer": 0,
+            "explanation": "HAVING filters based on the result of aggregate functions, which WHERE cannot do.",
+            "id": "q4"
+          },
+          {
+            "question": "Can a query use both WHERE and HAVING together?",
+            "options": [
+              "Yes — WHERE filters rows before grouping, HAVING filters groups after",
+              "No, only one of them can appear in a query",
+              "Only if GROUP BY is omitted",
+              "WHERE and HAVING always do the exact same thing"
+            ],
+            "correctAnswer": 0,
+            "explanation": "WHERE and HAVING operate at different stages and are commonly used together.",
+            "id": "q5"
+          },
+          {
+            "question": "What happens if you try to use an aggregate function like COUNT() inside a WHERE clause?",
+            "options": [
+              "It causes an error, since WHERE runs before aggregation happens",
+              "It works exactly like it would in HAVING",
+              "It automatically converts to a HAVING clause",
+              "It only works with COUNT(), never other aggregates"
+            ],
+            "correctAnswer": 0,
+            "explanation": "WHERE filters individual rows before any grouping or aggregation occurs, so aggregate functions aren't valid there.",
+            "id": "q6"
+          },
+          {
+            "question": "If you omit HAVING from a query with GROUP BY, what happens?",
+            "options": [
+              "All groups are returned, with no group-level filtering applied",
+              "The query returns zero rows",
+              "GROUP BY stops working entirely",
+              "The query defaults to filtering out empty groups only"
+            ],
+            "correctAnswer": 0,
+            "explanation": "HAVING is optional — without it, every group produced by GROUP BY appears in the result.",
+            "id": "q7"
+          },
+          {
+            "question": "Can HAVING filter on a column that isn't an aggregate?",
+            "options": [
+              "Yes, as long as that column is also in the GROUP BY",
+              "No, HAVING can only reference aggregate functions",
+              "Only if the column is a primary key",
+              "Only when WHERE is also used"
+            ],
+            "correctAnswer": 0,
+            "explanation": "HAVING can reference grouped (non-aggregate) columns too, not just aggregate expressions.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "lesson_1_4",
+      "title": "Putting It Together: A Sales Report",
+      "description": "Combine WHERE, GROUP BY, HAVING, and ORDER BY into one real report query",
+      "duration": "12 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Write a single query that filters, groups, aggregates, filters again, and sorts — the shape of a typical real-world report."
+          },
+          {
+            "title": "📈 A realistic question",
+            "content": "\"Which customers spent more than $200 in total, ranked from highest spender down?\" This single question needs everything from this module at once:\n\n```sql\nSELECT customer_id,\n       COUNT(*)         AS order_count,\n       SUM(total_amount) AS total_spent\nFROM orders\nWHERE status != 'cancelled'\nGROUP BY customer_id\nHAVING SUM(total_amount) > 200\nORDER BY total_spent DESC;\n```\n\nRead it top to bottom and it tells a story: start from orders, ignore cancelled ones, group by customer, keep only the big spenders, and show the biggest first."
+          },
+          {
+            "title": "🧠 The mental checklist for any report query",
+            "content": "When a question feels complicated, break it into these steps in order:\n\n• Which table has the raw data? (`FROM`)\n• Do I need to exclude some rows before summarizing? (`WHERE`)\n• What am I summarizing *by*? (`GROUP BY`)\n• What am I measuring for each group? (aggregate functions in `SELECT`)\n• Do I only want groups that meet some condition? (`HAVING`)\n• How should the final list be ordered? (`ORDER BY`)\n\nAlmost every real reporting query is built from this same six-step shape — SQL just gives you clauses for each step."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "Writing HAVING before GROUP BY in the query (SQL requires this exact clause order: SELECT, FROM, WHERE, GROUP BY, HAVING, ORDER BY). Forgetting ORDER BY and assuming the biggest spender is already at the top."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "quiz_lesson_1_4",
+        "questions": [
+          {
+            "question": "In standard SQL clause order, which comes first: GROUP BY or HAVING?",
+            "options": [
+              "HAVING always comes first",
+              "GROUP BY comes first, then HAVING",
+              "They must be written on the same line",
+              "Order doesn't matter"
+            ],
+            "correctAnswer": 1,
+            "explanation": "SQL clauses must appear in this order: SELECT, FROM, WHERE, GROUP BY, HAVING, ORDER BY. GROUP BY forms the groups before HAVING can filter them.",
+            "id": "q1"
+          },
+          {
+            "question": "In the report query above, what does WHERE status != 'cancelled' accomplish?",
+            "options": [
+              "Removes cancelled orders before they're included in any customer's total",
+              "Removes customers who have ever cancelled an order",
+              "Sorts cancelled orders to the bottom",
+              "Has no effect since HAVING would filter them anyway"
+            ],
+            "correctAnswer": 0,
+            "explanation": "WHERE filters raw order rows before grouping, so cancelled orders never contribute to a customer's order_count or total_spent in the first place.",
+            "id": "q2"
+          },
+          {
+            "question": "What does HAVING SUM(total_amount) > 200 keep in the final result?",
+            "options": [
+              "Only individual orders over $200",
+              "Only customers whose combined order total exceeds $200",
+              "Only orders placed after $200 was spent",
+              "Nothing — HAVING can't reference SUM"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Because grouping is by customer_id, SUM(total_amount) is each customer's total spend, and HAVING keeps only the groups (customers) where that total exceeds $200.",
+            "id": "q3"
+          },
+          {
+            "question": "In a query combining WHERE, GROUP BY, and HAVING, which clause runs conceptually first?",
+            "options": [
+              "WHERE, filtering raw rows before grouping happens",
+              "HAVING, filtering before any grouping",
+              "GROUP BY, before WHERE is even considered",
+              "They all run simultaneously with no order"
+            ],
+            "correctAnswer": 0,
+            "explanation": "WHERE filters individual rows first; then GROUP BY forms groups; then HAVING filters those groups.",
+            "id": "q4"
+          },
+          {
+            "question": "Why might a sales report query need both a WHERE and a HAVING clause?",
+            "options": [
+              "To exclude certain raw rows (WHERE) and then also exclude certain resulting groups (HAVING)",
+              "Because WHERE and HAVING must always appear together",
+              "Because GROUP BY requires two filtering clauses to function",
+              "Because one clause is required for each aggregate function used"
+            ],
+            "correctAnswer": 0,
+            "explanation": "WHERE and HAVING serve different filtering purposes — row-level versus group-level — which is exactly why a report might need both.",
+            "id": "q5"
+          },
+          {
+            "question": "What would `ORDER BY SUM(total_amount) DESC` do at the end of a grouped report query?",
+            "options": [
+              "Sort the grouped results by their total spending, highest first",
+              "Sort by the number of groups produced",
+              "Cause an error since ORDER BY can't use aggregates",
+              "Sort alphabetically by category name instead"
+            ],
+            "correctAnswer": 0,
+            "explanation": "ORDER BY can reference an aggregate expression to sort the final grouped rows by that computed value.",
+            "id": "q6"
+          },
+          {
+            "question": "If a sales report groups by customer_id, what does each row in the result represent?",
+            "options": [
+              "A summary of all of one customer's orders",
+              "A single individual order",
+              "A single product",
+              "The entire company's total sales"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Grouping by customer_id collapses every order for that customer into one summary row.",
+            "id": "q7"
+          },
+          {
+            "question": "Why is it good practice to alias an aggregate column, like `SUM(total_amount) AS total_spent`?",
+            "options": [
+              "It gives the computed column a clear, readable name in the result set",
+              "It changes how the SUM is calculated",
+              "It's required for GROUP BY to function at all",
+              "It converts the aggregate into a filter automatically"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Aliasing makes the output more readable and gives you a name to reference elsewhere, like in ORDER BY.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

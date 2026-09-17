@@ -1,0 +1,543 @@
+{
+  "id": "module_3",
+  "title": "Sequence-to-Sequence & Attention",
+  "description": "How neural networks learned to translate and generate text: encoder-decoder models, the attention mechanism that fixed their key bottleneck, and the language modeling task underlying it all.",
+  "icon": "🔄",
+  "color": "#00897B",
+  "order": 3,
+  "estimatedHours": 2,
+  "difficulty": "Intermediate",
+  "prerequisites": [
+    "module_2"
+  ],
+  "lessons": [
+    {
+      "id": "nlp_seq2seq",
+      "title": "Sequence-to-Sequence: Encoder-Decoder Models",
+      "description": "Learn the architecture that made tasks like machine translation possible with neural networks.",
+      "duration": "9 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain the encoder-decoder architecture and what problem it's designed to solve."
+          },
+          {
+            "title": "🎯 The challenge: input and output of different lengths",
+            "content": "Many NLP tasks need to turn one sequence into a *different* sequence — translating a 5-word English sentence into a 7-word French sentence, or turning a long document into a short summary. The input and output aren't the same length, and there's no simple word-by-word mapping — this needs a fundamentally different setup than a plain classifier."
+          },
+          {
+            "title": "🏗️ Encoder-decoder architecture",
+            "content": "A **sequence-to-sequence (seq2seq)** model uses two RNNs (recall LSTM/GRU from the deep learning course) working together:\n\n• The **encoder** reads the entire input sequence, step by step, and compresses it into a fixed-size vector (sometimes called the **context vector**) summarizing the whole input\n• The **decoder** takes that context vector and generates the output sequence, one element at a time, using its own hidden state (and often what it just generated) to decide what to produce next\n\n```\n\"I love dogs\"  →  [Encoder]  →  context vector  →  [Decoder]  →  \"J'aime les chiens\"\n```"
+          },
+          {
+            "title": "🎯 Where this architecture is used",
+            "content": "Seq2seq architectures power machine translation, text summarization, chatbot responses, and any task that's fundamentally about mapping one sequence to another sequence of a potentially different length and content. It's a genuinely different setup from the classification tasks covered earlier — a fixed-size output isn't enough; you need to *generate* a whole new sequence."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming seq2seq is the same as a standard classifier.** The output is an entire generated sequence, not a single label — this needs the encoder-decoder structure, not just a normal classification head.\n\n**Underestimating how much gets compressed into a single context vector.** For a long input sequence, squeezing everything into one fixed-size vector is a significant bottleneck — exactly the problem the next lesson addresses.\n\n**Forgetting the decoder generates output step by step, often using its own previous output.** This sequential generation process is part of what makes seq2seq models (like plain RNNs generally) slower to run than models that produce all their output at once."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "nlp_seq2seq_quiz",
+        "questions": [
+          {
+            "question": "What problem is the encoder-decoder (seq2seq) architecture specifically designed to solve?",
+            "options": [
+              "Classifying a fixed input into one of a few categories",
+              "Mapping one sequence to a different sequence, which may have a different length, like translating between languages",
+              "Compressing images into smaller file sizes",
+              "Removing stop words from text"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Seq2seq architectures are built for tasks where the output is itself a generated sequence — potentially of a different length than the input — such as translation, summarization, or generating a response, which a standard fixed-output classifier can't handle.",
+            "id": "q1"
+          },
+          {
+            "question": "What does the encoder in a seq2seq model do?",
+            "options": [
+              "It generates the final output sequence directly",
+              "It reads the entire input sequence and compresses it into a fixed-size context vector summarizing the input",
+              "It translates individual words one at a time with no memory",
+              "It removes punctuation from the input"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The encoder processes the whole input sequence and condenses it into a single fixed-size vector meant to capture the important information from the entire input, which the decoder then uses to generate the output.",
+            "id": "q2"
+          },
+          {
+            "question": "How does the decoder typically generate its output sequence?",
+            "options": [
+              "All at once, in a single step",
+              "Step by step, using the context vector and its own hidden state (often along with what it just generated) to decide what to produce next",
+              "By directly copying words from the input sequence",
+              "Randomly, with no dependence on the input"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The decoder generates the output sequentially, one element at a time, using the encoded context along with its evolving hidden state (and typically its own previous outputs) to decide each next step — similar in spirit to how an RNN processes a sequence.",
+            "id": "q3"
+          },
+          {
+            "question": "Why can't a plain classifier handle tasks like machine translation?",
+            "options": [
+              "Classifiers can only handle numeric input",
+              "The output is a generated sequence, potentially of a different length than the input, not a single fixed label",
+              "Machine translation doesn't require any model at all",
+              "Plain classifiers are only used for images"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Translation requires producing a whole new sequence of variable length, which is fundamentally different from a classifier's job of predicting one fixed label.",
+            "id": "q4"
+          },
+          {
+            "question": "What is the context vector in a seq2seq model?",
+            "options": [
+              "The raw input text before any processing",
+              "A fixed-size vector produced by the encoder summarizing the entire input sequence",
+              "The final translated output",
+              "A vector containing only the last word of the input"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The encoder compresses the entire input sequence into a single fixed-size context vector meant to capture the important information from the whole input.",
+            "id": "q5"
+          },
+          {
+            "question": "What kind of networks does a basic seq2seq model typically use for its encoder and decoder?",
+            "options": [
+              "Convolutional neural networks",
+              "RNNs, such as LSTM or GRU",
+              "Decision trees",
+              "K-means clustering"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Seq2seq models typically use RNN-family networks like LSTM or GRU for both the encoder and decoder components.",
+            "id": "q6"
+          },
+          {
+            "question": "Besides machine translation, what other tasks does the lesson mention seq2seq architectures powering?",
+            "options": [
+              "Only image classification",
+              "Text summarization and chatbot responses",
+              "Only spam filtering",
+              "Only stemming and lemmatization"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson lists text summarization and chatbot responses, along with translation, as tasks that seq2seq architectures are well suited for.",
+            "id": "q7"
+          },
+          {
+            "question": "How does the decoder typically decide what to generate at each step?",
+            "options": [
+              "It ignores the context vector entirely",
+              "Using the context vector, its own hidden state, and often what it just generated",
+              "By randomly selecting words with no logic",
+              "By copying the input sequence exactly"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The decoder uses the encoded context along with its evolving hidden state (and typically its own prior output) to decide what to generate at each step.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "nlp_attention_intuition",
+      "title": "The Bottleneck Problem and Attention",
+      "description": "Understand the key limitation of basic seq2seq models and the elegant fix that led to a revolution in NLP.",
+      "duration": "9 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain the seq2seq bottleneck problem and the core intuition behind the attention mechanism."
+          },
+          {
+            "title": "🍾 The bottleneck problem",
+            "content": "In a basic seq2seq model, the *entire* meaning of the input sequence — no matter how long — has to get squeezed into one single, fixed-size context vector. For a short sentence, this works reasonably well. For a long paragraph or document, a huge amount of important detail inevitably gets lost in that single compressed summary — much like trying to describe an entire novel's plot in one sentence."
+          },
+          {
+            "title": "👀 The key idea behind attention",
+            "content": "**Attention** solves this by letting the decoder, at *each* step of generating output, look back at *all* of the encoder's hidden states (not just one final compressed vector) and decide which parts of the input are most relevant *right now*, for the specific word it's about to generate.\n\nInstead of forcing everything through one bottleneck, attention computes a set of **weights** at each decoding step — how much to focus on each part of the input — and combines the input representations accordingly, weighted by relevance."
+          },
+          {
+            "title": "🎯 A concrete intuition",
+            "content": "When translating \"the black cat sat on the mat\" into French, the decoder generating the French word for \"cat\" should pay the most attention to the English word \"cat\" (and perhaps \"black\", since adjective order differs between languages) — not equally to every single word in the sentence. Attention gives the model a learned, dynamic way to do exactly this kind of selective focusing, differently at each step of generation.\n\n```\n# Conceptual attention weights when generating one output word\n# \"the\": 0.05   \"black\": 0.15   \"cat\": 0.70   \"sat\": 0.03   \"on\": 0.02   \"the\": 0.03   \"mat\": 0.02\n# → heavily weighted toward \"cat\", as expected\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Thinking attention is a minor tweak.** It was a genuinely transformative idea — directly addressing seq2seq's core bottleneck, and its core mechanism (learned, weighted relevance between elements) is the foundation the entire Transformer architecture is built on, covered in a dedicated later course.\n\n**Assuming attention weights are fixed in advance.** They're learned and computed dynamically for each specific input and each specific decoding step — different inputs produce different attention patterns.\n\n**Confusing attention with simply looking at every input word equally.** The whole point is *selective, weighted* focus — some parts of the input matter much more than others for generating any given piece of output."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "nlp_attention_intuition_quiz",
+        "questions": [
+          {
+            "question": "What is the bottleneck problem in basic seq2seq models?",
+            "options": [
+              "The model runs too slowly on modern hardware",
+              "The entire meaning of a potentially long input sequence has to be compressed into one single fixed-size context vector, losing detail for longer inputs",
+              "The decoder can only generate very short outputs",
+              "There is no actual bottleneck in seq2seq models"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Squeezing an entire input sequence — regardless of length — into one fixed-size vector means that for longer inputs, a significant amount of important information inevitably gets lost in that compression.",
+            "id": "q1"
+          },
+          {
+            "question": "What does attention allow the decoder to do differently, compared to a basic seq2seq model?",
+            "options": [
+              "Generate output without looking at the input at all",
+              "Look back at all of the encoder's hidden states at each decoding step and dynamically focus on the most relevant parts of the input for what it's currently generating",
+              "Process the entire output sequence in a single step",
+              "Ignore the encoder entirely"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Rather than relying on a single compressed context vector, attention lets the decoder access all of the encoder's hidden states and compute, at each step, a weighted focus on whichever input parts are most relevant to the current output being generated.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is attention considered a foundational idea for later NLP architectures?",
+            "options": [
+              "It has no lasting influence on other architectures",
+              "Its core mechanism — learned, weighted relevance between elements — became the foundation of the Transformer architecture",
+              "It only applies to image processing, not text",
+              "It replaced the need for encoders entirely"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Attention's core idea of dynamically weighing relevance between elements turned out to be so powerful that it became the central building block of the Transformer architecture, which a later dedicated course covers in depth.",
+            "id": "q3"
+          },
+          {
+            "question": "What specifically causes the bottleneck problem in basic seq2seq models?",
+            "options": [
+              "The decoder generating too many tokens",
+              "Squeezing the entire input's meaning into one single, fixed-size context vector, regardless of input length",
+              "Using too small a vocabulary",
+              "The encoder processing input too quickly"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Because the whole input sequence has to be compressed into one fixed-size vector, longer inputs lose more detail in that single compressed summary.",
+            "id": "q4"
+          },
+          {
+            "question": "What does attention allow the decoder to access, unlike a basic seq2seq model?",
+            "options": [
+              "Only the final encoder hidden state",
+              "All of the encoder's hidden states at each decoding step",
+              "No information from the encoder at all",
+              "Only a random subset of encoder states"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Attention lets the decoder look back at every one of the encoder's hidden states at each generation step, rather than being limited to one single compressed context vector.",
+            "id": "q5"
+          },
+          {
+            "question": "In the translation example, why does the decoder generating the French word for 'cat' pay the most attention to the English word 'cat'?",
+            "options": [
+              "Attention always focuses equally on every input word",
+              "Attention computes weights reflecting which parts of the input are most relevant to what's currently being generated",
+              "The decoder ignores the input entirely at this step",
+              "This behavior is purely random and has no explanation"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Attention dynamically computes relevance weights, and it makes sense that generating the translation for 'cat' would place the highest weight on the corresponding source word 'cat'.",
+            "id": "q6"
+          },
+          {
+            "question": "Why is attention described as foundational to later NLP architectures?",
+            "options": [
+              "It has no lasting impact beyond seq2seq models",
+              "Its mechanism of learned, weighted relevance between elements became the basis for the Transformer architecture",
+              "Attention was abandoned after seq2seq models became obsolete",
+              "It only works for very short sentences"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson notes that attention's core idea became the central building block for Transformers, covered in more depth in a later dedicated course.",
+            "id": "q7"
+          },
+          {
+            "question": "Are attention weights fixed in advance before seeing any specific input?",
+            "options": [
+              "Yes, they are hardcoded constants",
+              "No, they are learned and computed dynamically for each specific input and decoding step",
+              "Attention doesn't use weights at all",
+              "Attention weights are chosen randomly at every use"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Attention weights are computed fresh for each input and each decoding step, allowing the model to focus differently depending on the specific context.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "nlp_translation_example",
+      "title": "Machine Translation: A Worked Example",
+      "description": "Walk through a concrete translation example to see how the encoder-decoder-attention pieces fit together.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can trace through, at a conceptual level, how a full translation is produced by a seq2seq-with-attention model."
+          },
+          {
+            "title": "🌍 The task: English to French",
+            "content": "Consider translating \"I love dogs\" into French (\"J'aime les chiens\"). This isn't a simple word-by-word substitution — French sentence structure, gendered articles, and idiomatic phrasing all differ from English, so the model genuinely needs to understand and re-express the *meaning*, not just swap words one-for-one."
+          },
+          {
+            "title": "🔄 Step by step, conceptually",
+            "content": "```\n1. Encoding:\n   \"I\" \"love\" \"dogs\" → encoder produces a hidden state at each step\n\n2. Decoding, generating one French word at a time:\n   Step 1: attention focuses mostly on \"I\" → generates \"J'\"\n   Step 2: attention focuses mostly on \"love\" → generates \"aime\"\n   Step 3: attention focuses mostly on \"dogs\" → generates \"les\"\n   Step 4: attention still focused on \"dogs\" → generates \"chiens\"\n\n3. A special end-of-sequence token tells the decoder to stop generating\n```\n\nNotice the output has 4 French tokens, from a 3-word English input — seq2seq naturally handles output lengths that differ from the input, which a simple word-by-word approach never could."
+          },
+          {
+            "title": "📊 Why evaluation is trickier than classification",
+            "content": "Unlike classification (right or wrong), a translation can be phrased correctly in more than one valid way — \"J'aime les chiens\" and a slightly reworded but equally correct alternative might both be perfectly good translations. This is why translation quality metrics (like **BLEU**, covered later in this course) work differently than accuracy — they measure how closely a generated translation overlaps with one or more valid reference translations, rather than checking for one single \"correct\" answer."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Expecting a translation model to produce a single, uniquely \"correct\" output every time.** Multiple valid phrasings often exist — translation quality is inherently a bit more of a spectrum than a strict classification task.\n\n**Assuming translation is just word-by-word substitution with a dictionary.** Word order, grammar, gendered forms, and idioms all differ across languages — genuine machine translation has to model deeper structure, not just swap words.\n\n**Forgetting the output length can differ from the input length.** A seq2seq model isn't constrained to produce one output token per input token — the decoder decides when to stop generating, based on what it produces (typically an end-of-sequence signal)."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "nlp_translation_example_quiz",
+        "questions": [
+          {
+            "question": "Why can't machine translation be done by simply substituting each word for its dictionary translation, one at a time?",
+            "options": [
+              "Dictionaries don't contain translations for common words",
+              "Languages differ in word order, grammar, gendered forms, and idiomatic phrasing, so meaning has to be genuinely re-expressed, not just substituted word-for-word",
+              "Translation is actually just simple word substitution and this isn't a real issue",
+              "Machine translation only works for identical languages"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Real translation requires understanding and re-expressing meaning according to the target language's own grammar and structure — a word-by-word dictionary swap ignores these structural differences and typically produces poor, unnatural translations.",
+            "id": "q1"
+          },
+          {
+            "question": "In the worked example, why does attention focus mostly on 'dogs' for both the third and fourth generated French tokens?",
+            "options": [
+              "Attention weights are always evenly spread across all input words",
+              "A single English concept ('dogs') can require multiple output tokens ('les chiens') to express correctly in French, so attention appropriately stays focused there across both steps",
+              "This indicates a bug in the model",
+              "French sentences are always longer than English sentences"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since generating a correct French phrase for 'dogs' takes two tokens ('les' and 'chiens'), it makes sense that the attention mechanism continues focusing on the same source word across both of those decoding steps.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is evaluating translation quality trickier than evaluating a classification task?",
+            "options": [
+              "Translation tasks don't actually need any evaluation",
+              "A given sentence can often be correctly translated in more than one valid way, unlike classification where there's typically one correct label",
+              "Translation models never make any mistakes",
+              "BLEU score and accuracy measure exactly the same thing"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Because multiple different phrasings of a translation can all be equally valid, evaluation metrics for translation (like BLEU) are designed to measure overlap with one or more acceptable reference translations, rather than checking for a single fixed correct answer the way classification accuracy does.",
+            "id": "q3"
+          },
+          {
+            "question": "Why isn't machine translation simply a matter of dictionary word-for-word substitution?",
+            "options": [
+              "Dictionaries don't exist for most language pairs",
+              "Sentence structure, gendered articles, and idiomatic phrasing differ across languages, requiring genuine understanding of meaning",
+              "Word-for-word substitution always produces perfect translations",
+              "Translation doesn't require understanding language at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Because languages differ structurally and idiomatically, a model needs to understand and re-express meaning rather than simply swap words one-for-one.",
+            "id": "q4"
+          },
+          {
+            "question": "In the worked example, how many French tokens are generated from the 3-word English input 'I love dogs'?",
+            "options": [
+              "Exactly 3",
+              "4",
+              "10",
+              "1"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The example shows the decoder generating 4 French tokens ('J'', 'aime', 'les', 'chiens') from the 3-word English input, illustrating that output length can differ from input length.",
+            "id": "q5"
+          },
+          {
+            "question": "What determines when the decoder stops generating output tokens?",
+            "options": [
+              "A fixed rule that always stops after exactly 3 tokens",
+              "A special end-of-sequence token",
+              "The decoder stops randomly at any point",
+              "The decoder never stops generating"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The decoder continues generating tokens until it produces a special end-of-sequence token, signaling that generation is complete.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does BLEU work differently from classification accuracy for evaluating translations?",
+            "options": [
+              "BLEU and accuracy work in exactly the same way",
+              "Multiple valid translations can exist for the same sentence, so BLEU measures overlap with reference translations rather than checking for one single correct answer",
+              "BLEU only evaluates single-word translations",
+              "Accuracy is always a better metric than BLEU for any task"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Because there isn't always one uniquely correct translation, BLEU measures how closely a generated translation overlaps with one or more acceptable references, rather than checking for exact correctness.",
+            "id": "q7"
+          },
+          {
+            "question": "What must a genuine machine translation system model, beyond simple word substitution?",
+            "options": [
+              "Nothing beyond individual word meanings",
+              "Deeper structure like grammar, word order, and idiomatic expressions",
+              "Only the alphabet of the target language",
+              "The physical sound of spoken words only"
+            ],
+            "correctAnswer": 1,
+            "explanation": "True translation requires modeling grammar, word order, and idiomatic phrasing — deeper structural aspects of language that a simple word swap ignores.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "nlp_language_modeling",
+      "title": "Language Modeling: Predicting the Next Word",
+      "description": "Learn the deceptively simple task that underlies text generation and much of modern NLP.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain what a language model does and why this simple task turns out to be so powerful."
+          },
+          {
+            "title": "🔮 The task: predict the next word",
+            "content": "A **language model** is trained to predict the next word (or token) in a sequence, given everything that came before it.\n\n```\n\"The cat sat on the ___\"  → the model predicts a probability distribution over possible next words\n# mat: 0.4, floor: 0.2, chair: 0.1, moon: 0.001, ...\n```\n\nThis sounds almost too simple to be useful — but training on this one task, over a massive amount of text, forces a model to implicitly learn grammar, facts about the world, common patterns of reasoning, and a great deal more, just to get good at this single prediction."
+          },
+          {
+            "title": "✍️ From prediction to generation",
+            "content": "Once trained, a language model can *generate* new text by repeatedly predicting the next word and then feeding that prediction back in as part of the input for predicting the word after it.\n\n```python\n# Conceptual text generation loop\n# text = \"The weather today is\"\n# for _ in range(20):\n#     next_word = language_model.predict_next(text)\n#     text += \" \" + next_word\n```\n\nThis simple repeated-prediction loop is the basic mechanism behind everything from autocomplete to large-scale text-generating AI systems — the underlying idea is exactly this, even though modern systems build enormous additional sophistication on top of it."
+          },
+          {
+            "title": "🎯 Why this connects everything in this module",
+            "content": "The encoder-decoder architecture's decoder is, at its core, doing next-token prediction at each step — generating one word, conditioned on the context vector and everything generated so far. Language modeling is the same fundamental task, just without a separate \"encoder\" input to condition on — it's predicting purely from the text generated so far. This connection is exactly why language modeling becomes such a central, recurring idea in NLP, and sets up the deep dive into modern large language models in a later dedicated course."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Underestimating how much a simple prediction task can teach a model.** Predicting the next word, at massive scale, turns out to implicitly require learning grammar, facts, and reasoning patterns — this simplicity-to-capability gap is one of the most important and surprising ideas in modern NLP.\n\n**Assuming language models only generate text one word at a time with no broader structure.** While generation *does* happen one token at a time, the underlying model can capture long-range structure and coherence across an entire generated passage, not just the immediately preceding word.\n\n**Confusing language modeling with translation.** They're closely related (both involve generating text), but language modeling predicts purely from prior text, without a separate source sequence to translate from."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "nlp_language_modeling_quiz",
+        "questions": [
+          {
+            "question": "What does a language model predict?",
+            "options": [
+              "The sentiment of a document",
+              "The next word (or token) in a sequence, given everything that came before it",
+              "The grammatical category of a single word",
+              "A translation into another language"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A language model's core task is next-token prediction — given the preceding text, it predicts a probability distribution over what word is likely to come next.",
+            "id": "q1"
+          },
+          {
+            "question": "How does a trained language model generate new text?",
+            "options": [
+              "It retrieves pre-written sentences from a database",
+              "By repeatedly predicting the next word and feeding that prediction back in as part of the input for the next prediction",
+              "It requires a human to write each word manually",
+              "It translates existing text from another language"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Text generation from a language model works by looping: predict the next word, append it to the text so far, then predict the next word again — repeating this process to build up a full generated passage.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is it surprising that a model trained only to predict the next word ends up learning so much?",
+            "options": [
+              "It isn't actually surprising — next-word prediction is a trivial task requiring no real learning",
+              "To get good at predicting the next word across massive amounts of diverse text, a model implicitly has to learn grammar, facts, and patterns of reasoning, far beyond simple word prediction",
+              "Language models don't actually learn anything useful from this task",
+              "This task only works for very short sentences"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Although the task itself sounds simple, becoming genuinely good at predicting the next word across huge, diverse amounts of text requires implicitly absorbing an enormous amount of grammatical, factual, and reasoning-related structure — much more than the task's surface simplicity suggests.",
+            "id": "q3"
+          },
+          {
+            "question": "What is the core task a language model is trained to do?",
+            "options": [
+              "Classify the sentiment of a document",
+              "Predict the next word (or token) in a sequence, given everything that came before it",
+              "Translate directly between two languages",
+              "Remove stop words from text"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A language model's fundamental training task is next-token prediction, given the preceding context.",
+            "id": "q4"
+          },
+          {
+            "question": "How does a trained language model generate new text, according to the lesson's example loop?",
+            "options": [
+              "It retrieves the answer from a lookup table",
+              "By repeatedly predicting the next word and appending it to the text before predicting again",
+              "It requires manual input for every single word",
+              "It generates the entire passage in one single step with no iteration"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The generation loop works by predicting one word, adding it to the growing text, then using that updated text to predict the next word, repeating this process.",
+            "id": "q5"
+          },
+          {
+            "question": "What does the lesson say is implicitly learned by a model trained only on next-word prediction, at massive scale?",
+            "options": [
+              "Nothing beyond basic word frequency",
+              "Grammar, facts about the world, and common patterns of reasoning",
+              "Only the alphabet of the language",
+              "Video processing techniques"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Despite the simplicity of the task, becoming good at large-scale next-word prediction forces a model to implicitly absorb grammar, world knowledge, and reasoning patterns.",
+            "id": "q6"
+          },
+          {
+            "question": "How does language modeling relate to the decoder in an encoder-decoder architecture?",
+            "options": [
+              "They are completely unrelated tasks",
+              "The decoder is essentially doing next-token prediction at each step, conditioned on the context vector and prior output — the same core task as language modeling",
+              "Language modeling requires no decoder at all",
+              "Decoders never generate text sequentially"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Both tasks fundamentally involve predicting the next token, with the decoder additionally conditioning on an encoder's context vector, while a standalone language model predicts purely from prior text.",
+            "id": "q7"
+          },
+          {
+            "question": "What is the key difference between language modeling and translation?",
+            "options": [
+              "They are the exact same task with different names",
+              "Language modeling predicts purely from prior text without a separate source sequence, while translation involves converting a distinct source sequence into a target sequence",
+              "Translation never involves generating text",
+              "Language modeling requires labeled parallel text pairs, but translation does not"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Language modeling generates continuations based only on preceding text, whereas translation specifically converts an input sequence in one language into an output sequence in another.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,551 @@
+{
+  "id": "module_4",
+  "title": "Evaluation Metrics Deep Dive",
+  "description": "Go far beyond accuracy: precision, recall, F1, confusion matrices, ROC/AUC, regression metrics, and how to choose the right one for your real problem.",
+  "icon": "🎯",
+  "color": "#43A047",
+  "order": 4,
+  "estimatedHours": 2,
+  "difficulty": "Intermediate",
+  "prerequisites": [
+    "module_3"
+  ],
+  "lessons": [
+    {
+      "id": "ml_precision_recall",
+      "title": "Precision, Recall, and F1 Score",
+      "description": "Go beyond accuracy to understand the two very different kinds of mistakes a classifier can make.",
+      "duration": "10 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can compute precision and recall, and explain the tradeoff between them."
+          },
+          {
+            "title": "🎯 Two kinds of mistakes",
+            "content": "A classifier can be wrong in two different ways:\n\n• A **false positive** — predicting positive when the true answer is negative (a false fraud alarm on a legitimate transaction)\n• A **false negative** — predicting negative when the true answer is positive (missing an actual fraudulent transaction)\n\nThese two kinds of mistakes often matter very differently depending on the problem — accuracy alone treats them as equally bad, which is rarely true in practice."
+          },
+          {
+            "title": "📐 Precision: how trustworthy are the positive predictions?",
+            "content": "**Precision** answers: \"of everything the model flagged as positive, how many actually were?\"\n\n```\nprecision = true positives / (true positives + false positives)\n```\n\nHigh precision matters when false positives are costly — like flagging a legitimate customer's transaction as fraud, or wrongly diagnosing a healthy patient with a disease."
+          },
+          {
+            "title": "📐 Recall: how much did the model actually catch?",
+            "content": "**Recall** answers: \"of everything that was actually positive, how many did the model catch?\"\n\n```\nrecall = true positives / (true positives + false negatives)\n```\n\nHigh recall matters when false negatives are costly — like missing an actual fraudulent transaction, or missing an actual disease diagnosis.\n\n```python\nfrom sklearn.metrics import precision_score, recall_score, f1_score\n\nprecision = precision_score(y_test, predictions)\nrecall = recall_score(y_test, predictions)\nf1 = f1_score(y_test, predictions)  # a single number balancing both\n```"
+          },
+          {
+            "title": "⚖️ The precision-recall tradeoff",
+            "content": "Precision and recall usually trade off against each other — being more aggressive about flagging positives (to catch more true positives, raising recall) usually means more false alarms too (lowering precision), and vice versa.\n\n**F1 score** is the harmonic mean of precision and recall, giving one balanced number when you care about both roughly equally — though for many real problems, one of the two genuinely matters more than the other, and reporting both separately is more honest than collapsing to F1 alone."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Optimizing for accuracy when precision or recall actually matters more for the problem.** Always ask which type of mistake is more costly in the real-world context.\n\n**Reporting F1 without also giving precision and recall separately.** F1 can hide a model that's, say, decent overall but terrible specifically at recall.\n\n**Forgetting that precision and recall depend on the classification threshold.** Changing the probability cutoff for \"positive\" shifts both — they aren't fixed properties of a model, only of a model at a specific threshold."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ml_precision_recall_quiz",
+        "questions": [
+          {
+            "question": "What does precision measure?",
+            "options": [
+              "The fraction of all actual positives that were correctly caught",
+              "Of everything predicted positive, the fraction that was actually positive",
+              "The overall accuracy of the model",
+              "The total number of predictions made"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Precision focuses on the reliability of positive predictions specifically — out of everything flagged as positive, how much of that was correct.",
+            "id": "q1"
+          },
+          {
+            "question": "In a medical screening test, why might recall matter more than precision?",
+            "options": [
+              "False alarms are always worse than missed diagnoses",
+              "Missing an actual disease case (a false negative) can have severe consequences, so catching as many true cases as possible is prioritized",
+              "Precision cannot be computed for medical data",
+              "Recall and precision are always equally important"
+            ],
+            "correctAnswer": 1,
+            "explanation": "When missing a true positive (an actual disease case) is especially costly, prioritizing recall — catching as many real cases as possible, even at the cost of some false alarms — is often the right tradeoff.",
+            "id": "q2"
+          },
+          {
+            "question": "What does the F1 score represent?",
+            "options": [
+              "The sum of precision and recall",
+              "The harmonic mean of precision and recall, giving one balanced score",
+              "The accuracy of a regression model",
+              "The number of false positives only"
+            ],
+            "correctAnswer": 1,
+            "explanation": "F1 combines precision and recall into a single number using their harmonic mean, which is useful when you want one balanced metric — though it can hide which of the two is actually driving the score.",
+            "id": "q3"
+          },
+          {
+            "question": "What does recall measure?",
+            "options": [
+              "Of everything predicted positive, the fraction that was actually positive",
+              "Of all the actual positive cases, the fraction that the model correctly identified",
+              "The overall percentage of correct predictions",
+              "The number of false positives produced"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Recall focuses on catching actual positives — it measures how many of the true positive cases the model successfully found.",
+            "id": "q4"
+          },
+          {
+            "question": "In a spam filter, why might precision matter more than recall in some contexts?",
+            "options": [
+              "Missing a spam email is always worse than blocking a real one",
+              "Marking a legitimate email as spam (a false positive) can mean the user misses something important, which many users find worse than an occasional spam email slipping through",
+              "Precision and recall are always equally weighted for spam filters",
+              "Recall can't be computed for spam filtering"
+            ],
+            "correctAnswer": 1,
+            "explanation": "For some users, the cost of losing a real email to a false spam flag outweighs the annoyance of an occasional spam message getting through, favoring higher precision.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is F1 score specifically the harmonic mean rather than a simple average of precision and recall?",
+            "options": [
+              "The harmonic mean and simple average are actually identical",
+              "The harmonic mean penalizes a large imbalance between precision and recall more heavily than a plain average would, rewarding balance between the two",
+              "It's purely an arbitrary mathematical choice with no practical reason",
+              "F1 is unrelated to either precision or recall"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The harmonic mean drops sharply if either precision or recall is low, which discourages a model from excelling at one while badly neglecting the other.",
+            "id": "q6"
+          },
+          {
+            "question": "What does a precision of 1.0 combined with a very low recall suggest about a model?",
+            "options": [
+              "The model makes no positive predictions at all incorrectly, but is missing many actual positive cases",
+              "The model has perfect overall performance",
+              "The model always predicts the negative class",
+              "Precision and recall can never both take these values together"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Perfect precision with low recall means every positive prediction the model makes is correct, but it's being very conservative and missing many actual positives.",
+            "id": "q7"
+          },
+          {
+            "question": "Why is it common to look at precision and recall together rather than just one alone?",
+            "options": [
+              "Because they always move in the same direction, so checking one is enough",
+              "Because there's typically a tradeoff between them, and viewing both reveals what kind of errors a model is making",
+              "Because computing both takes less time than computing just one",
+              "Precision and recall are actually the same metric"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Precision and recall often trade off against each other, so examining both gives a fuller picture of whether a model is missing positives or generating false alarms.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ml_confusion_roc",
+      "title": "Confusion Matrix and ROC/AUC",
+      "description": "Learn two more visual and numerical tools for understanding a classifier's behavior in full detail.",
+      "duration": "9 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can read a confusion matrix and explain what the ROC curve and AUC score represent."
+          },
+          {
+            "title": "🔢 The confusion matrix",
+            "content": "A **confusion matrix** lays out every combination of predicted vs. actual class in a simple grid — it's the single clearest way to see exactly what kinds of mistakes a classifier is making.\n\n```python\nfrom sklearn.metrics import confusion_matrix\n\ncm = confusion_matrix(y_test, predictions)\nprint(cm)\n#                 predicted: no   predicted: yes\n# actual: no        [[850,            50],\n# actual: yes         [30,            70]]\n```\n\n• **True negatives** (850) — correctly predicted no\n• **False positives** (50) — incorrectly predicted yes\n• **False negatives** (30) — incorrectly predicted no\n• **True positives** (70) — correctly predicted yes\n\nPrecision, recall, and accuracy are all just different ways of summarizing this same grid."
+          },
+          {
+            "title": "📈 The ROC curve",
+            "content": "A classifier's raw output is often a probability, and you choose a threshold (commonly 0.5) to turn it into a final yes/no prediction. The **ROC curve** shows how the true positive rate and false positive rate trade off as that threshold changes, across every possible threshold value at once.\n\n```python\nfrom sklearn.metrics import roc_curve, roc_auc_score\n\nfpr, tpr, thresholds = roc_curve(y_test, predicted_probabilities)\nauc = roc_auc_score(y_test, predicted_probabilities)\n```\n\nA curve that hugs the top-left corner (high true positive rate, low false positive rate) represents a strong classifier; a curve along the diagonal represents one that's no better than random guessing."
+          },
+          {
+            "title": "📊 AUC: one number summarizing the whole curve",
+            "content": "**AUC (Area Under the Curve)** condenses the entire ROC curve into a single number between 0 and 1.\n\n• **AUC = 1.0** — perfect separation between classes across every threshold\n• **AUC = 0.5** — no better than random guessing\n• **AUC around 0.8-0.9** — generally considered strong for most real-world problems\n\nUnlike accuracy or a single precision/recall number, AUC evaluates the model across *all* possible thresholds at once, making it useful for comparing models independent of any one specific cutoff choice."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Reading a confusion matrix's rows and columns backwards.** Always double-check which axis is \"predicted\" and which is \"actual\" for the specific tool or library you're using — conventions vary.\n\n**Using AUC as the only metric when the actual deployed threshold matters a lot.** AUC summarizes performance across all thresholds, but in production you'll pick one specific threshold — it's worth checking metrics at that specific point too.\n\n**Treating AUC = 0.5 as \"okay\" performance.** It specifically means the model is no better than a coin flip at distinguishing the classes."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ml_confusion_roc_quiz",
+        "questions": [
+          {
+            "question": "What does a confusion matrix show?",
+            "options": [
+              "A single overall accuracy percentage",
+              "The full breakdown of predicted vs. actual class combinations — true/false positives and negatives",
+              "Only the false positive rate",
+              "The model's training time"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A confusion matrix lays out every combination of prediction and actual outcome, giving the raw counts that precision, recall, and accuracy are all derived from.",
+            "id": "q1"
+          },
+          {
+            "question": "What does the ROC curve show?",
+            "options": [
+              "The relationship between model size and training time",
+              "How the true positive rate and false positive rate trade off as the classification threshold changes",
+              "The distribution of a single numeric feature",
+              "The number of features used by the model"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The ROC curve plots true positive rate against false positive rate across every possible probability threshold, showing the tradeoff between catching true positives and generating false alarms.",
+            "id": "q2"
+          },
+          {
+            "question": "What does an AUC score of 0.5 indicate about a classifier?",
+            "options": [
+              "Perfect performance",
+              "The classifier performs no better than random guessing at distinguishing the two classes",
+              "The classifier is 50% accurate on all metrics",
+              "An error occurred during evaluation"
+            ],
+            "correctAnswer": 1,
+            "explanation": "AUC of 0.5 corresponds to a ROC curve along the diagonal — the model's ranking of positive vs. negative cases is no better than chance.",
+            "id": "q3"
+          },
+          {
+            "question": "What are the four basic cells found in a binary classification confusion matrix?",
+            "options": [
+              "Mean, median, mode, and range",
+              "True positives, false positives, true negatives, and false negatives",
+              "Precision, recall, F1, and accuracy",
+              "Bias, variance, overfitting, and underfitting"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A binary confusion matrix breaks predictions into these four categories, capturing every combination of predicted vs. actual class.",
+            "id": "q4"
+          },
+          {
+            "question": "How does adjusting the classification threshold move a model along its ROC curve?",
+            "options": [
+              "The threshold has no effect on the ROC curve",
+              "Lowering the threshold to predict positive more easily typically raises both the true positive rate and the false positive rate, moving along the curve",
+              "Adjusting the threshold only changes precision, never the ROC curve",
+              "The ROC curve is fixed regardless of threshold choice"
+            ],
+            "correctAnswer": 1,
+            "explanation": "As the threshold for predicting the positive class is lowered, the model catches more true positives but also more false positives, tracing out different points on the ROC curve.",
+            "id": "q5"
+          },
+          {
+            "question": "What does a higher AUC score (closer to 1.0) indicate about a classifier?",
+            "options": [
+              "The model performs no better than random guessing",
+              "The model does a better job of ranking positive examples higher than negative ones across all thresholds",
+              "The model is heavily overfitting regardless of other factors",
+              "AUC only applies to regression models"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A high AUC reflects that the model consistently assigns higher scores to actual positive examples than to negative ones, across a range of thresholds.",
+            "id": "q6"
+          },
+          {
+            "question": "Why might a confusion matrix be more informative than a single accuracy number?",
+            "options": [
+              "It isn't more informative — accuracy always tells the full story",
+              "It breaks down exactly which types of errors (false positives vs. false negatives) the model is making, not just an overall correctness rate",
+              "A confusion matrix can only be built for regression models",
+              "Confusion matrices hide information that accuracy reveals"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Seeing the specific breakdown of error types lets you diagnose whether a model tends to miss positives, raise false alarms, or both, which accuracy alone can't show.",
+            "id": "q7"
+          },
+          {
+            "question": "For a classifier that predicts the positive class completely at random, what AUC value would you expect?",
+            "options": [
+              "1.0",
+              "Close to 0.5",
+              "0.0",
+              "Exactly equal to its accuracy"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A purely random classifier has no genuine ability to distinguish the two classes, which corresponds to an AUC near 0.5, the same as chance.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ml_regression_metrics_deep",
+      "title": "Regression Metrics in Practice",
+      "description": "Take a deeper, more practical look at choosing between MAE, MSE, RMSE, and R².",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can choose an appropriate regression metric for a given real-world scenario."
+          },
+          {
+            "title": "📏 A quick refresher, plus one new metric: RMSE",
+            "content": "Alongside MAE, MSE, and R² from earlier, **RMSE (Root Mean Squared Error)** — the square root of MSE — is extremely common, because it brings the error back into the original units while still penalizing large errors more than MAE does.\n\n```python\nimport numpy as np\nfrom sklearn.metrics import mean_squared_error\n\nmse = mean_squared_error(y_test, predictions)\nrmse = np.sqrt(mse)   # back in the original units, e.g. dollars\n```"
+          },
+          {
+            "title": "🎯 When to prefer MAE",
+            "content": "**MAE** treats every unit of error equally, regardless of size. Prefer it when occasional large errors shouldn't be weighted extra heavily — for example, predicting delivery time, where being off by 2 hours once isn't dramatically worse than being off by 1 hour twice."
+          },
+          {
+            "title": "🎯 When to prefer RMSE/MSE",
+            "content": "**RMSE/MSE** punish large errors disproportionately. Prefer these when large errors are genuinely much worse than small ones — for example, in structural engineering load predictions, one huge miscalculation could be catastrophic in a way that many tiny ones aren't."
+          },
+          {
+            "title": "🎯 When R² alone isn't enough",
+            "content": "R² gives a convenient 0-to-1-ish summary, but it can be misleading on its own: a model can have a high R² while still having a systematic bias in certain ranges (like consistently underpredicting for very expensive houses). Pairing R² with a look at the actual residuals (plotting predicted vs. actual, or errors vs. predicted) catches problems R² alone can hide.\n\n```python\n# A quick residual check\nresiduals = y_test - predictions\n# plot residuals against predictions — look for any obvious pattern\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Defaulting to RMSE without considering whether large errors deserve extra punishment for this specific problem.** The \"standard\" metric isn't automatically the right one for every situation.\n\n**Reporting R² alone without checking residuals for patterns.** A model can have a deceptively good R² while systematically failing in a specific range of the data.\n\n**Comparing RMSE or MAE values across problems with very different target scales.** An RMSE of 5 is great for predicting a 0-10 rating and terrible for predicting a price in the tens of thousands — always interpret error metrics relative to the target's own scale."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ml_regression_metrics_deep_quiz",
+        "questions": [
+          {
+            "question": "When might MAE be preferred over RMSE for evaluating a regression model?",
+            "options": [
+              "When large errors should be punished much more heavily than small ones",
+              "When every unit of error should be weighted roughly equally, without disproportionately punishing occasional large misses",
+              "MAE should never be used in practice",
+              "When the target variable is categorical"
+            ],
+            "correctAnswer": 1,
+            "explanation": "MAE treats all errors proportionally to their size, without the extra penalty for large errors that squared-error-based metrics like RMSE apply — useful when big and small errors are roughly equally undesirable.",
+            "id": "q1"
+          },
+          {
+            "question": "Why might a model have a good R² score but still have a real problem?",
+            "options": [
+              "R² scores are never misleading",
+              "The model could have a systematic bias in a specific range of the data (like underpredicting for high values) that R² alone doesn't reveal",
+              "A good R² score guarantees the model has no issues",
+              "R² only applies to classification models"
+            ],
+            "correctAnswer": 1,
+            "explanation": "R² summarizes overall fit but can mask localized problems, like consistent underprediction in one part of the range — checking residuals directly can reveal patterns a single summary number hides.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is it misleading to compare RMSE values directly across two very different regression problems?",
+            "options": [
+              "RMSE can't be computed for different problems",
+              "RMSE is expressed in the target's own units and scale, so a 'good' value for one problem (like a 0-10 rating) can be a terrible value for another (like a price in the thousands)",
+              "RMSE is always the same regardless of the target's scale",
+              "There's no issue comparing RMSE across different problems"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Because RMSE is in the same units as the target, its magnitude only makes sense relative to that target's typical scale — comparing raw RMSE values across differently-scaled problems isn't meaningful on its own.",
+            "id": "q3"
+          },
+          {
+            "question": "Why does RMSE punish large errors more than MAE?",
+            "options": [
+              "RMSE ignores large errors entirely",
+              "RMSE squares the errors before averaging (then takes a square root), so bigger mistakes contribute disproportionately more to the final score",
+              "MAE and RMSE are mathematically identical",
+              "RMSE only considers the smallest errors in the dataset"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Because RMSE is based on squared errors, a few very large mistakes can dominate the final score much more than they would under MAE's simple averaging of absolute errors.",
+            "id": "q4"
+          },
+          {
+            "question": "What does it mean if a regression model's residuals (errors) show a clear pattern rather than looking randomly scattered?",
+            "options": [
+              "It means the model is performing perfectly",
+              "It suggests the model is systematically missing some structure in the data that a single overall metric like R² might not reveal",
+              "Residual patterns are always meaningless noise",
+              "Residuals are irrelevant to evaluating a regression model"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A visible pattern in the residuals (like consistently under- or over-predicting in certain ranges) points to structure the model failed to capture, which aggregate metrics can mask.",
+            "id": "q5"
+          },
+          {
+            "question": "Why can't RMSE values be meaningfully compared across two completely different regression problems with different target scales?",
+            "options": [
+              "RMSE is a dimensionless number, so it can always be compared directly",
+              "RMSE is expressed in the same units as the target, so its 'goodness' depends entirely on the scale of that particular problem's target values",
+              "RMSE is only defined for classification, not regression",
+              "There's no issue at all comparing RMSE across problems"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since RMSE inherits the units of the target variable, a given RMSE value that's excellent for one problem's scale could be poor for another problem with very different typical target values.",
+            "id": "q6"
+          },
+          {
+            "question": "What does a very low MAE combined with a much higher RMSE potentially suggest?",
+            "options": [
+              "The model has no errors at all",
+              "The model is usually quite accurate but occasionally makes a few very large errors that RMSE weights heavily",
+              "MAE and RMSE always move together in lockstep",
+              "The dataset must be entirely categorical"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Because RMSE penalizes large errors more, a big gap between a low MAE and a higher RMSE hints at a handful of large outlier errors amid mostly small ones.",
+            "id": "q7"
+          },
+          {
+            "question": "Why might you look at MAE, RMSE, and R² together rather than relying on just one?",
+            "options": [
+              "Only one metric is ever necessary for regression",
+              "Each captures a different aspect — typical error size, sensitivity to large errors, and overall explained variance — giving a fuller picture together",
+              "These three metrics always give identical information",
+              "Reporting more than one metric is against best practice"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Combining these metrics reveals different facets of performance — average error, sensitivity to outliers, and how much of the target's variability is explained — that no single metric fully captures alone.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ml_choosing_metrics",
+      "title": "Choosing the Right Metric for Your Problem",
+      "description": "Bring precision, recall, AUC, and regression metrics together into a practical decision-making framework.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can pick an appropriate evaluation metric by reasoning about the real-world cost of different kinds of errors."
+          },
+          {
+            "title": "❓ Start with the business question, not the metric",
+            "content": "The right metric isn't a technical default — it comes from asking: what happens in the real world when the model gets it wrong, and does that cost differ depending on *which way* it gets it wrong?\n\n• Fraud detection: missing real fraud (false negative) is usually far costlier than a false alarm (false positive) → prioritize **recall**\n• Spam filtering: incorrectly blocking a real email (false positive) is often more annoying than letting one spam email through (false negative) → prioritize **precision**\n• A balanced screening tool with roughly equal costs either way → **F1** or a similar balanced view"
+          },
+          {
+            "title": "🎯 A simple decision framework",
+            "content": "• **Is the target a category?** Start with precision, recall, and a confusion matrix; add AUC if you want a threshold-independent comparison between models\n• **Is the target a number?** Start with MAE or RMSE depending on whether large errors deserve extra punishment; add R² for a normalized sense of overall fit, and always sanity-check residuals\n• **Is the data imbalanced?** Be especially cautious with accuracy — precision/recall (and metrics like AUC) tell a much more honest story"
+          },
+          {
+            "title": "🎯 It's fine — often necessary — to report more than one metric",
+            "content": "Very few real projects are well-served by a single number. A short, honest summary (\"92% recall, 78% precision — we're deliberately catching more fraud at the cost of more manual review\") communicates the real tradeoff far better than optimizing one metric in isolation and reporting only that."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Picking a metric because it's the library's default, not because it fits the problem.** Accuracy being the most commonly shown metric doesn't make it the right one for an imbalanced or asymmetric-cost problem.\n\n**Optimizing a single metric without considering the real-world tradeoff it represents.** Every metric choice implicitly says something about which mistakes matter more — make that choice deliberately.\n\n**Never revisiting the metric choice as the project evolves.** What mattered most at the start of a project (like raw accuracy for a quick prototype) may need to shift once the model heads toward production and real costs are on the line."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ml_choosing_metrics_quiz",
+        "questions": [
+          {
+            "question": "For a fraud detection system, why would you typically prioritize recall over precision?",
+            "options": [
+              "False alarms are always more costly than missed fraud",
+              "Missing actual fraud (a false negative) is usually much more costly than investigating a false alarm, so catching more true fraud cases is prioritized",
+              "Recall is always the better metric regardless of context",
+              "Precision cannot be computed for fraud detection"
+            ],
+            "correctAnswer": 1,
+            "explanation": "When the cost of missing a real case of fraud is high compared to the cost of a false alarm, prioritizing recall (catching as many true positives as possible) reflects the real-world cost tradeoff.",
+            "id": "q1"
+          },
+          {
+            "question": "What should primarily drive the choice of evaluation metric for a project?",
+            "options": [
+              "Whichever metric is the library's default",
+              "The real-world cost of different types of errors for that specific problem",
+              "Whichever metric produces the highest number",
+              "The metric used in the most recent research paper"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The right metric reflects what actually matters in the real-world context — how costly false positives are compared to false negatives, or how much large numeric errors should be punished versus small ones.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is it often better to report multiple metrics rather than optimizing a single one?",
+            "options": [
+              "Multiple metrics are required by law",
+              "A single metric can hide important tradeoffs, while reporting several (like precision and recall together) paints a more complete, honest picture",
+              "Reporting one metric is always sufficient and more metrics just add confusion",
+              "It makes the model train faster"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Optimizing and reporting only one number can obscure a real tradeoff — like recall being high specifically because precision was sacrificed — so pairing complementary metrics usually communicates model behavior more honestly.",
+            "id": "q3"
+          },
+          {
+            "question": "For a spam filter where users are very sensitive to losing real emails, which metric would likely be prioritized?",
+            "options": [
+              "Recall, to catch as much spam as possible regardless of false positives",
+              "Precision, to minimize incorrectly flagging real emails as spam",
+              "Neither metric matters for this use case",
+              "Only training speed matters here"
+            ],
+            "correctAnswer": 1,
+            "explanation": "If the cost of misclassifying a real email as spam is high, prioritizing precision helps minimize those costly false positives.",
+            "id": "q4"
+          },
+          {
+            "question": "How should the relative cost of false positives versus false negatives influence metric choice?",
+            "options": [
+              "It should have no influence at all — always use accuracy",
+              "When one type of error is much more costly than the other, metrics like precision or recall should be weighted accordingly to reflect that asymmetry",
+              "False positives and false negatives always cost the same in every scenario",
+              "Only classification accuracy captures cost asymmetries"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Understanding which type of mistake is more damaging in the real world should directly shape whether precision, recall, or some balance is prioritized.",
+            "id": "q5"
+          },
+          {
+            "question": "Why might a business stakeholder care more about a metric like 'cost saved' than a raw statistical metric like F1 score?",
+            "options": [
+              "Business stakeholders never care about model performance",
+              "A business-oriented metric ties model performance directly to a real-world outcome they understand and can act on",
+              "F1 score is always the more meaningful choice for every audience",
+              "Cost-based metrics can't be computed from a confusion matrix"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Translating classification outcomes into a business-relevant metric (like estimated cost saved or revenue impact) often communicates a model's value more directly than an abstract statistical score.",
+            "id": "q6"
+          },
+          {
+            "question": "Why is it a mistake to choose a metric purely because it produces the highest-looking number?",
+            "options": [
+              "It's never a mistake — the highest number is always the best choice",
+              "A metric should reflect what actually matters for the problem; optimizing for an easy-to-inflate number can hide poor real-world performance",
+              "All metrics always produce similar numeric ranges, so this isn't a real concern",
+              "Metric selection has no effect on how a model is perceived"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Choosing a metric just because it looks favorable, rather than because it reflects the real costs and goals of the problem, can create a misleading sense of success.",
+            "id": "q7"
+          },
+          {
+            "question": "How might the right choice of metric differ between a fraud detection system and a product recommendation system?",
+            "options": [
+              "The same single metric is always correct regardless of the application",
+              "Fraud detection often prioritizes catching true fraud (recall-oriented), while recommendations often prioritize relevance of top suggestions (like precision at top-k)",
+              "Recommendation systems never use any evaluation metrics",
+              "Metric choice is unrelated to the actual application"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The right metric depends on what a system actually needs to get right — catching rare, costly fraud calls for a recall focus, while a recommender's success is often about how relevant its top suggestions are.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

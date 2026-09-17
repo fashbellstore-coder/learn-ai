@@ -1,0 +1,575 @@
+{
+  "id": "sec_responsible_release",
+  "title": "Responsible Release & Governance",
+  "description": "Model cards and responsible documentation, staged rollout as a safety practice, incident response for safety issues, and a practical overview of the regulatory landscape.",
+  "icon": "📋",
+  "color": "#C62828",
+  "order": 5,
+  "estimatedHours": 5,
+  "difficulty": "advanced",
+  "prerequisites": [
+    "sec_privacy_and_data_security"
+  ],
+  "lessons": [
+    {
+      "id": "sec_model_cards_and_documentation",
+      "title": "Model Cards and Responsible Documentation",
+      "description": "A model that ships without honest documentation of its limitations forces every downstream user to rediscover those limitations the hard way.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Describe what a model card documents and why this practice matters for responsible release, connecting to the MLOps course's governance concepts."
+          },
+          {
+            "title": "📋 What a model card typically documents",
+            "content": "The model's intended use cases and, just as importantly, explicitly out-of-scope uses it wasn't designed or evaluated for. Its evaluation results, including the fairness metrics (this course's module 3) and known limitations discovered through evaluation and red teaming (this course's module 1) — not just the flattering benchmark numbers, but the actual known weak points. Training data characteristics (to the extent they can be responsibly disclosed) and any known biases or gaps in that data, per this module's earlier fairness lessons."
+          },
+          {
+            "title": "🔗 Direct extension of the MLOps course's governance and audit-trail lesson",
+            "content": "The MLOps course's governance lesson established that an audit trail should make a model's full provenance and evaluation history reconstructable. A model card is essentially the human-readable, externally-shareable summary of exactly that information — turning the internal audit trail into something a downstream user or deployer (who may not have access to the internal registry and lineage systems) can actually read and use to make an informed decision about whether and how to use the model."
+          },
+          {
+            "title": "🎯 Why 'out-of-scope uses' matters as much as 'intended uses'",
+            "content": "A model evaluated thoroughly for one use case can perform unpredictably on a genuinely different one it was never tested against — explicitly documenting what a model wasn't built or evaluated for helps prevent exactly the kind of unpredictable-failure-in-an-unanticipated-context risk that a purely positive description of intended capabilities wouldn't surface, echoing this course's evaluation-foundations theme that representativeness matters: an evaluation covering intended uses says nothing reliable about performance on uses outside that scope."
+          },
+          {
+            "title": "🎯 Documentation as an ongoing practice, not a one-time artifact",
+            "content": "Mirroring the recurring theme across the MLOps and LLMOps courses that monitoring, evaluation, and registries need ongoing maintenance, not a one-time setup: a model card should be updated as new limitations are discovered in production (per the incident-response practices from the MLOps and LLMOps courses) or as red-teaming (this course's module 1) surfaces new known weaknesses, rather than being frozen at whatever was known at initial release."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "A model card is easiest to keep honest when it's built the same way any other structured artifact is: from real evaluation results, not from memory at release time. The sketch below builds a model-card dict from a list of evaluation gates, separating the ones that passed from the ones that didn't, alongside the intended and out-of-scope uses the lesson describes.\n\n```python\nfrom dataclasses import dataclass\nfrom typing import List, Dict\n\n@dataclass\nclass EvalResult:\n    metric: str\n    value: float\n    passed: bool\n\ndef build_model_card(model_name, intended_uses, out_of_scope_uses,\n                      eval_results, known_limitations, training_data_notes):\n    return {\n        \"model\": model_name,\n        \"intended_uses\": intended_uses,\n        \"out_of_scope_uses\": out_of_scope_uses,\n        \"evaluation_summary\": {\n            \"passed\": [r.metric for r in eval_results if r.passed],\n            \"failed\": [r.metric for r in eval_results if not r.passed],\n        },\n        \"known_limitations\": known_limitations,\n        \"training_data_notes\": training_data_notes,\n    }\n\ncard = build_model_card(\n    model_name=\"support-triage-v3\",\n    intended_uses=[\"Routing English-language support tickets to the correct team\"],\n    out_of_scope_uses=[\n        \"Making final decisions on refunds or account suspensions\",\n        \"Routing non-English tickets\",\n    ],\n    eval_results=[\n        EvalResult(\"fairness_parity_gap\", value=0.03, passed=True),\n        EvalResult(\"red_team_bypass_rate\", value=0.08, passed=False),\n    ],\n    known_limitations=[\"Accuracy drops noticeably on tickets under 10 words\"],\n    training_data_notes=\"English support tickets from 2022-2024; English-speaking regions only.\",\n)\n```\n\nNotice that `card[\"evaluation_summary\"][\"failed\"]` keeps the red-teaming result visible instead of quietly dropping it, and that intended and out-of-scope uses are stored as separate, equally first-class fields — the same categories a downstream deployer would actually need to make an informed decision."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Treating the model card as a one-time launch document.** Once a model card is written at release, teams often never touch it again even as red-teaming and production incidents surface new limitations; a stale model card is worse than an honest \"we don't know yet\" because it actively misleads downstream users into trusting outdated claims.\n\n**Listing only intended uses and skipping out-of-scope uses.** A card that only says what the model is good at gives no signal to a team about to apply it somewhere new; without an explicit out-of-scope list, \"no mention of this use case\" reads as silence rather than as a warning.\n\n**Reporting only the best benchmark numbers.** Cherry-picking favorable evaluation results while omitting known weak points defeats the purpose of the card — a downstream user who discovers the omitted failure mode in production loses trust in every other claim on the card too."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "sec_model_cards_and_documentation_quiz",
+        "questions": [
+          {
+            "question": "What does a model card typically document, beyond just flattering benchmark results?",
+            "options": [
+              "Only the model's marketing claims, with no limitations mentioned",
+              "Intended and explicitly out-of-scope uses, evaluation results including known limitations and fairness metrics, and training data characteristics and known gaps",
+              "Nothing beyond the model's file size and release date",
+              "Only the model's cost per API call"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A responsible model card includes honest disclosure of limitations, out-of-scope uses, and known weaknesses discovered through evaluation and red teaming, not just favorable metrics.",
+            "id": "q1"
+          },
+          {
+            "question": "How does a model card relate to the MLOps course's governance and audit-trail lesson?",
+            "options": [
+              "It has no relationship to that lesson at all",
+              "It's essentially the human-readable, externally-shareable summary of the same provenance and evaluation information an internal audit trail tracks, made accessible to downstream users without internal system access",
+              "A model card replaces the need for an internal audit trail entirely",
+              "Model cards and audit trails serve completely unrelated purposes"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A model card operationalizes the MLOps course's audit-trail concept into something external users can actually read, rather than requiring them to have access to internal registry and lineage systems.",
+            "id": "q2"
+          },
+          {
+            "question": "Why does documenting explicitly out-of-scope uses matter as much as documenting intended uses?",
+            "options": [
+              "Out-of-scope documentation is unnecessary if intended uses are well-documented",
+              "A model evaluated thoroughly for one use case can perform unpredictably on a genuinely different one never tested against, so documenting scope limits helps prevent unanticipated-context failures",
+              "Models never actually behave differently outside their intended use case",
+              "Only intended uses need any documentation at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since evaluation representativeness (per this course's foundations module) only says something about tested use cases, explicitly flagging out-of-scope uses helps prevent unpredictable failures when a model is applied somewhere it was never evaluated for.",
+            "id": "q3"
+          },
+          {
+            "question": "According to this lesson, what should a model card say about training data?",
+            "options": [
+              "Nothing — training data is always considered irrelevant to a model card",
+              "Training data characteristics, to the extent they can be responsibly disclosed, and any known biases or gaps in that data",
+              "Only the exact file paths where the training data is stored internally",
+              "The full raw training dataset must always be published alongside the model"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson describes documenting training data characteristics (within responsible disclosure limits) along with known biases or gaps, connecting to this module's earlier fairness lessons.",
+            "id": "q4"
+          },
+          {
+            "question": "Why should a model card be treated as an ongoing practice rather than a one-time artifact, per this lesson?",
+            "options": [
+              "Because model cards legally expire after a fixed period and must be reissued",
+              "Because new limitations surface in production and through ongoing red-teaming, mirroring the MLOps and LLMOps courses' theme that monitoring, evaluation, and registries need ongoing maintenance, not a one-time setup",
+              "Because regulators require a brand-new model card to be written every week regardless of any new findings",
+              "Because the original model card is discarded entirely each time it is updated"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This lesson connects model-card maintenance to the recurring MLOps/LLMOps theme that safety-relevant artifacts need continual upkeep as new information (from production incidents or red-teaming) becomes available.",
+            "id": "q5"
+          },
+          {
+            "question": "In the build_model_card code example, what does the evaluation_summary field separate?",
+            "options": [
+              "The model's cost metrics from its latency metrics",
+              "Evaluation metrics that passed their gate from those that didn't, based on each EvalResult's passed flag",
+              "Intended uses from out-of-scope uses",
+              "Training data notes from known limitations"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The function builds evaluation_summary by filtering eval_results into a 'passed' list and a 'failed' list using each EvalResult's boolean passed field.",
+            "id": "q6"
+          },
+          {
+            "question": "Given the eval_results passed into the code example's call to build_model_card, what does card['evaluation_summary']['failed'] contain?",
+            "options": [
+              "An empty list, since both evaluation results passed",
+              "['red_team_bypass_rate'], since that EvalResult was constructed with passed=False",
+              "['fairness_parity_gap'], since that metric name comes first",
+              "Both metric names, since the function does not actually distinguish passed from failed"
+            ],
+            "correctAnswer": 1,
+            "explanation": "EvalResult('red_team_bypass_rate', value=0.08, passed=False) is the only entry with passed=False, so it is the sole item that lands in the 'failed' list.",
+            "id": "q7"
+          },
+          {
+            "question": "Why is reporting only favorable benchmark numbers on a model card considered a mistake in this lesson?",
+            "options": [
+              "Because benchmark numbers are never useful on a model card in the first place",
+              "Because it omits known weak points, and a downstream user who discovers the omitted failure mode in production loses trust in every other claim on the card too",
+              "Because regulators forbid including any benchmark numbers on a model card",
+              "Because favorable numbers are always inaccurate by definition"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Cherry-picking favorable results defeats the honest-disclosure purpose of a model card and can damage trust in the entire document once an omitted weakness surfaces in production.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "sec_staged_rollout_for_safety",
+      "title": "Staged Rollout as a Safety Practice",
+      "description": "The MLOps course's deployment strategies were framed around catching bugs and performance regressions. Applied to safety, the same gradual-exposure logic catches harms before they reach everyone.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Apply the MLOps and LLMOps courses' deployment strategies specifically to safety risk, explaining what changes when the concern is harm rather than just quality or performance."
+          },
+          {
+            "title": "🔗 Direct application of canary, shadow, and gradual rollout",
+            "content": "Everything the MLOps course's deployment-strategies lesson established applies directly to safety: canary deployment limits the population exposed to a new model or feature while safety-relevant monitoring (this course's red-teaming and fairness metrics, alongside the LLMOps course's hallucination and quality monitoring) watches for problems, and shadow deployment lets a new version's behavior be observed against real traffic patterns before it ever actually affects a real user — the same infrastructure, now specifically watching for safety signals rather than only quality or performance signals."
+          },
+          {
+            "title": "🎯 What's different when safety, not just quality, is the concern",
+            "content": "A quality regression caught during a canary rollout is usually an inconvenience; a safety regression caught during a canary rollout (a jailbreak that works, a fairness issue affecting a subset of users, a harmful-content generation) has affected real people, even if only a small fraction of total traffic — this raises the stakes of catching problems as early and as small-scale as possible, and argues for erring toward a smaller initial rollout population and more conservative expansion criteria specifically when safety is the primary concern, compared to a pure quality/performance rollout."
+          },
+          {
+            "title": "👥 Staged rollout by risk tier, not just by traffic percentage",
+            "content": "Beyond simply limiting the percentage of traffic, staged rollout for safety can also mean limiting exposure by context or use case — releasing a new capability first to lower-stakes contexts (internal testing, a specific limited-audience beta) before expanding to higher-stakes or more general contexts, mirroring the risk-calibrated governance principle from the MLOps course's governance lesson, just applied to controlling initial exposure rather than controlling review rigor."
+          },
+          {
+            "title": "🎯 Combining staged rollout with the evaluation gates from earlier in this curriculum",
+            "content": "A staged rollout's expansion decision at each stage should be gated on passing the safety-specific evaluation criteria from this course (red-teaming results, fairness metrics, harmful-content rates) in addition to the quality and performance gates from the LLMOps course — mirroring that course's multi-dimensional gating principle directly, just with safety added as an explicit, non-negotiable dimension rather than an afterthought."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "The gate described above can be written as a small decision function: given the current rollout tier and the latest safety-gate readings, decide whether to expand or hold. The sketch below uses fixed traffic tiers and requires both a red-teaming bypass-rate gate and a fairness parity-gap gate to pass before expanding.\n\n```python\nROLLOUT_TIERS = [1, 5, 25, 50, 100]  # percent of traffic\n\ndef next_rollout_stage(current_tier_index, red_team_bypass_rate, fairness_parity_gap,\n                        max_bypass_rate=0.02, max_parity_gap=0.05):\n    # Only expand if BOTH safety gates are within their thresholds.\n    safety_gates_pass = (\n        red_team_bypass_rate <= max_bypass_rate\n        and fairness_parity_gap <= max_parity_gap\n    )\n    if not safety_gates_pass:\n        return {\"action\": \"hold\", \"tier_percent\": ROLLOUT_TIERS[current_tier_index]}\n    if current_tier_index + 1 >= len(ROLLOUT_TIERS):\n        return {\"action\": \"hold\", \"tier_percent\": ROLLOUT_TIERS[current_tier_index]}\n    next_index = current_tier_index + 1\n    return {\"action\": \"expand\", \"tier_percent\": ROLLOUT_TIERS[next_index]}\n\n# At the 5% tier, red-teaming found a 3% bypass rate against a 2% gate\ndecision = next_rollout_stage(current_tier_index=1, red_team_bypass_rate=0.03, fairness_parity_gap=0.01)\n# decision == {\"action\": \"hold\", \"tier_percent\": 5}\n```\n\nEven though the fairness gate passed comfortably, the failed red-teaming gate alone is enough to hold the rollout at its current tier — exactly the 'safety added as a non-negotiable dimension' gating this lesson describes, rather than averaging the two signals together."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Gating expansion on quality metrics alone.** Carrying over only the LLMOps course's performance and quality gates without adding red-teaming and fairness thresholds lets a rollout expand past a real safety problem simply because it \"felt\" like a normal deployment.\n\n**Using the same rollout aggressiveness for safety-sensitive changes as for routine ones.** A team that expands a safety-relevant change from 5% to 50% on the same schedule it would use for a routine UI tweak treats a fundamentally different risk profile as if it were ordinary, and ends up finding safety problems only after they've reached far more users than necessary.\n\n**Staging only by traffic percentage and ignoring context.** Sending a new capability to 5% of general traffic isn't the same as sending it first to a genuinely lower-stakes context; percentage alone can accidentally include high-stakes users in the very first stage."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "sec_staged_rollout_for_safety_quiz",
+        "questions": [
+          {
+            "question": "How does staged rollout for safety build directly on the MLOps course's deployment strategies?",
+            "options": [
+              "It has no relationship to the MLOps course's deployment strategies",
+              "It applies the same canary and shadow deployment infrastructure, but with safety-relevant monitoring (red-teaming results, fairness metrics) watching for problems instead of only quality or performance signals",
+              "Staged rollout for safety uses a completely different mechanism unrelated to canary or shadow deployment",
+              "Safety-focused rollout requires deploying to 100% of traffic immediately with no staging"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The same gradual-exposure infrastructure from the MLOps course applies directly, just with safety-specific signals being monitored during each rollout stage.",
+            "id": "q1"
+          },
+          {
+            "question": "Why does a safety regression caught during a canary rollout raise different stakes than a quality regression?",
+            "options": [
+              "Safety and quality regressions are always equally consequential with no difference in stakes",
+              "A safety regression has affected real people, even at small scale, which argues for more conservative initial rollout populations and expansion criteria specifically when safety is the concern",
+              "Safety regressions are actually less serious than quality regressions",
+              "Canary rollouts cannot actually catch any safety-relevant issues"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since a safety issue means real harm occurred even at small scale (unlike a quality inconvenience), this lesson argues for more conservative rollout practices specifically when safety is at stake.",
+            "id": "q2"
+          },
+          {
+            "question": "What does staging rollout 'by risk tier' mean, beyond just limiting traffic percentage?",
+            "options": [
+              "It means nothing different from limiting traffic percentage",
+              "Limiting exposure by context or use case (releasing first to lower-stakes contexts before expanding to higher-stakes ones), mirroring the MLOps course's risk-calibrated governance principle",
+              "Risk-tier staging is identical to random traffic sampling",
+              "Risk tiers only apply to classical ML deployments, never LLM systems"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Beyond simple traffic percentages, staging by context (internal testing, limited beta, general release) applies the same risk-calibration principle from the MLOps governance lesson to controlling initial exposure.",
+            "id": "q3"
+          },
+          {
+            "question": "According to this lesson, what does shadow deployment allow, as directly inherited from the MLOps course?",
+            "options": [
+              "Immediately routing all production traffic to the new version with no observation period",
+              "Observing a new version's behavior against real traffic patterns before it ever actually affects a real user",
+              "Skipping safety monitoring entirely since the new version isn't live yet",
+              "Deploying only to internal employees permanently, with no path to general release"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson describes shadow deployment as letting a new version's behavior be observed against real traffic before it ever actually affects a real user — the same mechanism from the MLOps course, now watching for safety signals too.",
+            "id": "q4"
+          },
+          {
+            "question": "Which of the following is given as an example of a 'lower-stakes context' to release a new capability to first, per this lesson?",
+            "options": [
+              "The full general-availability user base on day one",
+              "Internal testing or a specific limited-audience beta",
+              "Only the highest-traffic production region",
+              "A context is never lower- or higher-stakes; all contexts are treated identically"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson names internal testing and a limited-audience beta as examples of lower-stakes contexts to release to before expanding to higher-stakes or more general contexts.",
+            "id": "q5"
+          },
+          {
+            "question": "In the next_rollout_stage example, if red_team_bypass_rate exceeds max_bypass_rate but fairness_parity_gap is well within its threshold, what does the function return?",
+            "options": [
+              "An expansion to the next tier, since fairness passed",
+              "A hold at the current tier, because safety_gates_pass requires both the bypass-rate and parity-gap conditions to hold",
+              "A crash, since the function cannot handle a single failing gate",
+              "An expansion straight to the 100% tier regardless of tier index"
+            ],
+            "correctAnswer": 1,
+            "explanation": "safety_gates_pass is computed with 'and', so a single failing gate (the bypass rate here) is enough to hold the rollout at its current tier even if the other gate passes comfortably.",
+            "id": "q6"
+          },
+          {
+            "question": "In the code example's call next_rollout_stage(current_tier_index=1, red_team_bypass_rate=0.03, fairness_parity_gap=0.01), what tier_percent does the result contain?",
+            "options": [
+              "25, the next tier in ROLLOUT_TIERS",
+              "5, the current tier, since the bypass rate of 0.03 exceeds the default max_bypass_rate of 0.02",
+              "100, since the function always maxes out on a hold",
+              "1, the very first tier in ROLLOUT_TIERS"
+            ],
+            "correctAnswer": 1,
+            "explanation": "current_tier_index=1 corresponds to ROLLOUT_TIERS[1] == 5. Since 0.03 exceeds the default max_bypass_rate of 0.02, safety_gates_pass is False and the function holds at tier_percent 5.",
+            "id": "q7"
+          },
+          {
+            "question": "Why is gating rollout expansion on quality metrics alone considered a mistake for safety-relevant changes, per this lesson?",
+            "options": [
+              "Quality metrics are always identical to safety metrics, so this isn't actually a mistake",
+              "It lets a rollout expand past a real safety problem simply because red-teaming and fairness thresholds were never added as explicit, non-negotiable gates",
+              "Quality metrics should never be checked during any rollout, safety-related or not",
+              "This is only a mistake for classical ML systems, never for LLM-based ones"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Without adding safety-specific gates (red-teaming, fairness) on top of the LLMOps course's quality and performance gates, a rollout can pass every quality check while still expanding past an unresolved safety issue.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "sec_incident_response_for_safety_issues",
+      "title": "Incident Response for Safety Issues",
+      "description": "The same contain-diagnose-review structure from the MLOps and LLMOps courses, with safety-specific containment options and disclosure obligations layered in.",
+      "duration": 13,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Apply the incident-response structure from the MLOps and LLMOps courses to a safety-specific incident, identifying what's added."
+          },
+          {
+            "title": "🚨 Detection: safety-specific signals",
+            "content": "Beyond the operational, drift, and quality signals from the MLOps and LLMOps courses, safety incident detection also draws on this course's own signals: a successful jailbreak discovered through red-teaming or reported by a user, a fairness metric crossing an unacceptable threshold, or a safety classifier's monitored bypass rate spiking — extending the same 'monitoring signal crosses a threshold, or an external report' detection structure with safety-specific sources added."
+          },
+          {
+            "title": "🩹 Containment: safety-specific options",
+            "content": "Mirroring the rollback priority from the MLOps and LLMOps courses directly, with safety-specific containment tools available too: rolling back to a known-safe prompt or model version (fastest, per the LLMOps course's rollback lesson), but also potentially disabling a specific feature or capability entirely (rather than the whole system) if the safety issue is narrowly scoped to that capability, or tightening a safety classifier's threshold temporarily (accepting more false positives in exchange for fewer false negatives during the incident) as a faster, more surgical containment option than a full rollback."
+          },
+          {
+            "title": "🔍 Diagnosis: using this course's failure categories",
+            "content": "Determining which category applies — a jailbreak technique that evaded model-level safety training, a fairness issue traced to a specific bias source (this module's earlier lessons), a privacy leak traced to specific training data via lineage (this course's privacy module) — using the same tracing and lineage infrastructure from the MLOps and LLMOps courses to actually pinpoint the cause, exactly the diagnostic payoff those courses' infrastructure was built to provide, now applied to a safety-specific question."
+          },
+          {
+            "title": "📢 A safety-specific addition: disclosure obligations",
+            "content": "Beyond the internal post-incident review the MLOps course described, a safety incident (especially one involving privacy leakage or harm to actual users) can carry disclosure obligations — to affected users, to regulators, or to the public, depending on the severity and applicable requirements — that a pure quality or performance incident typically doesn't, which is a genuinely new consideration this course's safety focus adds on top of the MLOps and LLMOps courses' incident-response structure, and one that often needs legal and communications involvement beyond the purely technical team."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "The detect/contain/diagnose/disclose structure above can be sketched as a single routing function that takes what's known about an incident and decides an action for each stage. The version below keeps the mapping deliberately simple: containment escalates with severity, and disclosure is required only when real users were affected and either the severity is high or privacy data was involved.\n\n```python\ndef route_safety_incident(signal_source, severity, affects_users, involves_privacy_data):\n    # signal_source: 'red_team' | 'user_report' | 'fairness_monitor' | 'classifier_bypass'\n    stage_actions = {\"detect\": f\"logged via {signal_source}, severity={severity}\"}\n\n    if severity in (\"high\", \"critical\"):\n        stage_actions[\"contain\"] = \"disable affected capability immediately\"\n    else:\n        stage_actions[\"contain\"] = \"tighten safety classifier threshold temporarily\"\n\n    stage_actions[\"diagnose\"] = \"trace via lineage/audit trail to find root cause category\"\n\n    requires_disclosure = affects_users and (severity in (\"high\", \"critical\") or involves_privacy_data)\n    stage_actions[\"disclose\"] = (\n        \"notify affected users/regulators; loop in legal & comms\"\n        if requires_disclosure\n        else \"internal post-incident review only\"\n    )\n    return stage_actions\n\nincident = route_safety_incident(\n    signal_source=\"user_report\",\n    severity=\"high\",\n    affects_users=True,\n    involves_privacy_data=False,\n)\n```\n\nFor this call, incident['disclose'] resolves to the external-notification path even though involves_privacy_data is False, because severity alone ('high') is enough to trigger it once real users are affected — showing the disclosure stage as a genuinely separate decision from containment, not just a rename of the same severity check."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Reaching for a full rollback as the only containment option.** Defaulting to the most disruptive option even when a narrowly scoped fix (disabling one capability, tightening a classifier threshold) would contain the harm faster and with less collateral disruption wastes the time when speed matters most.\n\n**Treating disclosure as optional or an afterthought.** Skipping or delaying notification to affected users, regulators, or the public because the incident feels \"mostly technical\" ignores that safety incidents can carry legal and ethical obligations a quality bug never did — and delay itself can become a separate problem.\n\n**Diagnosing without using lineage/audit-trail infrastructure.** Guessing at a root cause instead of tracing it through the same lineage tooling built for exactly this purpose risks misdiagnosing the failure category (for example, blaming a jailbreak technique when the real cause was a fairness-related bias source) and applying the wrong fix."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "sec_incident_response_for_safety_issues_quiz",
+        "questions": [
+          {
+            "question": "What safety-specific detection signals does this lesson add on top of the MLOps and LLMOps courses' incident-detection structure?",
+            "options": [
+              "No new signals are added — detection is identical across all three courses",
+              "A successful jailbreak found through red-teaming, a fairness metric crossing a threshold, or a spike in a safety classifier's bypass rate",
+              "Only classical ML drift signals are relevant to safety incidents",
+              "Safety incidents can never actually be detected through any monitoring signal"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This course's own practices (red-teaming, fairness metrics, safety classifiers) provide additional detection sources layered onto the general incident-detection structure from earlier courses.",
+            "id": "q1"
+          },
+          {
+            "question": "What is a more surgical containment option for a safety incident than a full rollback, per this lesson?",
+            "options": [
+              "There is no containment option other than a complete system shutdown",
+              "Disabling a specific feature or capability narrowly, or temporarily tightening a safety classifier's threshold to accept more false positives in exchange for fewer false negatives",
+              "Ignoring the incident until a full rollback can be planned over several weeks",
+              "Containment options for safety incidents are identical to those for quality incidents with no distinction"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Narrowly scoped containment (disabling a specific capability, tightening a classifier threshold) can be faster and more surgical than a full system rollback when a safety issue is narrowly scoped.",
+            "id": "q2"
+          },
+          {
+            "question": "What genuinely new consideration does this lesson add to incident response beyond the MLOps course's structure?",
+            "options": [
+              "Nothing new is added — safety incident response is identical to quality incident response",
+              "Disclosure obligations to affected users, regulators, or the public, which a pure quality or performance incident typically doesn't carry, often requiring legal and communications involvement",
+              "Safety incidents never require any post-incident review at all",
+              "Disclosure obligations only apply to classical ML systems, never LLM-based ones"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Disclosure obligations are a safety-specific addition this course introduces on top of the general incident-response structure, reflecting that safety incidents can have external stakeholders and legal implications quality incidents typically don't.",
+            "id": "q3"
+          },
+          {
+            "question": "Which of these is listed in this lesson as a safety-specific detection signal, beyond operational, drift, and quality signals?",
+            "options": [
+              "A safety classifier's monitored bypass rate spiking",
+              "A drop in server CPU utilization",
+              "An increase in the number of code deployments per week",
+              "A change in the company's stock price"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson names a safety classifier's monitored bypass rate spiking as one of the safety-specific detection sources, alongside red-team-discovered jailbreaks and fairness metrics crossing a threshold.",
+            "id": "q4"
+          },
+          {
+            "question": "How does the diagnosis stage described in this lesson use the same infrastructure as the MLOps and LLMOps courses?",
+            "options": [
+              "It deliberately avoids using any infrastructure from those courses and builds entirely new tooling",
+              "It uses the same tracing and lineage infrastructure to pinpoint a specific failure category, such as a jailbreak technique, a bias source, or a privacy leak traced to specific training data",
+              "Diagnosis in this lesson is purely a legal process with no technical component",
+              "The diagnosis stage is skipped entirely for safety incidents"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson explicitly reuses the tracing and lineage infrastructure from the MLOps and LLMOps courses to pinpoint the root cause category of a safety incident, exactly the diagnostic payoff that infrastructure was built to provide.",
+            "id": "q5"
+          },
+          {
+            "question": "In the route_safety_incident example, what determines whether the contain stage disables the capability entirely versus tightening a classifier threshold?",
+            "options": [
+              "Whether affects_users is True or False",
+              "Whether severity is 'high' or 'critical' (disable the capability) versus any other severity value (tighten the classifier threshold instead)",
+              "Whether involves_privacy_data is True or False",
+              "The value of signal_source alone determines containment, regardless of severity"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The function checks `if severity in ('high', 'critical')` to choose full capability disablement, falling back to a threshold-tightening containment action for any other severity value.",
+            "id": "q6"
+          },
+          {
+            "question": "In the code example, when does requires_disclosure evaluate to True?",
+            "options": [
+              "Whenever signal_source is 'user_report', regardless of any other factor",
+              "When affects_users is True and either severity is 'high'/'critical' or involves_privacy_data is True",
+              "Only when involves_privacy_data is True, regardless of whether users were affected",
+              "requires_disclosure is always True for every incident, by design"
+            ],
+            "correctAnswer": 1,
+            "explanation": "requires_disclosure is computed as `affects_users and (severity in (\"high\", \"critical\") or involves_privacy_data)`, so it requires real users to be affected plus either high severity or privacy involvement.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson flag treating disclosure as optional or an afterthought as a mistake?",
+            "options": [
+              "Because disclosure is never actually required for any kind of incident",
+              "Because safety incidents can carry legal and ethical obligations that a purely technical quality bug never did, and delaying disclosure can itself become a separate problem",
+              "Because disclosure should always happen before containment is even attempted",
+              "Because only regulators, never users, ever need to be notified of a safety incident"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson treats disclosure as a genuinely new, non-optional consideration for safety incidents, distinct from the purely internal post-incident review a quality incident typically gets.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "sec_regulatory_landscape_overview",
+      "title": "The Regulatory Landscape: A Practical Overview",
+      "description": "Regulation in this space is still evolving quickly — but the underlying principles it tends to codify are ones this course has already covered as good practice.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Describe the general categories of AI regulation and explain why the technical practices from this curriculum are the foundation for compliance, not a separate concern."
+          },
+          {
+            "title": "📜 General categories of AI-related regulation",
+            "content": "Sector-specific rules (finance, healthcare, employment) that predate modern AI but apply to any automated decision-making, including ML-based systems, in those domains. AI-specific regulation emerging in various jurisdictions that categorizes systems by risk level and imposes requirements (documentation, evaluation, human oversight) that scale with that risk level. Data protection regulation governing how personal data can be collected, used, and retained, directly relevant to the privacy practices from this course's fourth module."
+          },
+          {
+            "title": "🎯 Why 'risk-based' regulatory approaches echo this course's own structure",
+            "content": "Many emerging AI regulatory frameworks explicitly scale requirements to risk level — more documentation, more evaluation, more human oversight for higher-stakes applications — which is exactly the same risk-calibration principle this curriculum applied repeatedly on its own technical merits: the MLOps course's governance lesson, the Agents course's guardrails lesson, and this course's staged-rollout lesson all independently arrived at 'match the rigor to the actual stakes' well before considering any specific regulatory requirement, because it's simply good practice, not only a compliance obligation."
+          },
+          {
+            "title": "🔗 How this curriculum's practices map to typical compliance needs",
+            "content": "Model cards and documentation (this module) map directly to disclosure and transparency requirements common across regulatory frameworks. Evaluation results and fairness metrics (this course's modules 0 and 3) map to the evaluation and bias-assessment requirements many frameworks impose for higher-risk applications. Audit trails and lineage (the MLOps course) map to the provenance and accountability documentation regulators typically expect to be able to request. This isn't a coincidence — sound technical practice and regulatory compliance are pointed at largely the same underlying goals."
+          },
+          {
+            "title": "🎯 A practical takeaway, not a substitute for legal advice",
+            "content": "This lesson is not legal guidance, and the specific regulatory landscape varies by jurisdiction, industry, and application, and changes over time — a genuinely compliant system needs actual legal review specific to its context. But the practical takeaway for a technical practitioner is that building the practices covered throughout this curriculum (versioning, evaluation, monitoring, governance, red-teaming, fairness assessment, privacy protection) is largely the same work as building toward regulatory readiness, not a separate, additional burden layered on top of already-good engineering practice."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "The risk-based scaling this lesson describes can be sketched as a lookup from a system's risk tier to the documentation and evaluation artifacts that tier is expected to have on hand, with an extra requirement layered on when personal data is involved.\n\n```python\nRISK_TIER_REQUIREMENTS = {\n    \"minimal\": [\"basic documentation\"],\n    \"limited\": [\"basic documentation\", \"model card with intended/out-of-scope uses\"],\n    \"high\": [\n        \"basic documentation\",\n        \"model card with intended/out-of-scope uses\",\n        \"fairness evaluation results\",\n        \"red-team evaluation results\",\n        \"human oversight process documented\",\n        \"audit trail / provenance record\",\n    ],\n}\n\ndef compliance_checklist(risk_tier, involves_personal_data):\n    checklist = list(RISK_TIER_REQUIREMENTS.get(risk_tier, RISK_TIER_REQUIREMENTS[\"minimal\"]))\n    if involves_personal_data:\n        checklist.append(\"data protection / privacy impact assessment\")\n    return checklist\n\nchecklist = compliance_checklist(\"high\", involves_personal_data=True)\n```\n\nThe checklist grows from a single item at the minimal tier to six at the high tier — model cards, fairness and red-team results, human oversight, and audit trails, nearly all of which are practices this curriculum already teaches as good engineering — and the personal-data flag adds one more requirement on top, regardless of tier."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Treating compliance as a separate project bolted on after engineering is done.** Waiting until close to release to retrofit documentation and evaluation artifacts is far more expensive than building them into the workflow from the start, since most of the underlying practice (versioning, evaluation, monitoring) is work good engineering already requires.\n\n**Assuming one jurisdiction's rules cover every deployment.** Regulatory requirements vary by jurisdiction, industry, and application and change over time; treating a single compliance checklist as universally sufficient risks missing sector-specific or regional requirements.\n\n**Mistaking this kind of overview for actual legal advice.** Relying on a technical curriculum's practical summary instead of getting context-specific legal review can leave a genuinely non-compliant gap that only a lawyer familiar with the applicable jurisdiction and industry would catch."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "sec_regulatory_landscape_overview_quiz",
+        "questions": [
+          {
+            "question": "What do many emerging AI-specific regulatory frameworks scale their requirements to?",
+            "options": [
+              "The programming language used to build the system",
+              "Risk level — imposing more documentation, evaluation, and human oversight requirements for higher-stakes applications",
+              "The number of employees at the company deploying the system",
+              "The physical location of the servers running the model"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Risk-based scaling of requirements (more rigor for higher-stakes applications) is a common pattern across many emerging AI regulatory approaches.",
+            "id": "q1"
+          },
+          {
+            "question": "How does the risk-based approach in AI regulation relate to principles already covered elsewhere in this curriculum?",
+            "options": [
+              "It's a completely novel concept with no connection to anything covered earlier",
+              "It echoes the same 'match the rigor to the actual stakes' principle independently applied in the MLOps course's governance lesson, the Agents course's guardrails lesson, and this course's staged-rollout lesson",
+              "Regulatory risk-based approaches contradict everything taught earlier in this curriculum",
+              "Risk-based regulation only applies to classical ML, never to LLM systems"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This lesson explicitly connects the regulatory pattern to a principle this curriculum arrived at independently and repeatedly as good technical practice, before any specific regulatory requirement was even considered.",
+            "id": "q2"
+          },
+          {
+            "question": "What is the practical takeaway this lesson offers for a technical practitioner, short of being legal advice?",
+            "options": [
+              "Regulatory compliance requires an entirely separate set of practices unrelated to good engineering",
+              "Building the practices covered throughout this curriculum (versioning, evaluation, monitoring, governance, red-teaming, fairness, privacy) is largely the same work as building toward regulatory readiness, not a separate additional burden",
+              "Technical practitioners should ignore regulation entirely since it changes too often to matter",
+              "This lesson provides definitive legal guidance applicable to every jurisdiction"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson frames sound technical practice and regulatory compliance as substantially overlapping goals, while explicitly noting it isn't a substitute for actual legal review specific to a given context.",
+            "id": "q3"
+          },
+          {
+            "question": "Which category of AI-related regulation is described as predating modern AI but still applying to automated decision-making within specific domains?",
+            "options": [
+              "Sector-specific rules, such as finance, healthcare, and employment regulation",
+              "AI-specific regulation that categorizes systems purely by model architecture",
+              "International trade tariffs on computing hardware",
+              "Open-source software licensing requirements"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson names sector-specific rules (finance, healthcare, employment) as predating modern AI while still applying to any automated decision-making, including ML-based systems, in those domains.",
+            "id": "q4"
+          },
+          {
+            "question": "Per this lesson, what do model cards and documentation map to in typical compliance frameworks?",
+            "options": [
+              "Tax reporting requirements specific to the technology sector",
+              "Disclosure and transparency requirements common across regulatory frameworks",
+              "Requirements that only apply to systems that don't use any personal data",
+              "Nothing — model cards are described as having no relevance to compliance"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson maps model cards and documentation (this module's focus) directly to the disclosure and transparency requirements common across regulatory frameworks.",
+            "id": "q5"
+          },
+          {
+            "question": "What does compliance_checklist('high', involves_personal_data=True) include beyond the base six-item 'high' tier list?",
+            "options": [
+              "Nothing — the personal-data flag is ignored by the function",
+              "An appended 'data protection / privacy impact assessment' item, added on top of the tier's base requirements",
+              "A complete replacement of the checklist with only privacy-related items",
+              "A downgrade to the 'limited' tier's shorter requirement list"
+            ],
+            "correctAnswer": 1,
+            "explanation": "When involves_personal_data is True, the function appends 'data protection / privacy impact assessment' to whatever list RISK_TIER_REQUIREMENTS.get(...) returned, on top of the tier's base items.",
+            "id": "q6"
+          },
+          {
+            "question": "What does compliance_checklist return if given a risk_tier string that isn't a key in RISK_TIER_REQUIREMENTS (for example, a typo)?",
+            "options": [
+              "It raises a KeyError immediately",
+              "It falls back to RISK_TIER_REQUIREMENTS['minimal'], the default supplied to the dict's .get() call",
+              "It returns an empty list with no items at all",
+              "It automatically falls back to the 'high' tier's full six-item list"
+            ],
+            "correctAnswer": 1,
+            "explanation": "RISK_TIER_REQUIREMENTS.get(risk_tier, RISK_TIER_REQUIREMENTS['minimal']) supplies 'minimal' as the default value returned when risk_tier isn't a recognized key, avoiding a KeyError.",
+            "id": "q7"
+          },
+          {
+            "question": "Why is treating compliance as a separate project bolted on after engineering is complete considered a mistake, per this lesson?",
+            "options": [
+              "Because compliance work is entirely unrelated to engineering and should always happen separately anyway",
+              "Because retrofitting documentation and evaluation artifacts late is far more expensive than building them into the workflow from the start, since most of the underlying practice is already good engineering",
+              "Because regulators never actually check documentation that was written after release",
+              "Because compliance requirements never change once a system is initially built"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson argues that since most compliance-relevant practice (versioning, evaluation, monitoring) overlaps with good engineering, building it in from the start is cheaper than retrofitting it as a separate late-stage project.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

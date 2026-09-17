@@ -1,0 +1,571 @@
+{
+  "id": "app_background_jobs",
+  "title": "Background Jobs & Queues",
+  "description": "Why AI tasks need a queue, Celery/RQ workers, idempotent retries, and job status via polling or webhooks.",
+  "icon": "📬",
+  "color": "#E65100",
+  "order": 3,
+  "estimatedHours": 4,
+  "difficulty": "intermediate",
+  "prerequisites": [
+    "app_realtime_streaming"
+  ],
+  "lessons": [
+    {
+      "id": "app_why_long_running_ai_tasks_need_a_queue",
+      "title": "Why Long-Running AI Tasks Need a Queue",
+      "description": "Fine-tuning a model or processing a large document batch doesn't fit inside a single request-response cycle.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain why a task queue is necessary for AI operations that take minutes or hours rather than seconds."
+          },
+          {
+            "title": "⏱️ Some AI work simply doesn't fit a request cycle",
+            "content": "A user request typically expects a response within seconds; a fine-tuning job (Fine-Tuning course), a bulk document ingestion for RAG (RAG course), or a large batch evaluation run (Eval & Security course) can take minutes to hours. Holding an HTTP connection open that long is impractical and fragile — the connection can drop, time out, or block a worker for far too long."
+          },
+          {
+            "title": "📬 The queue pattern: submit, work, check back",
+            "content": "Instead, the API accepts the request, hands it off to a queue for a separate worker process to pick up and execute, and immediately returns a job ID the client can use to check status later — the same 'submit and poll' pattern the fine-tuning job resource from this course's opening lesson described."
+          },
+          {
+            "title": "🔀 Decoupling request handling from execution",
+            "content": "This decouples the fast, lightweight job of accepting a request from the slow, resource-intensive job of actually executing it — the API server stays responsive to new requests regardless of how long any individual background task takes, since it never blocks waiting for that task's completion."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "A tiny simulation shows why holding a connection open for a long task is fragile, and how the queue pattern sidesteps that fragility entirely.\n\n```python\nimport time\n\nMAX_CONNECTION_TIMEOUT = 0.1  # simulates a client/proxy giving up after 0.1s\n\ndef held_connection_approach(task_duration):\n    \"\"\"Blocks the HTTP connection open for the whole task -- fragile for long tasks.\"\"\"\n    start = time.perf_counter()\n    time.sleep(task_duration)  # the connection is held open this whole time\n    elapsed = time.perf_counter() - start\n    if elapsed > MAX_CONNECTION_TIMEOUT:\n        return \"FAILED: connection timed out before the task finished\"\n    return \"completed within the held connection\"\n\nprint(\"short task, held connection:\", held_connection_approach(0.02))\nprint(\"long task, held connection: \", held_connection_approach(0.5))\n\n# --- Queue pattern: the API returns immediately, a worker does the real work ---\n\njobs = {}\n\ndef submit_job(task_duration):\n    \"\"\"The API handler: returns instantly with a job id, regardless of task_duration.\"\"\"\n    job_id = len(jobs) + 1\n    jobs[job_id] = {\"status\": \"queued\", \"task_duration\": task_duration}\n    return job_id  # this returns immediately -- no connection held open\n\ndef worker_process_job(job_id):\n    \"\"\"A separate process, executed independently of the original API request.\"\"\"\n    job = jobs[job_id]\n    time.sleep(job[\"task_duration\"])  # takes as long as it needs, with no HTTP timeout risk\n    job[\"status\"] = \"completed\"\n\njob_id = submit_job(0.5)  # the same 0.5s task that failed above\nprint(f\"API returned immediately with job_id={job_id}, status={jobs[job_id]['status']}\")\nworker_process_job(job_id)  # happens separately, not blocking the original request\nprint(f\"after the worker finishes: status={jobs[job_id]['status']}\")\n```\n\n`held_connection_approach` simulates the fragile path: a 0.02s task finishes fine within the `MAX_CONNECTION_TIMEOUT`, but the 0.5s task exceeds it and reports a failure — exactly the risk of holding a connection open for a slow AI operation. `submit_job` sidesteps this entirely by returning a `job_id` immediately, with no timeout risk at all, while `worker_process_job` does the actual 0.5s of work afterward, completely decoupled from the original request's lifetime."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Trying to make a slow operation \"fit\" a synchronous endpoint by just raising the timeout.** A longer timeout doesn't fix the underlying fragility — the connection is still held open, still vulnerable to drops, and still blocking a worker the whole time; it just delays when the problem shows up.\n\n**Using a queue for every endpoint, including genuinely fast operations.** The queue pattern adds real complexity (a broker, workers, a status-checking mechanism) that isn't worth paying for an operation that reliably completes in milliseconds.\n\n**Forgetting that 'submitted' doesn't mean 'succeeded.'** Returning a job ID immediately means the client needs a way to learn about eventual failure too, not just eventual success — a queued job can still fail once a worker picks it up.\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "app_why_long_running_ai_tasks_need_a_queue_quiz",
+        "questions": [
+          {
+            "question": "Why is holding an HTTP connection open for a multi-hour fine-tuning job impractical?",
+            "options": [
+              "Because the connection can drop, time out, or block a worker for an impractically long time",
+              "Because HTTP connections cannot exceed one second by protocol design",
+              "Because fine-tuning jobs never take more than a few seconds",
+              "Because APIs cannot accept requests related to fine-tuning at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Real-world network conditions and worker availability make holding a connection open for hours fundamentally unreliable, motivating an asynchronous approach instead.",
+            "id": "q1"
+          },
+          {
+            "question": "What does the 'submit and poll' queue pattern let a client do?",
+            "options": [
+              "Submit a request, receive a job ID immediately, and check status later without holding the original connection open",
+              "Wait indefinitely on a single open connection until the job completes",
+              "Submit a job with no way to ever check its status",
+              "Only submit jobs that complete in under one second"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The queue pattern immediately returns a reference (job ID) the client can use to check progress asynchronously, rather than blocking on the original request.",
+            "id": "q2"
+          },
+          {
+            "question": "How does decoupling request handling from task execution benefit the API server?",
+            "options": [
+              "The server stays responsive to new requests regardless of how long any individual background task takes",
+              "It makes the API server itself execute tasks faster",
+              "It removes the need for any worker processes",
+              "It guarantees background tasks always complete within one second"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Because the API server never blocks waiting for a background task, its ability to accept new requests is unaffected by how long any given task takes.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, why does `held_connection_approach(0.5)` return a failure message?",
+            "options": [
+              "Because 0.5s exceeds MAX_CONNECTION_TIMEOUT (0.1s), simulating a connection timing out before the task finishes",
+              "Because time.sleep raises an exception for durations over 0.1s",
+              "Because 0.5 is not a valid duration",
+              "Because held_connection_approach always fails regardless of duration"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The function checks `if elapsed > MAX_CONNECTION_TIMEOUT`, and since 0.5s is greater than the 0.1s timeout, it returns the \"FAILED\" message, simulating a connection dropping before the long task completes.",
+            "id": "q4"
+          },
+          {
+            "question": "Why does `submit_job(0.5)` return immediately without hitting the same timeout problem?",
+            "options": [
+              "Because submit_job only records the job as 'queued' and returns a job_id, without waiting for the actual 0.5s of work to happen inside the request",
+              "Because submit_job secretly reduces the task_duration to under 0.1s",
+              "Because submit_job raises an exception instead of returning",
+              "Because worker_process_job runs before submit_job in the code"
+            ],
+            "correctAnswer": 0,
+            "explanation": "`submit_job` just stores the job's metadata and returns a `job_id` right away — the actual `time.sleep(task_duration)` work happens later, inside `worker_process_job`, completely separate from the original request's timeline.",
+            "id": "q5"
+          },
+          {
+            "question": "Why doesn't simply raising the timeout limit fix the underlying fragility of a held-connection approach?",
+            "options": [
+              "Because the connection is still held open, still vulnerable to drops, and still blocking a worker the whole time -- a longer timeout just delays when the problem shows up",
+              "Because raising the timeout limit is technically impossible in any web framework",
+              "Because a longer timeout makes the task complete faster",
+              "Because timeouts have no relationship to connection fragility"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's common mistakes explain that a longer timeout doesn't address the structural fragility of holding a connection open — it just pushes the same risks (drops, blocked workers) further out.",
+            "id": "q6"
+          },
+          {
+            "question": "Why is using a queue for every endpoint, including fast operations, considered a mistake?",
+            "options": [
+              "Because the queue pattern adds real complexity (broker, workers, status-checking) that isn't worth paying for an operation that reliably completes in milliseconds",
+              "Because queues can only be used for operations that take multiple hours",
+              "Because fast operations cannot technically use a queue",
+              "Because adding a queue always makes an operation slower"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson points out that the queue pattern's added infrastructure is a real cost that should be justified by an operation's actual duration, not applied reflexively to endpoints that don't need it.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does the lesson warn that 'submitted' doesn't mean 'succeeded'?",
+            "options": [
+              "Because returning a job ID immediately means the client needs a way to learn about eventual failure too, since a queued job can still fail once a worker picks it up",
+              "Because submitted jobs always succeed by definition",
+              "Because job IDs guarantee successful completion",
+              "Because failure can only happen before a job is submitted, never after"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's common mistakes clarify that a successful submission (getting a job ID) is not the same as a successful outcome — the client still needs visibility into whether the job ultimately succeeded or failed.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "app_task_queues_with_celery_and_rq",
+      "title": "Task Queues with Celery and RQ",
+      "description": "The concrete infrastructure that turns 'submit and poll' from a pattern into a working system.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Describe the roles of a broker, a worker, and a result backend in a task queue system."
+          },
+          {
+            "title": "📨 The broker: holding jobs until a worker is free",
+            "content": "A message broker (like Redis or RabbitMQ) sits between the API and the workers, holding submitted jobs in a queue until a worker is available to pick one up — this decoupling is exactly what allows the number of workers to scale independently of how many requests the API is currently receiving."
+          },
+          {
+            "title": "👷 Workers: separate processes doing the actual work",
+            "content": "Workers are separate processes (not the API server itself) that pull jobs from the queue and execute them — running a fine-tuning job, processing a document batch — reporting progress and results back through the result backend as they go."
+          },
+          {
+            "title": "🐍 Celery and RQ: two Python options",
+            "content": "Celery is a mature, feature-rich task queue framework supporting multiple brokers, scheduled tasks, and complex workflows. RQ (Redis Queue) is a simpler alternative built specifically on Redis, trading some of Celery's flexibility for a much lower setup and mental overhead — a smaller team building a straightforward job queue often prefers RQ's simplicity, while a system with complex scheduling and retry needs may grow into Celery's fuller feature set."
+          },
+          {
+            "title": "📈 Scaling workers independently of the API",
+            "content": "Because workers are separate processes, you can scale them independently — add more workers during a period of heavy fine-tuning job submission without touching the API server's own scaling, the same 'scale the actual bottleneck, not everything uniformly' thinking behind the Cloud course's autoscaling lesson."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "Here's a minimal, in-process stand-in for a broker/worker/result-backend system, showing how each piece's role separates from the others.\n\n```python\nfrom collections import deque\n\n# --- The broker: just a queue jobs wait in ---\n\nbroker_queue = deque()\n\n# --- The result backend: where workers report outcomes ---\n\nresult_backend = {}\n\ndef submit_job(job_id, payload):\n    \"\"\"The API's job: push onto the broker, nothing more.\"\"\"\n    broker_queue.append({\"id\": job_id, \"payload\": payload})\n    result_backend[job_id] = {\"status\": \"queued\"}\n\ndef run_worker(num_workers):\n    \"\"\"Simulates N workers pulling from the shared broker queue until it's empty.\"\"\"\n    worker_job_counts = {f\"worker-{i}\": 0 for i in range(num_workers)}\n    i = 0\n    while broker_queue:\n        job = broker_queue.popleft()\n        worker_name = f\"worker-{i % num_workers}\"\n        worker_job_counts[worker_name] += 1\n        result_backend[job[\"id\"]] = {\"status\": \"completed\", \"handled_by\": worker_name}\n        i += 1\n    return worker_job_counts\n\nfor j in range(1, 6):\n    submit_job(j, f\"document-{j}\")\n\nprint(\"broker queue length before workers run:\", len(broker_queue))\ncounts = run_worker(num_workers=2)\nprint(\"jobs handled per worker:\", counts)\nprint(\"result for job 3:\", result_backend[3])\n```\n\n`submit_job` only ever touches `broker_queue` and marks the job `\"queued\"` in `result_backend` — it never does the actual work itself, matching the API's narrow role. `run_worker` simulates 2 workers draining the same shared queue, alternating which worker handles each job (`i % num_workers`), and writes each outcome into `result_backend` — with `num_workers=2` and 5 jobs, the 5 jobs split 3/2 between the two workers, and `result_backend[3]` shows exactly which worker completed job 3 and with what final status."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Running task logic directly inside the API request handler \"for now,\" planning to add a real queue later.** This re-creates the exact blocking problem a queue is meant to solve, and the migration to a real broker/worker setup is rarely as small a change as it seems once request handling and task logic are tangled together.\n\n**Choosing Celery for its full feature set when RQ's simplicity would have been enough.** More features mean more configuration surface and more that can go wrong — matching the tool to what the system actually needs avoids paying for complexity that isn't earning its keep.\n\n**Scaling the API server to handle more load when the actual bottleneck is worker capacity.** If jobs are piling up in the broker queue faster than workers can drain it, adding more API servers does nothing — the fix is more (or faster) workers, the same 'scale the actual bottleneck' principle from the Cloud course.\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "app_task_queues_with_celery_and_rq_quiz",
+        "questions": [
+          {
+            "question": "What role does a message broker play in a task queue system?",
+            "options": [
+              "It holds submitted jobs in a queue until a worker becomes available, decoupling job submission from execution",
+              "It executes the actual background tasks directly",
+              "It serves the API's HTTP responses to clients",
+              "It stores the application's permanent database records"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The broker is the intermediary that lets jobs queue up independently of worker availability, which is the core decoupling this architecture relies on.",
+            "id": "q1"
+          },
+          {
+            "question": "What is the main practical trade-off between Celery and RQ?",
+            "options": [
+              "Celery offers more features and flexibility at higher complexity; RQ is simpler, built specifically on Redis, with lower setup overhead",
+              "RQ supports more brokers than Celery",
+              "Celery cannot be used with Redis under any configuration",
+              "RQ is only usable for tasks under one second long"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Celery's broader feature set comes with more complexity, while RQ trades some of that flexibility for simplicity — a classic tool-selection trade-off.",
+            "id": "q2"
+          },
+          {
+            "question": "Why can worker processes be scaled independently of the API server?",
+            "options": [
+              "Because workers are separate processes that pull from a shared queue, so their count doesn't need to match the API server's own scaling",
+              "Because workers and the API server must always run on the exact same machine",
+              "Because scaling workers automatically scales the API server identically",
+              "Because task queues eliminate the need for any workers at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The queue-based decoupling means capacity for background processing (workers) and capacity for handling incoming requests (the API) can each be sized to their own actual load.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, what does `submit_job` actually do?",
+            "options": [
+              "It executes the job's payload immediately and returns the result",
+              "It only pushes the job onto broker_queue and marks it 'queued' in result_backend, without doing any actual work",
+              "It blocks until a worker finishes the job",
+              "It deletes any existing jobs from the queue"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`submit_job`'s body only appends to `broker_queue` and sets an entry in `result_backend` — it never calls any function that performs the job's real work, mirroring the API's narrow, non-executing role.",
+            "id": "q4"
+          },
+          {
+            "question": "With `num_workers=2` and 5 submitted jobs, how does `run_worker` distribute the jobs across workers?",
+            "options": [
+              "All 5 jobs go to worker-0",
+              "The jobs alternate between worker-0 and worker-1 based on i % num_workers, splitting roughly 3 and 2",
+              "Exactly 2 jobs are processed and the rest are dropped",
+              "The jobs are processed in a random, unpredictable order"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The loop assigns `worker_name = f\"worker-{i % num_workers}\"` for `i` = 0,1,2,3,4, giving worker-0 the jobs at i=0,2,4 (3 jobs) and worker-1 the jobs at i=1,3 (2 jobs) — a deterministic 3/2 split, not random or single-worker.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is running task logic directly inside the API request handler 'for now' flagged as a mistake?",
+            "options": [
+              "Because it recreates the exact blocking problem a queue is meant to solve, and migrating to a real broker/worker setup later is rarely as small a change as it seems once the two are tangled together",
+              "Because API request handlers cannot technically call any functions",
+              "Because task logic always runs faster inside a request handler",
+              "Because this approach has no relationship to the blocking problem discussed earlier in the course"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's common mistakes point out that this shortcut reintroduces the very blocking problem the queue pattern exists to solve, and untangling request handling from task logic later is harder than it looks.",
+            "id": "q6"
+          },
+          {
+            "question": "Why might choosing Celery when RQ's simplicity would suffice be considered a mistake?",
+            "options": [
+              "Because Celery cannot actually process any background jobs",
+              "Because more features mean more configuration surface and more that can go wrong, so matching the tool to actual needs avoids unnecessary complexity",
+              "Because RQ cannot be used with Redis",
+              "Because Celery is always slower than RQ regardless of workload"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson frames this as a tool-matching problem: Celery's fuller feature set comes with more complexity, which is only worth paying for when the system's actual needs justify it.",
+            "id": "q7"
+          },
+          {
+            "question": "If jobs are piling up in the broker queue faster than workers can drain it, why won't scaling the API server help?",
+            "options": [
+              "Because the API server is not the bottleneck — the actual constraint is worker capacity, so adding more API servers does nothing to drain the queue faster",
+              "Because API servers and workers are the exact same process",
+              "Because scaling the API server always makes the queue grow faster",
+              "Because broker queues cannot be drained by workers at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explains that when workers are the actual bottleneck, adding API server capacity doesn't address it — the fix is scaling worker capacity instead, mirroring the Cloud course's 'scale the actual bottleneck' principle.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "app_idempotency_and_retries",
+      "title": "Idempotency and Retries",
+      "description": "The same lesson the RAG and Vector Databases courses' pipelines needed, now applied to a payment-adjacent API.",
+      "duration": 13,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Define idempotency in the context of an API and explain why it matters specifically for retried requests."
+          },
+          {
+            "title": "🔁 Why retries happen constantly",
+            "content": "Networks are unreliable — a client might not receive a response even though the server successfully processed the request, and the client's only reasonable option is often to retry. If retrying a 'charge this fine-tuning job to the account' request isn't handled carefully, an ambiguous timeout could result in double-processing."
+          },
+          {
+            "title": "🔑 Idempotency: the same request twice, same end result",
+            "content": "An idempotent operation produces the same end state whether it's executed once or multiple times with the same input — the same idempotency concept the Vector Databases course's embedding pipeline lesson applied to upserts, now applied to an API endpoint a client might retry after a timeout."
+          },
+          {
+            "title": "🎫 Idempotency keys: making retries safe explicitly",
+            "content": "A common pattern has the client generate a unique idempotency key for each logical operation and include it with the request; the server records which keys it has already processed and returns the original result for a repeated key instead of re-executing the operation — turning 'retry safely' from a hope into an explicit guarantee."
+          },
+          {
+            "title": "💳 Why this matters especially for billing-adjacent AI operations",
+            "content": "An API endpoint that triggers a paid fine-tuning job or a metered batch-inference run is exactly the kind of operation where an accidental double-execution has real financial consequences — making idempotency here a direct extension of the cost-control theme running through this whole course, not just an abstract correctness nicety."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "Here's the same retried request handled two ways: without protection, and with an idempotency key.\n\n```python\n# --- Without idempotency: a retry double-charges ---\n\ncharges = []\n\ndef start_finetune_unsafe(account, cost):\n    charges.append((account, cost))\n    return f\"fine-tune started for {account}, charged ${cost}\"\n\n# Client sends the request, doesn't get a response in time, retries with the SAME logical request:\nprint(start_finetune_unsafe(\"acme-corp\", 50))\nprint(start_finetune_unsafe(\"acme-corp\", 50))  # the retry -- same operation, executed again\nprint(\"total charged (unsafe):\", sum(c for _, c in charges))  # 100, but should be 50\n\n# --- With an idempotency key: a retry is recognized and short-circuited ---\n\nprocessed_keys = {}\n\ndef start_finetune_safe(account, cost, idempotency_key):\n    if idempotency_key in processed_keys:\n        return processed_keys[idempotency_key] + \" (returned cached result, not re-charged)\"\n    charges.append((account, cost))\n    result = f\"fine-tune started for {account}, charged ${cost}\"\n    processed_keys[idempotency_key] = result\n    return result\n\ncharges.clear()\nkey = \"finetune-req-abc123\"\nprint(start_finetune_safe(\"acme-corp\", 50, key))\nprint(start_finetune_safe(\"acme-corp\", 50, key))  # the retry -- same key\nprint(\"total charged (safe):\", sum(c for _, c in charges))  # 50, correctly charged once\n```\n\n`start_finetune_unsafe` has no memory of prior calls, so calling it twice with identical arguments appends to `charges` both times — the retry is indistinguishable from a second, separate request, and the account is charged $100 for one logical fine-tune job. `start_finetune_safe` checks `processed_keys` first: the first call with `key` records the charge and stores the result, but the second call with the *same* `key` finds it already processed and returns the cached result without appending to `charges` again — the account is correctly charged only $50."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming the client won't retry, so idempotency isn't worth the implementation effort.** Retries happen constantly in real network conditions — timeouts, dropped responses, proxy hiccups — regardless of whether the client 'should' retry in theory.\n\n**Using a value that isn't actually unique per logical operation as the idempotency key.** A key derived from something like the current timestamp changes on every retry, defeating the whole mechanism — the key needs to represent the same logical operation across all its retry attempts.\n\n**Forgetting to expire old idempotency keys eventually.** Keeping every key forever grows unbounded storage for keys that will realistically never be retried again after some reasonable window has passed.\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "app_idempotency_and_retries_quiz",
+        "questions": [
+          {
+            "question": "What does it mean for an API operation to be idempotent?",
+            "options": [
+              "Executing it once or multiple times with the same input produces the same end state",
+              "It can only ever be executed exactly once, with all repeats rejected outright",
+              "It always returns a different result on each execution",
+              "It requires no network connection to execute"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Idempotency specifically means repeated execution with the same input doesn't change the outcome beyond the first successful execution.",
+            "id": "q1"
+          },
+          {
+            "question": "How does an idempotency key make retries safe?",
+            "options": [
+              "The server records which keys it has already processed and returns the original result for a repeated key instead of re-executing the operation",
+              "It prevents the client from ever retrying a request",
+              "It deletes the original request's result after the first execution",
+              "It requires the server to execute the operation twice for verification"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Tracking previously seen keys lets the server detect and short-circuit a retried request, rather than blindly re-executing it.",
+            "id": "q2"
+          },
+          {
+            "question": "Why does idempotency matter especially for an endpoint that triggers a paid fine-tuning job?",
+            "options": [
+              "Because an accidental double-execution from an unsafe retry would have real financial consequences",
+              "Because fine-tuning jobs can never be retried under any circumstances",
+              "Because paid operations are exempt from network reliability issues",
+              "Because idempotency is only relevant for free, unmetered operations"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The direct financial cost of accidentally re-triggering a paid operation is exactly what raises the stakes for getting idempotency right on billing-adjacent endpoints.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, what is the total charged amount after calling `start_finetune_unsafe` twice with identical arguments?",
+            "options": [
+              "$50, correctly charged once",
+              "$100, double-charged since the function has no memory of the first call",
+              "$0, since neither call succeeds",
+              "$25, half of the expected charge"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`start_finetune_unsafe` appends to `charges` unconditionally every time it's called, so two calls with `cost=50` each append 50, summing to $100 for what should have been one logical operation.",
+            "id": "q4"
+          },
+          {
+            "question": "What does the second call to `start_finetune_safe(\"acme-corp\", 50, key)` (with the same key) return?",
+            "options": [
+              "A newly computed result, charging the account again",
+              "The cached result from processed_keys, with a note that it was returned cached and not re-charged",
+              "An error indicating the key is invalid",
+              "None, since the function raises an exception on a repeated key"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Because `key` is already present in `processed_keys` after the first call, the second call's `if idempotency_key in processed_keys` check is true, so it returns the stored result plus the cached-result note, without appending to `charges` again.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is assuming a client won't retry, and skipping idempotency as a result, flagged as a mistake?",
+            "options": [
+              "Because retries happen constantly in real network conditions -- timeouts, dropped responses, proxy hiccups -- regardless of whether the client 'should' retry in theory",
+              "Because clients technically cannot retry any HTTP request",
+              "Because idempotency has no effect on retry behavior",
+              "Because retries only happen if the server explicitly requests one"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's common mistakes point out that real-world network unreliability makes retries a near-certainty, so skipping idempotency on the assumption they won't happen is a risky bet.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does using a non-unique-per-operation value (like the current timestamp) as an idempotency key defeat its purpose?",
+            "options": [
+              "Because such a value changes on every retry, so the server can never recognize the retry as the same logical operation",
+              "Because timestamps are always identical across retries",
+              "Because idempotency keys must always be exactly 10 characters long",
+              "Because using a timestamp makes the operation execute faster"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explains the key needs to represent the same logical operation across all its retries; a value like a timestamp that changes between the original request and its retry would look like a brand new operation each time, defeating the mechanism.",
+            "id": "q7"
+          },
+          {
+            "question": "Why should idempotency keys eventually be expired rather than kept forever?",
+            "options": [
+              "Because keeping every key forever grows unbounded storage for keys that will realistically never be retried again after some reasonable window",
+              "Because idempotency keys automatically become invalid after one use regardless of expiration",
+              "Because expiring keys makes retries fail permanently",
+              "Because storage has no cost associated with keeping old keys"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson notes that without expiration, the set of tracked keys grows without bound, even though realistically a retry would only ever arrive within some reasonable time window after the original request.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "app_job_status_tracking_and_webhooks",
+      "title": "Job Status Tracking and Webhooks",
+      "description": "Two ways for a client to find out a background job finished, without holding a connection open the whole time.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Compare polling and webhooks as strategies for a client to learn when a background job completes."
+          },
+          {
+            "title": "🔁 Polling: the client checks in periodically",
+            "content": "The client periodically calls `GET /jobs/{id}` to check status, until it sees a terminal state (completed, failed). Simple to implement on both sides, but wastes requests checking a job that hasn't changed status yet, and introduces a delay between completion and the client noticing, bounded by the polling interval."
+          },
+          {
+            "title": "📞 Webhooks: the server calls the client back",
+            "content": "Instead of the client checking in, the server sends an HTTP request to a URL the client registered in advance, as soon as the job's status changes — eliminating wasted polling requests and reducing the delay to near-immediate, at the cost of requiring the client to expose a reachable endpoint to receive the callback."
+          },
+          {
+            "title": "🎯 Choosing between them",
+            "content": "Webhooks suit server-to-server integrations where the receiving side can reliably expose an endpoint; polling suits situations where the client can't easily receive inbound requests — like a mobile app behind NAT, or a simple script — trading some efficiency for simplicity. Many production systems offer both, since different clients have different constraints."
+          },
+          {
+            "title": "🎓 Closing this module's arc",
+            "content": "This module moved from recognizing that AI operations don't fit a request-response cycle, to the queue infrastructure that handles them, to making retries safe, to finally closing the loop on how a client learns the result — completing the lifecycle of a long-running AI task from submission to notification."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "A side-by-side simulation counts exactly how many requests each strategy costs, and how quickly each one notices completion.\n\n```python\n# --- Polling: the client keeps asking ---\n\ndef simulate_polling(job_completes_at_tick, poll_interval, max_ticks):\n    requests_made = 0\n    for tick in range(0, max_ticks, poll_interval):\n        requests_made += 1\n        if tick >= job_completes_at_tick:\n            return requests_made, tick  # tick when the client actually notices\n    return requests_made, None\n\nrequests_used, noticed_at = simulate_polling(job_completes_at_tick=23, poll_interval=5, max_ticks=100)\nprint(f\"polling: {requests_used} requests made, noticed completion at tick {noticed_at}\")\n# job finished at tick 23, but polling only checks at 0, 5, 10, 15, 20, 25 -- notices at tick 25\n\n# --- Webhooks: the server calls back the instant it's done ---\n\ndef simulate_webhook(job_completes_at_tick):\n    requests_made = 1  # exactly one call: the callback, fired the moment the job finishes\n    noticed_at = job_completes_at_tick  # no polling delay\n    return requests_made, noticed_at\n\nrequests_used, noticed_at = simulate_webhook(job_completes_at_tick=23)\nprint(f\"webhook: {requests_used} request made, noticed completion at tick {noticed_at}\")\n```\n\n`simulate_polling` checks in at every multiple of `poll_interval` (0, 5, 10, 15, 20, 25...), so even though the job actually finishes at tick 23, polling doesn't notice until its next check at tick 25 — and it has already made 5 requests (at ticks 0, 5, 10, 15, 20) before that final, 6th request notices completion. `simulate_webhook` needs exactly 1 request total, fired the instant the job completes at tick 23 — no wasted checks, and no delay between completion and notice, which is exactly the efficiency-versus-delay trade-off the lesson describes."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Polling far more frequently than the job realistically needs, wasting requests.** A job that typically takes minutes doesn't need a status check every second — matching the poll interval to the job's realistic duration avoids unnecessary load for no real benefit in noticed-latency.\n\n**Assuming a webhook call always arrives successfully.** Like any HTTP request, a webhook callback can fail to deliver — a production system needs retry logic on the webhook sender's side, and often a fallback polling option for the client, rather than assuming the single callback is guaranteed to land.\n\n**Offering only webhooks and ignoring clients that structurally can't receive them.** Not every client — particularly a mobile app behind NAT, or a simple script with no public endpoint — can receive an inbound webhook call, so a webhook-only design excludes a real category of legitimate consumers.\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "app_job_status_tracking_and_webhooks_quiz",
+        "questions": [
+          {
+            "question": "What is a key drawback of polling for job status compared to webhooks?",
+            "options": [
+              "It wastes requests checking a job that hasn't changed status, and introduces delay bounded by the polling interval",
+              "Polling requires the client to expose a publicly reachable endpoint",
+              "Polling always executes the job twice",
+              "Polling is impossible to implement in any programming language"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Repeated, often-unnecessary status checks and delayed notification are the direct costs of a polling approach compared to an immediate callback.",
+            "id": "q1"
+          },
+          {
+            "question": "What must a client be able to do in order to use webhooks effectively?",
+            "options": [
+              "Reliably expose a reachable endpoint that can receive the server's callback request",
+              "Poll the server at least once per second",
+              "Avoid ever checking job status directly",
+              "Run entirely without any network connection"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Since webhooks work by the server calling back to the client, the client needs an endpoint capable of receiving that inbound request.",
+            "id": "q2"
+          },
+          {
+            "question": "Why might a production system offer both polling and webhooks rather than only one?",
+            "options": [
+              "Because different clients have different constraints -- some can reliably receive inbound webhook calls, others (like a simple script or an app behind NAT) cannot",
+              "Because offering both is required by every job queue library",
+              "Because webhooks and polling cannot coexist in the same system",
+              "Because polling is always strictly better than webhooks in every situation"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Supporting both accommodates the reality that not every client environment is equally capable of receiving webhook callbacks, so flexibility benefits a broader range of consumers.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, at which tick does `simulate_polling` notice that the job (completing at tick 23) is done?",
+            "options": [
+              "Tick 20, the last check before completion",
+              "Tick 23, the exact moment it completes",
+              "Tick 25, the first poll check at or after tick 23",
+              "It never notices"
+            ],
+            "correctAnswer": 2,
+            "explanation": "With `poll_interval=5`, the checks happen at ticks 0, 5, 10, 15, 20, 25... and since the job finishes at tick 23, the check at tick 20 is still too early, so the first check that satisfies `tick >= 23` is tick 25.",
+            "id": "q4"
+          },
+          {
+            "question": "How many total requests does `simulate_polling(job_completes_at_tick=23, poll_interval=5, max_ticks=100)` make before noticing completion?",
+            "options": [
+              "1",
+              "5",
+              "6 (at ticks 0, 5, 10, 15, 20, and 25)",
+              "23"
+            ],
+            "correctAnswer": 2,
+            "explanation": "The loop makes one request at each of ticks 0, 5, 10, 15, 20 (5 requests, all before the job is done) and then one more at tick 25 where it finally notices completion, totaling 6 requests.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is polling far more frequently than a job realistically needs flagged as a mistake?",
+            "options": [
+              "Because a job that typically takes minutes doesn't need a status check every second, and matching the poll interval to the job's realistic duration avoids unnecessary load for no real benefit",
+              "Because frequent polling always causes the job itself to fail",
+              "Because polling intervals cannot technically be configured",
+              "Because frequent polling makes webhooks stop working"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's common mistakes point out that over-frequent polling wastes requests without meaningfully improving noticed latency once the interval is already short relative to the job's actual duration.",
+            "id": "q6"
+          },
+          {
+            "question": "Why shouldn't a system assume a webhook call always arrives successfully?",
+            "options": [
+              "Because webhook calls are a different protocol entirely from HTTP and never fail",
+              "Because, like any HTTP request, a webhook callback can fail to deliver, so retry logic on the sender's side (and often a polling fallback) is needed",
+              "Because webhooks are only sent once per job regardless of success",
+              "Because webhook delivery failures are impossible to detect"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson warns that a webhook callback is still an ordinary HTTP request subject to the same delivery failures, so relying on it as guaranteed without retry logic or a fallback is a risky assumption.",
+            "id": "q7"
+          },
+          {
+            "question": "Why is offering only webhooks, with no polling option, considered a mistake?",
+            "options": [
+              "Because not every client -- particularly a mobile app behind NAT or a simple script with no public endpoint -- can receive an inbound webhook call, excluding a real category of legitimate consumers",
+              "Because webhooks are always slower than polling",
+              "Because polling is required by HTTP standards",
+              "Because webhook-only systems cannot process any jobs"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explains that webhook-only designs leave out clients that structurally can't expose a reachable endpoint, which is exactly why many production systems offer polling as a fallback.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

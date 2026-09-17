@@ -1,0 +1,543 @@
+{
+  "id": "module_3",
+  "title": "Convolutional Neural Networks",
+  "description": "Purpose-built for images: why plain networks don't scale to pixels, how convolutional filters and pooling work, and how transfer learning lets you reuse powerful pretrained models.",
+  "icon": "🖼️",
+  "color": "#9C27B0",
+  "order": 3,
+  "estimatedHours": 2,
+  "difficulty": "Intermediate",
+  "prerequisites": [
+    "module_2"
+  ],
+  "lessons": [
+    {
+      "id": "dl_why_cnns",
+      "title": "Why Images Need a Different Kind of Network",
+      "description": "Understand why plain fully-connected networks struggle with images, motivating a smarter architecture.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain why fully-connected networks scale poorly for images and what property a better architecture should have."
+          },
+          {
+            "title": "🖼️ The scale problem",
+            "content": "A modest 224×224 color image has 224 × 224 × 3 ≈ 150,000 individual pixel values. Feeding this directly into a fully-connected layer with, say, 1,000 neurons would require about 150 million weights in that layer *alone* — impractical to train, and enormously prone to overfitting given realistic dataset sizes."
+          },
+          {
+            "title": "📍 The position problem",
+            "content": "Fully-connected layers also treat every pixel position independently, with entirely separate weights for each. That means a network trained to recognize a cat in the top-left corner wouldn't automatically recognize the exact same cat shifted to the bottom-right — it would essentially have to relearn that pattern separately for every possible position, which is enormously wasteful."
+          },
+          {
+            "title": "🎯 What we actually want: local, reusable patterns",
+            "content": "Meaningful visual features — edges, textures, simple shapes — are local (they depend on a small neighborhood of nearby pixels) and appear in many different positions across an image. A smarter architecture should:\n\n• Look at small local neighborhoods of pixels at a time, rather than the whole image at once\n• Reuse the same learned pattern-detector across every position in the image\n\nThis is exactly the idea behind **convolutional layers**, covered next — dramatically reducing the number of weights needed while directly building in the assumption that useful patterns can appear anywhere in the image."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming a regular fully-connected network simply can't process images at all.** It technically can, on very small images — the problem is that it scales terribly and ignores spatial structure, not that it's mathematically impossible.\n\n**Underestimating how much this affects overfitting risk.** A network with hundreds of millions of parameters, trained on a modest image dataset, will badly overfit without an architecture that constrains parameters more sensibly.\n\n**Not connecting this to something concrete.** Picture recognizing an edge or a corner — that's a genuinely local pattern, and it should be reusable no matter where in the image it shows up."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "dl_why_cnns_quiz",
+        "questions": [
+          {
+            "question": "Why is feeding a full image directly into a large fully-connected layer impractical?",
+            "options": [
+              "Images can't be represented as numbers",
+              "It requires an enormous number of weights (one per pixel per neuron), which is both computationally impractical and highly prone to overfitting",
+              "Fully-connected layers can only process text",
+              "There's actually no real problem with this approach"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A modest image has well over 100,000 pixel values — connecting all of them to even a modest number of neurons creates millions of weights in a single layer, which is both expensive to train and very likely to overfit.",
+            "id": "q1"
+          },
+          {
+            "question": "What key limitation do fully-connected layers have with respect to image position?",
+            "options": [
+              "They can only process black-and-white images",
+              "They treat each pixel position independently, so a pattern learned in one position doesn't automatically transfer to other positions",
+              "They require images to be exactly square",
+              "They ignore color information entirely"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Because a fully-connected layer has separate weights for every input position, a shape or texture the network learns to recognize in one part of the image isn't automatically recognized when it appears somewhere else in the image.",
+            "id": "q2"
+          },
+          {
+            "question": "What property should a better architecture for images have, based on how visual patterns actually work?",
+            "options": [
+              "It should treat every pixel completely independently, with no shared weights at all",
+              "It should detect local patterns using weights that are reused across every position in the image",
+              "It should only ever look at the full image at once, never smaller regions",
+              "It should ignore spatial relationships between pixels entirely"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since useful visual features like edges and textures are local and can appear anywhere in an image, an architecture that reuses the same local pattern-detectors across all positions is far more efficient and effective — exactly what convolutional layers are designed to do.",
+            "id": "q3"
+          },
+          {
+            "question": "Roughly how many weights would a single fully-connected layer with 1,000 neurons need for a 224x224 color image?",
+            "options": [
+              "About 1,000",
+              "About 150 million",
+              "About 150",
+              "Exactly 224"
+            ],
+            "correctAnswer": 1,
+            "explanation": "With ~150,000 pixel values connected to 1,000 neurons, that single layer alone would need about 150 million weights — impractical and highly overfitting-prone.",
+            "id": "q4"
+          },
+          {
+            "question": "What does it mean that fully-connected layers treat every pixel position independently?",
+            "options": [
+              "Every pixel is processed with a shared, reusable set of weights",
+              "Each input position has entirely separate weights, so a pattern learned in one location isn't recognized elsewhere",
+              "Pixels are ignored entirely by fully connected layers",
+              "Position never matters for any type of network"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Because each position has its own dedicated weights, a pattern the network learns in one spot doesn't automatically transfer to another position in the image.",
+            "id": "q5"
+          },
+          {
+            "question": "What two properties of local visual patterns motivate the convolutional layer design?",
+            "options": [
+              "They are global and unique to a single position",
+              "They are local (small neighborhoods) and reusable across many positions",
+              "They only appear in the exact center of an image",
+              "They require millions of unique weights per position"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Useful visual features like edges and textures depend on small local neighborhoods and recur across many positions — exactly what convolutional filters are designed to exploit.",
+            "id": "q6"
+          },
+          {
+            "question": "Is it mathematically impossible for a fully-connected network to process an image?",
+            "options": [
+              "Yes, it's impossible for any image",
+              "No — it's technically possible, especially for small images, but it scales poorly and ignores spatial structure",
+              "Yes, because pixels can't be represented as numbers",
+              "No, fully-connected networks are the standard approach for large images"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A fully-connected network can technically process small images, but the parameter explosion and lack of position-invariance make it impractical for typical image sizes.",
+            "id": "q7"
+          },
+          {
+            "question": "What kind of visual feature is used as the concrete example of a 'local, reusable pattern' in the lesson?",
+            "options": [
+              "A whole scene",
+              "An edge or a corner",
+              "An entire object category",
+              "A random pixel value"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson uses edges and corners as examples of genuinely local patterns that should be reusable no matter where they appear in the image.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "dl_convolutions",
+      "title": "Convolutions and Filters",
+      "description": "Learn how a convolutional layer slides small learnable filters across an image to detect local patterns.",
+      "duration": "9 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain what a convolutional filter does and how it produces a feature map."
+          },
+          {
+            "title": "🔍 A filter: a small, reusable pattern detector",
+            "content": "A **filter** (or kernel) is a small grid of learnable weights — commonly 3×3 or 5×5 — that slides across the image, computing a weighted sum at each position. This single small set of weights is reused at every position across the entire image, directly solving both problems from the last lesson: far fewer parameters, and the same pattern detector works no matter where the pattern appears.\n\n```python\n# Conceptual PyTorch-style layer\n# nn.Conv2d(in_channels=3, out_channels=16, kernel_size=3)\n# — 16 different learnable 3x3 filters, each producing its own feature map\n```"
+          },
+          {
+            "title": "🗺️ Feature maps: what a filter finds",
+            "content": "Sliding one filter across the whole image produces a **feature map** — a grid showing how strongly that filter's pattern matched at each position. Early layers typically learn simple filters (like edge or color-blob detectors); as feature maps from earlier layers feed into later convolutional layers, those later layers can combine simple features into increasingly complex ones — edges into shapes, shapes into object parts, object parts into whole objects."
+          },
+          {
+            "title": "📐 Key building blocks: stride and padding",
+            "content": "• **Stride** — how many pixels the filter moves at each step. A stride of 1 slides one pixel at a time (a larger, denser output); a stride of 2 skips every other position (a smaller, faster output)\n• **Padding** — adding extra pixels (often zeros) around the image border, so filters can properly process edge pixels and control the output size\n\n```python\n# nn.Conv2d(in_channels=3, out_channels=16, kernel_size=3, stride=1, padding=1)\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Confusing a filter with the whole convolutional layer.** A layer typically learns *many* filters at once (each looking for a different pattern), not just one — the `out_channels` parameter above controls how many.\n\n**Assuming filters are hand-designed.** Unlike classical image-processing filters (like a hand-coded edge detector), a CNN's filter weights are learned automatically from data during training, just like any other weights in the network.\n\n**Overlooking why reused weights matter so much.** The parameter savings from reusing the same small filter across every position is what makes CNNs practical for real images — it's the central idea of the whole architecture."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "dl_convolutions_quiz",
+        "questions": [
+          {
+            "question": "What does a convolutional filter do as it slides across an image?",
+            "options": [
+              "It removes color information from the image",
+              "It computes a weighted sum over a small local region at each position, producing a feature map showing where that pattern was detected",
+              "It resizes the image to a fixed size",
+              "It converts the image into text"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A filter's small set of learnable weights slides across every position in the image, computing a local weighted sum at each spot — the resulting grid of values (the feature map) shows how strongly that particular pattern matched at each location.",
+            "id": "q1"
+          },
+          {
+            "question": "Why is reusing the same filter weights across every position in the image so important?",
+            "options": [
+              "It has no real benefit — it's just a coding convenience",
+              "It dramatically reduces the number of parameters needed and lets the same pattern detector work regardless of where the pattern appears in the image",
+              "It only matters for very small images",
+              "It prevents the network from learning more than one pattern"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Reusing a small set of weights across all positions is what makes CNNs both parameter-efficient (compared to a fully-connected layer) and able to recognize a pattern no matter where it shows up in the image — the two core problems from the previous lesson.",
+            "id": "q2"
+          },
+          {
+            "question": "How are a CNN's filter weights typically determined?",
+            "options": [
+              "They're hand-designed by an engineer before training",
+              "They're learned automatically from data during training, just like other weights in the network",
+              "They're fixed and never change",
+              "They're randomly regenerated before every prediction"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Unlike classical hand-coded image filters, a convolutional layer's filter weights start randomly initialized and are learned through the same backpropagation and gradient descent process used for the rest of the network.",
+            "id": "q3"
+          },
+          {
+            "question": "What is a common size for a convolutional filter (kernel)?",
+            "options": [
+              "224x224",
+              "3x3 or 5x5",
+              "1000x1000",
+              "1x1000"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Filters are typically small grids of learnable weights, commonly 3x3 or 5x5, that slide across the image.",
+            "id": "q4"
+          },
+          {
+            "question": "What does a feature map represent?",
+            "options": [
+              "The raw pixel values of the original image",
+              "A grid showing how strongly a filter's pattern matched at each position",
+              "The final classification output",
+              "The number of layers in the network"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Sliding a filter across the image produces a feature map — a grid of values showing where and how strongly that filter's specific pattern was detected.",
+            "id": "q5"
+          },
+          {
+            "question": "What does the 'stride' parameter control in a convolutional layer?",
+            "options": [
+              "The number of filters used",
+              "How many pixels the filter moves at each step",
+              "The size of the bias term",
+              "The activation function used"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Stride controls how far the filter shifts between each computation — a stride of 1 moves one pixel at a time, while a stride of 2 skips every other position.",
+            "id": "q6"
+          },
+          {
+            "question": "What is the purpose of padding around an image before convolution?",
+            "options": [
+              "To remove color information",
+              "To let filters properly process edge pixels and control output size",
+              "To increase the learning rate",
+              "To reduce the number of filters needed"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Padding adds extra pixels (often zeros) around the border, allowing filters to be applied properly at the edges and giving control over the output's spatial size.",
+            "id": "q7"
+          },
+          {
+            "question": "How are the weights inside a CNN's filters typically determined?",
+            "options": [
+              "They're hand-designed by engineers, like classical edge detectors",
+              "They're learned automatically from data during training",
+              "They're fixed at a constant value and never updated",
+              "They're chosen randomly before every prediction and never trained"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Unlike hand-coded classical filters, a CNN's filter weights start randomly initialized and are learned through backpropagation, just like the rest of the network's weights.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "dl_pooling_architecture",
+      "title": "Pooling and a Typical CNN Architecture",
+      "description": "See how pooling layers shrink feature maps, and how a full CNN puts all the pieces together.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain what pooling does and describe the typical structure of a convolutional neural network."
+          },
+          {
+            "title": "📉 Pooling: shrinking while keeping the important information",
+            "content": "**Pooling** layers reduce the size of feature maps by summarizing small regions into a single value — most commonly **max pooling**, which keeps only the strongest (maximum) activation in each small region.\n\n```python\n# Conceptual PyTorch-style layer\n# nn.MaxPool2d(kernel_size=2, stride=2)  # halves both height and width\n```\n\n• Reduces the amount of computation needed in later layers\n• Provides a small amount of translation tolerance — a pattern shifted by a pixel or two often still produces the same pooled result\n• Helps control overfitting by reducing the number of values flowing into later layers"
+          },
+          {
+            "title": "🏗️ A typical CNN architecture",
+            "content": "A classic CNN pattern stacks blocks of (convolution → activation → pooling) several times, gradually shrinking the spatial size while increasing the number of feature channels — then flattens the result into a fully-connected layer for the final classification.\n\n```\nInput image\n  → Conv + ReLU + Pool   (detects simple features: edges, colors)\n  → Conv + ReLU + Pool   (detects more complex features: shapes, textures)\n  → Conv + ReLU + Pool   (detects even more complex, object-level features)\n  → Flatten\n  → Fully-connected layer(s)\n  → Softmax output (class probabilities)\n```"
+          },
+          {
+            "title": "🎯 Why this shape makes sense",
+            "content": "Early layers work with a large spatial area but few feature channels, focused on simple, local visual patterns. As you go deeper, pooling shrinks the spatial dimensions while the number of channels typically grows — the network trades \"where exactly\" for \"what, more abstractly,\" building toward the higher-level semantic understanding needed for the final classification decision."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Using so many pooling layers that the feature map becomes too small.** Over-pooling can throw away spatial detail the network still needs — the amount of pooling should match the image size and task.\n\n**Forgetting to flatten before the fully-connected layer.** Convolutional and pooling layers produce multi-dimensional feature maps, which need to be reshaped into a flat vector before a standard fully-connected layer can process them.\n\n**Assuming pooling is the only way to reduce spatial size.** Using a convolution with a stride greater than 1 is a common modern alternative that also downsamples while learning the transformation, rather than pooling."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "dl_pooling_architecture_quiz",
+        "questions": [
+          {
+            "question": "What does max pooling do?",
+            "options": [
+              "It adds new pixels around the image border",
+              "It keeps only the strongest activation value within each small region, shrinking the feature map's size",
+              "It converts the feature map back into a raw image",
+              "It applies an activation function to every pixel"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Max pooling summarizes each small local region of a feature map down to its single largest value, reducing the spatial size while retaining the strongest, most salient signal from that region.",
+            "id": "q1"
+          },
+          {
+            "question": "In a typical CNN, what generally happens to spatial size and channel count as you go deeper into the network?",
+            "options": [
+              "Spatial size increases and channel count decreases",
+              "Spatial size generally shrinks (via pooling or strided convolutions) while the number of channels typically increases",
+              "Both spatial size and channel count stay exactly the same throughout",
+              "Spatial size and channel count are unrelated to depth"
+            ],
+            "correctAnswer": 1,
+            "explanation": "As the network goes deeper, pooling and strided convolutions progressively shrink the spatial dimensions, while the number of feature channels typically grows — trading precise spatial detail for a richer, more abstract set of learned features.",
+            "id": "q2"
+          },
+          {
+            "question": "Why does a CNN typically need a 'flatten' step before its final fully-connected layers?",
+            "options": [
+              "Flattening removes the need for an activation function",
+              "Convolutional and pooling layers output multi-dimensional feature maps, which need to be reshaped into a single flat vector for a standard fully-connected layer to process",
+              "Flattening is only needed for grayscale images",
+              "It's an optional step with no real purpose"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Fully-connected layers expect a simple one-dimensional vector of inputs, so the multi-dimensional (height × width × channels) feature maps produced by convolution and pooling layers must be flattened into that shape first.",
+            "id": "q3"
+          },
+          {
+            "question": "What does max pooling keep from each small region of a feature map?",
+            "options": [
+              "The average of all values in the region",
+              "The single strongest (maximum) activation value in the region",
+              "The smallest value in the region",
+              "A random value from the region"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Max pooling summarizes a small region down to its single largest activation value, discarding the rest while retaining the strongest signal.",
+            "id": "q4"
+          },
+          {
+            "question": "What is one benefit of pooling besides reducing computation?",
+            "options": [
+              "It removes the need for convolutional layers entirely",
+              "It provides a small amount of translation tolerance to minor shifts in the pattern's position",
+              "It guarantees zero overfitting",
+              "It eliminates the need for activation functions"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Because pooling summarizes a local region, small shifts in exact position often still produce the same pooled result, giving the network some tolerance to translation.",
+            "id": "q5"
+          },
+          {
+            "question": "In the typical CNN architecture pattern described, what block is repeated several times?",
+            "options": [
+              "Fully connected layer only",
+              "Convolution -> activation -> pooling",
+              "Softmax -> flatten -> convolution",
+              "Dropout -> batch norm only"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A classic CNN pattern stacks blocks of convolution, activation, and pooling multiple times before flattening into fully connected layers.",
+            "id": "q6"
+          },
+          {
+            "question": "As a typical CNN goes deeper, what generally happens to spatial size and channel count?",
+            "options": [
+              "Spatial size increases while channels decrease",
+              "Spatial size shrinks while the number of channels typically increases",
+              "Both stay exactly constant",
+              "Both shrink together"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Pooling and strided convolutions progressively shrink spatial dimensions while the number of feature channels typically grows deeper into the network.",
+            "id": "q7"
+          },
+          {
+            "question": "What is a modern alternative to pooling for reducing spatial size?",
+            "options": [
+              "Increasing the learning rate",
+              "Using a convolution with a stride greater than 1",
+              "Removing the flatten step",
+              "Adding more fully connected layers"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A convolution with a stride greater than 1 also downsamples the feature map, learning the transformation directly rather than using a separate pooling operation.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "dl_transfer_learning",
+      "title": "Transfer Learning with Pretrained CNNs",
+      "description": "Learn the practical technique that lets you get strong results without training a huge network from scratch.",
+      "duration": "9 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain what transfer learning is and describe the typical steps for applying it."
+          },
+          {
+            "title": "♻️ Why reuse a pretrained network?",
+            "content": "Training a large CNN from scratch requires massive datasets (millions of images) and significant compute — usually impractical for an individual project. **Transfer learning** instead starts from a network already trained on a large, general dataset (like ImageNet, with over a million images across 1,000 categories), and adapts it to a new, often much smaller, task-specific dataset."
+          },
+          {
+            "title": "🧠 Why this actually works",
+            "content": "Recall from the CNN architecture lesson: early layers learn simple, general-purpose features (edges, colors, textures) that are useful for almost *any* image task, while later layers learn increasingly task-specific, high-level features. A network pretrained on a broad dataset has already learned excellent general-purpose early layers — reusing them saves enormous time and data compared to learning those from scratch."
+          },
+          {
+            "title": "🛠️ Two common approaches",
+            "content": "```python\n# Conceptual PyTorch-style setup\n# model = load_pretrained_model(\"resnet50\")\n# \n# Approach 1: Feature extraction — freeze the pretrained layers,\n# only train a new final classification layer for your specific task\n# for param in model.early_layers.parameters():\n#     param.requires_grad = False\n# \n# Approach 2: Fine-tuning — start from pretrained weights,\n# but continue training some or all layers on your new data\n# (usually with a much smaller learning rate than training from scratch)\n```\n\n• **Feature extraction** — freeze the pretrained layers, train only a new final layer; fastest, works well with very little task-specific data\n• **Fine-tuning** — allow some or all pretrained layers to keep updating on the new data, usually with a small learning rate; often yields better results with a moderate amount of task-specific data"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Fine-tuning with too high a learning rate.** This can quickly destroy the valuable pretrained weights (\"catastrophic forgetting\") before the model has a chance to adapt them gently — a much smaller learning rate than training from scratch is standard.\n\n**Fine-tuning the entire network with very little task-specific data.** With too few examples, this often overfits badly — feature extraction (or fine-tuning only the later layers) is usually safer in that situation.\n\n**Ignoring mismatches between the pretrained data and your task.** A network pretrained on natural photos may transfer less effectively to a very different domain (like medical X-rays) — it can still help, but expectations and technique should adjust accordingly."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "dl_transfer_learning_quiz",
+        "questions": [
+          {
+            "question": "What is the core idea behind transfer learning?",
+            "options": [
+              "Training a brand new network completely from scratch for every task",
+              "Starting from a network already trained on a large, general dataset and adapting it to a new, often smaller, task-specific dataset",
+              "Using only fully-connected layers instead of convolutional ones",
+              "Randomly initializing all weights before every training run"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Transfer learning reuses the general-purpose knowledge already captured by a network trained on a large dataset, adapting it to a new task rather than learning everything again from zero.",
+            "id": "q1"
+          },
+          {
+            "question": "Why do early layers of a pretrained CNN transfer well to new, different image tasks?",
+            "options": [
+              "Early layers are always randomly reinitialized before use",
+              "Early layers tend to learn simple, general-purpose features like edges and textures, which are broadly useful across many different image tasks",
+              "Early layers contain no learnable weights at all",
+              "Early layers are specific to only one exact dataset and never transfer"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Simple visual features like edges, colors, and basic textures are useful building blocks for almost any image recognition task, which is why the early layers of a pretrained network transfer well even to fairly different new tasks.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is a smaller learning rate typically used when fine-tuning a pretrained network, compared to training from scratch?",
+            "options": [
+              "A smaller learning rate is never actually necessary for fine-tuning",
+              "A larger learning rate risks quickly destroying the valuable pretrained weights before they can be gently adapted to the new task",
+              "Fine-tuning doesn't use gradient-based training at all",
+              "Smaller learning rates make training take less total time"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since the pretrained weights already encode valuable learned knowledge, a smaller learning rate during fine-tuning allows gradual adaptation to the new task without abruptly overwriting that knowledge — a problem sometimes called catastrophic forgetting.",
+            "id": "q3"
+          },
+          {
+            "question": "What large, general dataset is mentioned as commonly used for pretraining CNNs?",
+            "options": [
+              "A dataset of 100 images",
+              "ImageNet, with over a million images across 1,000 categories",
+              "A dataset with no labels at all",
+              "A dataset of only medical X-rays"
+            ],
+            "correctAnswer": 1,
+            "explanation": "ImageNet, a large general-purpose dataset with over a million images across 1,000 categories, is commonly used to pretrain CNNs before transfer learning.",
+            "id": "q4"
+          },
+          {
+            "question": "In the feature extraction approach to transfer learning, what happens to the pretrained layers?",
+            "options": [
+              "They are deleted entirely",
+              "They are frozen, and only a new final layer is trained",
+              "They are all retrained from scratch with a high learning rate",
+              "They are replaced with random weights"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Feature extraction freezes the pretrained layers so their weights don't change, training only a new final classification layer for the new task.",
+            "id": "q5"
+          },
+          {
+            "question": "What does 'catastrophic forgetting' refer to during fine-tuning?",
+            "options": [
+              "The model refusing to train at all",
+              "A too-high learning rate quickly destroying valuable pretrained weights before they can be gently adapted",
+              "Running out of disk space",
+              "Forgetting to save a checkpoint"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Fine-tuning with too high a learning rate can rapidly overwrite the pretrained model's valuable learned weights, a problem known as catastrophic forgetting.",
+            "id": "q6"
+          },
+          {
+            "question": "Which scenario is generally safer: fine-tuning the entire network with very little task-specific data, or feature extraction?",
+            "options": [
+              "Fine-tuning the entire network is always safer",
+              "Feature extraction is usually safer, since fine-tuning everything risks overfitting with too little data",
+              "Neither approach works with little data",
+              "Both approaches are equally risky in every case"
+            ],
+            "correctAnswer": 1,
+            "explanation": "With very limited data, fine-tuning the whole network risks severe overfitting — feature extraction (or only tuning later layers) is the safer default.",
+            "id": "q7"
+          },
+          {
+            "question": "Why might a network pretrained on natural photos transfer less effectively to a very different domain like medical X-rays?",
+            "options": [
+              "Because transfer learning never works across any domain difference",
+              "Because there's a mismatch between the pretrained data's domain and the new task's domain",
+              "Because medical images cannot be represented digitally",
+              "Because X-rays always require more layers"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A domain mismatch between the pretrained dataset and the new task can reduce how well transfer learning helps, since the learned features may be less relevant to the new domain.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

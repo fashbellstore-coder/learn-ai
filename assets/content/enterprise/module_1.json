@@ -1,0 +1,567 @@
+{
+  "id": "ent_identity_and_access",
+  "title": "Identity & Access Management",
+  "description": "SSO/LDAP integration, RBAC for AI systems, service accounts, and enterprise-grade audit logging.",
+  "icon": "🔐",
+  "color": "#4A148C",
+  "order": 1,
+  "estimatedHours": 4,
+  "difficulty": "advanced",
+  "prerequisites": [
+    "ent_deployment_models"
+  ],
+  "lessons": [
+    {
+      "id": "ent_sso_and_ldap_integration",
+      "title": "SSO and LDAP Integration",
+      "description": "An enterprise AI system doesn't get its own separate login — it plugs into identity infrastructure that already exists.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain why enterprise AI systems integrate with existing identity infrastructure rather than managing their own user accounts.\n"
+          },
+          {
+            "title": "🔑 Single Sign-On (SSO): one identity, many systems",
+            "content": "**SSO** lets a user authenticate once with a central identity provider and gain access to multiple connected systems without logging in separately to each — directly extending the OAuth concepts from the App Dev course's authentication lesson to an organization-wide scale, where dozens or hundreds of internal systems all trust the same central identity provider rather than each managing its own user database.\n"
+          },
+          {
+            "title": "📇 LDAP and directory services",
+            "content": "Many enterprises maintain a central directory (via **LDAP** or a similar protocol) listing every employee, their group memberships, and their organizational role — a new AI system integrating with this directory, rather than maintaining its own separate user list, means access changes (a new hire, a departure, a role change) propagate automatically instead of needing manual updates in yet another disconnected system.\n"
+          },
+          {
+            "title": "🚫 Why maintaining a separate user database is a real liability",
+            "content": "An AI system with its own separate login system means someone has to remember to deprovision that specific system when an employee leaves — a step that's easy to forget precisely because it's one extra manual task among many, and a forgotten deprovisioning step is exactly the kind of access-control gap the next lesson's RBAC material is meant to prevent from having consequences.\n"
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "Here's a simplified simulation contrasting a directory-integrated system, where access updates propagate automatically, with a separate user database, where deprovisioning has to happen manually:\n\n```python\ncentral_directory = {\"alice\": \"active\", \"bob\": \"active\", \"carol\": \"active\"}\n\nclass DirectoryIntegratedSystem:\n    def can_login(self, user):\n        return central_directory.get(user) == \"active\"\n\nclass SeparateUserDatabase:\n    def __init__(self):\n        self.local_users = {\"alice\": \"active\", \"bob\": \"active\", \"carol\": \"active\"}\n\n    def can_login(self, user):\n        return self.local_users.get(user) == \"active\"\n\ndirectory_system = DirectoryIntegratedSystem()\nseparate_system = SeparateUserDatabase()\n\nprint(\"bob can login before departure:\", directory_system.can_login(\"bob\"), separate_system.can_login(\"bob\"))\n\n# bob leaves the company -- the central directory is updated immediately\ncentral_directory[\"bob\"] = \"deprovisioned\"\n# but nobody remembered to update the separate system's local_users\n\nprint(\"bob can login after departure:\", directory_system.can_login(\"bob\"), separate_system.can_login(\"bob\"))\n```\n\nBefore Bob's departure, both systems return `True` for `can_login(\"bob\")`. After the central directory is updated (`central_directory[\"bob\"] = \"deprovisioned\"`), `directory_system.can_login` reads that same shared `central_directory` and immediately returns `False` — no manual step needed. `separate_system`, however, checks its own `self.local_users` dict, which nobody updated, so it still returns `True` — Bob retains access purely because the separate system was never told he left, exactly the liability the lesson warns about.\n"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Building a new AI system's authentication as a standalone user database instead of integrating with existing identity infrastructure.** As the code example shows, this creates a silent liability — access doesn't automatically follow an employee's actual status, and deprovisioning becomes an easily forgotten manual step.\n\n**Assuming SSO integration is a one-time setup with no ongoing responsibility.** Directory schemas, group structures, and identity provider configurations can change over time — an integration that isn't periodically re-verified can quietly drift out of sync with how the organization's identity system actually works.\n\n**Treating LDAP/SSO integration as purely a security nicety rather than an operational necessity at scale.** Manually managing user access for an AI system used by hundreds or thousands of employees doesn't scale — the automatic propagation SSO/LDAP integration provides is what makes access management tractable at that size.\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ent_sso_and_ldap_integration_quiz",
+        "questions": [
+          {
+            "question": "What does Single Sign-On (SSO) let a user do?",
+            "options": [
+              "Authenticate once with a central identity provider and gain access to multiple connected systems without separate logins",
+              "Log in separately to every single system with a unique password for each",
+              "Bypass authentication entirely for any system",
+              "Only access one system per day regardless of how many they're authorized for"
+            ],
+            "correctAnswer": 0,
+            "explanation": "SSO's core value is centralizing authentication so a single login grants access across many trusted, connected systems.",
+            "id": "q1"
+          },
+          {
+            "question": "Why is integrating a new AI system with an existing LDAP directory preferable to maintaining a separate user list?",
+            "options": [
+              "Access changes like new hires, departures, or role changes propagate automatically instead of requiring manual updates in a disconnected system",
+              "LDAP integration is always technically simpler than building any login system from scratch",
+              "Separate user databases are required by most compliance frameworks",
+              "LDAP integration eliminates the need for any authentication whatsoever"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Centralizing identity means the AI system inherits the organization's existing, actively-maintained access records rather than needing its own parallel, easily-forgotten system.",
+            "id": "q2"
+          },
+          {
+            "question": "In the code example, why does `directory_system.can_login(\"bob\")` return `False` after Bob's departure, while `separate_system.can_login(\"bob\")` still returns `True`?",
+            "options": [
+              "Because `directory_system` reads from the shared `central_directory` dict, which was updated immediately, while `separate_system` reads from its own `self.local_users` dict, which nobody updated",
+              "Because `separate_system` was deleted along with Bob's account",
+              "Because `directory_system` has a bug that always returns `False`",
+              "Because Bob's account still exists in the `central_directory`"
+            ],
+            "correctAnswer": 0,
+            "explanation": "`DirectoryIntegratedSystem.can_login` checks `central_directory` directly, so the update to it is immediately visible; `SeparateUserDatabase.can_login` checks its own independent `local_users` dict, which nobody updated when Bob left.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, what does updating `central_directory[\"bob\"] = \"deprovisioned\"` demonstrate?",
+            "options": [
+              "That a single update to the shared, central source of truth is enough to revoke access for any system checking that same source directly — no per-system manual step required",
+              "That deprovisioning Bob requires updating every system individually regardless of integration",
+              "That `central_directory` has no effect on either system's login behavior",
+              "That `separate_system`'s access is also revoked automatically by this update"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The one-line update to `central_directory` alone is sufficient to revoke `directory_system`'s access for Bob, illustrating the automatic-propagation benefit of directory integration — no such automatic propagation exists for `separate_system`.",
+            "id": "q4"
+          },
+          {
+            "question": "What does the contrast between `DirectoryIntegratedSystem` and `SeparateUserDatabase` in the code example illustrate about access-control risk?",
+            "options": [
+              "That both systems handle deprovisioning identically",
+              "That a system relying on its own separate user list can silently retain a departed employee's access, purely because nobody remembered to update it, while directory integration avoids that risk by construction",
+              "That directory integration is always slower than a separate user database",
+              "That separate user databases are always more secure"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The code example makes concrete exactly the liability the lesson describes in prose: manual deprovisioning is an easily-missed step, and directory integration removes the need for it entirely.",
+            "id": "q5"
+          },
+          {
+            "question": "What real risk does a separate, disconnected login system for an AI application create?",
+            "options": [
+              "Someone has to remember to deprovision that specific system when an employee leaves, which is an easily forgotten manual step",
+              "Separate login systems are always more secure than centralized identity",
+              "Disconnected systems automatically sync with the central directory with no extra effort",
+              "Disconnected login systems eliminate all access-control risk"
+            ],
+            "correctAnswer": 0,
+            "explanation": "A parallel, disconnected user system depends on someone remembering an extra manual deprovisioning step — exactly the kind of gap that centralized identity integration avoids.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does the lesson warn against building a new AI system's authentication as a standalone user database instead of integrating with existing identity infrastructure?",
+            "options": [
+              "Because, as the code example shows, this creates a silent liability where access doesn't automatically follow an employee's actual status",
+              "Because standalone user databases are technically impossible to build",
+              "Because standalone databases are always slower to query than a central directory",
+              "Because integration with existing identity infrastructure is required by every programming language"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The common mistakes section states this directly, and the code example demonstrates concretely how the liability manifests — a departed employee retaining access purely due to a missed manual step.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does the lesson warn against treating LDAP/SSO integration as purely a security nicety rather than an operational necessity at scale?",
+            "options": [
+              "Because manually managing user access for an AI system used by hundreds or thousands of employees doesn't scale — automatic propagation is what makes access management tractable at that size",
+              "Because LDAP/SSO integration has no relationship to operational scale at all",
+              "Because manual access management scales better than automated propagation",
+              "Because security niceties are never worth implementing in an enterprise system"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson frames this integration as a practical scaling necessity, not just a security best practice — manual management becomes untenable well before an organization reaches enterprise scale.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ent_rbac_for_ai_systems",
+      "title": "RBAC for AI Systems",
+      "description": "Not every employee who can log in should be able to do everything the system can do.",
+      "duration": 13,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain how role-based access control applies specifically to an enterprise AI system's distinct capabilities.\n"
+          },
+          {
+            "title": "🎭 RBAC: permissions tied to roles, not individuals",
+            "content": "**Role-based access control (RBAC)** assigns permissions to roles (like \"data scientist,\" \"compliance reviewer,\" \"end user\") rather than to individual people directly, and users are assigned to one or more roles — changing what a person can do means changing their role assignment, not editing permissions for that person one by one.\n"
+          },
+          {
+            "title": "🤖 What roles look like for an AI system specifically",
+            "content": "- An **end user** might only be able to query a deployed model.\n- A **data scientist** might additionally be able to view training data and trigger a fine-tuning job (Fine-Tuning course).\n- An **administrator** might be able to change which model version is deployed to production.\n- A **compliance reviewer** might have read-only access to audit logs and model cards (Eval & Security course) without any ability to change the system itself\n\nEach role scoped to exactly what that function needs, echoing the least-privilege principle from the Cloud course's Linux permissions lesson.\n"
+          },
+          {
+            "title": "🔀 RBAC intersects with the multi-tenancy from Module 2",
+            "content": "In a system serving multiple business units or external customers (the next module's subject), RBAC often needs a second dimension beyond just role — not just \"what can this role do\" but \"what can this role do, within which tenant's data\" — a data scientist role in one business unit shouldn't automatically see another business unit's training data just because the role name matches.\n"
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "Here's a simplified simulation of role-scoped permission checks, including the tenant dimension:\n\n```python\nROLE_PERMISSIONS = {\n    \"end_user\": {\"query_model\"},\n    \"data_scientist\": {\"query_model\", \"view_training_data\", \"trigger_finetune\"},\n    \"administrator\": {\"query_model\", \"change_deployed_version\"},\n    \"compliance_reviewer\": {\"view_audit_logs\", \"view_model_cards\"},\n}\n\ndef can_perform(role, action, requester_tenant, target_tenant):\n    if requester_tenant != target_tenant:\n        return False  # tenant boundary always wins, regardless of role\n    return action in ROLE_PERMISSIONS.get(role, set())\n\nprint(can_perform(\"data_scientist\", \"trigger_finetune\", \"acme_corp\", \"acme_corp\"))\nprint(can_perform(\"data_scientist\", \"trigger_finetune\", \"acme_corp\", \"other_corp\"))\nprint(can_perform(\"compliance_reviewer\", \"change_deployed_version\", \"acme_corp\", \"acme_corp\"))\n```\n\nThe first call has matching tenants (`\"acme_corp\"` both times) and `\"trigger_finetune\"` is in `data_scientist`'s permission set, so it returns `True`. The second call has the same role and action but `requester_tenant=\"acme_corp\"` while `target_tenant=\"other_corp\"` — the tenant check fails immediately, returning `False` regardless of the role's permissions, exactly the tenant dimension described in the lesson. The third call has matching tenants, but `\"change_deployed_version\"` isn't in `compliance_reviewer`'s permission set (`{\"view_audit_logs\", \"view_model_cards\"}`), so it returns `False` — the role itself doesn't grant that action, independent of tenant.\n"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Checking only role permissions without also checking the tenant boundary in a multi-tenant system.** As the code example shows, a role check alone can't prevent a legitimate data scientist role from being misused to access a different tenant's data — the tenant dimension has to be checked independently.\n\n**Granting a role broader permissions than its actual function needs, for convenience.** Giving every role administrator-level access \"just in case\" defeats the purpose of RBAC's least-privilege design and turns a compromised low-privilege account into a much bigger risk.\n\n**Editing permissions for individual users instead of updating role assignments.** One-off, per-person permission tweaks undermine RBAC's core value — a system with enough individual exceptions becomes just as hard to audit as if there were no roles at all.\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ent_rbac_for_ai_systems_quiz",
+        "questions": [
+          {
+            "question": "What does RBAC assign permissions to, rather than to individual people directly?",
+            "options": [
+              "Roles, which users are then assigned to one or more of",
+              "Nothing; RBAC has no concept of permissions",
+              "Specific IP addresses only",
+              "Specific physical office locations only"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The core RBAC pattern is permissions attached to roles, with individuals gaining access by being assigned to a role, rather than having permissions configured person by person.",
+            "id": "q1"
+          },
+          {
+            "question": "In the code example, why does `can_perform(\"data_scientist\", \"trigger_finetune\", \"acme_corp\", \"other_corp\")` return `False`?",
+            "options": [
+              "Because `\"trigger_finetune\"` isn't in `data_scientist`'s permission set",
+              "Because `requester_tenant` (\"acme_corp\") doesn't match `target_tenant` (\"other_corp\"), so the function returns `False` immediately regardless of the role's permissions",
+              "Because `data_scientist` is not a valid role in `ROLE_PERMISSIONS`",
+              "Because the function always returns `False` on the second call"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`can_perform` checks `requester_tenant != target_tenant` first and returns `False` immediately if they differ — the role's permission set is never even consulted in that case.",
+            "id": "q2"
+          },
+          {
+            "question": "In the code example, why does `can_perform(\"compliance_reviewer\", \"change_deployed_version\", \"acme_corp\", \"acme_corp\")` return `False`?",
+            "options": [
+              "Because the tenants don't match",
+              "Because the tenants match, but `\"change_deployed_version\"` is not in `compliance_reviewer`'s permission set `{\"view_audit_logs\", \"view_model_cards\"}`",
+              "Because `compliance_reviewer` is not a defined role",
+              "Because `change_deployed_version` is not a valid action string"
+            ],
+            "correctAnswer": 1,
+            "explanation": "With matching tenants, the function falls through to `action in ROLE_PERMISSIONS.get(role, set())`; `\"change_deployed_version\"` isn't in the compliance reviewer's permission set, so it returns `False`.",
+            "id": "q3"
+          },
+          {
+            "question": "What does the code example demonstrate about the relationship between role permissions and the tenant check?",
+            "options": [
+              "That the tenant check is evaluated first and can override what a role's permissions would otherwise allow",
+              "That role permissions are checked before the tenant boundary in every case",
+              "That tenant and role checks are entirely independent and never interact",
+              "That the tenant check only applies to the `administrator` role"
+            ],
+            "correctAnswer": 0,
+            "explanation": "`can_perform`'s tenant check runs first and short-circuits the function before the role's permission set is even examined — the tenant boundary takes precedence over what the role alone would permit.",
+            "id": "q4"
+          },
+          {
+            "question": "Why might a compliance reviewer role have read-only access to audit logs and model cards but no ability to change the system?",
+            "options": [
+              "Because that role's function is oversight, not operation, so its permissions should be scoped to exactly what that function needs, following least-privilege",
+              "Because compliance reviewers should have unrestricted access to every part of the system",
+              "Because read-only access is technically impossible to implement in RBAC",
+              "Because compliance reviewers never need to see any system information at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Scoping each role's permissions to exactly its actual function is the least-privilege principle applied to role design, limiting risk without blocking legitimate work.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does RBAC often need a tenant dimension in a multi-tenant enterprise AI system?",
+            "options": [
+              "Because a role like 'data scientist' existing in one business unit shouldn't automatically grant visibility into another business unit's data just because the role name matches",
+              "Because multi-tenancy eliminates the need for any role-based permissions",
+              "Because tenants and roles are the exact same concept with no distinction",
+              "Because RBAC cannot function at all in a multi-tenant system"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Role alone isn't enough in a multi-tenant system — permissions need to be scoped both by what a role can do and which tenant's data that access applies to.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does the lesson warn against checking only role permissions without also checking the tenant boundary?",
+            "options": [
+              "Because, as the code example shows, a role check alone can't prevent a legitimate role from being misused to access a different tenant's data — the tenant dimension has to be checked independently",
+              "Because tenant checks are unnecessary once roles are properly defined",
+              "Because role permissions and tenant boundaries are the same check",
+              "Because tenant checks always make role checks redundant"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The common mistakes section reinforces exactly what the code example shows: role and tenant are separate dimensions, and skipping the tenant check leaves a real cross-tenant access gap.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does the lesson warn against editing permissions for individual users instead of updating role assignments?",
+            "options": [
+              "Because one-off, per-person permission tweaks undermine RBAC's core value, and a system with enough individual exceptions becomes just as hard to audit as having no roles at all",
+              "Because individual permission edits are technically impossible in any RBAC system",
+              "Because role assignments can never be changed once set",
+              "Because per-user exceptions always improve system security"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The common mistakes section is explicit that per-user exceptions erode the auditability RBAC is meant to provide, effectively recreating an unstructured permissions system role by role.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ent_service_accounts_and_api_access",
+      "title": "Service Accounts and API Access",
+      "description": "Not every caller of an enterprise AI system is a human — machine-to-machine access needs its own identity model.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain what a service account is and why it needs different management practices than a human user account.\n"
+          },
+          {
+            "title": "🤖 Service accounts: identity for non-human callers",
+            "content": "A **service account** represents a non-human caller — another internal system, an automated pipeline, a scheduled batch job — that needs to authenticate and access the AI system, using the API-key authentication model from the App Dev course's auth lesson, now specifically for internal service-to-service enterprise traffic rather than external API consumers.\n"
+          },
+          {
+            "title": "🔄 Why service accounts need different lifecycle management",
+            "content": "A human employee's access naturally ties to their employment status through the SSO/LDAP integration from earlier in this module — when they leave, access disappears automatically. A service account has no such natural tie; it persists until someone explicitly decommissions it, which means unused or orphaned service accounts (belonging to a decommissioned pipeline nobody remembered to clean up) are a common, quiet source of unnecessary access risk in enterprise systems.\n"
+          },
+          {
+            "title": "🔑 Scoping service account permissions tightly",
+            "content": "A service account should have exactly the permissions its specific automated task needs — a nightly batch job that only reads aggregated metrics shouldn't have write access to production model configuration, following the same least-privilege discipline this module has applied to both human roles and now machine identities.\n"
+          },
+          {
+            "title": "📋 Inventory and periodic review",
+            "content": "Because service accounts don't naturally expire the way human access does, periodically auditing the full list of active service accounts — what they're for, whether they're still needed, whether their permissions are still appropriately scoped — is a necessary practice this module's audit-logging lesson will build on directly.\n"
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "Here's a simplified simulation of a service account inventory review, flagging accounts that are orphaned or over-scoped:\n\n```python\nservice_accounts = [\n    {\"name\": \"nightly-metrics-job\", \"owning_pipeline_active\": True, \"permissions\": {\"read_metrics\"}},\n    {\"name\": \"legacy-etl-pipeline\", \"owning_pipeline_active\": False, \"permissions\": {\"read_metrics\", \"write_config\"}},\n    {\"name\": \"model-deploy-bot\", \"owning_pipeline_active\": True, \"permissions\": {\"read_metrics\", \"write_config\", \"deploy_model\"}},\n]\n\nREQUIRED_PERMISSIONS = {\n    \"nightly-metrics-job\": {\"read_metrics\"},\n    \"legacy-etl-pipeline\": {\"read_metrics\", \"write_config\"},\n    \"model-deploy-bot\": {\"deploy_model\"},\n}\n\ndef audit_service_accounts(accounts):\n    findings = []\n    for acct in accounts:\n        if not acct[\"owning_pipeline_active\"]:\n            findings.append(f\"{acct['name']}: ORPHANED -- owning pipeline no longer active\")\n            continue\n        required = REQUIRED_PERMISSIONS[acct[\"name\"]]\n        extra = acct[\"permissions\"] - required\n        if extra:\n            findings.append(f\"{acct['name']}: OVER-SCOPED -- has unnecessary permissions {extra}\")\n    return findings\n\nfor finding in audit_service_accounts(service_accounts):\n    print(finding)\n```\n\n`nightly-metrics-job` has an active owning pipeline and `permissions == REQUIRED_PERMISSIONS[...]` exactly, so `extra` is an empty set and it produces no finding. `legacy-etl-pipeline` has `owning_pipeline_active=False`, so the loop flags it as `\"ORPHANED\"` immediately via `continue`, without even checking its permissions. `model-deploy-bot` has an active pipeline, but its actual `permissions` set (`{\"read_metrics\", \"write_config\", \"deploy_model\"}`) minus its `REQUIRED_PERMISSIONS` (`{\"deploy_model\"}`) leaves `extra = {\"read_metrics\", \"write_config\"}` — flagged as `\"OVER-SCOPED\"`, holding two permissions it doesn't actually need for its stated task.\n"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Never revisiting service account permissions after initial setup.** As the code example's `model-deploy-bot` shows, a service account can accumulate more permissions than it needs over time (often from copy-pasting a broader existing account's config) without anyone noticing, since there's no natural review trigger the way employment status provides for human accounts.\n\n**Not tracking which pipeline or system owns each service account.** Without that ownership record, an orphaned account — like `legacy-etl-pipeline` in the example — can go unnoticed indefinitely, since there's no employee departure event to prompt someone to check it.\n\n**Sharing one service account's credentials across multiple unrelated automated tasks for convenience.** This defeats tight scoping entirely — the shared account ends up needing the union of every task's permissions, and a compromise or bug in any one task has blast radius across all of them.\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ent_service_accounts_and_api_access_quiz",
+        "questions": [
+          {
+            "question": "What is a service account, in the context of enterprise access management?",
+            "options": [
+              "An identity representing a non-human caller, like an internal system, automated pipeline, or scheduled batch job",
+              "A special type of human employee account with extra privileges",
+              "A temporary guest account for external visitors",
+              "A backup copy of a human user's account"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Service accounts exist specifically to give non-human, automated callers their own identity and access, distinct from human user accounts.",
+            "id": "q1"
+          },
+          {
+            "question": "In the code example, why is `legacy-etl-pipeline` flagged as \"ORPHANED\" without its permissions even being checked?",
+            "options": [
+              "Because `owning_pipeline_active` is `False` for it, so `audit_service_accounts` appends the orphaned finding and hits `continue`, skipping the permission-scoping check entirely for that account",
+              "Because `legacy-etl-pipeline` has no entry in `REQUIRED_PERMISSIONS`",
+              "Because its permissions set is empty",
+              "Because `nightly-metrics-job` is checked first and consumes the loop"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The function checks `owning_pipeline_active` first; when it's `False`, it appends the orphaned finding and immediately `continue`s to the next account, never reaching the `extra = acct[\"permissions\"] - required` scoping check for that account.",
+            "id": "q2"
+          },
+          {
+            "question": "In the code example, what is `extra` for `model-deploy-bot`, and what does it represent?",
+            "options": [
+              "An empty set, since `model-deploy-bot` needs no permissions",
+              "`{\"read_metrics\", \"write_config\"}`, computed as `acct[\"permissions\"] - required` — permissions the account holds beyond what `REQUIRED_PERMISSIONS` says it actually needs",
+              "`{\"deploy_model\"}`, the permission it's missing",
+              "The full set of all three permissions"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`extra = acct[\"permissions\"] - required` subtracts the required set `{\"deploy_model\"}` from the actual permissions `{\"read_metrics\", \"write_config\", \"deploy_model\"}`, leaving `{\"read_metrics\", \"write_config\"}` as unnecessary extras.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, why does `nightly-metrics-job` produce no finding?",
+            "options": [
+              "Because its `owning_pipeline_active` is `False`",
+              "Because its owning pipeline is active and its `permissions` set exactly matches `REQUIRED_PERMISSIONS[\"nightly-metrics-job\"]`, leaving `extra` as an empty set, which is falsy in the `if extra:` check",
+              "Because it isn't included in the `service_accounts` list",
+              "Because `audit_service_accounts` only checks the first two accounts"
+            ],
+            "correctAnswer": 1,
+            "explanation": "With an active pipeline and `permissions == required` exactly, `extra` computes to an empty set, and `if extra:` is `False` for an empty set, so no finding is appended for this account.",
+            "id": "q4"
+          },
+          {
+            "question": "What does the `audit_service_accounts` function's two-part check (ownership status, then permission scope) illustrate about the lesson's inventory review practice?",
+            "options": [
+              "That a periodic review needs to catch both accounts that should no longer exist at all (orphaned) and accounts that exist appropriately but hold more access than their task requires (over-scoped) — two distinct kinds of risk",
+              "That only orphaned accounts are ever a security concern",
+              "That over-scoped accounts are always also orphaned",
+              "That the two checks are redundant with each other"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The function's structure mirrors the lesson's point that service account risk comes in (at least) two distinct forms — accounts that should be decommissioned, and accounts that are legitimate but too broadly scoped.",
+            "id": "q5"
+          },
+          {
+            "question": "Why do service accounts pose a distinct access-management risk compared to human user accounts?",
+            "options": [
+              "They have no natural tie to an employment status, so they persist until someone explicitly decommissions them, making orphaned accounts a common, quiet risk",
+              "Service accounts automatically expire after 24 hours with no further action needed",
+              "Service accounts cannot be granted any permissions at all",
+              "Human accounts never pose any access-management risk, unlike service accounts"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Unlike human accounts tied to employment status, service accounts lack a natural expiration trigger, so forgotten, orphaned accounts can quietly accumulate unnecessary access.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does the lesson warn against never revisiting service account permissions after initial setup?",
+            "options": [
+              "Because, as the `model-deploy-bot` example shows, a service account can accumulate more permissions than it needs over time without anyone noticing, since there's no natural review trigger like employment status provides",
+              "Because service account permissions are fixed at creation and cannot change",
+              "Because reviewing permissions always removes permissions the account actually needs",
+              "Because initial setup always grants the minimum necessary permissions with no risk of drift"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The common mistakes section connects directly to the code example's over-scoping finding — without periodic review, permission creep goes undetected indefinitely.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does the lesson warn against sharing one service account's credentials across multiple unrelated automated tasks?",
+            "options": [
+              "Because this defeats tight scoping — the shared account ends up needing the union of every task's permissions, and a compromise or bug in any one task has blast radius across all of them",
+              "Because shared credentials are technically impossible to configure",
+              "Because sharing credentials always improves system performance",
+              "Because each automated task requires its own separate physical server"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The common mistakes section explains that credential sharing forces over-broad permissions and expands the blast radius of any single task's compromise or bug to every other task sharing that account.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ent_audit_logging",
+      "title": "Audit Logging",
+      "description": "When something goes wrong, 'who did what, when' needs to already be answerable — not reconstructed after the fact.",
+      "duration": 13,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain what an enterprise-grade audit log needs to capture and why it must be tamper-resistant.\n"
+          },
+          {
+            "title": "📝 What belongs in an audit log",
+            "content": "**Who** (which user or service account) did **what** (queried the model, changed a configuration, accessed training data) **when** (a precise timestamp), and — for an AI system specifically — often **what the system's response or action was too**, not just that a request was made. This directly extends the accountability logging the Vector Databases course's closing security lesson and the App Dev course's securing-LLM-endpoints lesson both called for, now as a formal, comprehensive enterprise practice.\n"
+          },
+          {
+            "title": "🔒 Tamper-resistance: the log has to be trustworthy",
+            "content": "An audit log that the same people it might implicate can freely edit or delete isn't a trustworthy record — enterprise audit logging typically writes to storage that's append-only or otherwise protected from modification by the very systems and accounts being logged, so the log remains a reliable record even in an investigation involving someone with broad system access.\n"
+          },
+          {
+            "title": "⚖️ Audit logs serve both security and compliance",
+            "content": "Beyond helping diagnose a security incident (was this account compromised, what did the attacker actually do), audit logs are often a hard compliance requirement — many regulatory frameworks (covered more fully in the governance module) explicitly require the ability to answer \"who accessed this specific sensitive data, when\" for a defined retention period, not just as a nice-to-have practice.\n"
+          },
+          {
+            "title": "🔗 Closing this module's arc",
+            "content": "This module moved from centralizing identity (SSO/LDAP), to scoping what each identity can do (RBAC), to accounting for non-human identities (service accounts), to finally recording what every identity actually did (audit logging) — a complete access-management lifecycle for an enterprise AI system.\n"
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "Here's a simplified simulation of an append-only audit log, contrasted with a mutable log that an attacker with broad access could tamper with:\n\n```python\nclass AppendOnlyLog:\n    def __init__(self):\n        self._entries = []\n\n    def record(self, who, what, when):\n        self._entries.append({\"who\": who, \"what\": what, \"when\": when})\n\n    def delete_entry(self, index):\n        raise PermissionError(\"audit log storage does not support deletion\")\n\n    def read_all(self):\n        return list(self._entries)\n\nclass MutableLog:\n    def __init__(self):\n        self.entries = []\n\n    def record(self, who, what, when):\n        self.entries.append({\"who\": who, \"what\": what, \"when\": when})\n\naudit_log = AppendOnlyLog()\naudit_log.record(\"attacker_compromised_account\", \"exported training data\", \"2026-01-04T02:13:00Z\")\n\ntry:\n    audit_log.delete_entry(0)  # attacker tries to cover their tracks\nexcept PermissionError as e:\n    print(\"deletion blocked:\", e)\n\nprint(\"append-only log still shows the incident:\", audit_log.read_all())\n\nmutable_log = MutableLog()\nmutable_log.record(\"attacker_compromised_account\", \"exported training data\", \"2026-01-04T02:13:00Z\")\ndel mutable_log.entries[0]  # nothing stops direct mutation\nprint(\"mutable log after tampering:\", mutable_log.entries)\n```\n\n`AppendOnlyLog.delete_entry` always raises `PermissionError`, so the attacker's attempt to remove their own entry fails, and `audit_log.read_all()` still shows the full incident record afterward. `MutableLog`, by contrast, exposes its `entries` list directly with no protection — `del mutable_log.entries[0]` succeeds without any error, leaving `mutable_log.entries` as an **empty list**, with the incident record erased entirely. The structural difference between the two classes — one refusing deletion outright, one allowing direct mutation — is exactly what \"tamper-resistant\" means in practice.\n"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Storing audit logs in the same mutable database the audited system itself can write to freely.** As the code example shows, if the system (or someone with its access) can delete or edit its own audit trail, the log's evidentiary value collapses exactly when it matters most — during an actual incident.\n\n**Logging only that a request occurred, without the system's actual response or action.** For an AI system, knowing what the model returned or did is often essential to understanding the impact of an incident, not just that some interaction happened.\n\n**Treating audit logging as purely a security feature with no compliance retention requirements considered.** Regulatory frameworks often mandate a specific minimum retention period for audit records — a log that's rotated out or deleted too early can fail a compliance requirement even if it was perfectly tamper-resistant while it existed.\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ent_audit_logging_quiz",
+        "questions": [
+          {
+            "question": "Beyond who did what and when, what does an audit log for an AI system often need to capture that a typical application's log might not?",
+            "options": [
+              "The system's actual response or action, not just the fact that a request was made",
+              "The programming language the AI system was written in",
+              "The physical location of the data center",
+              "The user's personal email signature"
+            ],
+            "correctAnswer": 0,
+            "explanation": "For an AI system, knowing what the model actually did or returned in response to a request is often as important as knowing that a request occurred at all, especially for accountability purposes.",
+            "id": "q1"
+          },
+          {
+            "question": "In the code example, what happens when `audit_log.delete_entry(0)` is called?",
+            "options": [
+              "The entry is silently removed with no error",
+              "It raises `PermissionError(\"audit log storage does not support deletion\")`, and the entry remains in the log afterward",
+              "It returns `False` without modifying the log",
+              "It deletes the entire log, not just the one entry"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`AppendOnlyLog.delete_entry` is implemented to unconditionally `raise PermissionError`, so calling it always fails and the underlying `_entries` list is never modified.",
+            "id": "q2"
+          },
+          {
+            "question": "In the code example, what is `mutable_log.entries` after `del mutable_log.entries[0]` runs?",
+            "options": [
+              "Still contains the original entry, unchanged",
+              "An empty list — the deletion succeeds because nothing in `MutableLog` protects `entries` from direct external mutation",
+              "Raises a `PermissionError`, identical to the append-only log's behavior",
+              "Contains two entries instead of one"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`MutableLog` exposes `self.entries` as a plain, unprotected list; `del mutable_log.entries[0]` directly removes the only entry with no error, leaving an empty list.",
+            "id": "q3"
+          },
+          {
+            "question": "What does the contrast between `AppendOnlyLog` and `MutableLog` in the code example demonstrate about tamper-resistance?",
+            "options": [
+              "That both classes behave identically under a deletion attempt",
+              "That tamper-resistance is a structural property of how the log is implemented — one class refuses deletion outright by design, while the other allows silent, untracked mutation",
+              "That mutable logs are always faster to query than append-only logs",
+              "That append-only logs cannot record any data at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The two classes differ only in whether deletion is structurally blocked; that difference alone is what separates a trustworthy audit record from one an attacker with access could quietly erase.",
+            "id": "q4"
+          },
+          {
+            "question": "Why does an audit log need to be tamper-resistant, ideally append-only?",
+            "options": [
+              "Because a log the implicated parties could freely edit or delete wouldn't be a trustworthy record, especially in an investigation involving someone with broad access",
+              "Because tamper-resistant logs are technically easier to build than mutable ones",
+              "Because append-only storage is always cheaper than any alternative",
+              "Because tamper-resistance has no relationship to the log's trustworthiness"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The whole value of an audit log as evidence depends on it being resistant to modification by the very accounts or systems it might need to implicate.",
+            "id": "q5"
+          },
+          {
+            "question": "Beyond security incident diagnosis, what other purpose do audit logs commonly serve in an enterprise?",
+            "options": [
+              "Satisfying regulatory compliance requirements that explicitly mandate the ability to answer who accessed specific sensitive data and when",
+              "Replacing the need for any RBAC or service account management",
+              "Automatically fixing any security vulnerabilities they detect",
+              "Eliminating the need for any SSO or LDAP integration"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Audit logging often exists not just as good security practice but as a formal, explicit requirement under various regulatory compliance frameworks.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does the lesson warn against storing audit logs in the same mutable database the audited system can write to freely?",
+            "options": [
+              "Because, as the code example shows, if the system or someone with its access can delete or edit the audit trail, the log's evidentiary value collapses exactly when it matters most — during an actual incident",
+              "Because mutable databases are always slower than append-only storage",
+              "Because audit logs are never actually needed during a security incident",
+              "Because mutable databases cannot store timestamps"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The common mistakes section directly echoes the code example's point: shared mutability between the audited system and its own audit trail defeats the log's purpose right when it's needed most.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does the lesson warn against treating audit logging as purely a security feature with no compliance retention requirements considered?",
+            "options": [
+              "Because regulatory frameworks often mandate a specific minimum retention period, and a log rotated out or deleted too early can fail a compliance requirement even if it was tamper-resistant while it existed",
+              "Because compliance frameworks never actually require audit log retention",
+              "Because retention requirements only apply to non-AI systems",
+              "Because tamper-resistance alone always satisfies every compliance requirement automatically"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson notes audit logs serve compliance as well as security — retention duration is a distinct requirement from tamper-resistance, and missing it can create a compliance gap independent of the log's integrity.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

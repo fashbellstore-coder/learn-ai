@@ -1,0 +1,567 @@
+{
+  "id": "inf_quantization_and_compression",
+  "title": "Quantization & Model Compression",
+  "description": "Quantization basics, PTQ methods like GPTQ/AWQ, distillation, and choosing precision against a real SLO.",
+  "icon": "🗜️",
+  "color": "#F9A825",
+  "order": 3,
+  "estimatedHours": 4,
+  "difficulty": "advanced",
+  "prerequisites": [
+    "inf_batching_and_scheduling"
+  ],
+  "lessons": [
+    {
+      "id": "inf_quantization_basics",
+      "title": "Quantization Basics",
+      "description": "Storing numbers with fewer bits, and why an LLM barely notices most of the time.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain what quantization changes numerically and why LLM weights tolerate it reasonably well."
+          },
+          {
+            "title": "🔢 From 16 or 32 bits down to 8 or 4",
+            "content": "Model weights are typically trained in FP32 or FP16 (16 or 32 bits per number). Quantization stores them in fewer bits — INT8 (8 bits) or INT4 (4 bits) — by mapping the original range of values onto a smaller set of discrete levels, directly shrinking memory footprint and often speeding up computation on hardware optimized for lower precision."
+          },
+          {
+            "title": "🎲 Why LLMs tolerate this reasonably well",
+            "content": "Neural network weights are redundant and somewhat noise-tolerant by nature — the exact 16th decimal place of a weight rarely determines the model's output. This is the same robustness that let the Fine-Tuning course's PEFT lesson update only a small fraction of parameters and still shift model behavior meaningfully."
+          },
+          {
+            "title": "📉 Where the cost shows up",
+            "content": "Quantization isn't free: more aggressive quantization (going from INT8 to INT4) introduces more numerical error, which can measurably degrade output quality — especially on tasks requiring precise reasoning or rare knowledge. This is exactly why the choosing-precision-for-your-SLO lesson later in this module insists on validating with real evaluation, not assuming quantization is harmless."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "A tiny quantize/dequantize round-trip that shows the error introduced at different bit-widths:\n\n```python\ndef quantize(weights, bits=8):\n    \"\"\"Map floating-point weights onto a fixed set of integer levels.\"\"\"\n    levels = 2 ** bits\n    w_min, w_max = min(weights), max(weights)\n    scale = (w_max - w_min) / (levels - 1)\n    zero_point = w_min\n\n    quantized = [round((w - zero_point) / scale) for w in weights]\n    return quantized, scale, zero_point\n\n\ndef dequantize(quantized, scale, zero_point):\n    return [q * scale + zero_point for q in quantized]\n\n\nweights = [-0.42, -0.10, 0.0, 0.05, 0.13, 0.30, 0.55, 0.61]\n\nq8, scale8, zp8 = quantize(weights, bits=8)\nrecovered8 = dequantize(q8, scale8, zp8)\nerror8 = [abs(w - r) for w, r in zip(weights, recovered8)]\n\nq4, scale4, zp4 = quantize(weights, bits=4)\nrecovered4 = dequantize(q4, scale4, zp4)\nerror4 = [abs(w - r) for w, r in zip(weights, recovered4)]\n\nprint(\"INT8 max error:\", max(error8))\nprint(\"INT4 max error:\", max(error4))\n```\n\n`quantize` maps the weight range onto `2 ** bits` discrete integer levels using a single `scale` and `zero_point`, and `dequantize` reconstructs approximate floats from those integers. Notice that dropping from 8 bits to 4 bits (far fewer levels) makes `error4` noticeably larger than `error8` — a concrete version of the \"more aggressive quantization introduces more error\" idea from the sections above."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming a bit-width is \"safe\" just because it's commonly used.** INT8 being popular doesn't mean it's automatically fine for your model and task — tolerance for quantization error varies by model and even by capability, so it has to be measured, not assumed.\n\n**Conflating fewer bits with fewer parameters.** Quantization changes how each weight is stored, not how many weights the model has; expecting it to shrink the model the way pruning or distillation would leads to wrong expectations about capacity.\n\n**Treating every weight as equally sensitive to quantization error.** In practice some weights matter far more to output quality than others — a distinction later PTQ methods lean on directly rather than ignoring.\n\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "inf_quantization_basics_quiz",
+        "questions": [
+          {
+            "question": "What does quantization do to a model's weights?",
+            "options": [
+              "Stores them using fewer bits per number, mapping the original value range onto a smaller set of discrete levels",
+              "Deletes a fraction of the weights entirely",
+              "Converts the weights into text tokens",
+              "Increases the number of parameters in the model"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Quantization reduces numerical precision (bits per weight), not the number of weights or their fundamental role in the network.",
+            "id": "q1"
+          },
+          {
+            "question": "Why do LLMs generally tolerate quantization reasonably well?",
+            "options": [
+              "Because neural network weights are somewhat redundant and noise-tolerant, so small numerical changes rarely dominate the output",
+              "Because quantization has zero effect on any computation",
+              "Because LLMs are specifically trained only on quantized data",
+              "Because quantization only affects the tokenizer, not the weights"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The same redundancy that allows small parameter updates (as in PEFT) to shift behavior also means small precision losses from quantization are often tolerable.",
+            "id": "q2"
+          },
+          {
+            "question": "Why can't quantization be assumed to be harmless in every case?",
+            "options": [
+              "Because more aggressive quantization introduces more numerical error, which can measurably degrade quality on precision-sensitive tasks",
+              "Because quantization always doubles model size instead of shrinking it",
+              "Because quantized models cannot generate text at all",
+              "Because quantization is illegal for production use"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Real evaluation, not assumption, is needed because quantization error can compound on tasks that require higher numerical fidelity.",
+            "id": "q3"
+          },
+          {
+            "question": "Per the lesson, what specifically shrinks when weights move from FP32/FP16 down to INT8/INT4?",
+            "options": [
+              "The number of bits used to represent each number, by mapping the value range onto fewer discrete levels",
+              "The number of layers in the model",
+              "The vocabulary size of the tokenizer",
+              "The number of attention heads"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson describes quantization as mapping the original range of values onto a smaller set of discrete levels using fewer bits per number — not changing architecture.",
+            "id": "q4"
+          },
+          {
+            "question": "Which prior lesson does this lesson connect to when explaining why LLMs tolerate small numerical changes?",
+            "options": [
+              "The Fine-Tuning course's PEFT lesson, which updates only a small fraction of parameters and still shifts behavior meaningfully",
+              "The RAG course's retrieval lesson",
+              "The Eval & Security course's red-teaming lesson",
+              "The LLMOps course's autoscaling lesson"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly draws this comparison to PEFT's robustness to small parameter changes as the same underlying tolerance quantization relies on.",
+            "id": "q5"
+          },
+          {
+            "question": "In the quantize/dequantize example, why is error4 larger than error8?",
+            "options": [
+              "INT4 has far fewer discrete levels than INT8, so each level must cover a wider slice of the weight range, producing larger rounding error",
+              "The quantize function has a bug that only triggers at 4 bits",
+              "error4 is computed from different weights than error8",
+              "bits has no effect on the size of scale"
+            ],
+            "correctAnswer": 0,
+            "explanation": "With bits=4 there are only 2**4 = 16 levels versus 2**8 = 256 for INT8, so scale is larger and each rounded value can be further from the original.",
+            "id": "q6"
+          },
+          {
+            "question": "What do scale and zero_point represent in the quantize function?",
+            "options": [
+              "The per-level step size and the reference value used to map between the float range and the integer levels",
+              "The number of weights being quantized",
+              "The bit-width chosen for quantization",
+              "The maximum error tolerated by the model"
+            ],
+            "correctAnswer": 0,
+            "explanation": "scale is (w_max - w_min) / (levels - 1), the size of one discrete step, and zero_point (w_min) anchors where that stepping starts — together they let dequantize reconstruct approximate floats.",
+            "id": "q7"
+          },
+          {
+            "question": "Per 'Common mistakes', why is it wrong to assume INT8 is automatically 'safe' just because it's commonly used?",
+            "options": [
+              "Because tolerance for quantization error varies by model and capability, so it must be measured for your specific case rather than assumed from popularity",
+              "Because INT8 is technically not a valid quantization format",
+              "Because INT8 always performs worse than INT4 in every case",
+              "Because INT8 changes the number of parameters in the model"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The mistakes section warns that popularity is not evidence of safety — the lesson's broader point is that quantization tolerance needs real evaluation, not assumption.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "inf_post_training_quantization_methods",
+      "title": "Post-Training Quantization Methods",
+      "description": "GPTQ, AWQ, and friends: quantizing a model after it's already trained, without retraining from scratch.",
+      "duration": 13,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain what distinguishes post-training quantization from quantization-aware training, and name what a method like GPTQ or AWQ optimizes for."
+          },
+          {
+            "title": "🔧 Post-training vs. quantization-aware",
+            "content": "Post-training quantization (PTQ) takes an already-trained, full-precision model and quantizes it afterward, using a small calibration dataset to minimize the resulting error — no retraining loop required. Quantization-aware training (QAT) instead simulates quantization during training itself, generally yielding better quality at a much higher cost, since it requires a full training run rather than a quick post-hoc pass."
+          },
+          {
+            "title": "🎯 GPTQ: minimize per-layer error",
+            "content": "GPTQ quantizes a model layer by layer, using a calibration dataset to solve for the quantized weights that minimize the reconstruction error introduced at each layer — a more careful process than naively rounding every weight to the nearest quantized value, which tends to compound error badly across layers."
+          },
+          {
+            "title": "⭐ AWQ: protect the weights that matter most",
+            "content": "AWQ (Activation-aware Weight Quantization) observes that not all weights are equally important — a small subset, identified by which weights produce the largest activations, contributes disproportionately to output quality. AWQ preserves those weights at higher precision while aggressively quantizing the rest, often outperforming uniform quantization at the same average bit-width."
+          },
+          {
+            "title": "🧪 Both still need evaluation",
+            "content": "Even sophisticated PTQ methods should be validated against a real evaluation set for your actual use case, the same eval-before-you-trust-it discipline from the Fine-Tuning and Eval & Security courses — a method that preserves general benchmark performance well can still degrade specific capabilities your product depends on."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "A toy calibration step that derives a quantization scale from a sample of activations:\n\n```python\nimport random\n\nrandom.seed(0)\n\n\ndef calibrate_scale(sample_activations, bits=8):\n    \"\"\"A toy PTQ-style calibration step: pick a scale from a calibration sample.\"\"\"\n    levels = 2 ** bits\n    a_min, a_max = min(sample_activations), max(sample_activations)\n    scale = (a_max - a_min) / (levels - 1)\n    return scale, a_min\n\n\ndef quantize_with_scale(values, scale, zero_point, bits=8):\n    levels = 2 ** bits\n    quantized = []\n    for v in values:\n        q = round((v - zero_point) / scale)\n        q = max(0, min(levels - 1, q))  # clip to valid range\n        quantized.append(q)\n    return quantized\n\n\n# Simulate a layer's activations: mostly small values, a few outliers.\ncalibration_sample = [random.gauss(0, 1) for _ in range(200)] + [8.0, -7.5]\nproduction_batch = [random.gauss(0, 1) for _ in range(10)]\n\nscale, zero_point = calibrate_scale(calibration_sample, bits=8)\nquantized_batch = quantize_with_scale(production_batch, scale, zero_point, bits=8)\n\nprint(f\"calibrated scale={scale:.4f}, zero_point={zero_point:.4f}\")\nprint(\"quantized production batch:\", quantized_batch)\n```\n\n`calibrate_scale` derives `scale` and `zero_point` from a `calibration_sample` that deliberately includes a couple of outlier values — notice how those outliers stretch `a_min`/`a_max` and therefore widen `scale`, which is exactly the kind of per-layer reconstruction error a method like GPTQ tries to minimize rather than accept naively."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Calibrating on data that doesn't resemble production traffic.** A calibration set with a different distribution than real inputs produces a scale and zero_point that are miscalibrated for what the model will actually see once deployed.\n\n**Treating GPTQ and AWQ as interchangeable drop-in replacements.** They optimize for different things — per-layer reconstruction error versus protecting high-activation weights — so swapping one for the other without re-evaluating can silently change quality in different, method-specific ways.\n\n**Skipping evaluation because a PTQ method has a good reputation.** A well-regarded method that preserves general benchmark performance can still degrade a specific capability your product depends on, which is exactly why the lesson insists on validating with your own real evaluation set.\n\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "inf_post_training_quantization_methods_quiz",
+        "questions": [
+          {
+            "question": "What is the key difference between post-training quantization and quantization-aware training?",
+            "options": [
+              "PTQ quantizes an already-trained model afterward with a calibration set; QAT simulates quantization during a full training run",
+              "PTQ requires more compute than a full training run",
+              "QAT never uses a calibration dataset",
+              "PTQ and QAT are two names for the exact same process"
+            ],
+            "correctAnswer": 0,
+            "explanation": "PTQ is a lighter-weight post-hoc process, while QAT integrates quantization into training itself at higher cost but often better quality.",
+            "id": "q1"
+          },
+          {
+            "question": "What does AWQ specifically account for that a naive uniform quantization approach does not?",
+            "options": [
+              "That some weights, identified by producing the largest activations, matter disproportionately more and deserve higher precision",
+              "That all weights must be quantized to exactly the same bit-width for the model to function",
+              "That quantization can only be applied to bias terms, never weights",
+              "That activation values are irrelevant to quantization quality"
+            ],
+            "correctAnswer": 0,
+            "explanation": "AWQ's insight is that protecting a small set of high-impact weights at higher precision preserves more quality than uniform quantization.",
+            "id": "q2"
+          },
+          {
+            "question": "Why should even a well-regarded PTQ method like GPTQ or AWQ still be validated against your own evaluation set?",
+            "options": [
+              "Because preserving general benchmark performance doesn't guarantee preserving specific capabilities your particular product depends on",
+              "Because these methods have no measurable effect on model behavior",
+              "Because evaluation is only needed for quantization-aware training, not post-training methods",
+              "Because GPTQ and AWQ always produce identical results"
+            ],
+            "correctAnswer": 0,
+            "explanation": "General benchmarks can look fine while a specific capability your application relies on quietly degrades — the same reasoning behind task-specific evaluation elsewhere in this curriculum.",
+            "id": "q3"
+          },
+          {
+            "question": "Per the lesson, why does naively rounding every weight to the nearest quantized value tend to perform worse than GPTQ's approach?",
+            "options": [
+              "Because naive rounding tends to compound error badly across layers, while GPTQ solves for weights that minimize each layer's reconstruction error",
+              "Because naive rounding is actually not possible on GPU hardware",
+              "Because GPTQ does not use a calibration dataset at all",
+              "Because naive rounding always produces smaller models than GPTQ"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly contrasts GPTQ's careful per-layer error minimization with naive rounding, which compounds error across layers.",
+            "id": "q4"
+          },
+          {
+            "question": "According to the lesson, what does a calibration dataset let post-training quantization avoid?",
+            "options": [
+              "A full retraining loop, since the calibration data is used to minimize quantization error after the model is already trained",
+              "The need to choose a bit-width at all",
+              "The need for any evaluation of the resulting model",
+              "The need to quantize more than one layer"
+            ],
+            "correctAnswer": 0,
+            "explanation": "PTQ's defining feature, per the lesson, is using a small calibration dataset to minimize error without requiring a retraining loop.",
+            "id": "q5"
+          },
+          {
+            "question": "In the calibration code, what effect do the outlier values 8.0 and -7.5 added to calibration_sample have?",
+            "options": [
+              "They widen a_min and a_max, which increases the computed scale",
+              "They are ignored entirely by calibrate_scale",
+              "They cause the function to raise an error",
+              "They reduce the number of quantization levels available"
+            ],
+            "correctAnswer": 0,
+            "explanation": "calibrate_scale computes scale from (a_max - a_min); including extreme outliers stretches that range and therefore increases scale.",
+            "id": "q6"
+          },
+          {
+            "question": "What does the `max(0, min(levels - 1, q))` line inside quantize_with_scale protect against?",
+            "options": [
+              "Production values that fall outside the calibrated range being mapped to an invalid quantized level instead of being clipped into the valid range",
+              "Negative activation values being rejected outright",
+              "The calibration sample containing duplicate values",
+              "The scale being computed as zero"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Clipping q into [0, levels - 1] ensures a production value outside the calibration set's observed range still lands on a valid quantized level rather than overflowing it.",
+            "id": "q7"
+          },
+          {
+            "question": "Per 'Common mistakes', why is calibrating on data unlike production traffic a problem?",
+            "options": [
+              "The resulting scale and zero_point won't reflect the real range of production inputs, causing more error at inference than the calibration suggested",
+              "It makes the calibration step run more slowly",
+              "It prevents the model from being quantized at all",
+              "It has no real effect, since scale is recomputed at inference time"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The mistakes section notes that a calibration set with a different distribution than real inputs produces a miscalibrated scale and zero_point for what the model actually sees in production.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "inf_distillation_for_serving",
+      "title": "Distillation for Serving",
+      "description": "Training a smaller model to imitate a bigger one — a compression strategy that happens before serving, not during.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain how knowledge distillation differs from quantization as a model compression strategy."
+          },
+          {
+            "title": "👨‍🏫 A student learns from a teacher",
+            "content": "Knowledge distillation trains a smaller 'student' model to mimic the outputs (or internal behavior) of a larger 'teacher' model, rather than training the student from scratch on raw labels alone. The student learns to approximate the teacher's decision boundaries, often achieving much better quality than a same-sized model trained independently."
+          },
+          {
+            "title": "🆚 Distillation vs. quantization: different axes of compression",
+            "content": "Quantization compresses an existing model's numerical representation without changing its architecture or parameter count. Distillation produces an entirely new, genuinely smaller model with fewer parameters — a different kind of compression, and one that requires a training process, not a post-hoc conversion. The two are complementary: you can quantize a distilled model further."
+          },
+          {
+            "title": "⏱️ When distillation makes sense",
+            "content": "Distillation is worth the training investment when you'll serve a model at very high volume for a long time, since the upfront training cost amortizes over many requests — much like the fine-tuning-vs-prompting cost-benefit analysis from the Fine-Tuning course's practical-workflows lesson. For a low-volume or short-lived use case, quantizing an existing model is usually far cheaper and faster to deploy."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "A toy soft-label distillation loss comparing a student's output distribution to a teacher's:\n\n```python\nimport math\n\n\ndef softmax(logits, temperature=1.0):\n    scaled = [l / temperature for l in logits]\n    m = max(scaled)\n    exps = [math.exp(s - m) for s in scaled]\n    total = sum(exps)\n    return [e / total for e in exps]\n\n\ndef distillation_loss(student_logits, teacher_logits, temperature=2.0):\n    \"\"\"Cross-entropy between the student's and teacher's softened output distributions.\"\"\"\n    student_probs = softmax(student_logits, temperature)\n    teacher_probs = softmax(teacher_logits, temperature)\n\n    loss = -sum(t * math.log(s) for t, s in zip(teacher_probs, student_probs))\n    return loss\n\n\n# Teacher (large model) is confident about the correct class (index 2).\nteacher_logits = [0.5, 1.0, 4.0, 0.2]\n\n# Student A: agrees fairly well with the teacher's ranking.\nstudent_a_logits = [0.4, 0.9, 3.2, 0.3]\n\n# Student B: confidently picks the wrong class.\nstudent_b_logits = [3.5, 0.2, 0.5, 0.1]\n\nprint(\"Student A loss:\", distillation_loss(student_a_logits, teacher_logits))\nprint(\"Student B loss:\", distillation_loss(student_b_logits, teacher_logits))\n```\n\n`distillation_loss` softens both the teacher's and student's logits with the same `temperature` before comparing them, so the student is trained to match the teacher's whole probability distribution — not just its top pick. Notice that `student_a_logits`, which roughly agrees with the teacher's ranking, produces a much lower loss than `student_b_logits`, which confidently favors the wrong class."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Training on the teacher's hard top-class label instead of its full soft distribution.** Using only the teacher's single predicted class throws away exactly the extra information — relative confidence across all classes — that distillation is meant to transfer.\n\n**Choosing a temperature that's too low or too high.** A very low temperature makes the softened distributions look almost like hard labels, discarding nuance, while a very high temperature flattens them so much that useful ranking information gets washed out.\n\n**Committing to distillation for a short-lived or low-volume deployment.** The upfront training cost only pays off when a model is served at high volume for a long time; for a one-off or low-traffic use case, quantizing an existing model is far cheaper and faster to deploy.\n\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "inf_distillation_for_serving_quiz",
+        "questions": [
+          {
+            "question": "How does distillation differ fundamentally from quantization as a compression technique?",
+            "options": [
+              "Distillation trains an entirely new, smaller model to imitate a larger one; quantization only reduces numerical precision of an existing model's weights",
+              "Distillation and quantization are two names for the exact same process",
+              "Quantization requires training a new model from scratch, while distillation does not",
+              "Distillation only works on models that have already been quantized"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Distillation produces a genuinely smaller model via a training process; quantization keeps the same architecture and just uses fewer bits per weight.",
+            "id": "q1"
+          },
+          {
+            "question": "Why might a student model trained via distillation outperform a same-sized model trained independently on raw labels?",
+            "options": [
+              "Because it learns to approximate the teacher model's richer decision boundaries, not just raw labels",
+              "Because distilled models always have more parameters than independently trained ones",
+              "Because distillation eliminates the need for any training data",
+              "Because independently trained models cannot use a loss function"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Learning from the teacher's outputs conveys more nuanced information than raw labels alone, which is the core mechanism behind distillation's effectiveness.",
+            "id": "q2"
+          },
+          {
+            "question": "When does investing in distillation make the most economic sense?",
+            "options": [
+              "When a model will be served at very high volume for a long time, letting the upfront training cost amortize across many requests",
+              "Only for one-off, low-volume prototypes",
+              "Never, since quantization always makes distillation unnecessary",
+              "Only when no teacher model is available"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Like other cost-benefit analyses in this curriculum, distillation's upfront investment pays off specifically under sustained high-volume serving.",
+            "id": "q3"
+          },
+          {
+            "question": "Per the lesson, why are distillation and quantization described as complementary rather than competing techniques?",
+            "options": [
+              "Because they compress along different axes — distillation produces a new smaller model, while quantization reduces an existing model's numerical precision — so a distilled model can be quantized further",
+              "Because distillation and quantization always produce identical models",
+              "Because quantization can only be applied after a model has been distilled",
+              "Because they can never be used together on the same model"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson states the two are complementary axes of compression, and explicitly notes you can quantize a distilled model further.",
+            "id": "q4"
+          },
+          {
+            "question": "Which prior lesson's cost-benefit reasoning does this lesson compare the distillation-vs-quantization decision to?",
+            "options": [
+              "The Fine-Tuning course's practical-workflows lesson on fine-tuning versus prompting",
+              "The RAG course's chunking-strategy lesson",
+              "The Eval & Security course's red-teaming lesson",
+              "This module's earlier quantization-basics lesson only, with no other comparison"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly draws a parallel to the fine-tuning-vs-prompting cost-benefit analysis from the Fine-Tuning course's practical-workflows lesson.",
+            "id": "q5"
+          },
+          {
+            "question": "In the distillation_loss example, why does student_a_logits produce a lower loss than student_b_logits?",
+            "options": [
+              "Because student_a's softened output distribution is closer to the teacher's, while student_b confidently favors a different class than the teacher",
+              "Because student_a_logits and teacher_logits are identical lists",
+              "Because distillation_loss ignores student_b_logits entirely",
+              "Because student_b_logits contains more numbers than student_a_logits"
+            ],
+            "correctAnswer": 0,
+            "explanation": "distillation_loss is a cross-entropy between softened distributions, so a student whose ranking better matches the teacher's (student_a) yields a lower loss than one that confidently picks the wrong class (student_b).",
+            "id": "q6"
+          },
+          {
+            "question": "What is the purpose of the temperature parameter inside the softmax function used by distillation_loss?",
+            "options": [
+              "It softens the probability distribution so relative confidences across all classes are preserved, not just the single highest-scoring class",
+              "It sets the random seed for the loss calculation",
+              "It determines how many classes exist in the output",
+              "It has no effect on the computed probabilities"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Dividing logits by temperature before exponentiating spreads out or flattens the resulting probabilities, which is how softening the teacher's and student's distributions is implemented here.",
+            "id": "q7"
+          },
+          {
+            "question": "Per 'Common mistakes', why does training a student only on the teacher's hard top-class label undercut the point of distillation?",
+            "options": [
+              "Because it discards the extra information contained in the teacher's full soft distribution across all classes, which is what distillation is meant to transfer",
+              "Because hard labels cannot be represented as numbers",
+              "Because the teacher model does not produce a top-class label",
+              "Because using hard labels always produces a smaller student model"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The mistakes section explains that using only the teacher's single predicted class throws away the relative-confidence information distillation is specifically designed to pass along.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "inf_choosing_precision_for_your_slo",
+      "title": "Choosing Precision for Your SLO",
+      "description": "Turning quantization from a guess into a decision backed by your actual latency and quality targets.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Design a process for choosing a model's serving precision based on a concrete service-level objective rather than intuition."
+          },
+          {
+            "title": "🎯 Start with the SLO, not the technique",
+            "content": "Before picking INT8, INT4, or full precision, define what your service actually needs: a latency target (like p99 TTFT under 500ms), a quality bar (measured against a real evaluation set, not a generic benchmark), and a cost ceiling. The precision choice should follow from these targets, not precede them."
+          },
+          {
+            "title": "📊 Benchmark quality and latency together, per precision level",
+            "content": "Run your real evaluation set — the same discipline from the Fine-Tuning and Eval & Security courses — at each candidate precision level, and measure both output quality and actual serving latency/throughput at each. This produces a concrete table: precision level versus quality score versus tokens/sec versus cost, rather than a vague sense that 'lower precision is probably fine.'"
+          },
+          {
+            "title": "🔀 Different precision for different parts of the system is normal",
+            "content": "It's common to combine choices from across this whole module: GQA at the architecture level, INT8 weights, and a quantized KV cache, each independently validated — there's no single 'right' precision, only the combination that hits your specific SLO at the lowest cost."
+          },
+          {
+            "title": "🔁 Revisit as models and traffic change",
+            "content": "A precision decision made for one model version or traffic pattern may not hold for the next — new model releases, new evaluation findings, or growing traffic volumes are all reasons to re-run this benchmarking process rather than treating an old decision as permanent."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "A toy decision function that scores precision options against latency, quality, and cost requirements:\n\n```python\nprecision_options = {\n    \"fp16\": {\"latency_ms\": 220, \"quality_score\": 0.95, \"cost_per_1k\": 4.0},\n    \"int8\":  {\"latency_ms\": 140, \"quality_score\": 0.93, \"cost_per_1k\": 2.2},\n    \"int4\":  {\"latency_ms\": 90,  \"quality_score\": 0.86, \"cost_per_1k\": 1.1},\n}\n\n\ndef meets_slo(option, max_latency_ms, min_quality):\n    return option[\"latency_ms\"] <= max_latency_ms and option[\"quality_score\"] >= min_quality\n\n\ndef choose_precision(options, max_latency_ms, min_quality):\n    \"\"\"Among candidates that meet the SLO, pick the cheapest one.\"\"\"\n    candidates = {\n        name: opt for name, opt in options.items()\n        if meets_slo(opt, max_latency_ms, min_quality)\n    }\n    if not candidates:\n        return None\n    return min(candidates, key=lambda name: candidates[name][\"cost_per_1k\"])\n\n\nslo_a = choose_precision(precision_options, max_latency_ms=200, min_quality=0.90)\nslo_b = choose_precision(precision_options, max_latency_ms=100, min_quality=0.90)\n\nprint(\"SLO A (200ms, 0.90 quality) picks:\", slo_a)\nprint(\"SLO B (100ms, 0.90 quality) picks:\", slo_b)\n```\n\n`meets_slo` filters out any precision option that misses either the latency ceiling or the quality floor, and `choose_precision` then picks the cheapest survivor rather than the fastest or highest-quality one. Notice that `slo_b`, with a tighter 100ms latency ceiling, returns `None` — under those constraints, none of the three options satisfies both the latency and quality requirements at once."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Picking a precision level before defining the SLO.** Starting from \"let's just try INT8\" instead of from a latency/quality/cost target reverses the order this lesson recommends, and risks landing on a setting that either overshoots your needs or undershoots your quality bar.\n\n**Benchmarking quality on a generic benchmark instead of your own evaluation set.** A precision level that preserves general benchmark scores can still silently degrade the specific capabilities your product actually depends on.\n\n**Treating a single precision decision as fixed forever.** New model versions, evaluation findings, or growing traffic volumes can shift which option best hits the SLO, so a decision made once should be re-validated, not assumed permanent.\n\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "inf_choosing_precision_for_your_slo_quiz",
+        "questions": [
+          {
+            "question": "What should drive the choice of serving precision (FP16, INT8, INT4, etc.)?",
+            "options": [
+              "A concrete SLO — latency target, quality bar, and cost ceiling — measured against real evaluation, not intuition",
+              "Whichever precision level is mentioned most often in industry blog posts",
+              "Always the lowest possible precision, regardless of quality impact",
+              "Always full precision, regardless of cost"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The precision decision should be derived from concrete targets and real measurement, the same evidence-based approach used throughout this curriculum's evaluation lessons.",
+            "id": "q1"
+          },
+          {
+            "question": "Why is it common to combine multiple precision-related choices (GQA, quantized weights, quantized KV cache) rather than picking just one?",
+            "options": [
+              "Because there's no single 'right' precision — the right combination is whichever one hits your SLO at the lowest cost",
+              "Because using more than one technique is required by all serving frameworks",
+              "Because combining techniques always cancels out any quality loss",
+              "Because only one of these techniques can ever be used at a time"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Each technique addresses a different part of the system, and combining validated choices from across this module is how real serving deployments minimize cost while hitting quality and latency targets.",
+            "id": "q2"
+          },
+          {
+            "question": "Why should a precision decision be revisited rather than treated as permanent?",
+            "options": [
+              "Because new model versions, evaluation findings, or traffic patterns can all change what the right trade-off is",
+              "Because precision decisions automatically expire after 24 hours",
+              "Because GPUs change their behavior over time on their own",
+              "Because quantization techniques cannot be reused across model versions"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Like other configuration decisions in this curriculum, the right setting is scale- and context-dependent, so it should be re-validated as those conditions change.",
+            "id": "q3"
+          },
+          {
+            "question": "Per the lesson, what does benchmarking 'quality and latency together, per precision level' produce?",
+            "options": [
+              "A concrete table of precision level versus quality score versus tokens/sec versus cost, instead of a vague sense that lower precision is probably fine",
+              "A single number representing overall model goodness",
+              "A ranking of precision levels based only on their popularity",
+              "A guarantee that the lowest precision option will always be chosen"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly describes the output of this benchmarking step as a concrete comparison table across precision levels, not a vague impression.",
+            "id": "q4"
+          },
+          {
+            "question": "What three things does the lesson say you should define before picking a precision technique?",
+            "options": [
+              "A latency target, a quality bar measured against a real evaluation set, and a cost ceiling",
+              "A programming language, a cloud provider, and a GPU vendor",
+              "A marketing plan, a release date, and a pricing tier",
+              "A model name, a dataset size, and a team headcount"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson lists these three concrete targets — latency, quality (via real evaluation), and cost — as what should be defined before the precision choice follows from them.",
+            "id": "q5"
+          },
+          {
+            "question": "In the choose_precision code, why does choose_precision return None for slo_b (max_latency_ms=100, min_quality=0.90)?",
+            "options": [
+              "Because no option in precision_options satisfies both the latency ceiling and the quality floor at the same time",
+              "Because precision_options is empty",
+              "Because meets_slo always returns False for int4",
+              "Because choose_precision only works when max_latency_ms is above 200"
+            ],
+            "correctAnswer": 0,
+            "explanation": "int4 meets the 100ms latency ceiling but falls short of the 0.90 quality floor, while fp16 and int8 exceed the 100ms ceiling — so no candidate satisfies both constraints, leaving candidates empty and the function returns None.",
+            "id": "q6"
+          },
+          {
+            "question": "Among options that pass meets_slo, how does choose_precision decide which one to return?",
+            "options": [
+              "It picks the cheapest surviving option, based on cost_per_1k",
+              "It picks the option with the lowest latency, regardless of cost",
+              "It picks the option with the highest quality_score, regardless of cost",
+              "It picks a random surviving option"
+            ],
+            "correctAnswer": 0,
+            "explanation": "choose_precision applies min(candidates, key=lambda name: candidates[name][\"cost_per_1k\"]) — among SLO-satisfying options, it selects the cheapest one.",
+            "id": "q7"
+          },
+          {
+            "question": "Per 'Common mistakes', why is benchmarking quality only on a generic benchmark risky when choosing a precision level?",
+            "options": [
+              "Because general benchmark scores can look fine while the specific capabilities your product actually depends on quietly degrade",
+              "Because generic benchmarks always overestimate latency",
+              "Because generic benchmarks cannot be run on quantized models at all",
+              "Because generic benchmarks only measure cost, never quality"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The mistakes section warns that preserving general benchmark performance doesn't guarantee preserving the specific capabilities your product depends on — the same reasoning stressed in the PTQ lesson earlier in this module.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

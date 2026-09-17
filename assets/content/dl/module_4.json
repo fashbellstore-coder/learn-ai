@@ -1,0 +1,543 @@
+{
+  "id": "module_4",
+  "title": "Sequence Models",
+  "description": "Handling ordered data like text and time series: why order matters, how RNNs carry memory forward, how LSTM/GRU fix RNNs' memory problem, and the limitations that motivated transformers.",
+  "icon": "🔁",
+  "color": "#9C27B0",
+  "order": 4,
+  "estimatedHours": 2,
+  "difficulty": "Intermediate",
+  "prerequisites": [
+    "module_3"
+  ],
+  "lessons": [
+    {
+      "id": "dl_why_sequences",
+      "title": "Why Sequences Need Special Handling",
+      "description": "Understand what makes ordered data like text and time series fundamentally different from images.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain why order and variable length make sequence data a distinct challenge for neural networks."
+          },
+          {
+            "title": "📜 What counts as sequence data",
+            "content": "**Sequence data** is data where order matters and where each element's meaning often depends on what came before it: sentences (word order), time series (stock prices over time, sensor readings), audio (sound over time), and more.\n\nCompare this to a typical image classification task, where the input is always a fixed size (say, 224×224 pixels) — sequences, by contrast, naturally come in different lengths (a 5-word sentence vs. a 50-word sentence)."
+          },
+          {
+            "title": "🔀 Why order matters so much",
+            "content": "\"The dog bit the man\" and \"the man bit the dog\" contain the exact same words — but completely different meanings. A model that treated a sentence as just an unordered bag of words (ignoring order entirely) would miss this distinction completely. Sequence models need architectures that specifically account for the order elements appear in, not just which elements are present."
+          },
+          {
+            "title": "🧠 Why a plain feedforward network struggles here",
+            "content": "The CNNs and fully-connected networks covered so far expect a fixed-size input and have no built-in concept of \"what came before.\" Feeding a variable-length sentence into a fixed-size input layer would require either awkwardly padding/truncating every input to the same length and hoping the network figures out ordering on its own, or a genuinely different architecture with a built-in sense of sequence and memory — which is exactly what **RNNs** (covered next) were designed to provide."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Treating sequence data as if position doesn't matter.** Shuffling word order (or reordering a time series) can change — or completely destroy — the meaning of the data.\n\n**Assuming all sequences in a dataset are the same length.** Real sentences, sensor readings, and audio clips naturally vary in length — architectures for sequences need to handle this gracefully.\n\n**Forgetting that \"sequence\" applies well beyond text.** Time series, audio, DNA sequences, and user click-streams are all sequence data too, even though they don't look like language."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "dl_why_sequences_quiz",
+        "questions": [
+          {
+            "question": "Why can't a sentence be treated as just an unordered collection of words?",
+            "options": [
+              "Word order never affects a sentence's meaning",
+              "The same set of words in a different order can convey a completely different meaning",
+              "Sentences always have a fixed, identical length",
+              "Unordered word collections are actually easier for any model to process correctly"
+            ],
+            "correctAnswer": 1,
+            "explanation": "\"The dog bit the man\" and \"the man bit the dog\" use identical words but mean opposite things — a model ignoring word order would be unable to distinguish between them.",
+            "id": "q1"
+          },
+          {
+            "question": "What's a key structural difference between typical image data and sequence data like text?",
+            "options": [
+              "Images always vary in size, while sequences are always a fixed length",
+              "Sequences naturally vary in length (like sentences of different lengths), while a typical image classification task uses a fixed input size",
+              "There is no meaningful difference between the two types of data",
+              "Sequence data never has any natural ordering"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Unlike a typical image task where every input is resized to a consistent shape, sequences like sentences, audio clips, or sensor readings naturally come in varying lengths, which standard fixed-size architectures don't handle well on their own.",
+            "id": "q2"
+          },
+          {
+            "question": "Why do standard feedforward networks and CNNs struggle with sequence data?",
+            "options": [
+              "They can only process numeric data, never text",
+              "They expect a fixed-size input and have no built-in concept of order or 'what came before,' which sequences fundamentally depend on",
+              "They require more computing power than sequence models",
+              "They can only be used for classification, never other tasks"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Feedforward networks and standard CNNs are designed around fixed-size inputs with no inherent memory of sequence order — architectures purpose-built for sequences (like RNNs) are needed to properly capture that ordering and variable length.",
+            "id": "q3"
+          },
+          {
+            "question": "What is a defining characteristic of sequence data?",
+            "options": [
+              "Order doesn't matter, only which elements are present",
+              "Order matters and each element's meaning often depends on what came before it",
+              "All sequences must have exactly the same length",
+              "Sequence data only refers to text"
+            ],
+            "correctAnswer": 1,
+            "explanation": "In sequence data, order carries meaning — the position of elements relative to each other affects overall meaning, unlike an unordered collection.",
+            "id": "q4"
+          },
+          {
+            "question": "What example does the lesson use to show why word order matters?",
+            "options": [
+              "'The dog bit the man' vs 'the man bit the dog'",
+              "Two identical sentences with no words changed",
+              "A sentence compared to an image",
+              "A time series compared to another time series"
+            ],
+            "correctAnswer": 1,
+            "explanation": "These two sentences use identical words but have opposite meanings, demonstrating why treating text as an unordered bag of words loses crucial information.",
+            "id": "q5"
+          },
+          {
+            "question": "How does typical sequence data length compare to typical image input size?",
+            "options": [
+              "Both are always exactly the same fixed size",
+              "Sequences naturally vary in length, while a typical image classification task resizes inputs to a fixed size",
+              "Images always vary in size while sequences are fixed",
+              "Neither varies at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Unlike a fixed-size image input, sequences like sentences or audio clips naturally come in different lengths, requiring an architecture that can handle this variability.",
+            "id": "q6"
+          },
+          {
+            "question": "Besides text, what other kinds of data does the lesson mention as sequence data?",
+            "options": [
+              "Only single, isolated numbers",
+              "Time series and audio",
+              "Static images only",
+              "Only categorical labels"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson lists time series (like stock prices or sensor readings) and audio as additional examples of sequence data beyond text.",
+            "id": "q7"
+          },
+          {
+            "question": "Why do standard feedforward networks and CNNs struggle with sequence data?",
+            "options": [
+              "They can only process labeled data",
+              "They expect fixed-size input and have no built-in notion of 'what came before'",
+              "They require more computing power than any other architecture",
+              "They are only usable for regression tasks"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Feedforward networks and CNNs are designed for fixed-size inputs without an inherent mechanism for tracking prior context, which sequences fundamentally require.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "dl_rnns",
+      "title": "Recurrent Neural Networks (RNNs)",
+      "description": "Learn how RNNs process sequences one step at a time while carrying forward a memory of what came before.",
+      "duration": "9 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain how an RNN processes a sequence and what its hidden state represents."
+          },
+          {
+            "title": "🔁 The core idea: a network with memory",
+            "content": "A **Recurrent Neural Network (RNN)** processes a sequence one element at a time, maintaining a **hidden state** — a running summary of everything it has seen so far — which gets updated at every step and passed forward to influence the next step.\n\n```\nhidden_state = initial_state (often all zeros)\nfor each word in the sentence:\n    hidden_state = update(word, hidden_state)  # combines new input with memory\n    output = predict_from(hidden_state)\n```\n\nThe *same* weights are reused at every single time step — much like how a CNN's filter weights are reused across every spatial position, an RNN's weights are reused across every position in the sequence."
+          },
+          {
+            "title": "🎯 What the hidden state captures",
+            "content": "The hidden state is the RNN's compressed \"memory\" of everything relevant it has processed up to that point. Reading a sentence word by word, the hidden state after \"the cat sat on the\" should capture enough context to make \"mat\" a much more likely next word than \"telephone,\" for example."
+          },
+          {
+            "title": "🛠️ A typical use pattern",
+            "content": "```python\n# Conceptual PyTorch-style layer\n# rnn = nn.RNN(input_size=100, hidden_size=64)\n# output, final_hidden_state = rnn(sequence_input)\n```\n\nDepending on the task, you might use the hidden state at every step (for tasks like labeling each word), or just the final hidden state after processing the whole sequence (for tasks like classifying an entire sentence's sentiment)."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming an RNN sees the whole sequence at once, like a CNN sees a whole image.** It genuinely processes elements one at a time in order, carrying information forward step by step — this sequential nature is central to how it works (and, as the next lesson covers, also a source of real limitations).\n\n**Confusing the hidden state with the final output.** The hidden state is an internal running memory; the output at each step is typically computed *from* that hidden state, often through an additional layer.\n\n**Overlooking that basic RNNs have real practical limitations.** Plain RNNs struggle to retain information over long sequences — the next lesson covers the specific problem and the architectures designed to address it."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "dl_rnns_quiz",
+        "questions": [
+          {
+            "question": "What does an RNN's hidden state represent?",
+            "options": [
+              "A fixed set of image features",
+              "A running summary or 'memory' of everything the network has processed in the sequence so far",
+              "The final loss value for the whole sequence",
+              "A random number generated at each step"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The hidden state is updated at every step of the sequence, carrying forward a compressed summary of relevant information from everything seen so far — it's what gives an RNN its sense of context and memory.",
+            "id": "q1"
+          },
+          {
+            "question": "How does an RNN process a sequence, in contrast to a CNN processing an image?",
+            "options": [
+              "Both process their entire input simultaneously, with no real difference",
+              "An RNN processes the sequence one element at a time, in order, updating its hidden state at each step, rather than seeing the whole input at once",
+              "An RNN has no concept of order at all, similar to a bag-of-words model",
+              "A CNN also processes its input one element at a time sequentially"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Unlike a CNN, which processes the whole (fixed-size) image essentially at once through its layers, an RNN moves through a sequence step by step, carrying forward information via its hidden state as it goes.",
+            "id": "q2"
+          },
+          {
+            "question": "What's true about the weights used at each time step in an RNN?",
+            "options": [
+              "A completely different set of weights is learned for each individual position in the sequence",
+              "The same weights are reused at every time step, similar to how a CNN reuses the same filter weights across every spatial position",
+              "RNNs don't actually have any learnable weights",
+              "Weights change randomly at each step, unrelated to training"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Just as a CNN's filter is reused across all positions in an image, an RNN reuses the same set of weights at every step of the sequence — this weight sharing is what lets it generalize across sequences of different lengths.",
+            "id": "q3"
+          },
+          {
+            "question": "What does an RNN's hidden state get updated with at each time step?",
+            "options": [
+              "A completely random value, unrelated to the input",
+              "New input combined with the previous hidden state",
+              "Only the final output of the entire sequence",
+              "The loss function's value"
+            ],
+            "correctAnswer": 1,
+            "explanation": "At each step, the hidden state is updated by combining the current input with the previous hidden state, carrying forward relevant context.",
+            "id": "q4"
+          },
+          {
+            "question": "Are the weights used at each time step in an RNN different at every step?",
+            "options": [
+              "Yes, a completely separate set of weights is learned per step",
+              "No, the same weights are reused at every time step",
+              "RNNs have no learnable weights at all",
+              "Weights are chosen randomly at each step during inference"
+            ],
+            "correctAnswer": 1,
+            "explanation": "An RNN reuses the same set of weights across every time step, much like a CNN reuses the same filter weights across spatial positions.",
+            "id": "q5"
+          },
+          {
+            "question": "When might you use just the final hidden state of an RNN rather than the output at every step?",
+            "options": [
+              "When labeling each individual word in a sequence",
+              "When classifying an entire sentence's sentiment as a single label",
+              "Never — the final hidden state is never useful",
+              "Only when there's no sequence at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "For tasks like sentiment classification over a whole sentence, you typically only need the final hidden state summarizing the entire sequence, not per-step outputs.",
+            "id": "q6"
+          },
+          {
+            "question": "How does an RNN's approach to processing input differ from a CNN's approach to processing a whole image?",
+            "options": [
+              "Both process everything simultaneously with no difference",
+              "An RNN processes elements one at a time in order; a CNN's convolution slides filters but a full image is generally handled without step-by-step sequential dependency",
+              "CNNs also require element-by-element sequential processing",
+              "RNNs process all time steps completely independently with no shared context"
+            ],
+            "correctAnswer": 1,
+            "explanation": "An RNN moves through a sequence step by step, carrying forward a hidden state, which is fundamentally different from how a CNN processes spatial image data.",
+            "id": "q7"
+          },
+          {
+            "question": "What does the lesson say the hidden state should capture after reading 'the cat sat on the'?",
+            "options": [
+              "Nothing useful about what word comes next",
+              "Enough context to make 'mat' a much more likely next word than something unrelated like 'telephone'",
+              "The exact number of words seen so far only",
+              "A random guess unrelated to context"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The hidden state accumulates relevant context, so after reading that phrase it should favor a plausible continuation like 'mat' over an unrelated word.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "dl_lstm_gru",
+      "title": "LSTM and GRU: Fixing the Memory Problem",
+      "description": "Learn how these upgraded RNN variants solve a fundamental weakness of plain RNNs on long sequences.",
+      "duration": "9 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain the vanishing gradient problem in RNNs and describe how LSTM and GRU address it."
+          },
+          {
+            "title": "😵 The vanishing gradient problem in RNNs",
+            "content": "Recall from the backpropagation lesson: gradients are computed by multiplying values together across many steps. In a plain RNN processing a long sequence, this repeated multiplication across many time steps can cause gradients to shrink toward zero (**vanish**) — meaning information and error signals from early in a long sequence barely influence updates by the time you get to later steps.\n\nPractically, this means plain RNNs struggle to learn **long-range dependencies** — connections between elements that are far apart in the sequence, like a pronoun late in a paragraph that refers back to a name mentioned many sentences earlier."
+          },
+          {
+            "title": "🚪 LSTM: gates that control what to remember",
+            "content": "**LSTM (Long Short-Term Memory)** networks add a separate memory pathway (the **cell state**) alongside the hidden state, along with learned **gates** that control the flow of information:\n\n• **Forget gate** — decides what to discard from the memory\n• **Input gate** — decides what new information to add to the memory\n• **Output gate** — decides what part of the memory to expose as this step's output\n\nThese gates let the network learn to preserve important information over many steps, while discarding what's no longer relevant — directly addressing the vanishing gradient problem of plain RNNs."
+          },
+          {
+            "title": "⚡ GRU: a simpler alternative",
+            "content": "**GRU (Gated Recurrent Unit)** is a streamlined alternative to LSTM, using fewer gates (typically an update gate and a reset gate) while addressing the same core problem. It's often faster to train and uses fewer parameters, and performs comparably to LSTM on many tasks — though which one works better can vary by task, and it's common to try both.\n\n```python\n# Conceptual PyTorch-style layers\n# nn.LSTM(input_size=100, hidden_size=64)\n# nn.GRU(input_size=100, hidden_size=64)\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Using a plain RNN for long sequences where distant context matters.** This is exactly the scenario where LSTM or GRU meaningfully outperform a plain RNN.\n\n**Assuming LSTM and GRU completely eliminate the vanishing gradient problem.** They substantially mitigate it through their gating mechanisms, but extremely long sequences can still pose challenges — this limitation is part of what eventually motivated the attention mechanism and transformer architectures.\n\n**Treating the choice between LSTM and GRU as always obvious.** Performance differences are often small and task-dependent — trying both, when feasible, is a reasonable practical approach."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "dl_lstm_gru_quiz",
+        "questions": [
+          {
+            "question": "What is the vanishing gradient problem in the context of plain RNNs?",
+            "options": [
+              "The network runs out of memory during training",
+              "Gradients shrink toward zero across many time steps, making it hard for the network to learn dependencies between elements far apart in a sequence",
+              "The loss function stops being computable",
+              "The hidden state grows infinitely large"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Because gradients are computed by repeated multiplication across time steps, they can shrink dramatically over long sequences in a plain RNN, making it difficult for information from early steps to meaningfully influence learning at much later steps.",
+            "id": "q1"
+          },
+          {
+            "question": "What do LSTM's gates control?",
+            "options": [
+              "The learning rate during training",
+              "The flow of information into, out of, and within the network's memory — what to remember, what to forget, and what to output",
+              "The number of layers in the network",
+              "The batch size used during training"
+            ],
+            "correctAnswer": 1,
+            "explanation": "LSTM's forget, input, and output gates each control a different aspect of how information flows through the cell state (memory), allowing the network to selectively preserve or discard information across many time steps.",
+            "id": "q2"
+          },
+          {
+            "question": "How does GRU generally compare to LSTM?",
+            "options": [
+              "GRU is a completely unrelated architecture with no shared purpose",
+              "GRU is a simpler alternative with fewer gates, often faster to train and comparable in performance, though results can vary by task",
+              "GRU cannot process sequences at all",
+              "GRU always significantly outperforms LSTM on every task"
+            ],
+            "correctAnswer": 1,
+            "explanation": "GRU addresses the same vanishing gradient problem as LSTM but with a more streamlined gating mechanism (fewer parameters), often training faster — the better choice between the two frequently depends on the specific task.",
+            "id": "q3"
+          },
+          {
+            "question": "What causes the vanishing gradient problem in plain RNNs over long sequences?",
+            "options": [
+              "Too few parameters in the network",
+              "Repeated multiplication of values across many time steps causing gradients to shrink toward zero",
+              "Using too large a batch size",
+              "The absence of an activation function"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Backpropagation through many time steps involves repeated multiplication, which can cause gradients to shrink dramatically, making it hard to learn from distant context.",
+            "id": "q4"
+          },
+          {
+            "question": "What does LSTM's forget gate do?",
+            "options": [
+              "Adds new information to the memory",
+              "Decides what to discard from the memory",
+              "Produces the final network output",
+              "Determines the learning rate"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The forget gate specifically controls what information is discarded from the cell state (memory) at each step.",
+            "id": "q5"
+          },
+          {
+            "question": "How does GRU generally compare to LSTM in terms of complexity?",
+            "options": [
+              "GRU has more gates and more parameters",
+              "GRU is a simpler alternative with fewer gates, often faster to train with comparable performance",
+              "GRU has no gates at all",
+              "GRU and LSTM are identical in every respect"
+            ],
+            "correctAnswer": 1,
+            "explanation": "GRU streamlines the gating mechanism compared to LSTM, typically using fewer parameters while achieving comparable performance on many tasks.",
+            "id": "q6"
+          },
+          {
+            "question": "What kind of dependency do LSTM and GRU specifically help a network learn, compared to a plain RNN?",
+            "options": [
+              "Dependencies only between immediately adjacent elements",
+              "Long-range dependencies between elements far apart in a sequence",
+              "No dependencies at all",
+              "Dependencies that only exist within a single element"
+            ],
+            "correctAnswer": 1,
+            "explanation": "LSTM and GRU's gating mechanisms help preserve important information over many steps, improving the network's ability to learn long-range dependencies that plain RNNs struggle with.",
+            "id": "q7"
+          },
+          {
+            "question": "Do LSTM and GRU completely eliminate the vanishing gradient problem?",
+            "options": [
+              "Yes, completely and for sequences of any length",
+              "No — they substantially mitigate it, but extremely long sequences can still pose challenges",
+              "No, they make the vanishing gradient problem worse",
+              "They have no effect on the vanishing gradient problem at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "While LSTM and GRU meaningfully reduce the vanishing gradient issue, they don't eliminate it entirely — very long sequences can still present challenges.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "dl_rnn_limitations",
+      "title": "The Limits of RNNs (and What Comes Next)",
+      "description": "Understand the practical bottlenecks of recurrent architectures that motivated a completely different approach.",
+      "duration": "7 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can describe the key limitations of RNN-based architectures, even with LSTM/GRU improvements."
+          },
+          {
+            "title": "🐌 The sequential bottleneck",
+            "content": "Even with LSTM or GRU, an RNN fundamentally processes a sequence **one step at a time** — step 10 can't be computed until step 9 finishes, since it depends on step 9's hidden state. This sequential dependency means RNNs can't take full advantage of modern parallel hardware (GPUs) the way other architectures can, making training and inference on long sequences relatively slow."
+          },
+          {
+            "title": "📏 Still-imperfect long-range memory",
+            "content": "LSTM and GRU substantially help with long-range dependencies compared to plain RNNs, but information still has to flow step by step through the hidden state — for very long sequences (long documents, long time series), important early context can still get diluted by the time the network reaches much later positions."
+          },
+          {
+            "title": "🔮 What this motivated",
+            "content": "These two limitations — the sequential bottleneck and imperfect long-range memory — directly motivated a fundamentally different architecture: one that could look at *all* positions in a sequence simultaneously and directly weigh how relevant each position is to every other position, rather than passing information step by step through a single hidden state.\n\nThat architecture is the **Transformer**, built around a mechanism called **attention** — the subject of a later, dedicated course. Recurrent architectures (RNNs, LSTM, GRU) were the standard for sequence modeling for years, and transformers have since become dominant for most large-scale language and many other sequence tasks."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming RNNs are now completely obsolete for every use case.** They're still used in some specific settings, especially for smaller-scale or resource-constrained problems — but transformers have become the dominant choice for most large-scale sequence modeling.\n\n**Thinking the sequential bottleneck is just a minor inconvenience.** It's a fundamental architectural constraint that meaningfully limits training speed on modern hardware, and a major reason the field moved toward alternatives.\n\n**Skipping ahead without understanding RNNs first.** Understanding exactly what recurrence does well (and where it struggles) makes the motivation behind attention and transformers dramatically easier to appreciate when you get there."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "dl_rnn_limitations_quiz",
+        "questions": [
+          {
+            "question": "What is the 'sequential bottleneck' in RNN-based architectures?",
+            "options": [
+              "The network can only be trained on very short sequences",
+              "Each step depends on the previous step's hidden state, so steps can't be computed in parallel — limiting how well RNNs use modern parallel hardware",
+              "RNNs cannot process any numeric data",
+              "The bottleneck refers to a limit on vocabulary size"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Because each time step's computation genuinely requires the previous step's hidden state, RNNs must process a sequence largely in order, which prevents them from fully exploiting the parallel processing power of modern GPUs the way some other architectures can.",
+            "id": "q1"
+          },
+          {
+            "question": "What two limitations of RNN-based models motivated the development of the Transformer architecture?",
+            "options": [
+              "Too much memory usage and inability to process any text",
+              "The sequential processing bottleneck and still-imperfect handling of long-range dependencies",
+              "Inability to use activation functions and lack of a loss function",
+              "Too few parameters and overly simple gating mechanisms"
+            ],
+            "correctAnswer": 1,
+            "explanation": "RNNs (even with LSTM/GRU) process sequences step by step, which limits parallelization, and can still lose important context over very long sequences — both of these issues directly motivated the attention-based Transformer architecture covered in a later course.",
+            "id": "q2"
+          },
+          {
+            "question": "What core idea distinguishes the Transformer approach from recurrent architectures like RNNs?",
+            "options": [
+              "Transformers also process one element at a time using a hidden state",
+              "Transformers can look at all positions in a sequence at once and directly weigh the relevance between any two positions, rather than passing information step by step",
+              "Transformers only work on image data, not sequences",
+              "There is no meaningful architectural difference between the two"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Rather than relying on a single hidden state passed sequentially through the sequence, Transformers use an attention mechanism to directly relate any two positions in the sequence to each other, all at once — a fundamentally different way of handling sequence information, covered in depth in a later course.",
+            "id": "q3"
+          },
+          {
+            "question": "What causes the 'sequential bottleneck' in RNN-based architectures?",
+            "options": [
+              "The network having too few layers",
+              "Each step depending on the previous step's hidden state, preventing full parallelization",
+              "Using too small a learning rate",
+              "The absence of a loss function"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Because each time step genuinely requires the previous step's hidden state, RNNs must largely process sequences in order, limiting how well they exploit parallel hardware.",
+            "id": "q4"
+          },
+          {
+            "question": "What two limitations of RNN-family models motivated the Transformer architecture?",
+            "options": [
+              "Excess memory efficiency and too much parallelization",
+              "The sequential processing bottleneck and still-imperfect long-range memory",
+              "Inability to use gradients and lack of an optimizer",
+              "Too many parameters and too little training data"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Both the inherent sequential bottleneck and the imperfect handling of long-range dependencies, even with LSTM/GRU, directly motivated the development of attention-based Transformers.",
+            "id": "q5"
+          },
+          {
+            "question": "What core mechanism does the Transformer architecture use instead of a step-by-step hidden state?",
+            "options": [
+              "A completely random weighting scheme",
+              "Attention, which lets the model directly weigh the relevance between any two positions in a sequence",
+              "A single fixed lookup table",
+              "Pooling layers borrowed from CNNs"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Instead of passing information sequentially through a hidden state, Transformers use attention to directly relate any two positions in a sequence to each other, all at once.",
+            "id": "q6"
+          },
+          {
+            "question": "Are RNNs completely obsolete for every use case according to the lesson?",
+            "options": [
+              "Yes, they are never used anymore",
+              "No — they're still used in some specific settings, especially smaller-scale or resource-constrained problems",
+              "Yes, because Transformers can only be used for text",
+              "No, RNNs have replaced Transformers entirely"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson notes RNNs are still used in some specific, smaller-scale or resource-constrained settings, even though Transformers dominate most large-scale sequence modeling.",
+            "id": "q7"
+          },
+          {
+            "question": "Why is understanding RNNs' strengths and weaknesses helpful before learning about Transformers?",
+            "options": [
+              "It has no real benefit",
+              "It makes the motivation behind attention and Transformers dramatically easier to appreciate",
+              "RNNs and Transformers are unrelated architectures with nothing in common",
+              "Because Transformers are simply an updated version of CNNs"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Seeing exactly what recurrence does well and where it struggles gives helpful context for why attention-based Transformers were developed as a solution.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,551 @@
+{
+  "id": "module_4",
+  "title": "GPT and Decoder-Only Models",
+  "description": "How GPT combines the decoder architecture with autoregressive language modeling: text generation sampling strategies, the scaling laws behind ever-larger models, and RoPE's modern approach to positional encoding.",
+  "icon": "✍️",
+  "color": "#00BCD4",
+  "order": 4,
+  "estimatedHours": 2,
+  "difficulty": "Advanced",
+  "prerequisites": [
+    "module_3"
+  ],
+  "lessons": [
+    {
+      "id": "tf_gpt_autoregressive",
+      "title": "GPT: Autoregressive Language Modeling with Transformers",
+      "description": "Learn how GPT combines the decoder architecture with language modeling to become a powerful text generator.",
+      "duration": "9 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain how GPT's architecture and training objective relate to the decoder and language modeling concepts from earlier in this course and the NLP course."
+          },
+          {
+            "title": "🔍 What GPT is",
+            "content": "**GPT (Generative Pre-trained Transformer)** is a decoder-only Transformer (module 2) — no separate encoder, no cross-attention, just a stack of masked-self-attention decoder blocks. It's trained on the language modeling objective from the NLP course: predict the next token, given everything that came before."
+          },
+          {
+            "title": "🔁 Why decoder-only is the natural fit",
+            "content": "Recall from module 2: masked self-attention already structurally enforces that each position can only attend to earlier positions — exactly matching what next-token prediction requires. This is precisely why GPT uses a decoder-only architecture rather than BERT's bidirectional encoder: language modeling is inherently a left-to-right, **autoregressive** task (each prediction depends only on what came before, including its own previous predictions), and masked self-attention is architecturally built for just that."
+          },
+          {
+            "title": "📈 Pretraining at massive scale",
+            "content": "Like BERT, GPT is pretrained on a huge amount of unlabeled text — but instead of masked language modeling, it uses the more straightforward and directly generation-aligned next-token prediction objective.\n\n```python\n# Conceptual GPT training\n# for each position i in the training text:\n#     predict token[i+1], given tokens[0..i]\n#     (masked self-attention ensures token[i+1] and beyond aren't visible)\n```\n\nThis simple, scalable objective — combined with the Transformer's parallelizable training (module 1) — is a major reason GPT-style models have been scaled to enormous sizes, training on vast amounts of text, a theme the next lesson explores further."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Confusing GPT's architecture with BERT's.** GPT is decoder-only, using masked (causal) self-attention; BERT is encoder-only, using bidirectional self-attention — this architectural difference directly follows from their different training objectives (next-token prediction vs. masked language modeling).\n\n**Assuming GPT could just as easily use bidirectional attention.** It specifically can't, without breaking the whole autoregressive setup — allowing future context during training would let the model \"cheat\" on the exact task it's being trained to do.\n\n**Forgetting this builds directly on the NLP course's language modeling lesson.** GPT isn't a fundamentally new task — it's the same next-token-prediction language modeling objective, now implemented with the far more powerful Transformer decoder architecture instead of an RNN."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "tf_gpt_autoregressive_quiz",
+        "questions": [
+          {
+            "question": "What architecture does GPT use, and why is it well suited to its training objective?",
+            "options": [
+              "Encoder-only, because bidirectional context is needed for next-token prediction",
+              "Decoder-only, because masked self-attention already enforces the left-to-right constraint that next-token prediction (language modeling) requires",
+              "Encoder-decoder, using cross-attention to connect two separate stacks",
+              "GPT does not use a Transformer-based architecture at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "GPT's decoder-only architecture, with its masked self-attention that structurally prevents attending to future positions, aligns naturally with the left-to-right nature of next-token prediction — exactly the objective GPT is trained on.",
+            "id": "q1"
+          },
+          {
+            "question": "What pretraining objective does GPT use?",
+            "options": [
+              "Masked language modeling, predicting randomly hidden tokens using bidirectional context",
+              "Next-token prediction — predicting each token given everything that came before it",
+              "Translating text between two different languages",
+              "Classifying documents into predefined categories"
+            ],
+            "correctAnswer": 1,
+            "explanation": "GPT is trained using the language modeling objective from the NLP course — predicting the next token given prior context — which aligns naturally with its decoder-only, autoregressive architecture.",
+            "id": "q2"
+          },
+          {
+            "question": "Why can't GPT simply use bidirectional attention like BERT does?",
+            "options": [
+              "Bidirectional attention is technically impossible to implement in any architecture",
+              "Allowing GPT to see future tokens during training would let it 'cheat' on the exact next-token-prediction task it's being trained to perform, breaking the autoregressive setup entirely",
+              "GPT doesn't actually use any form of self-attention",
+              "Bidirectional attention would make GPT train faster with no downsides"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since GPT's whole training objective is predicting the next token from only prior context, giving it access to future tokens during training would trivially let it 'cheat' by just looking ahead — masked self-attention is what prevents this and keeps training aligned with real generation constraints.",
+            "id": "q3"
+          },
+          {
+            "question": "What kind of Transformer architecture does GPT use?",
+            "options": [
+              "Encoder-only, with bidirectional self-attention",
+              "Decoder-only, with masked self-attention and no cross-attention",
+              "Encoder-decoder, connected via cross-attention",
+              "GPT does not use any Transformer components"
+            ],
+            "correctAnswer": 1,
+            "explanation": "GPT is a decoder-only Transformer — no separate encoder, no cross-attention, just a stack of masked-self-attention decoder blocks.",
+            "id": "q4"
+          },
+          {
+            "question": "What pretraining objective is GPT trained on?",
+            "options": [
+              "Masked language modeling, predicting randomly hidden tokens using bidirectional context",
+              "Next-token prediction — predicting each token given everything that came before it",
+              "Translating text between two languages",
+              "Classifying documents into predefined categories"
+            ],
+            "correctAnswer": 1,
+            "explanation": "GPT is trained using the language modeling objective from the NLP course — predicting the next token given prior context — which aligns naturally with its decoder-only, autoregressive architecture.",
+            "id": "q5"
+          },
+          {
+            "question": "What does 'autoregressive' mean in the context of GPT's generation process?",
+            "options": [
+              "Each prediction depends only on what came before it, including the model's own previous predictions",
+              "Every prediction is made completely independently of all others",
+              "The model regenerates its entire training dataset for each prediction",
+              "Predictions are made in a random, unordered fashion"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Autoregressive means each prediction depends only on prior context, including the model's own previously generated tokens — exactly the left-to-right structure that masked self-attention is built to support.",
+            "id": "q6"
+          },
+          {
+            "question": "Why can't GPT simply use bidirectional attention like BERT does?",
+            "options": [
+              "Bidirectional attention is technically impossible to implement in any architecture",
+              "Allowing GPT to see future tokens during training would let it 'cheat' on the next-token-prediction task it is being trained to perform",
+              "GPT does not actually use any form of self-attention",
+              "Bidirectional attention would make training faster with no downsides"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since GPT's entire training objective is predicting the next token from only prior context, giving it access to future tokens would trivially let it 'cheat' — masked self-attention prevents this.",
+            "id": "q7"
+          },
+          {
+            "question": "How does GPT's training objective relate to the NLP course's language modeling lesson?",
+            "options": [
+              "It is a completely new, unrelated task invented for GPT specifically",
+              "It is the same next-token-prediction language modeling objective, now implemented using the more powerful Transformer decoder instead of an RNN",
+              "GPT does not use any form of language modeling at all",
+              "GPT's objective only ever predicts the previous token, not the next one"
+            ],
+            "correctAnswer": 1,
+            "explanation": "GPT isn't a fundamentally new task — it applies the same next-token-prediction language modeling objective from the NLP course, now implemented with the far more powerful Transformer decoder architecture rather than an RNN.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "tf_text_generation_sampling",
+      "title": "How GPT Generates Text: Sampling Strategies",
+      "description": "Learn the practical choices involved in turning a model's next-token probabilities into actual generated text.",
+      "duration": "9 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can describe common sampling strategies used to generate text from a language model's output probabilities."
+          },
+          {
+            "title": "🔁 A quick recap, now made concrete",
+            "content": "Recall from the NLP course: a language model produces a probability distribution over possible next tokens, and generation works by repeatedly predicting and appending. But there's a real design choice glossed over there: given a full probability distribution, *how* exactly do you pick the next token?"
+          },
+          {
+            "title": "🎯 Greedy decoding: always pick the most likely token",
+            "content": "The simplest strategy: always choose the single highest-probability token at each step.\n\n```python\n# Conceptual greedy decoding\n# next_token = argmax(probability_distribution)\n```\n\nThis is deterministic (same input always produces the same output) but tends to produce repetitive, overly \"safe\" text — always taking the locally best option at each step doesn't necessarily lead to the best or most interesting *overall* sequence."
+          },
+          {
+            "title": "🎲 Sampling with temperature",
+            "content": "Instead of always picking the top choice, **sampling** randomly selects a token according to the probability distribution itself (higher-probability tokens are more likely to be picked, but not guaranteed). A **temperature** parameter controls how \"sharp\" or \"flat\" this distribution is before sampling:\n\n```python\n# Conceptual: temperature reshapes the probability distribution\n# low temperature (e.g. 0.3)  → sharper, more confident, closer to greedy\n# high temperature (e.g. 1.5) → flatter, more random, more diverse/creative\n```\n\nLower temperature produces more focused, predictable text; higher temperature produces more varied, creative (but also more error-prone) text."
+          },
+          {
+            "title": "🎯 Top-k and top-p (nucleus) sampling",
+            "content": "Pure random sampling over the *entire* vocabulary risks occasionally picking a very low-probability, nonsensical token. Two common refinements limit the candidate pool before sampling:\n\n• **Top-k sampling** — only consider the `k` highest-probability tokens, then sample among just those\n• **Top-p (nucleus) sampling** — only consider the smallest set of tokens whose cumulative probability exceeds a threshold `p` (like 0.9), then sample among those — this adapts the pool size dynamically based on how \"confident\" the distribution is at each specific step, unlike top-k's fixed pool size\n\n```python\n# Conceptual top-p sampling\n# sorted_tokens = sort_by_probability_descending(distribution)\n# candidate_pool = smallest_prefix_of(sorted_tokens) with cumulative_prob >= p\n# next_token = sample_from(candidate_pool)\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming greedy decoding is always the \"best\" choice since it picks the highest-probability option each time.** It often produces noticeably repetitive, less interesting text compared to well-tuned sampling approaches, since always taking the locally best choice doesn't guarantee the best overall result.\n\n**Setting temperature too high without expecting more mistakes.** Higher temperature genuinely trades some coherence and factual reliability for more variety and creativity — it's a real tradeoff, not a free \"more creative\" switch.\n\n**Confusing top-k's fixed pool size with top-p's adaptive pool size.** Top-p adjusts how many candidate tokens are considered based on the actual shape of the distribution at each step, while top-k always considers exactly the same fixed number of top candidates regardless of how confident or spread out that step's distribution actually is."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "tf_text_generation_sampling_quiz",
+        "questions": [
+          {
+            "question": "What is a key downside of always using greedy decoding (picking the single highest-probability token every time)?",
+            "options": [
+              "It's computationally impossible to implement",
+              "It tends to produce repetitive, overly predictable text, since always taking the locally best choice doesn't necessarily produce the best overall sequence",
+              "It always produces completely random, incoherent text",
+              "Greedy decoding cannot be used with GPT-style models"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Greedy decoding's step-by-step 'always pick the top choice' strategy often leads to repetitive or bland generated text, since locally optimal choices at each step don't guarantee a good overall sequence.",
+            "id": "q1"
+          },
+          {
+            "question": "What effect does increasing the temperature parameter have on text generation?",
+            "options": [
+              "It makes the model deterministic, always producing the exact same output",
+              "It flattens the probability distribution, making generation more random and diverse, at some cost to coherence and reliability",
+              "It has no actual effect on the generated text",
+              "It forces the model to always pick the lowest-probability token"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Higher temperature spreads out (flattens) the probability distribution before sampling, increasing variety and randomness in the generated text — a genuine tradeoff against coherence and predictability, not a purely beneficial setting.",
+            "id": "q2"
+          },
+          {
+            "question": "How does top-p (nucleus) sampling differ from top-k sampling?",
+            "options": [
+              "They are identical techniques with different names",
+              "Top-p dynamically adjusts the candidate pool size based on cumulative probability at each step, while top-k always uses a fixed number of top candidates regardless of the distribution's shape",
+              "Top-k considers the entire vocabulary, while top-p considers only a single token",
+              "Top-p can only be used with greedy decoding, never with sampling"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Top-p selects however many tokens are needed for their combined probability to reach a threshold (adapting to how confident or spread out that step's distribution is), while top-k always considers exactly k tokens regardless of the distribution's actual shape at that step.",
+            "id": "q3"
+          },
+          {
+            "question": "What does greedy decoding do at each generation step?",
+            "options": [
+              "It randomly samples a token according to the full probability distribution",
+              "It always chooses the single highest-probability token",
+              "It always chooses the lowest-probability token",
+              "It generates multiple tokens simultaneously with no ordering"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Greedy decoding is the simplest strategy: at each step, it always selects the single highest-probability token from the model's output distribution.",
+            "id": "q4"
+          },
+          {
+            "question": "What is a key downside of always using greedy decoding?",
+            "options": [
+              "It is computationally impossible to implement in practice",
+              "It tends to produce repetitive, overly predictable text, since always taking the locally best choice doesn't guarantee the best overall sequence",
+              "It always produces completely random, incoherent text",
+              "Greedy decoding cannot be used with GPT-style models at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Greedy decoding's 'always pick the top choice' strategy often leads to repetitive or bland text, since locally optimal choices at each step don't necessarily produce a good overall sequence.",
+            "id": "q5"
+          },
+          {
+            "question": "What effect does increasing the temperature parameter have on text generation?",
+            "options": [
+              "It makes the model fully deterministic, always producing identical output",
+              "It flattens the probability distribution, making generation more random and diverse, at some cost to coherence",
+              "It has no effect on the generated text whatsoever",
+              "It forces the model to always pick the single lowest-probability token"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Higher temperature flattens the probability distribution before sampling, increasing variety and randomness in generated text, at the cost of some coherence and reliability.",
+            "id": "q6"
+          },
+          {
+            "question": "How does top-k sampling limit the candidate pool before sampling a token?",
+            "options": [
+              "It considers the entire vocabulary with no limit at all",
+              "It only considers the k highest-probability tokens, then samples among just those",
+              "It always picks exactly one, fixed token regardless of probability",
+              "It removes the softmax step from the process entirely"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Top-k sampling restricts the candidate pool to just the k highest-probability tokens at each step, then samples among that fixed-size subset.",
+            "id": "q7"
+          },
+          {
+            "question": "How does top-p (nucleus) sampling differ from top-k sampling?",
+            "options": [
+              "They are identical techniques with different names",
+              "Top-p dynamically adjusts the candidate pool size based on cumulative probability at each step, while top-k always uses a fixed number of top candidates",
+              "Top-k considers the entire vocabulary, while top-p considers only a single token",
+              "Top-p can only be used together with greedy decoding, never with sampling"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Top-p selects the smallest set of tokens whose cumulative probability exceeds a threshold, adapting the pool size to how confident the distribution is at each step, unlike top-k's fixed pool size.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "tf_scaling_laws",
+      "title": "Scaling Laws: Why Bigger Models Got Better",
+      "description": "Learn the empirical pattern that helped drive the push toward ever-larger language models.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can describe what scaling laws are and what factors they relate to model performance."
+          },
+          {
+            "title": "📈 A surprisingly predictable pattern",
+            "content": "Researchers found that a language model's performance (measured by something like the perplexity metric from the NLP course) improves in a remarkably smooth, predictable way as you scale up three key factors together: the number of model parameters, the amount of training data, and the amount of compute used for training. These empirical relationships are often called **scaling laws**."
+          },
+          {
+            "title": "📊 The three scaling dimensions",
+            "content": "```\nModel size    (number of parameters — recall this concept from the deep learning course)\nData size     (amount of training text)\nCompute       (total training computation used)\n```\n\nA key, somewhat surprising finding: these three factors need to be scaled up *together*, in roughly balanced proportion, to get the most benefit — a huge model trained on too little data (or vice versa) underperforms compared to a more balanced scaling of all three factors together."
+          },
+          {
+            "title": "🎯 Why this mattered so much in practice",
+            "content": "This predictable, smooth relationship gave researchers real, empirical confidence: rather than guessing whether a much bigger model trained on much more data would actually pay off, scaling laws let them reasonably *predict* the performance gains in advance — providing real justification for the massive investments in scaling up model size, data, and compute that produced the large language models covered in a later dedicated course."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming bigger is unconditionally better with no other considerations.** Scaling laws specifically show that model size, data, and compute need to scale together in balance — an imbalanced increase in just one factor underperforms relative to balanced scaling of all three.\n\n**Forgetting scaling laws are empirical patterns, not a guaranteed law of physics.** They're observed relationships that have held remarkably well across a wide range of studied model scales — genuinely useful for planning, but not an absolute mathematical guarantee that must hold at every possible scale.\n\n**Not connecting this back to the deep learning course's discussion of model capacity and data.** The same underlying tension between model capacity and available data (echoing the deep learning course's overfitting discussion) is exactly what motivates why balanced scaling — not just brute-force bigger models — is what actually pays off."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "tf_scaling_laws_quiz",
+        "questions": [
+          {
+            "question": "What do scaling laws describe about language model performance?",
+            "options": [
+              "Performance always decreases as models get larger",
+              "Performance improves in a remarkably smooth, predictable way as model size, training data, and compute are scaled up together",
+              "Performance has no meaningful relationship to model size or data amount",
+              "Only training data amount affects performance; model size and compute don't matter"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Scaling laws capture the empirical finding that language model performance follows a predictable pattern as three key factors — parameters, data, and compute — are scaled up, particularly when scaled together in balance.",
+            "id": "q1"
+          },
+          {
+            "question": "Why is it important that model size, data, and compute be scaled up together, roughly in proportion?",
+            "options": [
+              "Only model size actually matters; the other two factors are irrelevant",
+              "A large model trained on too little data (or an imbalanced combination of the three factors) underperforms compared to a more balanced scaling of all three together",
+              "Scaling any single factor alone always produces the best possible results",
+              "Data amount and compute have no actual relationship to each other"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Scaling laws specifically show that these three factors need to grow together in roughly balanced proportion to achieve the predicted performance gains — scaling just one factor disproportionately (like a huge model with too little data) doesn't yield the same benefit.",
+            "id": "q2"
+          },
+          {
+            "question": "Why did scaling laws matter practically for the development of large language models?",
+            "options": [
+              "They had no actual practical impact on how models were developed",
+              "They gave researchers empirical confidence to predict performance gains from scaling up model size, data, and compute together, justifying major investments in doing so",
+              "They proved that scaling up models was never worth the investment",
+              "They only applied to computer vision models, not language models"
+            ],
+            "correctAnswer": 1,
+            "explanation": "By providing a predictable relationship between scale and performance, scaling laws gave researchers real evidence to justify the massive investments needed to train much larger models on much more data — directly enabling the large language models covered in a later course.",
+            "id": "q3"
+          },
+          {
+            "question": "What do scaling laws describe about language model performance?",
+            "options": [
+              "Performance always decreases as models get larger",
+              "Performance improves in a remarkably smooth, predictable way as model size, training data, and compute are scaled up together",
+              "Performance has no meaningful relationship to model size or data amount",
+              "Only training data amount affects performance; model size and compute don't matter"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Scaling laws capture the empirical finding that language model performance follows a predictable pattern as model parameters, data, and compute are scaled up, particularly when scaled together in balance.",
+            "id": "q4"
+          },
+          {
+            "question": "What are the three key factors that scaling laws relate to model performance?",
+            "options": [
+              "Number of attention heads, sequence length, and vocabulary size",
+              "Number of model parameters, amount of training data, and amount of compute used for training",
+              "Learning rate, batch size, and number of epochs only",
+              "Number of layers, dropout rate, and weight decay"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Scaling laws relate model performance to three key factors scaled together: the number of model parameters, the amount of training data, and the total compute used for training.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is it important that model size, data, and compute be scaled up together in roughly balanced proportion?",
+            "options": [
+              "Only model size actually matters; the other two factors are irrelevant",
+              "A large model trained on too little data (or an imbalanced combination) underperforms compared to a more balanced scaling of all three together",
+              "Scaling any single factor alone always produces the best possible results",
+              "Data amount and compute have no relationship to one another"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Scaling laws show these three factors need to grow together in roughly balanced proportion to achieve predicted performance gains — an imbalanced scaling of just one factor underperforms relative to balanced scaling.",
+            "id": "q6"
+          },
+          {
+            "question": "What deep learning course concept does this lesson connect to the tension addressed by balanced scaling?",
+            "options": [
+              "Convolutional filter design",
+              "The tension between model capacity and available data, echoing the overfitting discussion",
+              "Batch normalization",
+              "Positional encoding"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson connects balanced scaling to the deep learning course's overfitting discussion — the same underlying tension between model capacity and available data motivates why balanced scaling, not brute-force size alone, pays off.",
+            "id": "q7"
+          },
+          {
+            "question": "Are scaling laws described in this lesson as an absolute, guaranteed mathematical law, or an empirical pattern?",
+            "options": [
+              "An absolute, guaranteed law of physics that must hold at every scale",
+              "An empirical pattern that has held remarkably well across studied scales, useful for planning but not an unconditional guarantee",
+              "A pattern that has never actually been observed in practice",
+              "A rule that only applies to models smaller than any studied so far"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson is explicit that scaling laws are observed empirical relationships, not a guaranteed law of physics — genuinely useful for planning, but not an absolute mathematical guarantee at every possible scale.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "tf_rope_positional_variants",
+      "title": "Beyond Fixed Positional Encoding: RoPE",
+      "description": "Learn about a more modern approach to encoding position that addresses limitations of the original scheme.",
+      "duration": "9 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain the core idea behind RoPE and why it improved on the original positional encoding approach."
+          },
+          {
+            "title": "🔁 A quick recap of the original approaches",
+            "content": "Recall module 1: the original Transformer used fixed sinusoidal positional encodings, added to token embeddings before the first block; some models instead use learned positional embeddings. Both approaches add position information once, at the very beginning, treating it as separate additive information layered on top of content."
+          },
+          {
+            "title": "🔄 RoPE: Rotary Position Embedding",
+            "content": "**RoPE (Rotary Position Embedding)** takes a fundamentally different approach: rather than *adding* a separate positional signal to the embedding, it **rotates** the Query and Key vectors (recall module 0) by an angle that depends on their position, directly within the attention computation itself — encoding relative position information geometrically, through rotation, rather than through simple addition."
+          },
+          {
+            "title": "🎯 A key advantage: naturally capturing relative position",
+            "content": "A particularly useful property of RoPE: the attention score between two tokens ends up depending mathematically on their *relative* distance from each other (how far apart they are), rather than only their absolute positions in the sequence. This tends to generalize better to sequence lengths not closely matching what was seen during training, and has become the standard, widely-adopted positional encoding scheme in most modern large language models — directly addressing a real limitation of the original fixed and learned approaches from module 1."
+          },
+          {
+            "title": "🔧 Why this matters for practitioners",
+            "content": "You generally won't implement RoPE's underlying rotation mathematics by hand — but understanding *why* it exists (it addresses real limitations around generalizing to different sequence lengths, and relative-position awareness) helps explain a genuine, meaningful architectural evolution behind many modern language models, and is exactly the kind of detail referenced when comparing different model architectures' technical specifications.\n\n```\n# The evolution of positional encoding, at a glance:\n# Sinusoidal (fixed formula) → Learned embeddings → RoPE (rotation-based)\n# Each addresses limitations of what came before it\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming RoPE completely replaces the need for any positional information elsewhere in the architecture.** It's specifically a *different way* of injecting positional information (via rotation within attention) rather than eliminating the need for positional awareness entirely.\n\n**Confusing RoPE with the original fixed sinusoidal encoding.** Both use sine/cosine functions, but they inject positional information in structurally different ways — one adds to the embedding directly; RoPE rotates Q/K vectors within the attention computation itself.\n\n**Underestimating why relative-position awareness matters practically.** A model that understands 'how far apart' two tokens are (not just their absolute positions) tends to generalize better to sequence lengths and structures different from its exact training distribution."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "tf_rope_positional_variants_quiz",
+        "questions": [
+          {
+            "question": "How does RoPE encode positional information, in contrast to the original sinusoidal positional encoding from module 1?",
+            "options": [
+              "It adds a fixed positional vector directly to the token embedding, exactly like the original approach",
+              "It rotates the Query and Key vectors by an angle depending on their position, directly within the attention computation, rather than adding a separate positional signal beforehand",
+              "It removes the need for any form of positional information entirely",
+              "It only works for sequences shorter than 10 tokens"
+            ],
+            "correctAnswer": 1,
+            "explanation": "RoPE takes a geometrically different approach — rotating Q and K vectors based on position within the attention computation itself — rather than simply adding a separate positional encoding to the embedding before attention, as the original Transformer did.",
+            "id": "q1"
+          },
+          {
+            "question": "What key advantage does RoPE offer regarding relative position?",
+            "options": [
+              "It only ever considers absolute position and ignores relative distance entirely",
+              "The attention score between two tokens ends up depending on their relative distance from each other, which tends to generalize better to sequence lengths different from training",
+              "RoPE cannot represent any positional relationships between tokens",
+              "It requires significantly more parameters than learned positional embeddings"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A key property of RoPE is that it naturally captures relative distance between tokens within the attention computation, which tends to help the model generalize better to sequence lengths not closely matching what it saw during training — addressing a real limitation of the original approaches.",
+            "id": "q2"
+          },
+          {
+            "question": "Why has RoPE become widely adopted in modern large language models?",
+            "options": [
+              "It requires no positional information processing at all, simplifying the architecture",
+              "It addresses real limitations of the original fixed and learned positional encoding approaches, particularly around generalizing to different sequence lengths and capturing relative position",
+              "It was the very first positional encoding method ever proposed",
+              "It only works for encoder-only architectures like BERT"
+            ],
+            "correctAnswer": 1,
+            "explanation": "RoPE's advantages — better generalization to varying sequence lengths and natural relative-position awareness — directly addressed real shortcomings of the earlier fixed sinusoidal and learned positional encoding approaches, making it the standard choice in most modern large language models.",
+            "id": "q3"
+          },
+          {
+            "question": "What positional encoding approaches from module 1 does this lesson recap before introducing RoPE?",
+            "options": [
+              "Only learned positional embeddings",
+              "Fixed sinusoidal positional encodings and learned positional embeddings",
+              "Only a single, universally agreed-upon approach",
+              "No prior approaches are recapped in this lesson"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson recaps both the original fixed sinusoidal positional encoding and the learned positional embedding alternative from module 1, before contrasting them with RoPE.",
+            "id": "q4"
+          },
+          {
+            "question": "How does RoPE encode positional information, in contrast to the original approaches?",
+            "options": [
+              "It adds a fixed positional vector directly to the token embedding, exactly like the original approach",
+              "It rotates the Query and Key vectors by an angle depending on position, directly within the attention computation",
+              "It removes the need for any positional information entirely",
+              "It only works for sequences shorter than 10 tokens"
+            ],
+            "correctAnswer": 1,
+            "explanation": "RoPE takes a geometrically different approach, rotating Q and K vectors based on position within the attention computation itself, rather than adding a separate positional signal beforehand.",
+            "id": "q5"
+          },
+          {
+            "question": "What key advantage does RoPE offer regarding relative position between tokens?",
+            "options": [
+              "It only considers absolute position and ignores relative distance entirely",
+              "The attention score between two tokens ends up depending on their relative distance, which tends to generalize better to unfamiliar sequence lengths",
+              "RoPE cannot represent any positional relationships between tokens",
+              "It requires significantly more parameters than learned positional embeddings"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A key property of RoPE is that it naturally captures relative distance between tokens within the attention computation, which tends to help generalization to sequence lengths not closely matching training.",
+            "id": "q6"
+          },
+          {
+            "question": "According to this lesson, does RoPE completely eliminate the need for positional information elsewhere in the architecture?",
+            "options": [
+              "Yes, RoPE removes any need for positional awareness anywhere in the model",
+              "No — RoPE is a different way of injecting positional information via rotation, not an elimination of positional awareness",
+              "RoPE only works when combined with the original sinusoidal encoding as well",
+              "Positional information becomes entirely irrelevant once RoPE is used"
+            ],
+            "correctAnswer": 1,
+            "explanation": "RoPE is specifically a different mechanism for injecting positional information (via rotation within attention), not an elimination of the need for positional awareness in the model.",
+            "id": "q7"
+          },
+          {
+            "question": "Why has RoPE become the standard, widely-adopted positional encoding scheme in modern large language models?",
+            "options": [
+              "It requires no positional information processing at all, simplifying the architecture",
+              "It addresses real limitations of the original fixed and learned approaches around generalizing to different sequence lengths and capturing relative position",
+              "It was the very first positional encoding method ever proposed",
+              "It only works for encoder-only architectures like BERT"
+            ],
+            "correctAnswer": 1,
+            "explanation": "RoPE's advantages — better generalization to varying sequence lengths and natural relative-position awareness — directly addressed real shortcomings of the earlier approaches, making it the standard choice in most modern large language models.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

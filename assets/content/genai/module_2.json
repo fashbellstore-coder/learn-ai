@@ -1,0 +1,525 @@
+{
+  "id": "module_2",
+  "title": "Diffusion Models",
+  "description": "The forward/reverse denoising intuition behind diffusion, why latent diffusion makes it computationally practical, and how classifier-free guidance trades diversity for prompt adherence.",
+  "icon": "🌫️",
+  "color": "#AB47BC",
+  "order": 2,
+  "estimatedHours": 2,
+  "difficulty": "Intermediate",
+  "prerequisites": [],
+  "lessons": [
+    {
+      "id": "gen_diffusion_intuition",
+      "title": "Diffusion Models: The Denoising Intuition",
+      "description": "Understand diffusion as learning to reverse a gradual noising process.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain the core intuition behind diffusion models: learning to undo noise, one small step at a time."
+          },
+          {
+            "title": "🌫️ Forward process: gradually destroying an image",
+            "content": "Training data (say, real images) is gradually corrupted by adding small amounts of random noise over many steps, until after enough steps the result is indistinguishable from pure noise. This is the **forward (noising) process** — and crucially, it requires no learning at all, just a fixed noise schedule."
+          },
+          {
+            "title": "🔄 Reverse process: what the model actually learns",
+            "content": "The model's job is to learn the **reverse process**: given a noisy image at some step, predict a slightly less noisy version. Chain that reverse step many times, starting from pure random noise, and you gradually 'denoise' your way to a realistic-looking image that was never in the training set.\n\n```python\n# Conceptual training objective, greatly simplified:\n# given (noisy_image, noise_level), predict the noise that was added\n# generation: start from pure noise, repeatedly predict-and-subtract noise\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Thinking diffusion generates an image in one shot.** Generation is iterative — often dozens to hundreds of small denoising steps, which is part of why diffusion models are historically slower at inference than a single forward pass through an autoregressive model.\n\n**Confusing the forward and reverse processes.** The forward (noising) process is fixed and requires no training; the reverse (denoising) process is the actual learned model.\n\n**Assuming diffusion only applies to images.** The same denoising framework has been applied to audio, video, and even some text and other data types."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "gen_diffusion_intuition_quiz",
+        "questions": [
+          {
+            "question": "What is the forward (noising) process in diffusion models?",
+            "options": [
+              "The learned process that generates new, realistic images",
+              "A fixed procedure, requiring no learning, that gradually adds noise to training data over many steps until it's indistinguishable from pure noise",
+              "A discriminative classifier that labels noisy images",
+              "The step where a diffusion model is deployed to production"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The forward process is a fixed, predetermined noise schedule applied to real data — it doesn't involve any learning. It's the reverse process, which learns to undo this noising, that constitutes the trained model.",
+            "id": "q1"
+          },
+          {
+            "question": "What does a diffusion model actually learn to do?",
+            "options": [
+              "It learns to add more noise to already-noisy images",
+              "It learns the reverse process: given a noisy input at some step, predict a slightly less noisy version, which chained repeatedly produces a realistic output from pure noise",
+              "It learns to classify images into fixed categories",
+              "It learns to compress images without any generative capability"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The trained part of a diffusion model is the reverse (denoising) process — predicting, at each step, a slightly cleaner version of a noisy input. Chaining many such steps starting from pure noise is what produces a new, realistic sample.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is diffusion-based generation typically slower at inference than a single forward pass through an autoregressive model for one output unit?",
+            "options": [
+              "Diffusion models generate a complete output in a single step, just like a single forward pass",
+              "Diffusion generation is iterative, requiring many (often dozens to hundreds of) small denoising steps chained together to go from noise to a final output",
+              "Diffusion models don't actually run at inference time at all",
+              "Autoregressive models are always slower than diffusion models in every case"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Unlike a single forward pass, diffusion generation chains together many denoising steps — each one a small refinement — which is why generating one final output typically takes many iterations rather than one.",
+            "id": "q3"
+          },
+          {
+            "question": "What is required to run the forward (noising) process in a diffusion model, according to this lesson?",
+            "options": [
+              "No learning at all — just a fixed noise schedule",
+              "A fully trained reverse-process model",
+              "A labeled dataset of image categories",
+              "A pre-trained text encoder"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson states plainly that the forward process requires no learning at all; it's a fixed noise schedule applied to the data.",
+            "id": "q4"
+          },
+          {
+            "question": "What does the reverse process predict at each step, as described in this lesson?",
+            "options": [
+              "A slightly less noisy version of the current noisy input",
+              "A completely random new image unrelated to the input",
+              "The original training label of the image",
+              "The final resolution of the output image"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The reverse process is trained to take a noisy input at some step and predict a slightly cleaner version of it, which is chained repeatedly to produce a final realistic sample.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is it a mistake to think diffusion generates an image in one shot, per this lesson?",
+            "options": [
+              "Because generation is iterative, often requiring dozens to hundreds of small denoising steps",
+              "Because diffusion models cannot generate images at all",
+              "Because diffusion always requires exactly two steps",
+              "Because one-shot generation is only possible with beam search"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly calls out the mistake of assuming one-shot generation — diffusion works through an iterative chain of many small denoising steps.",
+            "id": "q6"
+          },
+          {
+            "question": "How does the lesson distinguish the forward process from the reverse process?",
+            "options": [
+              "The forward process is fixed and requires no training; the reverse process is the actual learned model",
+              "The forward process is what gets deployed to production, not the reverse process",
+              "Both processes are learned during training with equal importance",
+              "The reverse process requires no learning, unlike the forward process"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson is explicit that these are commonly confused: the forward (noising) process is fixed and untrained, while the reverse (denoising) process is what the model actually learns.",
+            "id": "q7"
+          },
+          {
+            "question": "Beyond images, what other data types does this lesson say the diffusion framework has been applied to?",
+            "options": [
+              "Audio, video, and even some text and other data types",
+              "Only spreadsheets and tabular data",
+              "Diffusion cannot be applied to anything besides static images",
+              "Only 3D models, never any 2D media"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson notes that assuming diffusion only applies to images is a mistake — the same denoising framework has been extended to audio, video, and even some text and other data types.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "gen_latent_diffusion",
+      "title": "Latent Diffusion: Working in a Smaller Space",
+      "description": "See why running diffusion in a compressed latent space instead of raw pixels makes it practical.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain why latent diffusion is more computationally practical than running diffusion directly on raw pixels."
+          },
+          {
+            "title": "🖼️ The cost of denoising every pixel, every step",
+            "content": "Running the denoising process directly on full-resolution pixel data (say, 512×512×3 values) at every one of dozens-to-hundreds of steps is extremely expensive — recall from the computer vision course just how large a raw image tensor already is before you even add the cost of many iterative refinement steps."
+          },
+          {
+            "title": "📦 Compress first, denoise in latent space",
+            "content": "**Latent diffusion** first compresses an image into a much smaller latent representation (using an autoencoder-style network, connecting back to the autoencoders lesson in the deep learning course), runs the entire iterative denoising process in that compact latent space, and only decompresses back to full pixels at the very end. This is a huge computational shortcut — you pay the iterative cost in a much smaller space.\n\n```python\n# Conceptual pipeline:\n# image (512x512x3) -> encoder -> latent (much smaller)\n# denoise iteratively in latent space (cheap, many steps)\n# latent -> decoder -> final image (512x512x3)\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming latent diffusion changes what's being learned, not just where.** The denoising objective is conceptually the same; only the space it operates in changes.\n\n**Forgetting the autoencoder's own quality matters.** If the encoder/decoder loses important detail compressing to and from latent space, that's a ceiling on final image quality no amount of denoising can fix.\n\n**Assuming latent space compression is free.** It's what makes diffusion computationally practical at high resolution, but it's an additional trained component with its own failure modes."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "gen_latent_diffusion_quiz",
+        "questions": [
+          {
+            "question": "Why is running diffusion directly on full-resolution pixel data computationally expensive?",
+            "options": [
+              "Pixel data is actually very small and cheap to process",
+              "Each of the many iterative denoising steps has to operate on the full, large pixel tensor, and doing this repeatedly across dozens to hundreds of steps adds up to a large computational cost",
+              "Pixel-space diffusion requires no computation at all",
+              "Computational cost has nothing to do with the size of the data being processed"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since diffusion requires many iterative refinement steps, and each step processes the full data tensor, operating directly on large raw pixel data multiplies that per-step cost by the number of iterations — a substantial computational burden.",
+            "id": "q1"
+          },
+          {
+            "question": "What does latent diffusion do differently from standard pixel-space diffusion?",
+            "options": [
+              "It skips the denoising process entirely",
+              "It first compresses the image into a smaller latent representation using an autoencoder-style network, runs the iterative denoising in that compact space, and decodes back to full pixels only at the end",
+              "It runs the exact same process but with additional pixel-space steps added",
+              "It removes the need for any noise process whatsoever"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Latent diffusion moves the expensive iterative part of the process into a much smaller latent space (via an encoder/decoder pair), which is what makes running many denoising steps computationally practical at high image resolutions.",
+            "id": "q2"
+          },
+          {
+            "question": "Why does the quality of the autoencoder used for latent compression matter for final image quality?",
+            "options": [
+              "The autoencoder's quality has no effect on the final output whatsoever",
+              "If the encoder/decoder loses important detail when compressing to and from latent space, that sets a ceiling on final image quality that no amount of denoising can overcome",
+              "A lower-quality autoencoder always produces sharper final images",
+              "The autoencoder is only used during training, never during generation"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since the final image is decoded from the latent representation, any information lost in that encoding step is permanently unrecoverable — meaning the autoencoder's fidelity places a hard upper bound on how good the final generated image can be.",
+            "id": "q3"
+          },
+          {
+            "question": "Why is running the denoising process directly on full-resolution pixel data expensive, per this lesson?",
+            "options": [
+              "Because each of the many iterative steps has to process the full, large pixel tensor, and this cost multiplies across all the steps",
+              "Because pixel data cannot be processed by neural networks",
+              "Because full-resolution images have no computational cost at all",
+              "Because latent diffusion is always slower than pixel-space diffusion"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explains that operating on large raw pixel tensors at every one of many iterative denoising steps adds up to a substantial computational cost.",
+            "id": "q4"
+          },
+          {
+            "question": "What kind of network compresses an image into the latent representation used by latent diffusion?",
+            "options": [
+              "An autoencoder-style network",
+              "A discriminative classifier",
+              "A beam search algorithm",
+              "A tokenizer designed for text"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson connects latent diffusion's compression step back to autoencoder-style networks, the same idea covered in the autoencoders lesson from the deep learning course.",
+            "id": "q5"
+          },
+          {
+            "question": "At what point does latent diffusion decompress the result back to full pixel resolution, according to this lesson?",
+            "options": [
+              "Only at the very end, after the entire iterative denoising process has run in latent space",
+              "Before every single denoising step",
+              "Decompression never happens in latent diffusion",
+              "Immediately after the very first denoising step"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson describes the pipeline as encoding to latent space, running the full iterative denoising there, and only decoding back to full pixels at the very end.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does the lesson warn that the autoencoder's own quality places a ceiling on final image quality?",
+            "options": [
+              "Because any detail lost when compressing to and from latent space cannot be recovered by the denoising process",
+              "Because the autoencoder has no effect on the final generated image",
+              "Because a lower-quality autoencoder always improves final image sharpness",
+              "Because the denoising process fully corrects any compression loss"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Since the final image is decoded from the latent representation, information lost during compression or decompression is permanently unrecoverable, capping how good the final result can be.",
+            "id": "q7"
+          },
+          {
+            "question": "What does latent diffusion change compared to standard pixel-space diffusion, according to this lesson?",
+            "options": [
+              "Where the denoising happens (in a compact latent space), not fundamentally what is being learned",
+              "The core denoising objective itself, replacing it with a classification objective",
+              "The requirement for any noise process at all",
+              "The number of modalities the model can support"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson clarifies that latent diffusion changes the space the denoising operates in for computational efficiency, while the underlying denoising objective remains conceptually the same.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "gen_classifier_free_guidance",
+      "title": "Classifier-Free Guidance: Following the Prompt More Closely",
+      "description": "See how guidance strength lets you trade off prompt adherence against output diversity.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain what classifier-free guidance does and why increasing it trades diversity for prompt adherence."
+          },
+          {
+            "title": "🎯 Conditional vs. unconditional generation",
+            "content": "A text-to-image diffusion model can generate both **conditionally** (denoising steps guided by a text prompt) and, if trained to, **unconditionally** (denoising with no prompt guidance at all — a generic sample from the model's overall learned distribution)."
+          },
+          {
+            "title": "🎚️ Guidance scale: how strongly to follow the prompt",
+            "content": "**Classifier-free guidance** compares the conditional and unconditional predictions at each denoising step and pushes the result further in the direction the prompt suggests, controlled by a guidance scale. A higher guidance scale produces images that match the prompt more literally (but can look less natural or more artifact-prone at extreme values); a lower scale produces more varied, sometimes less prompt-faithful, but often more naturalistic images.\n\n```python\n# Conceptual: guidance_scale controls how far to push predictions\n# toward the prompt-conditioned direction, away from the unconditional one\n# guidance_scale = 1  -> mostly unconditional, loosely related to the prompt\n# guidance_scale = 7-15 -> strongly follows the prompt (typical range)\n# guidance_scale very high -> can look oversaturated or artifact-heavy\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming higher guidance is always better.** Very high guidance scales often introduce visible artifacts or an oversaturated, unnatural look — there's a sweet spot, not a monotonic improvement.\n\n**Confusing guidance scale with temperature.** They're both 'knobs', but guidance scale controls prompt adherence specifically, not the general randomness of sampling.\n\n**Expecting the exact same guidance scale to work for every prompt.** Different prompts and models often need different guidance values to look their best."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "gen_classifier_free_guidance_quiz",
+        "questions": [
+          {
+            "question": "What does classifier-free guidance compare at each denoising step?",
+            "options": [
+              "Two completely unrelated models with no shared training",
+              "The conditional (prompt-guided) prediction and the unconditional (no-prompt) prediction, pushing the result further toward the prompt-conditioned direction",
+              "The training loss from two different epochs",
+              "The output resolution before and after compression"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Classifier-free guidance works by comparing what the model predicts with the prompt versus without it, then amplifying the difference — pushing the final result further in the direction the prompt suggests.",
+            "id": "q1"
+          },
+          {
+            "question": "What is the general effect of increasing the guidance scale?",
+            "options": [
+              "It has no effect on the generated output at all",
+              "It makes the output follow the prompt more literally, though very high values can introduce visible artifacts or an unnatural, oversaturated look",
+              "It always makes the image more diverse and less related to the prompt",
+              "It only affects the resolution of the output image"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A higher guidance scale pushes generation more strongly toward matching the prompt, at the cost of naturalism at extreme values — it's a tradeoff knob between prompt-faithfulness and visual quality/diversity, not a free improvement.",
+            "id": "q2"
+          },
+          {
+            "question": "How does guidance scale differ from temperature as a control knob?",
+            "options": [
+              "They are exactly the same thing under different names",
+              "Guidance scale specifically controls how strongly the output follows the given prompt/condition, while temperature controls general randomness in the sampling process",
+              "Guidance scale only applies to text generation, never to images",
+              "Temperature only applies to diffusion models, never to autoregressive models"
+            ],
+            "correctAnswer": 1,
+            "explanation": "While both are tunable generation parameters, guidance scale is specific to conditional generation (how closely to follow a prompt), whereas temperature (from the earlier lesson) reshapes the general randomness of token or sample selection.",
+            "id": "q3"
+          },
+          {
+            "question": "What two predictions does classifier-free guidance compare at each denoising step?",
+            "options": [
+              "The conditional (prompt-guided) prediction and the unconditional (no-prompt) prediction",
+              "The predictions from two entirely separate, unrelated models",
+              "The forward process and the reverse process",
+              "The output resolution before and after compression"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Classifier-free guidance compares what the model predicts with the prompt (conditional) versus without it (unconditional), then pushes the result further toward the prompt-conditioned direction.",
+            "id": "q4"
+          },
+          {
+            "question": "What does a guidance scale value in the typical range of 7-15 tend to produce, according to this lesson?",
+            "options": [
+              "Output that strongly follows the given prompt",
+              "Output that is entirely unconditional and ignores the prompt",
+              "Output resolution twice the normal size",
+              "A completely different image every single time regardless of the prompt"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's conceptual example places guidance_scale values of roughly 7-15 in the range that strongly follows the prompt, in contrast to a scale near 1, which stays mostly unconditional.",
+            "id": "q5"
+          },
+          {
+            "question": "What can happen at very high guidance scale values, per this lesson?",
+            "options": [
+              "The image can look oversaturated or artifact-heavy",
+              "The output becomes completely unrelated to the prompt",
+              "The model stops generating any output at all",
+              "The image resolution automatically decreases"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson warns that very high guidance scales, while pushing output to match the prompt more literally, often introduce visible artifacts or an unnatural, oversaturated look.",
+            "id": "q6"
+          },
+          {
+            "question": "Why is guidance scale different from temperature, according to this lesson?",
+            "options": [
+              "Guidance scale controls prompt adherence specifically, while temperature controls general randomness in sampling",
+              "They are exactly the same control applied to different model types",
+              "Guidance scale only applies to autoregressive text models, never diffusion models",
+              "Temperature can only be used with classifier-free guidance enabled"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly distinguishes the two: guidance scale is specific to how strongly a conditional generation follows its prompt, while temperature reshapes general sampling randomness.",
+            "id": "q7"
+          },
+          {
+            "question": "Why shouldn't the same guidance scale be assumed to work equally well for every prompt, according to this lesson?",
+            "options": [
+              "Because different prompts and models often need different guidance values to look their best",
+              "Because guidance scale is a fixed constant that cannot be changed",
+              "Because guidance scale only has one valid value across all use cases",
+              "Because prompts have no relationship to the ideal guidance scale"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson lists this as a common mistake: expecting one guidance scale to universally suit every prompt and model, when the ideal value often varies case by case.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "gen_diffusion_applications_limits",
+      "title": "Diffusion in Practice: Editing, Inpainting, and Failure Modes",
+      "description": "See how diffusion models are used beyond text-to-image, and where they still struggle.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can name two practical diffusion applications beyond pure text-to-image, and describe a couple of well-known diffusion failure modes."
+          },
+          {
+            "title": "🖌️ Img2img and inpainting",
+            "content": "Diffusion models aren't limited to starting from pure noise. **Img2img** starts the reverse process from a partially-noised version of an existing image, letting you nudge a real photo toward a prompt while preserving its overall structure. **Inpainting** masks part of an image and only denoises the masked region, letting you regenerate a specific area (removing an object, changing a background) while leaving the rest untouched."
+          },
+          {
+            "title": "🖐️ Known failure modes",
+            "content": "Diffusion models have historically struggled with a few specific things: rendering readable text within images, getting the correct number and structure of fingers/hands, and maintaining consistency across multiple generated images of 'the same' subject. These aren't random bugs — they reflect the kinds of fine, compositional structure that's genuinely hard for a pixel-level denoising process to get exactly right, especially compared to the CNNs from the computer vision course which were trained for recognition rather than precise generation."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming every diffusion model has the same failure modes at the same severity.** Newer models and techniques have substantially improved hands and text rendering over time — check current model capabilities rather than assuming old limitations still apply exactly as before.\n\n**Using inpainting without a good mask.** A poorly-defined mask boundary can produce a visible seam between the regenerated region and the untouched original.\n\n**Expecting perfect subject consistency across separate generations.** Without specific techniques designed for it, asking for 'the same character' in multiple separate generations often produces subtly (or obviously) different results each time."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "gen_diffusion_applications_limits_quiz",
+        "questions": [
+          {
+            "question": "What does img2img generation do differently from a standard text-to-image generation?",
+            "options": [
+              "It ignores any input image entirely and only uses noise",
+              "It starts the reverse denoising process from a partially-noised version of an existing image, letting the result stay influenced by the original image's structure",
+              "It only works with black-and-white images",
+              "It removes the need for a prompt entirely"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Rather than starting from pure random noise, img2img begins the reverse process partway through, using a partially-noised version of a real image as the starting point — which preserves more of the original image's structure in the result.",
+            "id": "q1"
+          },
+          {
+            "question": "What does inpainting let you do that a full image regeneration doesn't?",
+            "options": [
+              "Regenerate the entire image from scratch every time",
+              "Mask off a specific region and only denoise/regenerate that region, leaving the rest of the original image untouched",
+              "Convert an image into text",
+              "Remove the need for any noise process at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Inpainting restricts the denoising process to a masked region, letting you change just a specific part of an image (like removing an object) while keeping everything outside the mask exactly as it was.",
+            "id": "q2"
+          },
+          {
+            "question": "Why have diffusion models historically struggled with things like hands and in-image text specifically?",
+            "options": [
+              "These failures are completely random and unrelated to how the models work",
+              "These involve fine, precise compositional structure that is genuinely difficult for a pixel-level denoising process to get exactly right, unlike broader stylistic or textural patterns",
+              "Diffusion models are incapable of generating any images with people in them",
+              "This only happens with very old, obsolete diffusion models and never with any current ones"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Hands and readable text require exact, structured correctness (the right number of fingers, correctly formed letters) rather than plausible texture or style, which is a harder kind of precision for a pixel-level iterative denoising process to nail consistently.",
+            "id": "q3"
+          },
+          {
+            "question": "What does img2img generation start from, as opposed to standard text-to-image generation?",
+            "options": [
+              "A partially-noised version of an existing image, rather than pure noise",
+              "A completely blank canvas with no image data",
+              "A different text prompt entirely, ignoring any image",
+              "A discriminative classifier's prediction"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Img2img starts the reverse denoising process from a partially-noised version of a real image, letting the result stay influenced by the original image's structure.",
+            "id": "q4"
+          },
+          {
+            "question": "What part of an image does inpainting actually denoise and regenerate?",
+            "options": [
+              "Only the masked region, leaving the rest of the image untouched",
+              "The entire image from scratch every time",
+              "Only the background, never the foreground subject",
+              "No part of the image; inpainting only adds text labels"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Inpainting masks off a specific area and denoises only that masked region, which lets you regenerate a targeted part of an image while leaving everything outside the mask unchanged.",
+            "id": "q5"
+          },
+          {
+            "question": "Why have diffusion models historically struggled with rendering hands and readable in-image text, per this lesson?",
+            "options": [
+              "Because these require fine, precise compositional structure that is genuinely hard for pixel-level denoising to get exactly right",
+              "Because diffusion models cannot process any images containing people",
+              "Because hands and text are outside the training distribution of every diffusion model",
+              "Because these failures are entirely random with no underlying cause"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explains these failure modes reflect the difficulty of getting exact, structured correctness (finger count, letterforms) right through a pixel-level denoising process, unlike broader stylistic patterns.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does the lesson caution against assuming all diffusion models share the same failure modes at the same severity?",
+            "options": [
+              "Because newer models and techniques have substantially improved things like hands and text rendering over time",
+              "Because every diffusion model, old or new, behaves identically",
+              "Because failure modes never change as models improve",
+              "Because only the very first diffusion model ever built has any failure modes"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson notes that these limitations have improved with newer models and techniques, so it's a mistake to assume older, well-known failure modes still apply with the same severity to current models.",
+            "id": "q7"
+          },
+          {
+            "question": "Why might using inpainting with a poorly-defined mask cause a visible problem in the output?",
+            "options": [
+              "A poorly-defined mask boundary can produce a visible seam between the regenerated region and the untouched original",
+              "Mask quality has no effect on inpainting results",
+              "Inpainting ignores the mask entirely and regenerates the whole image regardless",
+              "A poor mask always improves blending quality"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson warns that a poorly-defined mask boundary is a common mistake, since it can leave a visible seam where the regenerated region meets the original, untouched part of the image.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

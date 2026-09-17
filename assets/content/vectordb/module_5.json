@@ -1,0 +1,563 @@
+{
+  "id": "vdb_production_pipelines",
+  "title": "Vector Databases in Production Pipelines",
+  "description": "The embedding/upsert pipeline, safely handling model upgrades, testing search quality, and a closing security checklist.",
+  "icon": "🚀",
+  "color": "#D32F2F",
+  "order": 5,
+  "estimatedHours": 4,
+  "difficulty": "advanced",
+  "prerequisites": [
+    "vdb_systems_in_practice"
+  ],
+  "lessons": [
+    {
+      "id": "vdb_the_embedding_and_upsert_pipeline",
+      "title": "The Embedding and Upsert Pipeline",
+      "description": "Getting vectors into the database is its own pipeline, with its own failure modes.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Describe the stages of a production embedding pipeline and name a failure mode at each stage."
+          },
+          {
+            "title": "🔄 The pipeline, stage by stage",
+            "content": "Extract text from source documents (and chunk it, using the chunking lessons from the RAG course). Embed each chunk with your chosen model. Upsert (update-or-insert) the resulting vector plus metadata into the vector database, keyed so that re-processing the same document updates rather than duplicates its entry."
+          },
+          {
+            "title": "💥 Failure modes at each stage",
+            "content": "Extraction can silently drop content (a table converted to garbled text, a PDF that fails to parse). Embedding can fail partway through a large batch, leaving some chunks unembedded. Upsert can race with a concurrent delete or update if the pipeline isn't designed to handle concurrent writes to the same key."
+          },
+          {
+            "title": "🔁 Idempotency matters here too",
+            "content": "The same idempotency principle the App Dev course applies to payment APIs applies to this pipeline: re-running it on the same documents (after a partial failure, or a scheduled refresh) should produce the same end state, not duplicate or corrupted entries. Deriving a vector's ID deterministically from the source document's ID and chunk index, rather than generating a random ID each run, is what makes that possible."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "A tiny, illustrative embedding/upsert pipeline that derives each vector's id from its content rather than generating one randomly:\n\n```python\nimport hashlib\n\n# A tiny, illustrative embedding/upsert pipeline (NOT production code).\n\nvector_store = {}  # id -> {\"vector\": [...], \"metadata\": {...}}\n\n\ndef fake_embed(text):\n    # Stands in for a real embedding model: deterministic, not semantic.\n    return [len(text) % 7, sum(ord(c) for c in text) % 11]\n\n\ndef make_id(doc_id, chunk_index, chunk_text):\n    # Deterministic id: doc_id + chunk_index + a hash of the content itself,\n    # so the SAME chunk always maps to the SAME id, run after run.\n    digest = hashlib.sha256(chunk_text.encode()).hexdigest()[:12]\n    return f\"{doc_id}-{chunk_index}-{digest}\"\n\n\ndef upsert_chunk(doc_id, chunk_index, chunk_text):\n    vector_id = make_id(doc_id, chunk_index, chunk_text)\n    vector_store[vector_id] = {\n        \"vector\": fake_embed(chunk_text),\n        \"metadata\": {\"doc_id\": doc_id, \"chunk_index\": chunk_index, \"text\": chunk_text},\n    }\n    return vector_id\n\n\ndef run_pipeline(doc_id, chunks):\n    return [upsert_chunk(doc_id, i, chunk) for i, chunk in enumerate(chunks)]\n\n\nchunks = [\"Vector databases store embeddings.\", \"They support approximate nearest neighbor search.\"]\n\nfirst_run = run_pipeline(\"doc-42\", chunks)\nprint(first_run)\nprint(len(vector_store))  # 2 entries after the first run\n\nsecond_run = run_pipeline(\"doc-42\", chunks)\nprint(second_run == first_run)  # True: identical content hashes to identical ids\nprint(len(vector_store))  # still 2 entries -- re-running updated, not duplicated\n```\n\n`make_id` folds `doc_id`, `chunk_index`, and a hash of the chunk's own text into the id, so re-running `run_pipeline` on unchanged chunks always produces the same ids and simply overwrites the same dictionary entries. Notice that `len(vector_store)` stays at 2 after the second run instead of growing to 4, which is exactly the idempotent behavior the lesson describes."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Generating a fresh random ID on every run.** A random or timestamp-based ID means re-processing the same document after a retry or a scheduled refresh creates brand-new entries instead of updating the existing ones, silently duplicating the corpus over time.\n\n**Hashing the chunk text but forgetting to include doc_id or chunk_index.** Two different documents that happen to share identical boilerplate text (a repeated header or disclaimer) would then hash to the same id, and the second upsert would silently overwrite the first document's entry.\n\n**Not handling a batch that fails partway through embedding.** Without tracking which chunks were already embedded and upserted, a pipeline that crashes mid-batch either leaves the index incomplete or blindly reprocesses everything from scratch, undermining the idempotency the deterministic id was supposed to provide.\n\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "vdb_the_embedding_and_upsert_pipeline_quiz",
+        "questions": [
+          {
+            "question": "Why should a vector's ID typically be derived deterministically from the source document and chunk index, rather than randomly generated each run?",
+            "options": [
+              "So re-running the pipeline updates the existing entry instead of creating duplicates",
+              "Because random IDs are rejected by all vector databases",
+              "Because deterministic IDs are required for cosine similarity to work",
+              "Because vector databases cannot accept string IDs"
+            ],
+            "correctAnswer": 0,
+            "explanation": "A deterministic ID makes upserts idempotent — reprocessing the same document overwrites the same record instead of duplicating it.",
+            "id": "q1"
+          },
+          {
+            "question": "Which of these is a realistic failure mode of the extraction stage specifically?",
+            "options": [
+              "A PDF or table that fails to parse, silently dropping content before it ever reaches the embedding step",
+              "The vector database refusing all writes",
+              "The distance metric being miscalculated",
+              "A reranker returning results out of order"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Extraction failures happen before embedding even begins, and can be entirely silent if not explicitly checked for.",
+            "id": "q2"
+          },
+          {
+            "question": "What does 'idempotent' mean in the context of an embedding/upsert pipeline?",
+            "options": [
+              "Re-running the pipeline on the same input produces the same end state, without duplicating or corrupting data",
+              "The pipeline only runs once ever, by design",
+              "The pipeline cannot be automated",
+              "The pipeline always produces a different result each run"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Idempotency is exactly the property that makes safe retries and scheduled reprocessing possible without side effects.",
+            "id": "q3"
+          },
+          {
+            "question": "Per the lesson's stage-by-stage description, in what order does a document move through the pipeline?",
+            "options": [
+              "Extract, then embed, then upsert",
+              "Upsert, then extract, then embed",
+              "Embed, then upsert, then extract",
+              "All three stages happen simultaneously with no fixed order"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson describes extraction (and chunking) first, embedding each chunk second, and upserting the resulting vector plus metadata third.",
+            "id": "q4"
+          },
+          {
+            "question": "Per the lesson, what specifically can go wrong at the upsert stage?",
+            "options": [
+              "It can race with a concurrent delete or update if the pipeline isn't designed to handle concurrent writes to the same key",
+              "It can silently convert a table into garbled text",
+              "It can fail because the embedding model rejects long inputs",
+              "It can only fail if the source document is missing entirely"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson calls out concurrent writes to the same key as the upsert-stage failure mode, distinct from extraction or embedding failures.",
+            "id": "q5"
+          },
+          {
+            "question": "In the code example, what three things does make_id combine to build a vector's id?",
+            "options": [
+              "The document id, the chunk index, and a hash of the chunk's own text",
+              "Only a random UUID generated fresh each call",
+              "Only the current timestamp",
+              "The embedding vector's floating-point values"
+            ],
+            "correctAnswer": 0,
+            "explanation": "make_id builds its id from f\"{doc_id}-{chunk_index}-{digest}\", where digest is a hash of chunk_text — doc_id, chunk_index, and content together.",
+            "id": "q6"
+          },
+          {
+            "question": "In the code example, why does len(vector_store) stay at 2 after second_run runs the same chunks again?",
+            "options": [
+              "Because make_id produces the same ids for unchanged content, so the second run overwrites the same two dictionary entries instead of adding new ones",
+              "Because run_pipeline refuses to execute a second time",
+              "Because vector_store has a hard-coded maximum size of 2",
+              "Because fake_embed returns an empty vector on the second call"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Since the chunk text is unchanged, make_id derives identical ids on both runs, so upsert_chunk overwrites the existing entries rather than creating new ones.",
+            "id": "q7"
+          },
+          {
+            "question": "Per 'Common mistakes', why is generating a fresh random ID on every run a problem?",
+            "options": [
+              "Re-processing the same document after a retry or scheduled refresh creates brand-new entries instead of updating existing ones, duplicating the corpus over time",
+              "Random IDs are always rejected outright by every vector database",
+              "Random IDs make the embedding model produce lower-quality vectors",
+              "Random IDs are slower to generate than deterministic ones, which is the main issue"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Without a deterministic id, the pipeline loses idempotency: retries and refreshes add new records instead of overwriting the existing ones for the same content.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "vdb_handling_embedding_model_upgrades",
+      "title": "Handling Embedding Model Upgrades",
+      "description": "The upgrade that silently breaks search: comparing vectors from two different embedding spaces.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain why upgrading an embedding model requires re-embedding the whole corpus, and describe a safe migration approach."
+          },
+          {
+            "title": "🧭 Different models, different spaces",
+            "content": "Two different embedding models — or even two versions of the 'same' model — produce vectors in geometrically unrelated spaces. A cosine similarity between a vector from the old model and a vector from the new model is meaningless, even though both are valid-looking floating-point arrays of the same length. This is the 'mixed-space search' problem flagged back in the Embeddings course, now facing you directly in an operational context."
+          },
+          {
+            "title": "🚧 Why this breaks silently",
+            "content": "If you upgrade your embedding model and only re-embed new documents going forward, your index quietly becomes a mix of old-space and new-space vectors, and search quality degrades in a way that looks like random noise rather than an obvious bug — there's no error, just steadily worse relevance for older documents."
+          },
+          {
+            "title": "🔀 A safe migration pattern",
+            "content": "Re-embed the entire corpus with the new model into a new collection, validate quality on that new collection with the recall/relevance benchmarks from earlier in this course, and only then cut query traffic over — keeping the old collection available for rollback until you're confident, mirroring the blue-green deployment pattern from the Cloud and MLOps courses applied to a vector index instead of a service."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "A tiny, illustrative dual-write/shadow-collection tracker that gates cutover on every document having a vector in the new space:\n\n```python\n# A tiny, illustrative shadow-collection migration tracker (NOT production code).\n\nold_collection = {}   # id -> vector (old embedding space)\nnew_collection = {}   # id -> vector (new embedding space)\nmigration_log = {}    # id -> {\"old\": bool, \"new\": bool}\n\n\ndef old_embed(text):\n    return [len(text)]\n\n\ndef new_embed(text):\n    return [len(text), text.count(\"a\")]\n\n\ndef dual_write(doc_id, text, migrating=True):\n    old_collection[doc_id] = old_embed(text)\n    entry = migration_log.setdefault(doc_id, {\"old\": False, \"new\": False})\n    entry[\"old\"] = True\n\n    if migrating:\n        new_collection[doc_id] = new_embed(text)\n        entry[\"new\"] = True\n\n    return entry\n\n\ndef migration_status():\n    total = len(migration_log)\n    migrated = sum(1 for e in migration_log.values() if e[\"new\"])\n    return migrated, total\n\n\ndef ready_to_cut_over():\n    migrated, total = migration_status()\n    return total > 0 and migrated == total\n\n\ndual_write(\"doc-1\", \"vector databases are useful\", migrating=True)\ndual_write(\"doc-2\", \"search quality matters a lot\", migrating=True)\nprint(migration_status())   # (2, 2)\nprint(ready_to_cut_over())  # True: every tracked document has a new-space vector\n\ndual_write(\"doc-3\", \"added after the migration already started\", migrating=False)\nprint(migration_status())   # (2, 3)\nprint(ready_to_cut_over())  # False: doc-3 has no new_collection entry yet\n```\n\n`dual_write` always writes to `old_collection` (mirroring live traffic), and while `migrating=True` also writes to `new_collection`, recording both in `migration_log`. `ready_to_cut_over` only returns `True` once every tracked document has a `new_collection` entry, which is exactly the validation gate the safe migration pattern requires before query traffic is switched over."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Cutting query traffic over before every document has a new-space vector.** A partial migration reintroduces the mixed-space search problem: documents without a new-space entry are effectively missing from post-cutover results, with no error to flag it.\n\n**Deleting the old collection as soon as the new one exists.** This removes the rollback path the safe migration pattern is built around, so if the new model turns out to have quality regressions, there's nothing to fall back to.\n\n**Checking a raw count of migrated documents instead of checking it against the current total.** A migrated count that looked complete yesterday can silently fall behind once new documents are written after the migration started, if nothing re-checks that count against the up-to-date total.\n\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "vdb_handling_embedding_model_upgrades_quiz",
+        "questions": [
+          {
+            "question": "Why is comparing a vector from an old embedding model against a vector from a new one meaningless, even though both are valid arrays of numbers?",
+            "options": [
+              "Because different models produce vectors in geometrically unrelated spaces, so distances between them don't reflect real similarity",
+              "Because the arrays would have different lengths",
+              "Because vector databases reject vectors from more than one model",
+              "Because only integers can be compared for similarity"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Vector spaces from different models aren't aligned, so a distance calculated across them carries no meaningful signal, regardless of array format.",
+            "id": "q1"
+          },
+          {
+            "question": "What is the danger of only re-embedding new documents after an embedding model upgrade, without touching old ones?",
+            "options": [
+              "The index becomes a silent mix of old- and new-space vectors, degrading relevance without any obvious error",
+              "The vector database will immediately refuse to start",
+              "Old documents will be automatically deleted",
+              "Search will completely stop functioning with a clear error message"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Mixed-space search fails quietly — there's no crash, just steadily worse relevance that's easy to misattribute to something else.",
+            "id": "q2"
+          },
+          {
+            "question": "A safe way to migrate to a new embedding model mirrors which pattern from the Cloud/MLOps courses?",
+            "options": [
+              "Blue-green deployment: build and validate the new version fully before cutting traffic over, keeping the old one for rollback",
+              "Deleting the old system immediately to force adoption of the new one",
+              "Running both models simultaneously forever with no migration plan",
+              "Skipping validation since embeddings can't be tested"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Building the new collection in parallel, validating it, and only then switching over — with a rollback path — is the same safe-migration shape used for service deployments.",
+            "id": "q3"
+          },
+          {
+            "question": "The lesson calls the problem of comparing vectors from two different embedding spaces the",
+            "options": [
+              "'Mixed-space search' problem",
+              "'Vector drift' problem",
+              "'Cold start' problem",
+              "'Quantization loss' problem"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly names this the 'mixed-space search' problem, first flagged in the Embeddings course and now faced operationally here.",
+            "id": "q4"
+          },
+          {
+            "question": "Per the safe migration pattern, what must happen to the new collection BEFORE query traffic is cut over to it?",
+            "options": [
+              "Its quality must be validated with recall/relevance benchmarks from earlier in the course",
+              "It must be merged back into the old collection",
+              "It must be embedded using the old model as a sanity check",
+              "Nothing — traffic should be cut over as soon as re-embedding finishes"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson is explicit that the new collection should be validated with the course's recall/relevance benchmarks before traffic is switched over.",
+            "id": "q5"
+          },
+          {
+            "question": "In the code example, what does dual_write do differently when migrating=True versus migrating=False?",
+            "options": [
+              "It also writes an entry into new_collection and marks migration_log's \"new\" flag True, in addition to always writing old_collection",
+              "It skips writing to old_collection entirely",
+              "It deletes any existing entry for that doc_id",
+              "It has no effect on behavior — the migrating flag is unused"
+            ],
+            "correctAnswer": 0,
+            "explanation": "old_collection is written unconditionally; the new_collection write and the migration_log \"new\" flag only happen when migrating is True.",
+            "id": "q6"
+          },
+          {
+            "question": "In the code example, after dual_write(\"doc-3\", ..., migrating=False) runs, what does ready_to_cut_over() return and why?",
+            "options": [
+              "False, because doc-3 has no entry in new_collection, so migrated no longer equals total",
+              "True, because doc-3 was successfully written to old_collection",
+              "True, because migrating=False means doc-3 doesn't count toward the total",
+              "It raises an error because doc-3 was never migrated"
+            ],
+            "correctAnswer": 0,
+            "explanation": "migration_status() counts entries with \"new\": True; doc-3's entry has \"new\": False, so migrated (2) no longer equals total (3), making ready_to_cut_over() False.",
+            "id": "q7"
+          },
+          {
+            "question": "Per 'Common mistakes', why is deleting the old collection as soon as the new one exists a mistake?",
+            "options": [
+              "It removes the rollback path the safe migration pattern depends on if the new model has quality regressions",
+              "The old collection is required for the new model to function at all",
+              "Vector databases don't allow deleting collections",
+              "It would make dual_write raise an exception"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The mistakes section states that deleting the old collection early removes the fallback option the safe-migration pattern is built around.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "vdb_testing_vector_search_quality",
+      "title": "Testing Vector Search Quality",
+      "description": "Turning 'search feels right' into a test suite that runs in CI.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Design a test suite for vector search quality that catches regressions before they reach production."
+          },
+          {
+            "title": "🧪 What belongs in the test suite",
+            "content": "A small, curated set of query-to-expected-document pairs that must always return correctly (a golden set). Negative tests — the tenant-isolation test from Module 2, and cases where a query should NOT match an unrelated document. Regression tests that re-run after any index configuration change, embedding model change, or chunking change, comparing against the golden set's expected results."
+          },
+          {
+            "title": "🔗 Same discipline, different layer",
+            "content": "This is the same test-suite mindset the Software Engineering course applies to application code and the RAG course applies to end-to-end pipelines — just scoped specifically to the retrieval layer, so a bug here gets caught before it silently degrades every downstream RAG or search feature that depends on it."
+          },
+          {
+            "title": "🚦 Wire it into CI",
+            "content": "A vector search test suite that only runs manually, occasionally, catches regressions late. Wiring it into the same CI pipeline covered in the Cloud course's CI/CD lesson — running automatically on changes to index configuration, embedding model version, or chunking logic — is what actually prevents a bad change from reaching production."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "A tiny, pytest-style test asserting recall@k against a fixed golden set:\n\n```python\n# A tiny, illustrative golden-set recall test (NOT production code).\n# Written pytest-style, but runnable directly with plain asserts.\n\nGOLDEN_SET = [\n    {\"query\": \"vector database basics\", \"expected_ids\": {\"doc-1\", \"doc-4\"}},\n    {\"query\": \"tenant isolation\", \"expected_ids\": {\"doc-7\"}},\n    {\"query\": \"embedding model upgrade\", \"expected_ids\": {\"doc-2\"}},\n]\n\n\ndef fake_search(query, k=2):\n    # Stands in for a real vector search call: a fixed lookup table so the\n    # test is deterministic instead of depending on a live index.\n    results = {\n        \"vector database basics\": [\"doc-1\", \"doc-4\", \"doc-11\"],\n        \"tenant isolation\": [\"doc-7\", \"doc-3\"],\n        \"embedding model upgrade\": [\"doc-2\", \"doc-5\"],\n    }\n    return results.get(query, [])[:k]\n\n\ndef recall_at_k(returned_ids, expected_ids):\n    if not expected_ids:\n        return 1.0\n    hits = len(set(returned_ids) & expected_ids)\n    return hits / len(expected_ids)\n\n\ndef test_golden_set_recall(min_recall=0.8):\n    total_recall = 0.0\n    for case in GOLDEN_SET:\n        returned = fake_search(case[\"query\"], k=2)\n        r = recall_at_k(returned, case[\"expected_ids\"])\n        assert r >= min_recall, f\"query {case['query']!r} scored recall {r:.2f}, below {min_recall}\"\n        total_recall += r\n\n    avg = total_recall / len(GOLDEN_SET)\n    print(f\"average recall@2 across golden set: {avg:.2f}\")\n    return avg\n\n\ntest_golden_set_recall()\n```\n\n`test_golden_set_recall` loops over `GOLDEN_SET`, calls the (fake) search for each query, and asserts each one's `recall_at_k` clears `min_recall` before it's even allowed to contribute to the average. If a future change to the real search function ever dropped one golden query's recall below the threshold, that `assert` — not a human noticing the app 'feels off' — is what would fail the build."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Only testing positive matches, never negative ones.** Skipping negative tests like the tenant-isolation check means a query that should NOT match an unrelated document can quietly start returning it, with nothing in the suite positioned to catch that regression.\n\n**Letting the golden set go stale.** A golden set built once, early on, and never revisited stops reflecting the current corpus and real query patterns, so it can keep passing while the actual user-facing search experience quietly regresses.\n\n**Running the suite manually instead of wiring it into CI.** A test suite that depends on someone remembering to run it catches regressions late, if it catches them at all — automatic execution on every relevant change is what actually prevents a bad change from reaching production.\n\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "vdb_testing_vector_search_quality_quiz",
+        "questions": [
+          {
+            "question": "A 'golden set' in vector search testing refers to",
+            "options": [
+              "A small, curated set of query-to-expected-document pairs used to catch regressions",
+              "The single largest cluster in an IVF index",
+              "The set of vectors closest to the origin",
+              "A backup of the entire vector database"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The golden set is a fixed, known-correct benchmark used to detect when a change breaks expected search behavior.",
+            "id": "q1"
+          },
+          {
+            "question": "Why should tenant-isolation tests from Module 2 also live in this test suite?",
+            "options": [
+              "Because they're exactly the kind of negative test that should be checked automatically for every relevant change, not just once manually",
+              "Because tenant isolation has nothing to do with search quality",
+              "Because CI pipelines cannot run security tests",
+              "Because tenant isolation only needs to be tested once, ever"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Negative tests like tenant isolation are part of the same regression-testing discipline and should run automatically alongside quality tests.",
+            "id": "q2"
+          },
+          {
+            "question": "Why does wiring vector search tests into CI matter more than running them manually now and then?",
+            "options": [
+              "Because automatic execution on every relevant change is what actually catches a regression before it reaches production",
+              "Because manual testing is always more thorough than automated testing",
+              "Because CI pipelines run tests faster than any manual process",
+              "Because vector databases require CI to function at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "A test suite only prevents regressions if it reliably runs at the right time — automatically, on relevant changes — rather than depending on someone remembering to run it.",
+            "id": "q3"
+          },
+          {
+            "question": "Per 'Same discipline, different layer', why does scoping tests specifically to the retrieval layer matter?",
+            "options": [
+              "A bug there gets caught before it silently degrades every downstream RAG or search feature that depends on retrieval",
+              "The retrieval layer is the only layer that can be tested at all",
+              "Application code and end-to-end pipelines don't need their own tests once retrieval is tested",
+              "It replaces the need for the Software Engineering course's testing practices entirely"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson frames retrieval-layer tests as the same testing mindset applied one layer down, specifically so downstream features that depend on retrieval don't silently inherit its bugs.",
+            "id": "q4"
+          },
+          {
+            "question": "Per 'What belongs in the test suite', when should regression tests re-run?",
+            "options": [
+              "After any index configuration change, embedding model change, or chunking change",
+              "Only once, when the test suite is first written",
+              "Only when a user files a complaint about search results",
+              "Only during the initial launch of the vector database"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson lists index configuration changes, embedding model changes, and chunking changes as the triggers for re-running regression tests against the golden set.",
+            "id": "q5"
+          },
+          {
+            "question": "In the code example, what does recall_at_k return when expected_ids is empty?",
+            "options": [
+              "1.0, since there's nothing the returned results could be missing",
+              "0.0, treating an empty expected set as a total failure",
+              "It raises an exception",
+              "None, since recall is undefined for an empty set"
+            ],
+            "correctAnswer": 0,
+            "explanation": "recall_at_k explicitly checks `if not expected_ids: return 1.0` before doing any set intersection, avoiding a division by zero and treating an empty requirement as trivially satisfied.",
+            "id": "q6"
+          },
+          {
+            "question": "In test_golden_set_recall, what happens if one golden-set query's recall falls below min_recall?",
+            "options": [
+              "The assert statement for that case raises an AssertionError, failing the test immediately with a message naming the query and its score",
+              "The function silently skips that query and continues averaging the rest",
+              "It automatically lowers min_recall to let the test pass",
+              "It only prints a warning but still returns a passing average"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The assert inside the loop fires as soon as any single case's recall is below min_recall, stopping the test with an explicit failure message rather than only affecting the final average.",
+            "id": "q7"
+          },
+          {
+            "question": "Per 'Common mistakes', why is running the test suite only manually a problem, even if the tests themselves are well-written?",
+            "options": [
+              "A suite that depends on someone remembering to run it catches regressions late, if it catches them at all",
+              "Manually run tests always produce incorrect results",
+              "Manual runs are not allowed to use assert statements",
+              "It causes the golden set to change automatically"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The mistakes section is explicit that the problem isn't the tests' quality but the fact that manual execution depends on someone remembering to trigger it, unlike CI wiring.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "vdb_security_and_access_control_for_vector_stores",
+      "title": "Security and Access Control for Vector Stores",
+      "description": "Pulling the security threads from this course, and the whole curriculum, into one closing checklist.",
+      "duration": 13,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Assemble a security checklist for a production vector database covering access control, data handling, and the risks specific to this layer."
+          },
+          {
+            "title": "🔐 Access control, two layers",
+            "content": "API-level access control: who can call the vector database at all, using the auth patterns from the App Dev course. Query-level access control: the tenant/payload filtering from Module 2, enforced as a hard filter, tested with the negative tests from the previous lesson — not optional, and not something a client can bypass by omitting a parameter."
+          },
+          {
+            "title": "🕵️ Vector stores leak information too",
+            "content": "Embeddings can, in some cases, be partially inverted to recover information about the original text — the same membership-inference and extraction risks the Eval & Security course covered for models apply, in a different form, to the vectors themselves. Treat sensitive embeddings with the same access discipline as the sensitive text they were derived from, not as an anonymized-by-default representation."
+          },
+          {
+            "title": "📋 A closing checklist",
+            "content": "Encrypt data at rest and in transit (standard infrastructure hygiene from the Cloud course). Enforce tenant/access filters at the query level, tested explicitly. Log and audit who queried what, especially for regulated data. Have a tested backup and restore plan. Monitor for both infrastructure health and search quality drift. Plan for embedding model upgrades before you're forced into one under pressure."
+          },
+          {
+            "title": "🎓 Where this leaves you",
+            "content": "You've now gone from 'what is a vector database' to operating one at scale with the same rigor this curriculum has applied to models, agents, and pipelines throughout — treating the vector store not as a black-box detail of RAG, but as a production system with its own performance, reliability, and security requirements."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "A tiny, illustrative role-based access check that gates query results by tenant and permission before they're returned:\n\n```python\n# A tiny, illustrative role-based query gate (NOT production code).\n\nusers = {\n    \"alice\": {\"tenant\": \"acme\", \"roles\": {\"reader\"}},\n    \"bob\": {\"tenant\": \"acme\", \"roles\": {\"reader\", \"admin\"}},\n    \"carol\": {\"tenant\": \"globex\", \"roles\": {\"reader\"}},\n}\n\nvectors = [\n    {\"id\": \"v1\", \"tenant\": \"acme\", \"sensitivity\": \"public\"},\n    {\"id\": \"v2\", \"tenant\": \"acme\", \"sensitivity\": \"restricted\"},\n    {\"id\": \"v3\", \"tenant\": \"globex\", \"sensitivity\": \"public\"},\n]\n\n\ndef authorized_search(user_id, candidate_results):\n    user = users[user_id]\n\n    def allowed(vector):\n        if vector[\"tenant\"] != user[\"tenant\"]:\n            return False  # hard tenant filter -- never optional, never client-supplied\n        if vector[\"sensitivity\"] == \"restricted\" and \"admin\" not in user[\"roles\"]:\n            return False\n        return True\n\n    return [v[\"id\"] for v in candidate_results if allowed(v)]\n\n\nprint(authorized_search(\"alice\", vectors))  # [\"v1\"]: same tenant, but v2 is restricted\nprint(authorized_search(\"bob\", vectors))    # [\"v1\", \"v2\"]: bob is an admin in that tenant\nprint(authorized_search(\"carol\", vectors))  # [\"v3\"]: a different tenant entirely\n```\n\n`allowed` checks the tenant match FIRST, unconditionally, before it ever looks at sensitivity or role — that ordering is what makes it a hard filter rather than an afterthought. Only within a matching tenant does the `admin` role additionally unlock `\"restricted\"` vectors, which is why alice (no admin role) sees only `v1` while bob (same tenant, admin role) also sees `v2`."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Filtering results on the client instead of inside the query itself.** If a service returns unfiltered candidates and expects the caller to drop the ones outside their tenant, any client that skips or is tricked into skipping that step leaks data across tenants.\n\n**Checking role but forgetting to check tenant, or vice versa.** Both conditions inside `allowed` have to hold together; checking only one is exactly the kind of gap the negative tests from the previous lesson exist to catch before it reaches production.\n\n**Trusting embeddings as inherently safe to share broadly because they 'look like just numbers.'** As the lesson notes, embeddings can be partially inverted, so sensitive vectors deserve the same access discipline as the text they were derived from, not an assumption of automatic anonymity.\n\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "vdb_security_and_access_control_for_vector_stores_quiz",
+        "questions": [
+          {
+            "question": "Why is it a mistake to treat embeddings as an automatically anonymized representation of sensitive text?",
+            "options": [
+              "Because embeddings can, in some cases, be partially inverted to recover information about the original text",
+              "Because embeddings are always stored as plain text",
+              "Because vector databases cannot encrypt data",
+              "Because embeddings are never derived from sensitive text in practice"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Extraction and inversion risks mean embeddings deserve access controls similar to the original sensitive data, not an assumption of automatic anonymity.",
+            "id": "q1"
+          },
+          {
+            "question": "Query-level access control (tenant/payload filtering) should be",
+            "options": [
+              "Enforced as a hard filter that cannot be bypassed by omitting a parameter, and covered by explicit tests",
+              "Optional, left to client applications to implement consistently",
+              "Unnecessary if API-level authentication already exists",
+              "Only needed for databases with more than one tenant configured"
+            ],
+            "correctAnswer": 0,
+            "explanation": "API-level auth alone doesn't guarantee query-level isolation — the filter itself must be mandatory and tested, as covered in Module 2.",
+            "id": "q2"
+          },
+          {
+            "question": "This closing lesson frames the vector database as",
+            "options": [
+              "A production system with its own performance, reliability, and security requirements, not just a black-box detail of RAG",
+              "A component that requires no monitoring once deployed",
+              "A system that only matters during the prototyping phase",
+              "A replacement for all access control elsewhere in the stack"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The course's overall arc treats the vector store with the same operational rigor applied to models and pipelines throughout the curriculum.",
+            "id": "q3"
+          },
+          {
+            "question": "Per 'A closing checklist', besides access filtering and encryption, what else should be in place for regulated data specifically?",
+            "options": [
+              "Logging and auditing of who queried what",
+              "Removing all encryption to simplify audits",
+              "Disabling backups to reduce attack surface",
+              "Allowing every authenticated user unrestricted query access"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The checklist explicitly calls for logging and auditing who queried what, calling it out as especially important for regulated data.",
+            "id": "q4"
+          },
+          {
+            "question": "Per 'Access control, two layers', what is the distinction between API-level and query-level access control?",
+            "options": [
+              "API-level controls who can call the vector database at all, while query-level controls which specific results a given caller is allowed to see",
+              "They are two names for the exact same check performed twice",
+              "API-level only applies to admins, and query-level only applies to regular users",
+              "Query-level access control replaces the need for any API-level authentication"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson separates 'who can call the database at all' (API-level, using App Dev auth patterns) from 'which results a caller may see' (query-level tenant/payload filtering).",
+            "id": "q5"
+          },
+          {
+            "question": "In the code example, why does authorized_search return only [\"v1\"] for alice, even though v2 belongs to her tenant?",
+            "options": [
+              "Because v2 is marked \"restricted\" and alice's roles don't include \"admin\"",
+              "Because v2 belongs to a different tenant than alice's",
+              "Because alice is not listed in the users dictionary",
+              "Because authorized_search always returns at most one result"
+            ],
+            "correctAnswer": 0,
+            "explanation": "v2 passes the tenant check (same tenant as alice) but fails the sensitivity check, since \"restricted\" vectors additionally require the \"admin\" role, which alice lacks.",
+            "id": "q6"
+          },
+          {
+            "question": "In the code example, what is the first condition allowed() checks, before anything else?",
+            "options": [
+              "Whether the vector's tenant matches the requesting user's tenant",
+              "Whether the vector is marked \"restricted\"",
+              "Whether the user has the \"admin\" role",
+              "Whether the vector's id starts with the letter v"
+            ],
+            "correctAnswer": 0,
+            "explanation": "allowed() checks `if vector[\"tenant\"] != user[\"tenant\"]: return False` first, before any role or sensitivity check — the hard tenant filter comes before anything else.",
+            "id": "q7"
+          },
+          {
+            "question": "Per 'Common mistakes', why is filtering results on the client instead of inside the query itself a problem?",
+            "options": [
+              "Any client that skips or is tricked into skipping that step ends up leaking data across tenants",
+              "Client-side filtering is always slower than server-side filtering",
+              "It makes the embeddings impossible to invert",
+              "It has no real downside as long as most clients behave correctly"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The mistakes section warns that relying on the client to filter means any client that skips that step — accidentally or otherwise — leaks data outside the intended tenant boundary.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

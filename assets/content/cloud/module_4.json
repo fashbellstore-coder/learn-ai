@@ -1,0 +1,567 @@
+{
+  "id": "cld_providers_and_gpu",
+  "title": "Cloud Providers & GPU Infrastructure",
+  "description": "How compute, storage, and networking map across AWS, Azure, and GCP; why GPU instances carry unique scarcity, pricing, and driver-compatibility considerations; how to match ML workload storage needs to the right storage type; and where AI infrastructure cost concentrates along with the levers to manage it.",
+  "icon": "☁️",
+  "color": "#37474F",
+  "order": 4,
+  "estimatedHours": 4,
+  "difficulty": "advanced",
+  "prerequisites": [
+    "cld_cicd"
+  ],
+  "lessons": [
+    {
+      "id": "cld_aws_azure_gcp_core_services",
+      "title": "AWS, Azure, GCP Core Services",
+      "description": "How compute, storage, and networking services map across AWS, Azure, and GCP under different names, and why learning the underlying pattern of primitives and tradeoffs matters more than memorizing any single provider's specific product names.",
+      "duration": 13,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson you should be able to map the core service categories — compute, storage, and networking — across major cloud providers, and explain why understanding the underlying pattern matters more than memorizing any one provider's specific product names.\n"
+          },
+          {
+            "title": "🖥️ Compute",
+            "content": "Every major provider offers the same core compute categories under different names: raw virtual machines (EC2 on AWS, Virtual Machines on Azure, Compute Engine on GCP), managed container/Kubernetes services (EKS, AKS, GKE), and serverless functions (Lambda, Azure Functions, Cloud Functions). The underlying tradeoffs are the same everywhere: VMs give you the most control and the most operational burden, managed Kubernetes sits in the middle, and serverless functions trade control for near-zero operational overhead at the cost of constraints on runtime and execution time.\n"
+          },
+          {
+            "title": "💾 Storage and databases",
+            "content": "Object storage (S3, Azure Blob Storage, Cloud Storage) is the default for large unstructured files — backups, datasets, model checkpoints. Block storage (EBS, Managed Disks, Persistent Disk) attaches to a single compute instance like a hard drive. Managed relational databases (RDS, Azure SQL Database, Cloud SQL) and managed NoSQL databases (DynamoDB, Cosmos DB, Firestore/Bigtable) offload operational burden — backups, patching, replication — that you'd otherwise run yourself.\n"
+          },
+          {
+            "title": "🌐 Networking",
+            "content": "A **Virtual Private Cloud (VPC)** — called that on AWS and GCP, a Virtual Network (VNet) on Azure — is an isolated network space you define, with subnets, routing rules, and firewall-like security groups controlling what can talk to what. Load balancers distribute traffic across instances; managed DNS services route domain names to the right resources. The concepts (isolation boundary, subnet, routing, security group) are consistent across all three providers even though the exact product names differ.\n"
+          },
+          {
+            "title": "🧭 Why the specific provider matters less than the pattern",
+            "content": "Because the underlying categories and tradeoffs repeat across providers, the highest-leverage thing to learn is the *pattern* — what compute, storage, and networking primitives exist and when to reach for each — rather than memorizing one provider's exact console UI or product naming. Someone who understands \"managed relational database with automated backups and replication\" as a concept can find the equivalent service on any provider in minutes; someone who only memorized \"RDS\" is stuck if the team uses GCP.\n"
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "Here's a simplified simulation of a service lookup that translates a generic infrastructure need into each provider's specific product name — demonstrating that the underlying request is identical across providers:\n\n```python\nservice_catalog = {\n    \"virtual_machine\": {\"aws\": \"EC2\", \"azure\": \"Virtual Machines\", \"gcp\": \"Compute Engine\"},\n    \"managed_kubernetes\": {\"aws\": \"EKS\", \"azure\": \"AKS\", \"gcp\": \"GKE\"},\n    \"object_storage\": {\"aws\": \"S3\", \"azure\": \"Blob Storage\", \"gcp\": \"Cloud Storage\"},\n    \"managed_relational_db\": {\"aws\": \"RDS\", \"azure\": \"Azure SQL Database\", \"gcp\": \"Cloud SQL\"},\n}\n\ndef find_service(need, provider):\n    return service_catalog.get(need, {}).get(provider, \"not found\")\n\nneed = \"managed_relational_db\"\nfor provider in [\"aws\", \"azure\", \"gcp\"]:\n    print(f\"{provider}: {find_service(need, provider)}\")\n\n# a team that only knows the AWS name gets stuck moving to GCP\nhardcoded_lookup = {\"managed_relational_db\": \"RDS\"}\nprint(\"naive lookup on gcp:\", hardcoded_lookup.get(\"managed_relational_db\"))  # still says RDS, wrong for GCP\nprint(\"pattern-based lookup on gcp:\", find_service(need, \"gcp\"))  # correctly resolves\n```\n\nThe loop prints `aws: RDS`, `azure: Azure SQL Database`, `gcp: Cloud SQL` — the same conceptual need (`managed_relational_db`) resolving to each provider's actual product name. The `hardcoded_lookup` dict, which only stores the AWS name, returns `\"RDS\"` regardless of provider — it can't adapt to GCP at all, exactly the trap of memorizing one provider's naming instead of the underlying pattern.\n"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Learning one provider's product names instead of the underlying service categories.** As the code example shows, this doesn't transfer — a team moving from AWS to GCP has to relearn everything instead of just remapping familiar concepts to new names.\n\n**Assuming equivalent-sounding services are functionally identical across providers.** Two managed Kubernetes offerings both being \"managed Kubernetes\" doesn't mean their defaults, pricing model, or networking integration are the same — the pattern transfers, the specifics still need verifying.\n\n**Choosing a compute category (VM vs. managed Kubernetes vs. serverless) based on what's trendy rather than the actual operational-burden tradeoff.** The right choice depends on how much operational control you actually need, not which option is most discussed.\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "cld_aws_azure_gcp_core_services_quiz",
+        "questions": [
+          {
+            "question": "Per the \"🖥️ Compute\" section, what is the tradeoff described across VMs, managed Kubernetes, and serverless functions?",
+            "options": [
+              "They are functionally identical and differ only in price",
+              "VMs give the most control and operational burden, managed Kubernetes sits in the middle, and serverless trades control for near-zero operational overhead with runtime constraints",
+              "Serverless functions always cost more than VMs",
+              "Managed Kubernetes requires no operational involvement at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson describes this exact spectrum — control and operational burden decrease from VMs through managed Kubernetes to serverless, which trades control for reduced overhead and added constraints.",
+            "id": "q1"
+          },
+          {
+            "question": "According to the \"🧭 Why the specific provider matters less than the pattern\" section, what is the highest-leverage thing to learn about cloud services?",
+            "options": [
+              "The exact console UI layout of one specific provider",
+              "The underlying pattern — what compute, storage, and networking primitives exist and when to use each — rather than one provider's specific naming",
+              "The pricing history of each provider over the last decade",
+              "The certification exam requirements for each provider"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson explicitly recommends learning the transferable pattern of primitives and tradeoffs over memorizing one provider's exact product names.",
+            "id": "q2"
+          },
+          {
+            "question": "In the code example, why does `hardcoded_lookup.get(\"managed_relational_db\")` return `\"RDS\"` even when checking for GCP?",
+            "options": [
+              "Because GCP's managed relational database is also literally named RDS",
+              "Because `hardcoded_lookup` only ever stored the AWS name and has no concept of `provider` as a dimension, so it returns the same fixed value regardless of which provider is intended",
+              "Because `find_service` was called instead of the naive dict lookup",
+              "Because the dict raises a KeyError instead"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`hardcoded_lookup` is a flat dict mapping the need directly to `\"RDS\"` with no provider parameter at all — it structurally cannot express \"the GCP equivalent,\" illustrating the naive one-provider trap.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, what does `find_service(\"managed_relational_db\", \"gcp\")` return, and how does it get that value?",
+            "options": [
+              "\"RDS\", the same as the AWS answer",
+              "\"Cloud SQL\", by looking up `service_catalog[\"managed_relational_db\"][\"gcp\"]`",
+              "\"not found\", because GCP isn't in the catalog",
+              "\"Azure SQL Database\", by mistake"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`find_service` does `service_catalog.get(need, {}).get(provider, \"not found\")`; for `need=\"managed_relational_db\"` and `provider=\"gcp\"`, that resolves to `\"Cloud SQL\"` per the `service_catalog` dict.",
+            "id": "q4"
+          },
+          {
+            "question": "What does the contrast between `hardcoded_lookup` and `find_service` in the code example illustrate?",
+            "options": [
+              "That both approaches are equally good for multi-cloud work",
+              "That a lookup structured around the conceptual need plus provider (pattern-based) generalizes across providers, while one hardcoded to a single provider's naming does not",
+              "That GCP does not have a managed relational database service",
+              "That dicts cannot represent nested lookups in Python"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`find_service` correctly resolves the need for any of the three providers via nested lookup, while `hardcoded_lookup` is stuck returning the AWS-specific name no matter what — the code makes the pattern-vs-memorization point concrete.",
+            "id": "q5"
+          },
+          {
+            "question": "Per the \"🌐 Networking\" section, what is a VPC (or VNet on Azure)?",
+            "options": [
+              "A single physical server dedicated to one customer",
+              "An isolated network space you define, with subnets, routing rules, and security groups controlling what can talk to what",
+              "A managed DNS service exclusive to AWS",
+              "A type of object storage bucket"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson defines a VPC/VNet as a user-defined isolated network space with subnets, routing, and security-group-style access control — consistent across providers despite different naming.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does the lesson warn against learning one provider's product names instead of the underlying service categories?",
+            "options": [
+              "Because product names change every year regardless of provider",
+              "Because this knowledge doesn't transfer — as the code example shows, a team moving providers has to relearn everything instead of remapping familiar concepts to new names",
+              "Because product names are considered confidential information",
+              "Because only AWS has publicly documented product names"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The common mistakes section states this directly, and the code example demonstrates it concretely with the hardcoded, single-provider lookup that cannot adapt.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does the lesson warn against assuming equivalent-sounding services (like two \"managed Kubernetes\" offerings) are functionally identical across providers?",
+            "options": [
+              "Because managed Kubernetes services from different providers use completely different container formats",
+              "Because sharing a category label doesn't guarantee identical defaults, pricing, or networking integration — the pattern transfers, but the specifics still need verifying",
+              "Because only one provider actually offers managed Kubernetes",
+              "Because Kubernetes itself varies by provider at the API level"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson is explicit that the conceptual category transferring doesn't mean the concrete details (defaults, pricing, integration) are identical — those still require checking per provider.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "cld_gpu_instances_and_drivers",
+      "title": "GPU Instances and Drivers",
+      "description": "Why GPU instances are scarcer and more expensive than CPU instances, why driver/CUDA/framework version compatibility is a uniquely GPU-specific risk, and the cost/reliability tradeoff of using spot instances for GPU capacity.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson you should be able to explain why GPU instances are scarcer and pricier than CPU instances, describe why driver and CUDA version compatibility matters specifically for GPU workloads, and weigh the tradeoff of using spot instances for GPU capacity.\n"
+          },
+          {
+            "title": "🎮 GPU instances: specialized, scarcer, pricier",
+            "content": "GPU instances are a specialized resource category: fewer instance types, fewer regions with availability, and significantly higher hourly cost than equivalent CPU instances. Demand for GPU capacity — driven heavily by AI training and inference workloads — frequently exceeds available supply in popular regions, meaning a request for GPU capacity can simply fail with \"insufficient capacity\" even when you're willing to pay for it, something that essentially never happens with CPU instances.\n"
+          },
+          {
+            "title": "🔧 Driver and CUDA version compatibility",
+            "content": "Unlike CPU workloads, GPU workloads depend on a chain of version-compatible components: the physical GPU, the installed **driver** version, the **CUDA** toolkit version, and the deep learning framework (PyTorch, TensorFlow) version — each compiled against or expecting specific versions of the others. A mismatch anywhere in this chain can mean the GPU isn't recognized at all, or is recognized but produces silently wrong results, or crashes with an opaque error. This is a category of failure that simply doesn't exist for CPU-only workloads, where version mismatches are far more forgiving.\n"
+          },
+          {
+            "title": "💰 Spot instances: cheaper, but reclaimable",
+            "content": "**Spot instances** (called Spot on AWS, Spot VMs on Azure/GCP) offer spare capacity at a steep discount — often 60-90% off the on-demand price — but the provider can reclaim them with short notice (commonly around 30 seconds to 2 minutes) whenever it needs that capacity back. This makes spot instances excellent for interruptible, checkpoint-able workloads like batch training jobs that periodically save progress, and poor for anything needing guaranteed, continuous availability like a production inference endpoint serving live traffic.\n"
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "Here's a simplified simulation contrasting a training job's total cost with spot vs. on-demand instances, accounting for interruption-driven restarts:\n\n```python\ndef estimate_spot_cost(on_demand_hourly, spot_discount_pct, total_hours_needed,\n                        interruptions, restart_overhead_hours):\n    spot_hourly = on_demand_hourly * (1 - spot_discount_pct / 100)\n    wasted_hours = interruptions * restart_overhead_hours\n    total_hours_billed = total_hours_needed + wasted_hours\n    return round(spot_hourly * total_hours_billed, 2)\n\non_demand_hourly = 4.00\non_demand_cost = round(on_demand_hourly * 20, 2)  # 20 hours, no interruptions possible\nprint(\"on-demand cost:\", on_demand_cost)\n\nspot_cost = estimate_spot_cost(\n    on_demand_hourly=4.00, spot_discount_pct=70, total_hours_needed=20,\n    interruptions=3, restart_overhead_hours=0.5,\n)\nprint(\"spot cost (checkpointed job, 3 interruptions):\", spot_cost)\n```\n\n`on_demand_cost` is `4.00 * 20 = 80.0`. For the spot job, `spot_hourly = 4.00 * (1 - 0.70) = 1.20`. `wasted_hours = 3 * 0.5 = 1.5`, so `total_hours_billed = 20 + 1.5 = 21.5`. `spot_cost = round(1.20 * 21.5, 2) = round(25.8, 2) = 25.8`. Even after paying for 1.5 extra hours of restart overhead from three interruptions, the spot job costs **$25.80** versus **$80.00** on-demand — the discount dominates, but only because the job was checkpoint-able and could absorb those interruptions cheaply.\n"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Running a production inference endpoint on spot instances with no fallback.** Spot capacity can be reclaimed with only seconds to minutes of notice — a live-traffic-serving endpoint with no on-demand fallback will simply go down when that happens.\n\n**Deploying a workload without checking driver/CUDA/framework version compatibility first.** As the lesson describes, mismatches in this chain can fail silently — producing wrong results rather than an obvious crash — which is far more dangerous than an outright failure to start.\n\n**Assuming GPU capacity is always available on demand, the way CPU capacity usually is.** Planning a time-sensitive workload around unverified GPU availability risks hitting \"insufficient capacity\" errors precisely when the capacity is needed most.\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "cld_gpu_instances_and_drivers_quiz",
+        "questions": [
+          {
+            "question": "Per the \"🎮 GPU instances\" section, what can happen when requesting GPU capacity that essentially never happens with CPU instances?",
+            "options": [
+              "The request always succeeds instantly regardless of demand",
+              "The request can fail with \"insufficient capacity\" even when you're willing to pay for it, because demand frequently exceeds available GPU supply in popular regions",
+              "The request is automatically downgraded to a CPU instance",
+              "The request requires a manual approval from the cloud provider's support team"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson states GPU capacity requests can outright fail due to scarcity, something that essentially doesn't happen with CPU instances given their much greater abundance.",
+            "id": "q1"
+          },
+          {
+            "question": "According to the \"🔧 Driver and CUDA version compatibility\" section, what is the most dangerous outcome of a version mismatch in the GPU software chain?",
+            "options": [
+              "A verbose, immediately obvious crash message every time",
+              "The GPU isn't recognized, or worse, is recognized but produces silently wrong results rather than an obvious failure",
+              "The instance automatically reboots to fix the issue",
+              "The framework automatically downgrades itself to a compatible version"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson specifically flags silently wrong results as more dangerous than an outright crash, since there's no obvious signal that something is broken.",
+            "id": "q2"
+          },
+          {
+            "question": "In the code example, what is `spot_hourly` computed from `on_demand_hourly=4.00` and `spot_discount_pct=70`?",
+            "options": [
+              "$4.00, unchanged",
+              "$2.80",
+              "$1.20, from `4.00 * (1 - 70/100) = 4.00 * 0.30`",
+              "$0.70"
+            ],
+            "correctAnswer": 2,
+            "explanation": "`spot_hourly = on_demand_hourly * (1 - spot_discount_pct / 100) = 4.00 * (1 - 0.70) = 4.00 * 0.30 = 1.20`.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, what is `total_hours_billed` given `total_hours_needed=20`, `interruptions=3`, and `restart_overhead_hours=0.5`?",
+            "options": [
+              "20 hours, since interruptions don't add billed time",
+              "21.5 hours — 20 needed hours plus `3 * 0.5 = 1.5` wasted hours from restarts",
+              "23 hours",
+              "18.5 hours"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`wasted_hours = interruptions * restart_overhead_hours = 3 * 0.5 = 1.5`, and `total_hours_billed = total_hours_needed + wasted_hours = 20 + 1.5 = 21.5`.",
+            "id": "q4"
+          },
+          {
+            "question": "In the code example, what is the final `spot_cost`, and how does it compare to `on_demand_cost`?",
+            "options": [
+              "$80.00, the same as on-demand",
+              "$25.80, versus $80.00 on-demand — the spot job is significantly cheaper even after accounting for interruption overhead",
+              "$21.50, more expensive than on-demand",
+              "$120.00, more expensive due to the interruption penalty"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`spot_cost = round(1.20 * 21.5, 2) = 25.8`, clearly below `on_demand_cost = 80.0` — even with three interruptions' overhead priced in, the 70% discount dominates.",
+            "id": "q5"
+          },
+          {
+            "question": "Per the \"💰 Spot instances\" section, what kind of workload are spot instances well-suited for?",
+            "options": [
+              "A production inference endpoint serving live user traffic with no downtime tolerance",
+              "Interruptible, checkpoint-able workloads like batch training jobs that periodically save progress",
+              "Any workload requiring guaranteed continuous availability",
+              "Workloads that cannot tolerate any restart under any circumstances"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson explicitly recommends spot instances for interruptible, checkpoint-able work like batch training, and explicitly warns them off for workloads needing guaranteed continuous availability.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does the lesson warn against running a production inference endpoint on spot instances with no fallback?",
+            "options": [
+              "Because spot instances are always slower than on-demand instances",
+              "Because spot capacity can be reclaimed with only seconds to minutes of notice, and a live-traffic endpoint with no on-demand fallback will simply go down when that happens",
+              "Because spot instances cannot run inference workloads technically",
+              "Because spot instances require a different GPU driver than on-demand instances"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The common mistakes section states this directly — the short reclaim notice makes spot instances risky for anything that must stay continuously available without a fallback plan.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does the lesson warn against deploying a workload without checking driver/CUDA/framework version compatibility first?",
+            "options": [
+              "Because mismatches always produce an immediate, easy-to-diagnose crash",
+              "Because mismatches in this chain can fail silently — producing wrong results rather than an obvious crash — which is more dangerous than an outright failure to start",
+              "Because version compatibility only matters for CPU workloads, not GPU ones",
+              "Because CUDA versions are automatically kept in sync across all providers"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This mirrors the lesson's core warning about the driver/CUDA/framework chain: silent wrongness is flagged as the more dangerous failure mode compared to an obvious crash.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "cld_storage_options_for_ml_workloads",
+      "title": "Storage Options for ML Workloads",
+      "description": "The distinct access-pattern tradeoffs of object, block, and file storage, and how to match an ML workload's actual concurrency, latency, and I/O-size needs to the right storage type instead of defaulting to habit.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson you should be able to distinguish object, block, and file storage by their actual access patterns, and match a given ML workload's storage need to the right storage type rather than defaulting to whichever is most familiar.\n"
+          },
+          {
+            "title": "🪣 Object storage: large files, infrequent random access",
+            "content": "**Object storage** (S3, Blob Storage, Cloud Storage) stores files as whole objects addressed by key, accessed over HTTP-style APIs rather than mounted as a filesystem. It's built for durability and massive scale rather than low latency — ideal for datasets, model checkpoints, and backups where you read or write whole files infrequently, not for workloads doing constant small random reads/writes.\n"
+          },
+          {
+            "title": "💽 Block storage: fast, low-latency attached disks",
+            "content": "**Block storage** (EBS, Managed Disks, Persistent Disk) behaves like a raw disk attached to a single compute instance — low latency, high IOPS, suitable for a database's data files or anything doing frequent small reads/writes. The tradeoff is that it's typically attached to exactly one instance at a time (or a small number in specific configurations) and doesn't scale to being read by many instances concurrently the way object storage does.\n"
+          },
+          {
+            "title": "📁 File storage: shared access across multiple instances",
+            "content": "**File storage** (EFS, Azure Files, Filestore) presents a traditional shared filesystem that multiple instances can mount and read/write concurrently — useful when several nodes in a distributed training job all need to read the same dataset, or when a shared cache needs to be visible to many workers at once. It sits between object and block storage in most access-pattern terms: shared like object storage, filesystem-semantics like block storage.\n"
+          },
+          {
+            "title": "🎯 Matching storage to the actual access pattern, again",
+            "content": "The recurring theme, consistent with matching compute to actual need discussed earlier in this module: pick storage based on the actual access pattern — how many things need to read it concurrently, how small and frequent the reads/writes are, whether low latency matters — rather than by habit or by whichever storage type is most familiar from a previous project.\n"
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "Here's a simplified simulation that recommends a storage type based on a workload's declared access pattern:\n\n```python\ndef recommend_storage(concurrent_readers, needs_low_latency, avg_io_size_kb):\n    if concurrent_readers > 1 and not needs_low_latency:\n        return \"object storage\"\n    if concurrent_readers > 1 and needs_low_latency:\n        return \"file storage\"\n    if concurrent_readers == 1 and needs_low_latency and avg_io_size_kb < 64:\n        return \"block storage\"\n    return \"object storage\"  # default for large, infrequent, single-reader access\n\nworkloads = [\n    (\"training dataset read once at job start\", 1, False, 5000),\n    (\"database data files\", 1, True, 8),\n    (\"distributed training, 8 workers reading the same shards\", 8, True, 16),\n]\n\nfor name, readers, low_latency, io_size in workloads:\n    print(f\"{name} -> {recommend_storage(readers, low_latency, io_size)}\")\n```\n\nFor the first workload (`readers=1`, `low_latency=False`), neither of the first two conditions match (`concurrent_readers > 1` is false both times) and the third condition requires `needs_low_latency`, which is false — so it falls through to the default, `\"object storage\"`, correctly matching a dataset read once at job start. The database example (`readers=1`, `low_latency=True`, `io_size=8`) matches the third condition exactly, returning `\"block storage\"`. The distributed training example (`readers=8`, `low_latency=True`) matches the second condition, returning `\"file storage\"` — multiple workers needing fast, shared, concurrent access.\n"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Using block storage for data that needs to be read by many instances concurrently.** Block storage's single-attachment model doesn't scale to many concurrent readers the way object or file storage does — this is a structural mismatch, not a performance tuning problem.\n\n**Using object storage for a database's active data files.** Object storage's access pattern is optimized for whole-file reads/writes, not the frequent small random I/O a database engine performs — this will be dramatically slower than block storage for that workload.\n\n**Choosing a storage type from habit instead of from the workload's actual access pattern.** As the code example shows, the right choice depends on concurrent readers, latency needs, and I/O size — not on which storage type was used on the last project.\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "cld_storage_options_for_ml_workloads_quiz",
+        "questions": [
+          {
+            "question": "Per the \"🪣 Object storage\" section, what access pattern is object storage built for?",
+            "options": [
+              "Frequent small random reads/writes from a single instance",
+              "Large files read or written as whole objects, infrequently, prioritizing durability and scale over low latency",
+              "Shared filesystem semantics across many instances with POSIX file locking",
+              "Sub-millisecond latency for database transaction logs"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson describes object storage as suited to whole-file, infrequent access at massive scale, prioritizing durability over low latency — the opposite profile from a database's active data files.",
+            "id": "q1"
+          },
+          {
+            "question": "According to the \"💽 Block storage\" section, what is block storage's key limitation compared to object or file storage?",
+            "options": [
+              "It cannot store more than 1 GB total",
+              "It's typically attached to exactly one instance (or a small number in specific configurations), so it doesn't scale to many concurrent readers the way object or file storage does",
+              "It has no durability guarantees at all",
+              "It cannot be used for database workloads"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson names this specific tradeoff: block storage's low latency and high IOPS come with a single-attachment model that doesn't scale to many concurrent readers.",
+            "id": "q2"
+          },
+          {
+            "question": "In the code example, why does the first workload (\"training dataset read once at job start\") get recommended \"object storage\"?",
+            "options": [
+              "Because `concurrent_readers=1` and `needs_low_latency=False`, so neither of the first two conditions match, and the third condition (which requires `needs_low_latency=True`) also fails, so it falls through to the default return value",
+              "Because `avg_io_size_kb=5000` directly triggers an object storage branch",
+              "Because the function always returns object storage first",
+              "Because `concurrent_readers > 1` evaluates to True for this workload"
+            ],
+            "correctAnswer": 0,
+            "explanation": "With `readers=1` and `low_latency=False`, none of the `if` conditions are satisfied (the first two need `concurrent_readers > 1`; the third needs `needs_low_latency=True`), so execution reaches the final `return \"object storage\"` default.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, why does the database workload get recommended \"block storage\"?",
+            "options": [
+              "Because `concurrent_readers=1`, `needs_low_latency=True`, and `avg_io_size_kb=8` (< 64), exactly matching the third `if` condition",
+              "Because databases are hardcoded as a special case in the function",
+              "Because `concurrent_readers > 1` for the database workload",
+              "Because `avg_io_size_kb` is greater than 64 for this workload"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The database workload's parameters (`readers=1`, `low_latency=True`, `io_size=8`) satisfy `concurrent_readers == 1 and needs_low_latency and avg_io_size_kb < 64` exactly, returning `\"block storage\"`.",
+            "id": "q4"
+          },
+          {
+            "question": "In the code example, why does the distributed training workload (8 workers) get recommended \"file storage\" rather than \"object storage\"?",
+            "options": [
+              "Because `concurrent_readers=8` (> 1) and `needs_low_latency=True`, matching the second `if` condition specifically, rather than the object-storage condition which requires `needs_low_latency=False`",
+              "Because file storage is always preferred over object storage regardless of parameters",
+              "Because `avg_io_size_kb=16` disqualifies object storage entirely",
+              "Because the workload has fewer than 2 readers"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The function's second condition, `concurrent_readers > 1 and needs_low_latency`, is checked before the object-storage condition and matches this workload's `readers=8, low_latency=True`, returning `\"file storage\"`.",
+            "id": "q5"
+          },
+          {
+            "question": "Per the \"📁 File storage\" section, how does the lesson describe file storage relative to object and block storage?",
+            "options": [
+              "Identical to block storage in every respect",
+              "Shared like object storage (multiple instances can access it concurrently) but with filesystem semantics like block storage",
+              "Only usable by a single instance at a time, like block storage",
+              "Not suitable for any ML workload"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson explicitly places file storage between the other two: shared concurrent access like object storage, but filesystem-style semantics like block storage.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does the lesson warn against using object storage for a database's active data files?",
+            "options": [
+              "Because object storage cannot be encrypted",
+              "Because object storage's access pattern is optimized for whole-file reads/writes, not the frequent small random I/O a database engine performs, making it dramatically slower for that workload",
+              "Because databases require file storage exclusively by law",
+              "Because object storage has a maximum file count limit that databases exceed"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The common mistakes section states this directly — object storage's optimization for whole-file access is mismatched with a database engine's frequent small random I/O pattern.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does the lesson warn against choosing a storage type from habit instead of from the workload's actual access pattern?",
+            "options": [
+              "Because habitual choices are always more expensive",
+              "Because, as the code example demonstrates, the right storage type depends on concrete factors like concurrent readers, latency needs, and I/O size — not on what was used on a previous project",
+              "Because cloud providers charge extra for storage types chosen from habit",
+              "Because habitual choices always violate compliance rules"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The common mistakes section frames this as the core lesson: the `recommend_storage` function's logic is entirely driven by workload parameters, not by prior familiarity.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "cld_cost_management_in_the_cloud",
+      "title": "Cost Management in the Cloud",
+      "description": "Where AI infrastructure cost concentrates (GPU compute above all), the concrete levers available to control it — right-sizing, spot instances, autoscaling, storage lifecycle policies, reserved capacity — and why tagging and attribution are the prerequisite that makes any of those levers actionable.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson you should be able to identify where AI infrastructure cost concentrates, list concrete levers for controlling it, and explain why tagging and attribution matter for managing cost at all.\n"
+          },
+          {
+            "title": "💸 Where AI infrastructure cost concentrates",
+            "content": "For AI/ML workloads specifically, cost concentrates disproportionately in a few places: GPU compute (both training and, often larger in aggregate, ongoing inference serving), data egress (transferring data out of a cloud provider's network, which is often priced very differently from data staying within the provider), and storage of large datasets and checkpoints accumulated over many experiments. Unlike traditional web application cost profiles, GPU compute alone can dominate the bill by a wide margin.\n"
+          },
+          {
+            "title": "🎚️ Concrete levers",
+            "content": "Practical cost levers include:\n\n- **Right-sizing**: matching instance type to actual resource need instead of over-provisioning \"just in case\"\n- **Spot/preemptible instances** for interruptible workloads, covered in the GPU instances lesson\n- **Autoscaling** so idle capacity scales down rather than running continuously at peak size\n- **Storage lifecycle policies** that automatically move old checkpoints/datasets to cheaper storage tiers or delete them\n- **Reserved capacity / committed-use discounts** for predictable, steady-state workloads where committing to a term in advance earns a meaningful discount\n"
+          },
+          {
+            "title": "📊 Tagging and attribution",
+            "content": "None of these levers matter if nobody can see where cost is actually going. **Tagging** resources (by team, project, environment) and building cost attribution on top of those tags is what turns a single opaque monthly bill into an actionable breakdown — without it, cost optimization has no target to aim at, because nobody can tell which team or workload is actually responsible for a spike.\n"
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "Here's a simplified simulation of tagged cost attribution, revealing a spend concentration that an untagged total bill would hide:\n\n```python\nresources = [\n    {\"name\": \"gpu-training-cluster\", \"team\": \"research\", \"monthly_cost\": 18000},\n    {\"name\": \"inference-endpoints\", \"team\": \"platform\", \"monthly_cost\": 9500},\n    {\"name\": \"web-app-servers\", \"team\": \"platform\", \"monthly_cost\": 1200},\n    {\"name\": \"data-warehouse\", \"team\": \"analytics\", \"monthly_cost\": 2300},\n]\n\ndef total_cost(resources):\n    return sum(r[\"monthly_cost\"] for r in resources)\n\ndef cost_by_team(resources):\n    breakdown = {}\n    for r in resources:\n        breakdown[r[\"team\"]] = breakdown.get(r[\"team\"], 0) + r[\"monthly_cost\"]\n    return breakdown\n\nprint(\"total monthly cost:\", total_cost(resources))\nprint(\"cost by team:\", cost_by_team(resources))\n\ngrand_total = total_cost(resources)\nfor team, cost in cost_by_team(resources).items():\n    pct = round(100 * cost / grand_total, 1)\n    print(f\"{team}: {pct}% of total spend\")\n```\n\n`total_cost` sums all four resources: `18000 + 9500 + 1200 + 2300 = 31000`. `cost_by_team` groups by team: `research` gets `18000` (one resource), `platform` gets `9500 + 1200 = 10700` (two resources summed), `analytics` gets `2300`. As a percentage of the `31000` total: research is `round(100*18000/31000, 1) = 58.1%`, platform is `round(100*10700/31000, 1) = 34.5%`, analytics is `round(100*2300/31000, 1) = 7.4%`. Without the `team` tag on each resource, the bill would just show \"$31,000\" with no way to see that research's GPU training cluster alone accounts for well over half of it.\n"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Optimizing infrastructure cost without tagging first.** As the code example shows, an untagged bill gives no attribution — you can shrink the total, but you can't tell whether you're addressing the actual concentration of spend or an unrelated small piece of it.\n\n**Focusing cost-cutting effort on storage or networking when GPU compute dominates.** Given that GPU compute is often the largest line item for AI workloads specifically, effort spent trimming a smaller cost category first can miss the bulk of the opportunity.\n\n**Over-committing to reserved capacity for workloads that aren't actually steady-state.** Reserved capacity discounts assume predictable, ongoing usage — committing a highly variable or experimental workload to a reserved term can end up costing more than paying on-demand would have.\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "cld_cost_management_in_the_cloud_quiz",
+        "questions": [
+          {
+            "question": "Per the \"💸 Where AI infrastructure cost concentrates\" section, how does AI/ML cost concentration typically differ from a traditional web application's?",
+            "options": [
+              "It's identical — both concentrate cost in the same categories",
+              "GPU compute (training and inference) can dominate the bill by a wide margin, unlike typical web application cost profiles",
+              "AI workloads never incur any storage costs",
+              "Data egress costs are irrelevant for AI workloads specifically"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson explicitly contrasts AI/ML cost concentration — dominated by GPU compute — with typical web application cost profiles where this isn't usually the case.",
+            "id": "q1"
+          },
+          {
+            "question": "According to the \"📊 Tagging and attribution\" section, why does tagging matter for cost management?",
+            "options": [
+              "It reduces the actual dollar cost of resources automatically",
+              "It turns a single opaque monthly bill into an actionable breakdown by team/project/environment — without it, there's no way to tell which team or workload is responsible for a spike",
+              "It's required by cloud providers' terms of service",
+              "It automatically triggers autoscaling"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson states tagging is what makes cost attribution possible at all — without it, optimization efforts have no target because responsibility for spend can't be traced.",
+            "id": "q2"
+          },
+          {
+            "question": "In the code example, what does `cost_by_team(resources)[\"platform\"]` evaluate to, and why?",
+            "options": [
+              "9500, only counting `inference-endpoints`",
+              "10700, the sum of `inference-endpoints` (9500) and `web-app-servers` (1200), both tagged `team: platform`",
+              "31000, the grand total across all teams",
+              "1200, only counting `web-app-servers`"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`cost_by_team` accumulates `monthly_cost` per team; two resources are tagged `\"platform\"` (`inference-endpoints` at 9500, `web-app-servers` at 1200), summing to `10700`.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, what percentage of total spend does the \"research\" team account for, and how is it computed?",
+            "options": [
+              "34.5%, computed the same way as platform",
+              "58.1%, computed as `round(100 * 18000 / 31000, 1)`",
+              "7.4%, the analytics team's share, not research's",
+              "100%, since research has the largest single resource"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Research's only resource costs 18000, and `grand_total` is 31000, so `round(100 * 18000 / 31000, 1) = 58.1`.",
+            "id": "q4"
+          },
+          {
+            "question": "What does the code example's percentage breakdown reveal that a single \"$31,000 total\" bill would not?",
+            "options": [
+              "That all teams spend roughly equal amounts",
+              "That the research team's GPU training cluster alone accounts for well over half of total spend, concentrated in a single tagged resource",
+              "That analytics is the largest cost driver",
+              "That platform's spend is entirely from a single resource"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The 58.1% figure for research — driven entirely by the single `gpu-training-cluster` resource — is invisible in an untagged total, which is exactly the attribution gap the lesson describes.",
+            "id": "q5"
+          },
+          {
+            "question": "Per the \"🎚️ Concrete levers\" section, what do storage lifecycle policies do?",
+            "options": [
+              "Automatically move old checkpoints/datasets to cheaper storage tiers or delete them",
+              "Automatically upgrade all storage to the fastest available tier",
+              "Prevent any data from ever being deleted",
+              "Convert block storage into object storage automatically"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson lists storage lifecycle policies specifically as a lever for moving aging data to cheaper tiers or deleting it, rather than letting it accumulate indefinitely at full cost.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does the lesson warn against optimizing infrastructure cost without tagging first?",
+            "options": [
+              "Because tagging is a prerequisite enforced by every cloud provider's billing API",
+              "Because, as the code example shows, an untagged bill gives no attribution — you can shrink the total but can't tell whether you're addressing the actual concentration of spend",
+              "Because untagged resources are automatically deleted after 30 days",
+              "Because tagging always reduces cost by a fixed percentage"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The common mistakes section makes this point directly, reinforced by the code example's team breakdown that would be invisible without the `team` tag on each resource.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does the lesson warn against over-committing to reserved capacity for workloads that aren't steady-state?",
+            "options": [
+              "Because reserved capacity is always more expensive than on-demand regardless of usage pattern",
+              "Because reserved capacity discounts assume predictable, ongoing usage — committing a highly variable or experimental workload to a reserved term can end up costing more than on-demand would have",
+              "Because reserved capacity cannot be used for GPU instances",
+              "Because reserved capacity requires re-tagging resources every month"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The common mistakes section explains this tradeoff explicitly: reserved discounts are a bet on steady usage, and a mismatch with variable workloads can backfire cost-wise.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

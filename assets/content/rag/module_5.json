@@ -1,0 +1,529 @@
+{
+  "id": "module_5",
+  "title": "Evaluating & Operating RAG Systems",
+  "description": "RAG-specific metrics separating retrieval from generation quality, building a RAG-specific eval set, a diagnostic checklist for tracing bad answers to their root cause, and the operational realities of running RAG in production.",
+  "icon": "🔬",
+  "color": "#33691E",
+  "order": 5,
+  "estimatedHours": 2,
+  "difficulty": "Advanced",
+  "prerequisites": [],
+  "lessons": [
+    {
+      "id": "rag_eval_metrics",
+      "title": "RAG-Specific Evaluation Metrics",
+      "description": "Measure a RAG system's two distinct failure surfaces: retrieval and generation.",
+      "duration": "9 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can name the key RAG-specific evaluation metrics and explain what part of the pipeline each one checks."
+          },
+          {
+            "title": "🔍 Two failure surfaces, two kinds of metrics",
+            "content": "A RAG system can fail at retrieval (finding the wrong or insufficient information) or at generation (misusing even good retrieved information) — and it's important to measure these separately, since fixing one doesn't fix the other. **Context precision/recall** (extending the recall@k and precision@k from the embeddings course) measure retrieval quality specifically: did the system find the actually relevant chunks?"
+          },
+          {
+            "title": "🎯 Faithfulness and answer relevance",
+            "content": "**Faithfulness** measures whether the generated answer is actually supported by the retrieved context (not drifting into unsupported claims, from earlier in this course) — typically checked by having an LLM-as-judge (from the LLM engineering course) verify each claim in the answer against the provided sources. **Answer relevance** measures whether the generated answer actually addresses the user's original question, regardless of whether it's faithful — a faithful answer to the wrong question is still not useful.\n\n```python\n# Conceptual: RAG-specific metric breakdown\n# context precision/recall -> did retrieval find the right chunks?\n# faithfulness             -> is the answer actually supported by those chunks?\n# answer relevance         -> does the answer actually address the question asked?\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Only measuring end-to-end answer quality without breaking it down by pipeline stage.** A single aggregate quality score can't tell you whether a bad answer came from poor retrieval or poor generation — the specific metrics above are what let you diagnose which stage actually needs fixing.\n\n**Confusing faithfulness with correctness.** A faithful answer accurately reflects what the retrieved context says — but if the retrieved context itself is wrong or outdated, a perfectly faithful answer can still be factually incorrect. These are related but distinct concerns.\n\n**Neglecting answer relevance in favor of only checking faithfulness.** A technically faithful but off-topic answer (accurately summarizing irrelevant retrieved content) still fails the user's actual need."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "rag_eval_metrics_quiz",
+        "questions": [
+          {
+            "question": "Why is it important to measure retrieval quality and generation quality separately in a RAG system?",
+            "options": [
+              "There is no meaningful distinction between retrieval and generation quality",
+              "A RAG system can fail at retrieval (finding wrong or insufficient information) or at generation (misusing even good retrieved information), and fixing one doesn't fix the other, so separate metrics are needed to diagnose which stage actually needs attention",
+              "Only generation quality ever matters in a RAG system",
+              "Retrieval quality and generation quality are always identical measurements"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since these are genuinely distinct potential failure points, measuring them separately (rather than only an aggregate end-to-end score) is what actually tells you which part of the pipeline needs improvement when quality falls short.",
+            "id": "q1"
+          },
+          {
+            "question": "What does 'faithfulness' measure in a RAG evaluation context?",
+            "options": [
+              "Whether the generated answer is grammatically correct",
+              "Whether the generated answer is actually supported by the retrieved context, rather than drifting into unsupported claims not grounded in the provided sources",
+              "How quickly the system generates a response",
+              "Whether the retrieved documents are the most recent version available"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Faithfulness specifically checks that the generated answer's claims trace back to and are supported by the actual retrieved context — a direct measure of the grounding concept covered earlier in this course.",
+            "id": "q2"
+          },
+          {
+            "question": "Why can a perfectly faithful RAG answer still be factually incorrect?",
+            "options": [
+              "Faithful answers are always guaranteed to be factually correct with no exceptions",
+              "Faithfulness measures whether the answer accurately reflects what the retrieved context says — if the retrieved context itself is wrong or outdated, a faithful summary of it can still be incorrect",
+              "Faithfulness and factual correctness are exactly the same thing",
+              "This situation can never actually occur in a real RAG system"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Faithfulness is about fidelity to the source material, not verification of the source material's own accuracy — a faithful answer built on wrong or outdated retrieved content inherits that underlying inaccuracy despite being perfectly faithful to what it was given.",
+            "id": "q3"
+          },
+          {
+            "question": "According to this lesson, what does 'context precision/recall' extend from the embeddings course?",
+            "options": [
+              "The recall@k and precision@k metrics, applied specifically to measuring retrieval quality in a RAG system",
+              "The similarity threshold calibration technique, applied to generation quality",
+              "The chunking strategy comparisons, applied to embedding model selection",
+              "The hybrid search formula, applied to citation formatting"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly states that context precision/recall extends recall@k and precision@k from the embeddings course to measure whether retrieval found the actually relevant chunks.",
+            "id": "q4"
+          },
+          {
+            "question": "According to this lesson, what method is typically used to check faithfulness?",
+            "options": [
+              "Having an LLM-as-judge, from the LLM engineering course, verify each claim in the answer against the provided sources",
+              "Manually reading every single generated answer with no automated tooling at all",
+              "Counting the total number of words in the generated answer",
+              "Checking only whether the answer contains at least one citation marker"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson states that faithfulness is typically checked using an LLM-as-judge (from the LLM engineering course) verifying each claim against the provided sources.",
+            "id": "q5"
+          },
+          {
+            "question": "What does 'answer relevance' specifically measure, according to this lesson?",
+            "options": [
+              "Whether the generated answer actually addresses the user's original question, regardless of whether it's faithful",
+              "Whether the generated answer is grammatically well-formed",
+              "Whether the generated answer contains at least one numbered citation",
+              "Whether the generated answer is shorter than the retrieved context itself"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson defines answer relevance as measuring whether the answer addresses the original question, as a distinct concern from faithfulness.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson say only measuring end-to-end answer quality is a mistake?",
+            "options": [
+              "Because a single aggregate quality score can't tell you whether a bad answer came from poor retrieval or poor generation",
+              "Because end-to-end answer quality is always identical to context precision and recall",
+              "Because measuring end-to-end quality is technically impossible for any RAG system",
+              "Because aggregate scores always precisely identify which pipeline stage failed"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is relying only on an aggregate score, when the stage-specific metrics are what actually let you diagnose which part of the pipeline needs fixing.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson warn against neglecting answer relevance in favor of only checking faithfulness?",
+            "options": [
+              "Because a technically faithful but off-topic answer, accurately summarizing irrelevant retrieved content, still fails the user's actual need",
+              "Because faithfulness and answer relevance are always identical measurements with no distinction",
+              "Because answer relevance is never actually a meaningful concern in a RAG evaluation",
+              "Because checking faithfulness alone always guarantees the answer addresses the user's question"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is neglecting relevance, since an answer can be perfectly faithful to irrelevant context and still fail to actually help the user.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "rag_building_eval_set",
+      "title": "Building a RAG-Specific Evaluation Set",
+      "description": "Apply the LLM engineering course's eval-set-building lesson to the specific structure a RAG system needs.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can describe what a RAG-specific evaluation set needs to include, beyond a general LLM application eval set."
+          },
+          {
+            "title": "📋 More than just question-answer pairs",
+            "content": "The LLM engineering course covered building a task-specific eval set generally. A RAG eval set needs a bit more structure: each example should ideally include the question, the expected (or acceptable) answer, AND the specific source document(s) that should actually be retrieved to support that answer — this last piece is what lets you measure retrieval quality (context precision/recall) separately from generation quality (faithfulness), as covered in the previous lesson."
+          },
+          {
+            "title": "🎯 Include the RAG-specific hard cases",
+            "content": "Beyond general hard cases (from the LLM engineering course), a RAG eval set should specifically include: questions the knowledge base genuinely doesn't cover (to test appropriate 'insufficient information' responses), questions where sources deliberately conflict (to test the conflict-surfacing behavior from earlier in this course), and questions requiring multiple retrieved chunks or multi-hop reasoning to answer fully.\n\n```python\n# Conceptual RAG eval set entry\n{\n    \"question\": \"What is the cancellation policy for annual plans?\",\n    \"expected_answer\": \"Annual plans can be canceled with a pro-rated refund...\",\n    \"expected_source_documents\": [\"annual_plan_terms.pdf\"],\n    \"category\": \"single_hop_factual\",\n}\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Building a RAG eval set with only question-answer pairs, missing the expected source documents.** Without this, you can measure end-to-end answer quality but can't separately diagnose whether a problem originated in retrieval or generation.\n\n**Never including 'no good answer exists' cases.** Without these, you can't verify the system appropriately admits insufficient information rather than fabricating a confident-sounding answer.\n\n**Building the eval set once and never expanding it as new RAG failure modes are discovered in production.** Just like the general eval-set lesson from the LLM engineering course, this should be a living, growing resource, not a one-time artifact."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "rag_building_eval_set_quiz",
+        "questions": [
+          {
+            "question": "What does a RAG-specific eval set need beyond a general LLM application eval set's question-answer pairs?",
+            "options": [
+              "Nothing additional; a general eval set is always sufficient for RAG systems too",
+              "The specific source document(s) that should actually be retrieved to support each expected answer, which enables measuring retrieval quality separately from generation quality",
+              "Only the exact wording the model must use, with no flexibility",
+              "A complete copy of the entire knowledge base for every example"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Including expected source documents alongside each question-answer pair is what makes it possible to separately measure context precision/recall (retrieval quality) from faithfulness (generation quality), rather than only getting an aggregate end-to-end score.",
+            "id": "q1"
+          },
+          {
+            "question": "Why should a RAG eval set specifically include questions the knowledge base genuinely doesn't cover?",
+            "options": [
+              "These cases are never useful for evaluation and should be excluded",
+              "Without them, you can't verify the system appropriately admits insufficient information rather than fabricating a confident-sounding but ungrounded answer when the knowledge base genuinely lacks relevant content",
+              "Every question in a knowledge base is always answerable by definition",
+              "This type of case is only relevant for general LLM applications, never RAG specifically"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Testing genuinely out-of-coverage questions specifically checks whether the system correctly recognizes and honestly reports insufficient information, rather than only ever testing cases where a good answer happens to exist.",
+            "id": "q2"
+          },
+          {
+            "question": "Why should a RAG eval set be treated as a living resource rather than a one-time artifact?",
+            "options": [
+              "Eval sets should never be updated once initially created, under any circumstances",
+              "Just like the general eval-set lesson from the LLM engineering course, new RAG-specific failure modes get discovered in production over time, so continuously expanding the eval set keeps it genuinely useful rather than reflecting only what was known at initial creation",
+              "RAG systems never encounter any new failure modes after initial deployment",
+              "A static eval set is always more useful than one that grows over time"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This directly extends the general living-eval-set principle from the LLM engineering course — real production usage reveals new RAG-specific issues (retrieval gaps, unexpected conflicts) that should be incorporated to keep the eval set representative and useful over time.",
+            "id": "q3"
+          },
+          {
+            "question": "In this lesson's example eval set entry, what field specifically enables measuring retrieval quality separately from generation quality?",
+            "options": [
+              "expected_source_documents",
+              "category",
+              "expected_answer",
+              "question"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's example entry includes expected_source_documents specifically because it's what allows checking whether retrieval found the right sources, separate from checking answer faithfulness.",
+            "id": "q4"
+          },
+          {
+            "question": "According to this lesson, what three RAG-specific hard cases should an eval set include beyond general hard cases?",
+            "options": [
+              "Questions the knowledge base doesn't cover, questions with deliberately conflicting sources, and questions requiring multi-hop reasoning",
+              "Only questions phrased in a formal, professional tone",
+              "Only questions about a single, narrow topic area",
+              "Only questions with exactly one possible correct answer"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly lists these three RAG-specific hard case categories to include beyond the general hard cases from the LLM engineering course.",
+            "id": "q5"
+          },
+          {
+            "question": "What example 'category' value does this lesson's sample eval set entry use?",
+            "options": [
+              "single_hop_factual",
+              "multi_turn_conversational",
+              "creative_writing",
+              "code_generation"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's example eval set entry uses 'single_hop_factual' as the category value for a straightforward single-retrieval-step question.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson say omitting expected source documents from an eval set limits what you can diagnose?",
+            "options": [
+              "Because without them, you can measure end-to-end answer quality but can't separately diagnose whether a problem originated in retrieval or generation",
+              "Because expected source documents have no relationship to diagnosing pipeline problems",
+              "Because omitting them always improves the accuracy of end-to-end evaluation",
+              "Because expected source documents are only useful for citation formatting, never for evaluation"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is building an eval set with only question-answer pairs, which prevents separately diagnosing retrieval versus generation failures.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson recommend expanding a RAG eval set continuously rather than treating it as a one-time artifact?",
+            "options": [
+              "Because just like the general eval-set lesson from the LLM engineering course, new RAG-specific failure modes get discovered in production over time",
+              "Because a RAG eval set, once created, never needs any further additions",
+              "Because RAG systems never encounter new failure modes after their initial launch",
+              "Because expanding an eval set over time always makes it strictly less useful"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is building the eval set once and never expanding it, when it should be a living resource incorporating newly discovered production failure modes.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "rag_common_failure_modes",
+      "title": "Common RAG Failure Modes and How to Debug Them",
+      "description": "A diagnostic field guide for tracing a bad RAG answer back to its actual root cause.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can trace a bad RAG answer back through the pipeline to identify which stage actually caused it."
+          },
+          {
+            "title": "🔍 A diagnostic sequence, not a guess",
+            "content": "When a RAG system produces a bad answer, the productive debugging question isn't 'what's wrong with the model?' — it's 'which stage of the pipeline actually failed?' Check retrieval first: did the retrieved chunks actually contain the needed information? If not, the problem is upstream (parsing, chunking, embedding, or the retrieval/reranking step itself), not generation."
+          },
+          {
+            "title": "🗺️ A stage-by-stage checklist",
+            "content": "If retrieval genuinely found the right information but the answer is still wrong, the problem is in context assembly or generation: was the context ordered poorly (lost in the middle, from this course's earlier module)? Was the prompt's faithfulness instruction weak or absent? This stage-by-stage elimination process directly mirrors the general debugging discipline covered across earlier courses — isolate which specific component actually failed before trying to fix anything.\n\n```python\n# A practical diagnostic sequence for a bad RAG answer:\n# 1. Did retrieval actually surface the needed information? (check context precision/recall)\n# 2. If yes: was it ordered/assembled well in the prompt? (lost-in-the-middle check)\n# 3. If yes: did the model stay faithful to the provided context? (faithfulness check)\n# 4. If all above are fine: was the underlying source document itself wrong or outdated?\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Jumping straight to prompt-tweaking without first checking whether retrieval actually found the right information.** If retrieval failed, no amount of prompt engineering on the generation step addresses the actual root cause.\n\n**Blaming 'the model' generically instead of isolating the specific failing stage.** A vague diagnosis leads to unfocused fixes; the stage-by-stage checklist is what produces an actionable, targeted fix.\n\n**Not checking whether the underlying source documents themselves might be wrong or outdated.** Sometimes a RAG system is working exactly as designed — faithfully reporting incorrect information from a stale or mistaken source document, which is a data problem, not a pipeline bug."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "rag_common_failure_modes_quiz",
+        "questions": [
+          {
+            "question": "What should be the first diagnostic question when a RAG system produces a bad answer?",
+            "options": [
+              "Immediately assume the generation model itself is broken and needs to be replaced",
+              "Whether retrieval actually surfaced the chunks containing the needed information — if not, the problem is upstream in parsing, chunking, embedding, or retrieval, not in generation",
+              "Whether the user asked the question in a grammatically correct way",
+              "Whether the system has been running for a long time without a restart"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Checking retrieval first follows the pipeline's actual dependency order — if the right information was never even surfaced, no generation-stage fix could have produced a correct answer, making this the logical first diagnostic step.",
+            "id": "q1"
+          },
+          {
+            "question": "If retrieval genuinely found the right information but the final answer is still wrong, where should debugging focus next?",
+            "options": [
+              "The problem must be with the embedding model, regardless of what retrieval actually found",
+              "Context assembly and generation — checking whether the context was ordered poorly (lost in the middle) or whether the faithfulness instructions in the prompt were weak or absent",
+              "There is nothing further to check; a wrong answer with correct retrieval is unexplainable",
+              "The user's original question must have been phrased incorrectly"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Once retrieval is confirmed to have worked correctly, the remaining likely causes shift to how that correct information was assembled and used — context ordering and generation faithfulness are the next logical places to check.",
+            "id": "q2"
+          },
+          {
+            "question": "Why might a RAG system's bad answer sometimes not actually be a pipeline bug at all?",
+            "options": [
+              "This can never happen; every bad RAG answer is always caused by a pipeline defect",
+              "The system might be working exactly as designed — faithfully reporting incorrect information from a source document that is itself wrong or outdated, which is a data quality problem rather than a pipeline malfunction",
+              "Source documents are always guaranteed to be accurate and current",
+              "Faithfulness to a source document guarantees the answer is always correct"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A perfectly functioning pipeline can still produce a wrong answer if the underlying source material it faithfully reflects is itself incorrect or stale — recognizing this distinction (data problem vs. pipeline bug) points to fixing the actual root cause: the source content, not the retrieval or generation logic.",
+            "id": "q3"
+          },
+          {
+            "question": "According to this lesson's diagnostic sequence, what should be checked first when a RAG answer is bad?",
+            "options": [
+              "Whether the retrieved chunks actually contained the needed information",
+              "Whether the user's question was grammatically correct",
+              "Whether the final answer was long enough",
+              "Whether the model's temperature setting was too high"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's diagnostic checklist explicitly places checking retrieval first: did the retrieved chunks actually contain the needed information?",
+            "id": "q4"
+          },
+          {
+            "question": "In this lesson's diagnostic checklist, what should be checked if retrieval succeeded but the answer is still wrong?",
+            "options": [
+              "Whether context was ordered poorly (lost in the middle) or the prompt's faithfulness instruction was weak or absent",
+              "Whether the embedding model needs to be completely replaced",
+              "Whether the vector database needs to be re-sharded",
+              "Whether the source documents need to be re-parsed from scratch"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's checklist moves to context assembly and generation as the next diagnostic step once retrieval itself has been confirmed to have worked correctly.",
+            "id": "q5"
+          },
+          {
+            "question": "According to this lesson, what should be checked last in the diagnostic sequence if all earlier stages check out fine?",
+            "options": [
+              "Whether the underlying source document itself was wrong or outdated",
+              "Whether the user's internet connection was stable during the request",
+              "Whether the reranking model's version number matched the retrieval model's version",
+              "Whether the prompt was written in the correct programming language"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's diagnostic sequence ends by checking whether the source document itself is wrong or outdated, since a working pipeline can still faithfully reflect bad source data.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson call jumping straight to prompt-tweaking, without checking retrieval first, a mistake?",
+            "options": [
+              "Because if retrieval failed, no amount of prompt engineering on the generation step addresses the actual root cause",
+              "Because prompt tweaking always fixes any retrieval-related problem regardless of its cause",
+              "Because retrieval quality has no bearing on what prompt tweaks can accomplish",
+              "Because checking retrieval first is never actually useful for diagnosing bad answers"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is skipping the retrieval check, since a generation-stage fix cannot compensate for context that retrieval never actually surfaced.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson say a bad RAG answer isn't always a pipeline bug?",
+            "options": [
+              "Because the system might be working exactly as designed, faithfully reporting incorrect information from a source document that is itself wrong or outdated",
+              "Because pipeline bugs are the only possible cause of any bad RAG answer",
+              "Because source documents are always guaranteed to be accurate and up to date",
+              "Because faithfulness to a source document always guarantees the final answer is correct"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is not checking whether source documents themselves are wrong, since a perfectly functioning pipeline can still faithfully report bad underlying data.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "rag_in_production",
+      "title": "RAG in Production: Freshness, Cost, and Monitoring",
+      "description": "Bring together the operational concerns of running a RAG system that real users depend on.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can name the key operational concerns for running a RAG system in production, pulling together themes from across this course."
+          },
+          {
+            "title": "🕰️ Freshness as an ongoing commitment",
+            "content": "The indexing-workflow and staleness lessons from the embeddings course apply directly here: a production RAG system needs an explicit, maintained process for keeping its knowledge base current as source documents change — this isn't a one-time setup task, but an ongoing operational responsibility for the life of the system."
+          },
+          {
+            "title": "💰 Cost adds up across the whole pipeline",
+            "content": "RAG cost isn't just the final generation call — it includes embedding costs (for both indexing and every query), reranking costs (if used), and potentially multiple LLM calls for query rewriting, multi-hop retrieval, or agentic search. The cost/latency tradeoff lessons from the LLM engineering course apply across this entire, multi-step pipeline, not just the final answer generation."
+          },
+          {
+            "title": "📊 Monitoring what actually matters",
+            "content": "Production monitoring for a RAG system should track more than uptime: retrieval quality metrics (sampled and checked against the eval set periodically), the rate of 'insufficient information' responses (a spike might indicate a real knowledge base coverage gap worth addressing), and user feedback signals (thumbs up/down, follow-up 'that's wrong' messages) that surface real-world failure modes an offline eval set might have missed.\n\n```python\n# Conceptual production monitoring dashboard for RAG\n# - retrieval quality: periodic sampled eval against known queries\n# - \"insufficient info\" response rate: spike may mean a real coverage gap\n# - user feedback signals: thumbs down rate, explicit corrections\n# - cost breakdown: embedding + reranking + generation, tracked separately\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Treating a RAG system as 'done' once it launches successfully.** Freshness, cost, and quality all require ongoing operational attention — a RAG system is a living system, not a one-time build.\n\n**Monitoring only uptime and latency, missing quality signals entirely.** A RAG system can be fast and always-available while still quietly giving wrong or unhelpful answers — the quality-specific monitoring in this lesson is what catches that.\n\n**Ignoring user feedback as a source of real production failure modes.** Real usage surfaces edge cases an offline eval set, however well-built, may not have anticipated — feeding this feedback back into the eval set (from the earlier lesson) closes that loop."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "rag_in_production_quiz",
+        "questions": [
+          {
+            "question": "Why does a production RAG system need an ongoing freshness process rather than a one-time setup?",
+            "options": [
+              "A RAG knowledge base, once indexed, never needs to be updated again",
+              "As covered in the embeddings course, source documents change over time, so keeping the knowledge base current is an ongoing operational responsibility for the life of the system, not a task completed once at launch",
+              "Freshness is only a concern for non-RAG vector search applications",
+              "Production RAG systems automatically stay current with zero maintenance"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Just as the embeddings course established, an index reflects a snapshot in time — a production RAG system needs a maintained, ongoing process to keep pace with changes in its underlying source documents throughout its operational life.",
+            "id": "q1"
+          },
+          {
+            "question": "Why does RAG cost extend beyond just the final generation call?",
+            "options": [
+              "RAG cost consists entirely of the final generation call, with nothing else contributing",
+              "RAG cost includes embedding costs (indexing and every query), potential reranking costs, and possibly multiple LLM calls for query rewriting or multi-hop retrieval — the cost/latency tradeoffs apply across the whole multi-step pipeline",
+              "Embedding and reranking are always free regardless of usage volume",
+              "Cost only matters for the indexing phase, never for query-time operations"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since a RAG pipeline involves several distinct stages — embedding, possibly reranking, possibly multiple retrieval/generation rounds — the LLM engineering course's cost/latency considerations apply to each of these stages, not just the final generated answer.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is monitoring only uptime and latency insufficient for a production RAG system?",
+            "options": [
+              "Uptime and latency are the only metrics that ever matter for any production system",
+              "A RAG system can be fast and consistently available while still quietly producing wrong or unhelpful answers, so quality-specific monitoring (retrieval metrics, insufficient-information rate, user feedback) is needed to catch that a purely operational dashboard would miss",
+              "Quality issues in a RAG system always cause uptime or latency problems as a side effect",
+              "Monitoring quality signals is technically impossible for a RAG system"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Operational health (uptime, latency) and answer quality are separate concerns — a system can score perfectly on the former while still failing users on the latter, which is exactly why dedicated quality-focused monitoring is a necessary addition, not a redundant one.",
+            "id": "q3"
+          },
+          {
+            "question": "According to this lesson, what does production monitoring for a RAG system need to track beyond uptime?",
+            "options": [
+              "Retrieval quality metrics, the rate of 'insufficient information' responses, and user feedback signals",
+              "Only the total number of servers currently running",
+              "Only the programming language version used to build the system",
+              "Only the total disk space consumed by the vector index"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly lists these three categories — retrieval quality, insufficient-information response rate, and user feedback — as what monitoring should track beyond basic uptime.",
+            "id": "q4"
+          },
+          {
+            "question": "Why does this lesson say a spike in 'insufficient information' responses might be meaningful?",
+            "options": [
+              "Because it might indicate a real knowledge base coverage gap worth addressing",
+              "Because such spikes are always caused by a temporary network outage with no other significance",
+              "Because this rate has no relationship to knowledge base coverage at all",
+              "Because a spike here always means the embedding model needs to be replaced"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explains that a rise in insufficient-information responses can be a concrete signal that the knowledge base genuinely lacks coverage for certain topics users are asking about.",
+            "id": "q5"
+          },
+          {
+            "question": "According to this lesson, what parts of a RAG pipeline contribute to its total cost, beyond the final generation call?",
+            "options": [
+              "Embedding costs (indexing and every query), reranking costs, and potentially multiple LLM calls for query rewriting or multi-hop retrieval",
+              "Only the cost of the very first document ever indexed",
+              "Only the electricity cost of running the servers, with nothing else contributing",
+              "Only the cost of storing the raw source documents on disk"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly names embedding, reranking, and multiple LLM calls (query rewriting, multi-hop retrieval) as contributors to total RAG cost beyond just the final generation call.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson warn against treating a RAG system as 'done' once it launches successfully?",
+            "options": [
+              "Because freshness, cost, and quality all require ongoing operational attention — a RAG system is a living system, not a one-time build",
+              "Because a RAG system never actually requires any attention after its initial launch",
+              "Because launch success always guarantees indefinite freshness and quality with no further work",
+              "Because ongoing attention is only needed for RAG systems that experience frequent outages"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is treating launch as the finish line, when a RAG system's freshness, cost, and quality all need continued operational attention.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson say ignoring user feedback signals is a mistake for production RAG monitoring?",
+            "options": [
+              "Because real usage surfaces edge cases an offline eval set, however well-built, may not have anticipated, and feeding this back closes the loop",
+              "Because user feedback has no relationship to a RAG system's actual failure modes",
+              "Because an offline eval set always anticipates every possible real-world failure mode",
+              "Because user feedback signals are only useful for measuring uptime, not quality"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is ignoring feedback, since real production usage reveals failure modes an eval set may have missed, and incorporating that feedback improves the eval set over time.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

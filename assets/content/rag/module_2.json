@@ -1,0 +1,525 @@
+{
+  "id": "module_2",
+  "title": "Improving Retrieval Quality",
+  "description": "Applying hybrid search to RAG's mixed query patterns, reranking with cross-encoders, HyDE's hypothetical-answer trick, and parent-child retrieval resolving the chunk-size tension.",
+  "icon": "🎯",
+  "color": "#388E3C",
+  "order": 2,
+  "estimatedHours": 3,
+  "difficulty": "Intermediate",
+  "prerequisites": [],
+  "lessons": [
+    {
+      "id": "rag_hybrid_search_for_rag",
+      "title": "Hybrid Search, Applied to RAG",
+      "description": "Bring the embeddings course's hybrid search directly into a RAG retrieval pipeline.",
+      "duration": "7 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain why hybrid search (from the embeddings course) is often especially valuable specifically for RAG."
+          },
+          {
+            "title": "🎯 RAG queries often mix exact terms and open concepts",
+            "content": "Real user questions to a RAG system frequently combine a specific, exact-match element (a product name, an order number, a specific clause number) with a broader conceptual question — exactly the mixed query pattern where the embeddings course's hybrid search (combining BM25 and semantic embedding search) tends to outperform either approach used alone."
+          },
+          {
+            "title": "🔧 A concrete RAG example",
+            "content": "A question like 'What does section 4.2 say about early termination fees?' has both an exact reference ('section 4.2') that BM25 excels at matching literally, and a conceptual question ('early termination fees') that benefits from semantic understanding — hybrid search's combination directly addresses both halves of this single query.\n\n```python\n# Conceptual: a RAG query benefiting from hybrid search\nquery = \"What does section 4.2 say about early termination fees?\"\n# BM25 component: strong exact match on \"section 4.2\"\n# embedding component: strong semantic match on \"early termination fees\"\n# hybrid search combines both signals for a query mixing both needs\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Defaulting to pure semantic (embedding-only) search for a RAG system without testing hybrid search against your actual query patterns.** Given how often real questions mix exact and conceptual elements, this is a common missed opportunity for a meaningful quality improvement.\n\n**Assuming hybrid search is only relevant for general search applications, not RAG specifically.** RAG queries are a particularly strong fit for hybrid search's strengths, given how often they combine both kinds of matching needs.\n\n**Not re-validating hybrid search's benefit for your specific RAG use case.** As with any pipeline choice, measuring actual effect on your task-specific eval set (rather than assuming a generic benefit) is what confirms it's worth the added complexity."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "rag_hybrid_search_for_rag_quiz",
+        "questions": [
+          {
+            "question": "Why are RAG queries often a particularly strong fit for hybrid search specifically?",
+            "options": [
+              "RAG queries never contain any exact-match elements",
+              "Real RAG questions frequently combine a specific exact-match element (like a section number or product name) with a broader conceptual question, exactly the mixed pattern where combining BM25 and embedding search tends to outperform either alone",
+              "Hybrid search is only ever useful for non-RAG applications",
+              "RAG queries are always purely conceptual with no exact terms involved"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since real-world RAG questions often mix precise references with open-ended conceptual asks, hybrid search's combination of exact-match strength (BM25) and semantic strength (embeddings) directly addresses both halves of this common query pattern.",
+            "id": "q1"
+          },
+          {
+            "question": "In the example question about 'section 4.2' and 'early termination fees', which search approach handles each part best?",
+            "options": [
+              "Embeddings handle both parts equally well with no distinction needed",
+              "BM25 tends to handle the exact reference ('section 4.2') well through literal matching, while the embedding-based component tends to handle the conceptual part ('early termination fees') well through semantic understanding",
+              "Neither BM25 nor embeddings can handle any part of this query effectively",
+              "BM25 handles the conceptual part while embeddings handle the exact reference"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This mirrors the general strengths from the embeddings course: BM25 excels at literal, exact-term matching (like a section number), while embeddings excel at capturing conceptual, semantic meaning (like 'early termination fees') — hybrid search combines both strengths for a single mixed query.",
+            "id": "q2"
+          },
+          {
+            "question": "Why should hybrid search's benefit still be validated against your specific RAG use case rather than assumed?",
+            "options": [
+              "Hybrid search always provides an identical benefit regardless of the specific application or query patterns",
+              "As with any pipeline choice, measuring actual effect on a task-specific eval set confirms whether the added complexity of hybrid search is genuinely worth it for your particular queries, rather than assuming a generic benefit applies",
+              "Validation is never necessary once a technique has worked well in a different context",
+              "Hybrid search cannot be meaningfully evaluated in a RAG context"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Consistent with the evaluation discipline from earlier in this curriculum, confirming hybrid search's actual benefit for your specific query patterns (rather than assuming it based on general reputation) is what justifies the added system complexity it introduces.",
+            "id": "q3"
+          },
+          {
+            "question": "In this lesson's example query about 'section 4.2' and 'early termination fees', which component does the exact reference favor?",
+            "options": [
+              "The BM25 component, which excels at matching the literal reference 'section 4.2'",
+              "The embedding component, which excels at matching literal references like section numbers",
+              "Neither component can match an exact reference like a section number",
+              "Both components are equally poor at matching exact references"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's example explicitly attributes the exact-match strength on 'section 4.2' to the BM25 component of hybrid search.",
+            "id": "q4"
+          },
+          {
+            "question": "According to this lesson, what kind of query pattern do real questions to a RAG system frequently combine?",
+            "options": [
+              "A specific, exact-match element (like a product name or order number) with a broader conceptual question",
+              "Only purely conceptual elements with no exact-match components ever",
+              "Only exact-match elements with no conceptual components ever",
+              "Questions never combine exact-match and conceptual elements in any RAG system"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson states that real user questions to RAG systems frequently combine an exact-match element with a broader conceptual question, which is exactly the pattern hybrid search is well suited for.",
+            "id": "q5"
+          },
+          {
+            "question": "Which search techniques does this lesson say hybrid search combines, as covered in the embeddings course?",
+            "options": [
+              "BM25 and semantic embedding search",
+              "Only two different embedding models with no lexical component",
+              "OCR and translation",
+              "Fine-tuning and prompt engineering"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson recalls the embeddings course's definition of hybrid search as combining BM25 (lexical) and semantic embedding search.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson call defaulting to pure semantic search without testing hybrid search 'a common missed opportunity'?",
+            "options": [
+              "Because given how often real RAG questions mix exact and conceptual elements, hybrid search often provides a meaningful quality improvement worth testing for",
+              "Because pure semantic search always outperforms hybrid search for every RAG query",
+              "Because hybrid search is never actually relevant to RAG applications specifically",
+              "Because testing hybrid search against real query patterns is never worthwhile"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is defaulting to embedding-only search without testing hybrid search, given how well-suited RAG's mixed query patterns are to it.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson say hybrid search's benefit should still be re-validated for a specific RAG use case?",
+            "options": [
+              "Because measuring actual effect on a task-specific eval set confirms whether the added complexity is genuinely worth it, rather than assuming a generic benefit applies",
+              "Because hybrid search provides an identical, guaranteed benefit for every possible use case",
+              "Because validation is never necessary once a technique has helped in any other context",
+              "Because hybrid search cannot be meaningfully evaluated for any RAG application"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is not re-validating hybrid search's benefit for your specific use case, consistent with the evaluation discipline emphasized throughout the curriculum.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "rag_reranking_cross_encoders",
+      "title": "Reranking with Cross-Encoders",
+      "description": "Add a more careful second pass to sharpen retrieval results before they reach the generator.",
+      "duration": "9 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain how a cross-encoder reranker differs from the embedding-based retrieval used to generate its candidates, and why that difference matters."
+          },
+          {
+            "title": "🔍 Two very different ways to score relevance",
+            "content": "Standard embedding-based retrieval (from the previous course) encodes the query and each document *separately* into vectors, then compares those vectors — fast, and scalable to millions of documents, but the query and document never actually interact directly during scoring. A **cross-encoder** instead feeds the query and a single candidate document *together* into one model, letting full attention operate across both simultaneously — much more accurate at judging true relevance, but far too expensive to run against an entire large collection."
+          },
+          {
+            "title": "🎯 Why the two-stage design works",
+            "content": "This is exactly the re-ranking pattern the embeddings course introduced: use the cheap, scalable embedding-based retrieval to narrow a huge collection down to a manageable shortlist (say, the top 50), then apply the expensive, more accurate cross-encoder only to that small shortlist to produce a final, carefully-ordered top few results for the generator.\n\n```python\n# Conceptual two-stage RAG retrieval\ncandidates = embedding_search(query, k=50)       # cheap, scalable first pass\nreranked = cross_encoder_rerank(query, candidates)  # expensive, accurate second pass\ntop_context = reranked[:5]                        # what actually goes to the generator\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Running a cross-encoder against the entire collection instead of a shortlist.** This defeats the entire purpose of the two-stage design and reintroduces the scalability problem embedding-based retrieval was meant to solve.\n\n**Skipping reranking entirely and relying only on the first-pass embedding similarity ranking.** For RAG specifically, where only a handful of chunks actually make it into the generator's context, getting that final ordering right has an outsized effect on final answer quality.\n\n**Not accounting for reranking's added latency in a real-time application.** The cross-encoder's extra accuracy comes at a real computational and latency cost that needs to fit within your application's acceptable response time."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "rag_reranking_cross_encoders_quiz",
+        "questions": [
+          {
+            "question": "What is the key structural difference between embedding-based retrieval and a cross-encoder reranker?",
+            "options": [
+              "They work in exactly the same way with no structural difference",
+              "Embedding-based retrieval encodes the query and each document separately and compares vectors, while a cross-encoder feeds the query and a candidate document together into one model, letting them interact directly during scoring",
+              "Cross-encoders never actually consider the query at all",
+              "Embedding-based retrieval is always more accurate than a cross-encoder"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The fundamental difference is separate versus joint encoding: embeddings compare independently-computed vectors (fast, scalable), while a cross-encoder processes the query and document together, allowing much richer interaction at the cost of being far more computationally expensive.",
+            "id": "q1"
+          },
+          {
+            "question": "Why is a cross-encoder applied only to a shortlist rather than an entire large collection?",
+            "options": [
+              "Cross-encoders are actually cheaper to run than embedding-based retrieval at any scale",
+              "A cross-encoder's joint processing of query and document is far too computationally expensive to run against every document in a large collection, so it's applied only to a smaller shortlist already narrowed down by cheaper embedding-based retrieval",
+              "Cross-encoders cannot process more than one document at a time under any circumstances",
+              "Running a cross-encoder on a full collection has no performance implications"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The two-stage design specifically exists because cross-encoders are too expensive to scale to an entire collection — the cheap first pass narrows candidates down to a size where the expensive, more accurate second pass becomes computationally practical.",
+            "id": "q2"
+          },
+          {
+            "question": "Why does reranking's effect on final ordering matter especially for RAG specifically?",
+            "options": [
+              "Reranking has no particular relevance to RAG compared to other retrieval applications",
+              "Since only a small handful of top-ranked chunks actually make it into the generator's limited context, getting that final ordering right has an outsized effect on the quality of the resulting generated answer",
+              "RAG systems never actually use the top-ranked results from retrieval",
+              "Reranking only matters when retrieving from very small collections"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Because a RAG generator only sees the handful of chunks that make the final cut (unlike a general search results page a user might scroll through), ensuring those top few are genuinely the most relevant has a magnified effect on the actual generated answer's quality.",
+            "id": "q3"
+          },
+          {
+            "question": "In this lesson's conceptual code example, how many candidates does embedding_search retrieve before reranking?",
+            "options": [
+              "The top 50 candidates",
+              "Every single document in the entire collection",
+              "Only the single top candidate",
+              "Exactly 5 candidates, the same number sent to the generator"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example shows embedding_search(query, k=50) retrieving 50 candidates as the first-pass shortlist before cross-encoder reranking.",
+            "id": "q4"
+          },
+          {
+            "question": "According to this lesson's code example, how many chunks actually go to the generator after reranking?",
+            "options": [
+              "The top 5, taken from reranked[:5]",
+              "All 50 candidates from the first pass",
+              "Only a single chunk, with no exceptions ever",
+              "Zero chunks; reranking replaces retrieval entirely"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example shows top_context = reranked[:5], meaning only the top 5 reranked results are passed on to the generator.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does this lesson say a cross-encoder is 'far too expensive to run against an entire large collection'?",
+            "options": [
+              "Because it feeds the query and each candidate document together into one model, letting full attention operate across both, which doesn't scale like separate vector comparisons do",
+              "Because cross-encoders always require significantly less compute than embedding-based retrieval",
+              "Because cross-encoders can only ever process one document total across an entire application's lifetime",
+              "Because embedding-based retrieval is always slower than a cross-encoder at any scale"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explains that the cross-encoder's joint processing of query and document is accurate but computationally expensive, making it impractical to run against every document in a large collection.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson say skipping reranking has an outsized effect specifically in RAG, compared to a general search results page?",
+            "options": [
+              "Because only a handful of chunks actually make it into the generator's context, so getting that final ordering right matters more than for a page a user might scroll through",
+              "Because RAG systems never actually use the top-ranked results from retrieval at all",
+              "Because reranking only matters for applications with very large result sets, never smaller ones",
+              "Because a general search results page is affected by ordering far more than a RAG generator is"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explains that since a RAG generator only sees the final handful of chunks (unlike a scrollable results page), correct final ordering has an outsized effect on generated answer quality.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson caution against ignoring reranking's added latency in a real-time application?",
+            "options": [
+              "Because the cross-encoder's extra accuracy comes at a real computational and latency cost that needs to fit within the application's acceptable response time",
+              "Because reranking never actually adds any latency to a RAG pipeline",
+              "Because latency is irrelevant for any real-time application involving RAG",
+              "Because cross-encoders are always faster than the initial embedding-based retrieval step"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is not accounting for reranking's real latency cost, since the cross-encoder's added accuracy isn't free in terms of response time.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "rag_hyde",
+      "title": "HyDE: Hypothetical Document Embeddings",
+      "description": "Search using a generated hypothetical answer instead of the raw question.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain the core idea behind HyDE and what kind of retrieval gap it's designed to close."
+          },
+          {
+            "title": "💭 Search for the answer you wish existed",
+            "content": "Sometimes a user's question is phrased very differently from how the actual answer would be worded in the source documents — a genuine, short question compared to a long, detailed passage of prose that would actually contain the answer. **HyDE (Hypothetical Document Embeddings)** addresses this mismatch by first having an LLM generate a plausible hypothetical answer to the question (even though it might be inaccurate!), then embedding *that* hypothetical answer and using it as the search query instead of the original question."
+          },
+          {
+            "title": "🎯 Why searching with a fake answer can genuinely help",
+            "content": "The intuition: a hypothetical answer, even a wrong one, is often phrased more like a real document passage than the original question is — closer in style, length, and vocabulary to what's actually stored in the knowledge base. Since the hypothetical answer is used purely to generate a search query embedding, and never shown to the user, its factual accuracy doesn't matter directly — only how well it resembles the real answer's language and structure.\n\n```python\n# Conceptual HyDE flow\nquestion = \"What is our policy on remote work stipends?\"\nhypothetical_answer = generate(f\"Write a passage that would answer: {question}\")\nquery_embedding = embed(hypothetical_answer)  # search with THIS embedding\nretrieved_docs = vector_search(query_embedding, knowledge_base)\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Worrying about the hypothetical answer's factual accuracy.** It's never shown to the user and is only used to shape the search query's embedding — its role is purely stylistic/structural resemblance to real documents, not correctness.\n\n**Assuming HyDE always helps.** Like any retrieval technique, its actual benefit depends on the specific gap between question phrasing and document phrasing in your particular corpus — worth testing against your eval set rather than assuming.\n\n**Adding HyDE's extra generation step without accounting for its added latency and cost.** Generating a hypothetical answer before retrieval adds a genuine extra LLM call to the pipeline, which has real cost and latency implications worth weighing against the retrieval quality gain."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "rag_hyde_quiz",
+        "questions": [
+          {
+            "question": "What does HyDE do differently from standard query embedding before retrieval?",
+            "options": [
+              "It skips embedding entirely and uses only lexical search",
+              "It first generates a hypothetical (possibly inaccurate) answer to the question using an LLM, then embeds that hypothetical answer and uses it as the search query instead of the original question",
+              "It always retrieves the exact same documents regardless of the query",
+              "HyDE is identical to standard query embedding with no meaningful difference"
+            ],
+            "correctAnswer": 1,
+            "explanation": "HyDE's distinguishing step is generating a hypothetical answer first and searching with an embedding of that generated text, rather than embedding the user's original question directly.",
+            "id": "q1"
+          },
+          {
+            "question": "Why doesn't the factual accuracy of HyDE's generated hypothetical answer matter?",
+            "options": [
+              "Factual accuracy is actually critically important and HyDE requires a correct hypothetical answer",
+              "The hypothetical answer is never shown to the user and is used purely to shape the search query's embedding — what matters is how well it resembles the style and structure of real documents, not whether its claims are correct",
+              "HyDE never actually uses the hypothetical answer for anything",
+              "The hypothetical answer replaces the final generated answer shown to the user"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since the hypothetical answer's only role is to produce a search-query embedding with document-like phrasing, its truthfulness is irrelevant — the technique cares about stylistic resemblance to real answers, not correctness.",
+            "id": "q2"
+          },
+          {
+            "question": "What genuine cost does HyDE add to a RAG pipeline that standard query embedding doesn't have?",
+            "options": [
+              "HyDE has no additional cost compared to standard query embedding",
+              "HyDE requires an extra LLM generation call (to produce the hypothetical answer) before retrieval even happens, adding real latency and cost to the pipeline",
+              "HyDE eliminates the need for any embedding model at all",
+              "HyDE only works with a completely different, more expensive vector database"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since HyDE requires generating a hypothetical answer with an LLM call before the retrieval step can even begin, it introduces a genuine additional cost and latency compared to directly embedding the original question.",
+            "id": "q3"
+          },
+          {
+            "question": "In this lesson's conceptual code example, what does the generate() call produce before retrieval happens?",
+            "options": [
+              "A hypothetical_answer — a plausible passage that would answer the question",
+              "The final answer shown directly to the user",
+              "A completely rewritten version of the knowledge base",
+              "A list of every document in the knowledge base"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example shows generate() producing a hypothetical_answer, which is then embedded and used as the search query, rather than being shown to the user.",
+            "id": "q4"
+          },
+          {
+            "question": "According to this lesson, why is a hypothetical answer, even a wrong one, often useful for search?",
+            "options": [
+              "Because it's often phrased more like a real document passage than the original question is, in style, length, and vocabulary",
+              "Because search always ignores the content of the query embedding entirely",
+              "Because a hypothetical answer is always guaranteed to be completely accurate",
+              "Because questions and document passages are always phrased identically"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's core intuition is that a hypothetical answer tends to resemble real document language more closely than a short question does, even if the hypothetical content itself is wrong.",
+            "id": "q5"
+          },
+          {
+            "question": "What specific gap between question phrasing and document phrasing is HyDE designed to address?",
+            "options": [
+              "The mismatch between a short question and a long, detailed passage of prose that would actually contain the answer",
+              "The mismatch between two different languages used in the same knowledge base",
+              "The mismatch between a chunk's size and its embedding dimensionality",
+              "The mismatch between a user's tone and the model's tone"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly frames HyDE as addressing the case where a genuine, short question is phrased very differently from the long, detailed passage that would contain the actual answer.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson say worrying about the hypothetical answer's factual accuracy is a mistake?",
+            "options": [
+              "Because it's never shown to the user and is used purely to shape the search query's embedding — only its resemblance to real document language matters",
+              "Because the hypothetical answer always replaces the final answer shown to the user",
+              "Because factual accuracy is actually the single most important property of the hypothetical answer",
+              "Because HyDE requires manually verifying every hypothetical answer before use"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is worrying about the hypothetical answer's correctness, when its only role is stylistic resemblance to real documents for the purpose of generating a search embedding.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson warn against assuming HyDE always helps retrieval quality?",
+            "options": [
+              "Because its actual benefit depends on the specific gap between question phrasing and document phrasing in your particular corpus, worth testing against an eval set",
+              "Because HyDE is mathematically guaranteed to improve retrieval in every possible corpus",
+              "Because HyDE has no measurable effect on retrieval quality in any case",
+              "Because testing HyDE's benefit is never actually possible for any RAG system"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is assuming HyDE always helps, when like any retrieval technique its actual benefit should be validated against your specific eval set.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "rag_parent_child_retrieval",
+      "title": "Parent-Child Retrieval: Small Chunks, Wide Context",
+      "description": "Resolve the small-vs-large chunk tension by retrieving small but returning big.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain how parent-child retrieval resolves the chunk-size tension from earlier in this course."
+          },
+          {
+            "title": "🧩 Decoupling what's searched from what's returned",
+            "content": "Recall the chunk-size tension from earlier in this module: small chunks retrieve well but may lack context; large chunks have context but embed less precisely. **Parent-child (or 'small-to-big') retrieval** resolves this by decoupling the two: index small, focused **child chunks** for precise embedding and search, but when a child chunk is retrieved, return its larger **parent chunk** (or the surrounding section) as the actual context sent to the generator."
+          },
+          {
+            "title": "🎯 Best of both, without compromising either",
+            "content": "This gets precise retrieval (searching against small, focused embeddings) and rich generation context (returning the wider parent passage) without forcing a single chunk size to serve both purposes at once — directly resolving the tradeoff that a single fixed chunk size can't fully satisfy on its own.\n\n```python\n# Conceptual parent-child retrieval\n# indexing: embed small child chunks, but store a link to their parent section\nchild_chunk.metadata[\"parent_id\"] = parent_section.id\n\n# query time: search against child embeddings, but return parent content\nmatched_child = vector_search(query_embedding, child_index, k=5)\ncontext_for_generation = [get_parent(c) for c in matched_child]\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Retrieving and returning the same small chunk for both search and generation, missing out on this pattern's benefit entirely.** The whole value of parent-child retrieval comes from deliberately using different granularities for each purpose.\n\n**Making parent chunks so large that multiple retrieved children end up returning overlapping or redundant parent content.** This wastes context budget and can produce a repetitive or bloated prompt.\n\n**Forgetting the extra bookkeeping this pattern requires.** Maintaining the parent-child relationship (which child belongs to which parent) is additional indexing complexity beyond a standard flat chunking approach."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "rag_parent_child_retrieval_quiz",
+        "questions": [
+          {
+            "question": "What core tension does parent-child retrieval resolve?",
+            "options": [
+              "There is no tension being resolved; parent-child retrieval is unrelated to chunk size",
+              "The tension between small chunks retrieving well but lacking context, versus large chunks having context but embedding less precisely — by searching against small chunks but returning their larger parent content",
+              "The tension between BM25 and embedding-based search",
+              "The tension between local and hosted API models"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Parent-child retrieval directly addresses the chunk-size tradeoff from earlier in this module by decoupling what's searched (small, precise child chunks) from what's returned as context (the larger, more complete parent).",
+            "id": "q1"
+          },
+          {
+            "question": "How does parent-child retrieval get the benefits of both small and large chunks without a single compromise size?",
+            "options": [
+              "It doesn't; it still requires picking one single chunk size for everything",
+              "It indexes and searches against small, focused child chunks for precise retrieval, but returns the larger parent chunk or section as the actual context sent to the generator",
+              "It always returns the exact same chunk that was searched, with no distinction",
+              "It eliminates the need for chunking entirely"
+            ],
+            "correctAnswer": 1,
+            "explanation": "By using different granularities for the search step (small, precise child chunks) and the generation step (larger parent context), this pattern avoids forcing one chunk size to serve both purposes, which no single fixed size can fully satisfy.",
+            "id": "q2"
+          },
+          {
+            "question": "What additional complexity does parent-child retrieval introduce compared to standard flat chunking?",
+            "options": [
+              "It introduces no additional complexity whatsoever",
+              "It requires additional bookkeeping to maintain the relationship between each child chunk and its corresponding parent, beyond what a standard flat chunking approach needs",
+              "It eliminates the need for any embedding model",
+              "It requires a completely different vector database technology"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since child chunks need to be linked back to their parent for retrieval to return the right expanded context, maintaining that parent-child relationship is genuine extra indexing complexity not present in a simpler, flat chunking scheme.",
+            "id": "q3"
+          },
+          {
+            "question": "In this lesson's conceptual code example, what does child_chunk.metadata['parent_id'] store?",
+            "options": [
+              "A link from the small child chunk to its larger parent section",
+              "The exact embedding vector of the parent chunk",
+              "A completely unrelated random identifier with no meaning",
+              "The full text of the parent chunk duplicated inside the child's metadata"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example shows child_chunk.metadata['parent_id'] storing a link connecting the child chunk to its corresponding parent section.",
+            "id": "q4"
+          },
+          {
+            "question": "According to this lesson's code example, what happens at query time in parent-child retrieval?",
+            "options": [
+              "The system searches against child embeddings but returns the parent content via get_parent(c) for each matched child",
+              "The system searches against parent embeddings and returns only parent content",
+              "The system searches against child embeddings and returns only child content",
+              "No search happens; the entire parent-child structure is returned in full every time"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example shows vector_search running against the child_index, then calling get_parent(c) on each matched child to retrieve the actual context for generation.",
+            "id": "q5"
+          },
+          {
+            "question": "What alternative name does this lesson give for parent-child retrieval?",
+            "options": [
+              "'Small-to-big' retrieval",
+              "'Big-to-small' retrieval",
+              "'Flat' retrieval",
+              "'Recursive' retrieval"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly names 'small-to-big' as an alternative term for parent-child retrieval, reflecting how it searches small but returns big.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson warn against making parent chunks 'so large that multiple retrieved children end up returning overlapping or redundant parent content'?",
+            "options": [
+              "Because this wastes context budget and can produce a repetitive or bloated prompt",
+              "Because overly large parent chunks always improve retrieval precision with no downside",
+              "Because parent chunk size has no effect on the resulting prompt's content",
+              "Because redundant content in a prompt always improves the final answer's quality"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is oversized parent chunks causing redundant, overlapping content across multiple retrieved children, wasting the context budget.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson describe the parent-child relationship bookkeeping as 'additional indexing complexity'?",
+            "options": [
+              "Because maintaining which child belongs to which parent is extra work beyond a standard flat chunking approach",
+              "Because parent-child retrieval requires no additional bookkeeping whatsoever compared to flat chunking",
+              "Because flat chunking approaches always require more bookkeeping than parent-child retrieval",
+              "Because the parent-child relationship is automatically maintained with zero engineering effort"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is forgetting this extra bookkeeping requirement, since tracking child-to-parent relationships is genuine additional complexity beyond simple flat chunking.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,525 @@
+{
+  "id": "module_3",
+  "title": "Context Assembly & Generation",
+  "description": "Assembling retrieved chunks into a well-structured prompt, applying lost-in-the-middle awareness to chunk ordering, prompting for faithful and well-cited answers, and handling insufficient or contradictory retrieved context.",
+  "icon": "🧩",
+  "color": "#2E7D32",
+  "order": 3,
+  "estimatedHours": 2,
+  "difficulty": "Intermediate",
+  "prerequisites": [],
+  "lessons": [
+    {
+      "id": "rag_packing_context",
+      "title": "Packing Retrieved Context Into a Prompt",
+      "description": "Turn a list of retrieved chunks into a well-structured prompt for generation.",
+      "duration": "7 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can describe what a well-assembled RAG prompt includes beyond just pasting in retrieved text."
+          },
+          {
+            "title": "🧱 More than just concatenating chunks",
+            "content": "Turning a list of retrieved chunks into a good generation prompt means more than pasting them together: chunks typically need clear separation (so the model can tell where one source ends and another begins), a label or reference number per chunk (to support the citation requirement from earlier in this course), and often a system-level instruction (from the LLM engineering course) telling the model exactly how to use the provided context."
+          },
+          {
+            "title": "📋 A concrete assembled prompt",
+            "content": "```python\nprompt = f'''\nAnswer the question using ONLY the numbered sources below. Cite sources as [1], [2], etc.\nIf the sources don't contain the answer, say so.\n\n[1] {chunk_1_text}\n[2] {chunk_2_text}\n[3] {chunk_3_text}\n\nQuestion: {user_question}\n'''\n```\nThis structure gives the model everything it needs: the instruction (how to behave), clearly delimited numbered sources (what to use), and the question (what to answer) — the same instruction/context/question separation the LLM engineering course's prompt-structure lessons emphasized generally."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Concatenating chunks with no clear separation or labeling.** Without clear boundaries, the model may blend information from different sources in a way that makes citation and verification harder.\n\n**Forgetting to instruct the model on what to do when the context is insufficient.** Without this, a model tends to fall back on its own unsupported knowledge rather than admitting the retrieved context didn't contain the answer.\n\n**Not accounting for the token cost of the assembled prompt.** Every chunk, label, and instruction consumes tokens (from the LLM engineering course's token-budget lesson) — the assembly itself needs to respect the same budget constraints as any other prompt."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "rag_packing_context_quiz",
+        "questions": [
+          {
+            "question": "What does a well-assembled RAG prompt typically include beyond just the raw retrieved text?",
+            "options": [
+              "Nothing more is needed; raw concatenated text is always sufficient",
+              "Clear separation between chunks, a label or reference number per chunk to support citation, and a system-level instruction on exactly how to use the provided context",
+              "Only the user's original question, with no context included at all",
+              "A complete copy of the entire knowledge base, not just the retrieved chunks"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Effective RAG prompt assembly structures the retrieved material clearly — labeled, separated sources plus explicit instructions — rather than just pasting chunks together with no organization.",
+            "id": "q1"
+          },
+          {
+            "question": "Why does labeling each chunk with a reference number matter for a RAG prompt?",
+            "options": [
+              "Reference numbers have no functional purpose and are purely cosmetic",
+              "Numbered labels support the citation requirement from earlier in this course, letting the model reference specific sources (like [1] or [2]) in its generated answer",
+              "Labeling chunks always makes retrieval slower",
+              "Reference numbers replace the need for any actual chunk content"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Labeled sources give the model a concrete way to point back to exactly which piece of context supports a given claim, directly enabling the citation capability discussed earlier in this course.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is it important to explicitly instruct the model on what to do when the retrieved context is insufficient to answer the question?",
+            "options": [
+              "This instruction has no effect on the model's behavior",
+              "Without this instruction, a model tends to fall back on its own unsupported internal knowledge rather than admitting the retrieved context didn't actually contain the answer, risking an ungrounded, hallucinated response",
+              "Insufficient context never actually occurs in a real RAG system",
+              "The model always automatically admits when context is insufficient with no instruction needed"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Without explicit guidance, a model is likely to fill an information gap with its own unverified knowledge rather than clearly flagging that the provided sources didn't cover the question — exactly the kind of hallucination risk grounding is meant to prevent.",
+            "id": "q3"
+          },
+          {
+            "question": "In this lesson's example assembled prompt, how are the numbered sources formatted?",
+            "options": [
+              "As [1], [2], [3] labels preceding each chunk's text",
+              "As unlabeled paragraphs with no numbering at all",
+              "As a single combined block with no separation between chunks",
+              "As footnotes placed only at the very end of the prompt"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's example prompt shows sources labeled [1], [2], [3] before each chunk's text, supporting later citation in the answer.",
+            "id": "q4"
+          },
+          {
+            "question": "According to this lesson, what three elements does a well-assembled RAG prompt provide, mirroring the LLM engineering course's prompt-structure lessons?",
+            "options": [
+              "Instruction (how to behave), context (what to use), and the question (what to answer)",
+              "Only the question, with no instruction or context needed",
+              "Only the instruction, with no context or question included",
+              "A random ordering of chunks with no instruction or question at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly names this same instruction/context/question separation, echoing the general prompt-structure principle from the LLM engineering course.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does this lesson say concatenating chunks with no clear separation or labeling is a mistake?",
+            "options": [
+              "Because without clear boundaries, the model may blend information from different sources in a way that makes citation and verification harder",
+              "Because concatenation always improves citation accuracy compared to labeled chunks",
+              "Because chunk boundaries have no effect on citation or verification",
+              "Because labeling chunks always makes the model's answer less accurate"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is concatenating chunks without separation, which makes it harder for the model to keep sources distinguishable for accurate citation.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson connect prompt assembly to the LLM engineering course's token-budget lesson?",
+            "options": [
+              "Because every chunk, label, and instruction consumes tokens, so the assembled prompt needs to respect the same budget constraints as any other prompt",
+              "Because token budgets only apply to the final generated answer, never to the assembled context",
+              "Because prompt assembly has no relationship to token consumption at all",
+              "Because token budgets are irrelevant once retrieval has already happened"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is not accounting for the assembled prompt's token cost, since every part of it (chunks, labels, instructions) consumes tokens subject to the same budget constraints.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson emphasize instructing the model on what to do when context is insufficient, as part of prompt assembly?",
+            "options": [
+              "Because without this, a model tends to fall back on its own unsupported knowledge rather than admitting the retrieved context didn't contain the answer",
+              "Because insufficient context can never actually occur once chunks are properly assembled",
+              "Because this instruction has no bearing on whether the model produces a grounded answer",
+              "Because models always automatically admit insufficient context without any instruction"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is omitting this instruction, since without it a model is likely to fill an information gap with unsupported content instead of flagging it.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "rag_context_ordering",
+      "title": "Context Ordering: Lost in the Middle, Applied to RAG",
+      "description": "Apply the LLM engineering course's positional attention lesson directly to arranging retrieved chunks.",
+      "duration": "7 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain how the 'lost in the middle' effect from the LLM engineering course applies specifically to ordering retrieved chunks in a RAG prompt."
+          },
+          {
+            "title": "📍 Where you place the best chunk matters",
+            "content": "The LLM engineering course's 'lost in the middle' lesson showed that models attend more reliably to content near the start and end of a long context than content buried in the middle. Applied to RAG: if you're inserting several retrieved chunks into a prompt, the *order* you place them in can meaningfully affect whether the model actually uses the most relevant one well."
+          },
+          {
+            "title": "🎯 A practical ordering strategy",
+            "content": "One common mitigation: place your single most relevant retrieved chunk (by rerank score, from earlier in this course) either first or last in the assembled context, rather than in the middle of the list — directly applying the positional-attention lesson to a concrete RAG engineering decision, rather than leaving chunk order to whatever sequence retrieval happened to return them in.\n\n```python\n# Conceptual: ordering chunks to favor edge positions\n# naive: insert chunks in whatever order retrieval returned them\n# better: place the highest-reranked chunk first (or last),\n# rather than letting it land in the middle of a longer list\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Inserting retrieved chunks in arbitrary or purely score-descending order without considering positional effects.** A purely score-sorted list can still bury the top chunk in the middle if enough chunks are included — worth deliberately checking against the edge-position mitigation.\n\n**Assuming this effect is irrelevant because 'the model has all the chunks anyway.'** Having access to information in context doesn't guarantee equally reliable attention to all of it — the same distinction the LLM engineering course made about capacity versus reliable use.\n\n**Not testing whether chunk ordering actually affects your specific application's answer quality.** Like most techniques in this course, the practical benefit is worth confirming empirically against your own eval set rather than assumed universally."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "rag_context_ordering_quiz",
+        "questions": [
+          {
+            "question": "How does the 'lost in the middle' effect from the LLM engineering course apply to assembling a RAG prompt?",
+            "options": [
+              "It has no relevance to RAG prompt assembly at all",
+              "Just as models attend less reliably to content buried in the middle of a long context generally, the order in which retrieved chunks are placed in a RAG prompt can meaningfully affect whether the model actually uses the most relevant one well",
+              "This effect only applies to conversation history, never to retrieved documents",
+              "RAG prompts are always short enough that this effect never applies"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The same positional attention pattern applies directly here — where a retrieved chunk sits in the assembled prompt (start, middle, or end) can affect how reliably the model actually attends to and uses it, just as with any other long-context content.",
+            "id": "q1"
+          },
+          {
+            "question": "What is a practical mitigation for chunk-ordering effects in RAG prompt assembly?",
+            "options": [
+              "Always place chunks in a completely random order",
+              "Place the single most relevant retrieved chunk (by rerank score) either first or last in the assembled context, rather than letting it land in the middle of a longer chunk list",
+              "Never include more than one chunk in any prompt",
+              "Chunk ordering has no meaningful mitigation strategy"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Deliberately positioning the highest-value chunk at an edge position (start or end) directly applies the lost-in-the-middle mitigation strategy to the specific, practical task of assembling a RAG prompt from several retrieved chunks.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is it a mistake to assume this positional effect doesn't matter because 'the model has all the chunks anyway'?",
+            "options": [
+              "Having information technically present in the context guarantees the model will use it equally reliably regardless of position",
+              "Having access to information in context doesn't guarantee equally reliable attention to all of it — the same capacity-versus-reliable-use distinction the LLM engineering course made generally applies directly here",
+              "This concern is completely made up and has no basis in actual model behavior",
+              "Position only matters for chunks that are factually incorrect"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Technical presence in the context window is not the same as reliable attention to that content — this is exactly the distinction the LLM engineering course drew between context capacity and actual, uniform usage of everything within it.",
+            "id": "q3"
+          },
+          {
+            "question": "According to this lesson, what did the LLM engineering course's 'lost in the middle' lesson originally show about model attention?",
+            "options": [
+              "Models attend more reliably to content near the start and end of a long context than content buried in the middle",
+              "Models attend equally reliably to every position in a long context with no variation",
+              "Models attend only to the very last token in a context and ignore everything else",
+              "Models never attend reliably to any part of a long context regardless of position"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson recalls that the LLM engineering course's lesson showed unreliable attention to middle-positioned content compared to the start and end.",
+            "id": "q4"
+          },
+          {
+            "question": "What specific ordering mitigation does this lesson recommend for retrieved chunks?",
+            "options": [
+              "Place the single most relevant retrieved chunk, by rerank score, either first or last in the assembled context",
+              "Always place the least relevant chunk first, regardless of rerank score",
+              "Randomize chunk order on every single request",
+              "Place all chunks in reverse alphabetical order by their source document name"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly recommends placing the highest-reranked chunk at an edge position (first or last) rather than letting it land in the middle.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does this lesson say a purely score-descending order of chunks can still bury the top chunk in the middle?",
+            "options": [
+              "Because a score-sorted list can still place the top chunk in the middle of a longer list if enough chunks are included",
+              "Because score-descending order always guarantees the top chunk lands at an edge position",
+              "Because a score-sorted list never actually contains more than two chunks",
+              "Because sorting by score has no relationship to the chunk's position in the final list"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is assuming score-descending order alone is enough, when a sufficiently long list can still leave the top chunk in a middle, less-attended position.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson say having access to information in context doesn't guarantee equally reliable use of it?",
+            "options": [
+              "Because this is the same capacity-versus-reliable-use distinction the LLM engineering course made — technical presence isn't the same as consistent attention",
+              "Because having information present in context always guarantees the model uses it identically well regardless of position",
+              "Because reliable use of context only depends on the total length of the prompt, not on position",
+              "Because capacity and reliable use are always the exact same thing"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is assuming presence equals reliable use, echoing the LLM engineering course's distinction between what a model technically has access to and what it reliably attends to.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson recommend testing whether chunk ordering actually affects your specific application's answer quality?",
+            "options": [
+              "Because like most techniques in this course, the practical benefit is worth confirming empirically against your own eval set rather than assumed universally",
+              "Because chunk ordering never actually has any measurable effect on answer quality",
+              "Because testing chunk ordering is impossible for any real RAG application",
+              "Because ordering effects are always identical across every possible application"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is not testing ordering's actual effect, consistent with the empirical-validation discipline emphasized throughout this course.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "rag_prompting_for_citations_and_faithfulness",
+      "title": "Prompting for Faithful, Well-Cited Answers",
+      "description": "Write generation prompts that actively discourage drifting away from the retrieved context.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can name a few concrete prompting techniques that encourage a generator to stay faithful to retrieved context."
+          },
+          {
+            "title": "🎯 Explicit instructions that push toward faithfulness",
+            "content": "Beyond just providing context (from earlier in this module), explicit instructions can meaningfully shift generation behavior: telling the model to answer *using only* the provided sources (rather than general knowledge), asking it to quote or closely paraphrase the specific supporting text for each claim, and explicitly permitting (even encouraging) an 'I don't have enough information to answer that' response when appropriate."
+          },
+          {
+            "title": "🎯 Why 'permission to say I don't know' actually helps",
+            "content": "This connects to the hallucination lesson from the generative AI course: a model has no built-in strong incentive to admit uncertainty by default, since it's trained to produce plausible continuations. Explicitly telling it that an honest 'insufficient information' response is an acceptable, even preferred, outcome (rather than an admission of failure) measurably reduces ungrounded fabrication in practice.\n\n```python\nprompt_instruction = (\n    \"Answer using ONLY the provided sources. \"\n    \"Quote or closely paraphrase the specific text that supports each claim. \"\n    \"If the sources don't contain enough information to answer, \"\n    \"say 'I don't have enough information to answer that' rather than guessing.\"\n)\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming providing context alone is enough, without explicit faithfulness instructions.** Context availability doesn't automatically guarantee the model will restrict itself to using only that context.\n\n**Never explicitly permitting an 'I don't know' response.** Without this explicit permission, a model may default to attempting an answer even when the retrieved context genuinely doesn't support one.\n\n**Not testing whether these prompting techniques actually reduce unfaithful generation for your specific model and use case.** As with every other prompting technique in this curriculum, measuring actual effect against your eval set is what confirms real benefit."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "rag_prompting_for_citations_and_faithfulness_quiz",
+        "questions": [
+          {
+            "question": "Why isn't simply providing retrieved context in the prompt enough to guarantee a faithful, grounded answer?",
+            "options": [
+              "Providing context always guarantees perfectly faithful generation with no additional instruction needed",
+              "Context availability doesn't automatically restrict the model to using only that context — explicit instructions are needed to actively discourage the model from drifting into its own unsupported general knowledge",
+              "Faithfulness has no relationship to how a prompt is instructed",
+              "Models are incapable of generating unfaithful content when given any context at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Simply having relevant context present doesn't stop a model from also drawing on its own general training knowledge — explicit instructions to answer using only the provided sources are needed to actively steer generation toward genuine faithfulness.",
+            "id": "q1"
+          },
+          {
+            "question": "Why does explicitly permitting an 'I don't have enough information' response help reduce hallucination?",
+            "options": [
+              "This permission has no effect on the model's behavior whatsoever",
+              "A model has no built-in strong incentive to admit uncertainty by default since it's trained to produce plausible continuations, so explicitly framing an honest 'insufficient information' response as acceptable measurably reduces ungrounded fabrication",
+              "Models always naturally prefer to say 'I don't know' without needing any prompting",
+              "This technique only works for image generation, never for text-based RAG systems"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since a model's default training objective favors producing a plausible-sounding continuation rather than admitting uncertainty, explicitly framing honest uncertainty as an acceptable outcome — not a failure — shifts behavior toward more faithful, less fabricated responses.",
+            "id": "q2"
+          },
+          {
+            "question": "Why should the effect of faithfulness-encouraging prompt instructions be tested against an eval set rather than assumed?",
+            "options": [
+              "Testing is unnecessary since these techniques always produce identical benefits for every model and use case",
+              "Consistent with the evaluation discipline emphasized throughout this curriculum, measuring actual effect on your specific model and task confirms whether a prompting technique is genuinely reducing unfaithful generation, rather than assuming a generic benefit",
+              "Prompting techniques can never be meaningfully evaluated in any way",
+              "Faithfulness-related prompting never has any measurable effect worth testing"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This follows the same empirical-validation principle from earlier courses — confirming a real, measured improvement in faithfulness for your specific model and data is what justifies relying on a given prompting technique, rather than assuming it works based on general reputation.",
+            "id": "q3"
+          },
+          {
+            "question": "According to this lesson, what three concrete prompting techniques encourage faithfulness beyond just providing context?",
+            "options": [
+              "Answering using only the provided sources, quoting or closely paraphrasing supporting text, and explicitly permitting an 'I don't have enough information' response",
+              "Only ever asking the model to summarize the question back to the user",
+              "Only ever requesting a shorter answer with no other instructions",
+              "Only ever asking the model to translate the context into another language first"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson names these three specific techniques: source-only answering, quoting or closely paraphrasing supporting text, and explicitly permitting an insufficient-information response.",
+            "id": "q4"
+          },
+          {
+            "question": "In this lesson's example prompt instruction, what exact phrase is the model told to use when sources lack enough information?",
+            "options": [
+              "'I don't have enough information to answer that'",
+              "'This question is impossible to answer'",
+              "'Please rephrase your question and try again'",
+              "'I refuse to answer this question'"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's example prompt instruction explicitly specifies the phrase 'I don't have enough information to answer that' as the preferred response when sources are insufficient.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does this lesson connect the 'permission to say I don't know' technique to the generative AI course's hallucination lesson?",
+            "options": [
+              "Because a model has no built-in strong incentive to admit uncertainty by default, since it's trained to produce plausible continuations",
+              "Because the generative AI course never discussed hallucination in any way",
+              "Because models are always naturally inclined to admit uncertainty without any prompting",
+              "Because this technique has no relationship to hallucination reduction at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly connects this technique to the hallucination lesson, explaining that a model's default training objective favors plausible continuations over admitting uncertainty.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson say providing context alone doesn't guarantee faithful generation?",
+            "options": [
+              "Because context availability doesn't automatically restrict the model to using only that context — explicit instructions are needed to actively discourage drifting into unsupported knowledge",
+              "Because providing context always guarantees perfectly faithful generation with no additional instruction needed",
+              "Because faithfulness has no relationship to what instructions accompany the context",
+              "Because models are incapable of drawing on any knowledge beyond the provided context"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is assuming context alone suffices, when explicit faithfulness instructions are needed to actively steer generation away from unsupported claims.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson recommend testing these faithfulness-encouraging techniques against an eval set for your specific model and use case?",
+            "options": [
+              "Because measuring actual effect confirms whether a technique is genuinely reducing unfaithful generation, rather than assuming a generic benefit",
+              "Because these techniques always produce identical, guaranteed results for every model and use case",
+              "Because faithfulness-related prompting can never be meaningfully measured or evaluated",
+              "Because testing is only relevant for retrieval quality, never for generation faithfulness"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is not testing these techniques, consistent with the evaluation discipline emphasized throughout the curriculum.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "rag_insufficient_and_contradictory_context",
+      "title": "Handling Insufficient or Contradictory Retrieved Context",
+      "description": "Plan for the retrieval step returning something less than a clean, complete answer.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can describe how a well-designed RAG system handles two specific failure modes: too little retrieved information, and conflicting retrieved information."
+          },
+          {
+            "title": "🕳️ When retrieval comes back empty-handed or thin",
+            "content": "Sometimes retrieval genuinely doesn't find good matches — the question is outside the knowledge base's actual coverage, or the corpus simply doesn't contain the answer. A well-designed system detects this (low similarity scores across all retrieved candidates, from the calibrated-threshold lesson in the embeddings course) and responds accordingly — an honest 'I don't have information on that' rather than forcing a confident-sounding but ungrounded answer."
+          },
+          {
+            "title": "⚔️ When retrieved sources disagree",
+            "content": "A different failure mode: retrieval returns multiple chunks that genuinely contradict each other — an outdated policy document alongside its updated replacement, or two conflicting internal specifications. A well-designed prompt should instruct the model to surface this conflict explicitly (e.g. 'sources disagree — one states X, another states Y') rather than silently picking one arbitrarily or awkwardly blending them into an incoherent answer.\n\n```python\nprompt_instruction = (\n    \"If the provided sources contain conflicting information, \"\n    \"explicitly point out the disagreement and cite both sources, \"\n    \"rather than silently choosing one or blending them together.\"\n)\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming retrieval always returns clean, unambiguous, sufficient results.** Real knowledge bases are messy — outdated documents, ambiguous coverage, and genuine contradictions are a normal part of production RAG, not an edge case to ignore.\n\n**Not calibrating a 'no good match' threshold specifically for RAG.** Using the similarity-threshold calibration technique from the embeddings course to detect when retrieval genuinely found nothing useful is what enables an honest 'insufficient information' response instead of forcing an answer from weak matches.\n\n**Silently resolving contradictions instead of surfacing them.** A model that picks one of two conflicting sources without saying so hides a genuine problem in the underlying knowledge base that a human likely needs to know about and fix."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "rag_insufficient_and_contradictory_context_quiz",
+        "questions": [
+          {
+            "question": "How can a RAG system detect that retrieval genuinely didn't find good matches for a query?",
+            "options": [
+              "This situation is impossible to detect and can only be discovered by the user reporting a bad answer",
+              "By checking similarity scores across all retrieved candidates against a calibrated threshold (from the embeddings course) — consistently low scores signal that retrieval likely didn't find genuinely relevant content",
+              "Retrieval always finds a good match for every possible query with no exceptions",
+              "Only by manually reviewing every single query after the fact"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Using the calibrated similarity threshold approach from the embeddings course, consistently low scores across retrieved candidates is a concrete, detectable signal that the knowledge base likely doesn't actually cover the query well.",
+            "id": "q1"
+          },
+          {
+            "question": "What should a well-designed RAG prompt instruct the model to do when retrieved sources genuinely contradict each other?",
+            "options": [
+              "Silently pick whichever source seems more confident and ignore the conflict entirely",
+              "Explicitly surface the disagreement, citing both conflicting sources, rather than silently choosing one or awkwardly blending them into an incoherent answer",
+              "Always average the two conflicting pieces of information together numerically",
+              "Refuse to answer the question under any circumstances if any conflict exists"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Rather than hiding a genuine problem in the underlying knowledge base, explicitly surfacing a detected contradiction (with citations to both sources) gives the user accurate, actionable information about the disagreement instead of a falsely confident, silently-resolved answer.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is silently resolving a contradiction between two retrieved sources a problem, even if the final answer sounds coherent?",
+            "options": [
+              "It's never actually a problem as long as the final answer sounds confident and coherent",
+              "It hides a genuine underlying problem in the knowledge base (like an outdated document contradicting its replacement) that a human likely needs to know about and fix, rather than surfacing it",
+              "Contradictions between sources never actually occur in real knowledge bases",
+              "Silently resolving contradictions always produces the most accurate possible answer"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A silently blended answer masks a real data quality issue in the underlying knowledge base — surfacing the contradiction instead gives visibility into a problem (like stale documents) that likely needs actual human attention to resolve properly.",
+            "id": "q3"
+          },
+          {
+            "question": "According to this lesson, what signal from the embeddings course helps detect that retrieval genuinely found nothing useful?",
+            "options": [
+              "Low similarity scores across all retrieved candidates, checked against a calibrated threshold",
+              "The total number of documents in the knowledge base",
+              "The length of the user's original question",
+              "The color coding assigned to each retrieved chunk"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly recalls the calibrated-threshold lesson from the embeddings course: consistently low similarity scores signal that retrieval likely didn't find relevant content.",
+            "id": "q4"
+          },
+          {
+            "question": "In this lesson's example scenario of conflicting sources, what specific example of contradiction does it give?",
+            "options": [
+              "An outdated policy document alongside its updated replacement",
+              "Two completely unrelated documents about entirely different topics",
+              "A single document that contradicts itself internally on every page",
+              "Two documents written in two different languages with no overlapping content"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's example describes an outdated policy document alongside its updated replacement as a concrete case of retrieved sources genuinely disagreeing.",
+            "id": "q5"
+          },
+          {
+            "question": "In this lesson's example prompt instruction for contradictions, what is the model told to do instead of silently picking one source?",
+            "options": [
+              "Explicitly point out the disagreement and cite both sources",
+              "Always ignore the newer of the two conflicting sources",
+              "Always ignore the older of the two conflicting sources",
+              "Refuse to generate any response at all when a conflict is detected"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's example prompt instruction explicitly tells the model to point out the disagreement and cite both sources, rather than silently choosing or blending them.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson say assuming retrieval always returns clean, unambiguous results is a mistake?",
+            "options": [
+              "Because real knowledge bases are messy — outdated documents, ambiguous coverage, and genuine contradictions are a normal part of production RAG",
+              "Because retrieval always returns perfectly clean and unambiguous results in every real system",
+              "Because contradictions and ambiguity never actually occur in any real knowledge base",
+              "Because messiness in a knowledge base has no effect on retrieval or generation quality"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is assuming clean results are the norm, when messiness (contradictions, ambiguity, outdated content) is a normal part of real production RAG systems.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson say silently resolving a contradiction hides a problem a human likely needs to fix?",
+            "options": [
+              "Because a silently blended answer masks a real data quality issue in the underlying knowledge base, like an outdated document that needs updating or removal",
+              "Because silently resolving contradictions always produces a more accurate and useful answer",
+              "Because contradictions in a knowledge base never actually require any human attention",
+              "Because surfacing a contradiction always makes an answer less useful to the user"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is silently resolving contradictions, which hides a genuine underlying data quality issue that likely needs human attention to properly resolve.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

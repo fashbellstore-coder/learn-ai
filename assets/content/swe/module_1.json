@@ -1,0 +1,567 @@
+{
+  "id": "swe_data_structures",
+  "title": "Data Structures Every Engineer Needs",
+  "description": "Arrays, linked lists, hash maps, trees, graphs, stacks, queues, heaps, and choosing between them.",
+  "icon": "🧱",
+  "color": "#1565C0",
+  "order": 1,
+  "estimatedHours": 4,
+  "difficulty": "intermediate",
+  "prerequisites": [
+    "swe_clean_code"
+  ],
+  "lessons": [
+    {
+      "id": "swe_arrays_lists_and_hash_maps",
+      "title": "Arrays, Lists, and Hash Maps",
+      "description": "The three data structures that show up in almost every piece of code you'll ever write.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "State the typical time complexity of common operations on arrays, linked lists, and hash maps, and when to choose each."
+          },
+          {
+            "title": "📏 Arrays: fast access, costly insertion",
+            "content": "An array stores elements in contiguous memory, giving O(1) access by index but O(n) insertion or deletion in the middle, since every following element must shift. Great when you mostly read by position and rarely insert in the middle."
+          },
+          {
+            "title": "🔗 Linked lists: cheap insertion, costly access",
+            "content": "A linked list stores elements as nodes pointing to the next node, giving O(1) insertion/deletion once you have a reference to the right spot, but O(n) access by position, since you must walk the list from the start. Useful when insertions/deletions dominate and positional access is rare."
+          },
+          {
+            "title": "🗺️ Hash maps: near-constant lookup by key",
+            "content": "A hash map stores key-value pairs and gives average O(1) lookup, insertion, and deletion by key, using a hash function to compute where each key lives. This is the workhorse structure for 'look this up by an identifier' problems — the same underlying idea behind indexing a database table, which the SQL course covered from the database's side."
+          },
+          {
+            "title": "⚖️ Choosing between them",
+            "content": "The choice comes down to which operation dominates your actual usage pattern: frequent positional access favors arrays, frequent middle insertion favors linked lists, and frequent key-based lookup favors hash maps — the same 'measure your actual access pattern, then choose' discipline used to pick a vector index type in the Vector Databases course."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "A tiny timing comparison illustrating the array-vs-linked-list access/insertion trade-off, using Python's list (array-backed) and a hand-rolled singly linked list:\n\n```python\nimport time\n\n\nclass Node:\n    def __init__(self, value, next=None):\n        self.value = value\n        self.next = next\n\n\nclass LinkedList:\n    def __init__(self):\n        self.head = None\n\n    def push_front(self, value):\n        self.head = Node(value, self.head)  # O(1): no shifting required\n\n    def get_at(self, index):\n        node = self.head\n        for _ in range(index):          # O(n): must walk from the start\n            node = node.next\n        return node.value\n\n\ndef array_insert_front(arr, value):\n    arr.insert(0, value)  # O(n): every existing element shifts right\n\n\nN = 20_000\n\narr = list(range(N))\nstart = time.perf_counter()\narray_insert_front(arr, -1)\narray_insert_ms = (time.perf_counter() - start) * 1000\n\nll = LinkedList()\nfor i in range(N):\n    ll.push_front(i)\nstart = time.perf_counter()\nll.push_front(-1)\nlinked_insert_ms = (time.perf_counter() - start) * 1000\n\nstart = time.perf_counter()\n_ = arr[N // 2]\narray_access_ms = (time.perf_counter() - start) * 1000\n\nstart = time.perf_counter()\n_ = ll.get_at(N // 2)\nlinked_access_ms = (time.perf_counter() - start) * 1000\n\nprint(f\"insert at front: array={array_insert_ms:.4f}ms  linked_list={linked_insert_ms:.4f}ms\")\nprint(f\"access middle:   array={array_access_ms:.4f}ms  linked_list={linked_access_ms:.4f}ms\")\n```\n\n`array_insert_front` shifts all `N` existing elements to make room, while `LinkedList.push_front` just points `head` at a new node — no shifting at all. The trade reverses for access: indexing a Python list (`arr[N // 2]`) jumps straight to the element, while `get_at` on the linked list must walk `N // 2` nodes one at a time — exactly the O(1)-access-vs-O(1)-insertion trade the lesson describes, made visible as a timing difference instead of just an asymptotic claim."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Choosing a linked list \"for efficiency\" without frequent middle insertions actually happening.** A linked list's O(n) access cost is a real downside that only pays for itself when insertion/deletion genuinely dominates your access pattern — using one by default trades away array access speed for nothing.\n\n**Assuming a hash map preserves insertion or sorted order.** A plain hash map's iteration order isn't guaranteed to reflect insertion order or any sorted order — reaching for one when order actually matters (like a priority queue's ordering) is a mismatch worth catching early.\n\n**Ignoring hash collisions when reasoning about \"average O(1)\" hash map performance.** The O(1) average case assumes a reasonably distributed hash function; a pathological set of keys that collide heavily can degrade performance toward O(n) in the worst case.\n\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "swe_arrays_lists_and_hash_maps_quiz",
+        "questions": [
+          {
+            "question": "Why does inserting into the middle of an array cost O(n) time?",
+            "options": [
+              "Because every element after the insertion point must shift to make room",
+              "Because arrays cannot store more than a fixed number of elements",
+              "Because array insertion always requires re-sorting the whole array",
+              "Because arrays use a hash function for every insertion"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Contiguous storage means later elements physically need to move to accommodate a new element in the middle.",
+            "id": "q1"
+          },
+          {
+            "question": "What is the average-case time complexity of a hash map lookup by key?",
+            "options": [
+              "O(1)",
+              "O(n)",
+              "O(n log n)",
+              "O(n^2)"
+            ],
+            "correctAnswer": 0,
+            "explanation": "A well-implemented hash map computes a key's location directly via its hash function, giving average constant-time lookup.",
+            "id": "q2"
+          },
+          {
+            "question": "Which structure would generally be preferred for a workload dominated by frequent insertions in the middle of a sequence, with rare positional access?",
+            "options": [
+              "A linked list",
+              "An array",
+              "A hash map",
+              "None of these, since none support insertion"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Linked lists handle insertion/deletion efficiently once you're at the right node, unlike arrays which require shifting elements.",
+            "id": "q3"
+          },
+          {
+            "question": "Per '🗺️ Hash maps: near-constant lookup by key', what earlier-course idea does the lesson compare a hash map's design to?",
+            "options": [
+              "Indexing a database table, covered from the database's side in the SQL course",
+              "Backpropagation from the Deep Learning course",
+              "Tokenization from the LLM course",
+              "Sharding a vector database from the Vector Databases course"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly draws this parallel: a hash map's key-lookup mechanism is the same underlying idea behind database indexing, just seen from the data-structure side.",
+            "id": "q4"
+          },
+          {
+            "question": "Per '⚖️ Choosing between them', what should drive the choice among arrays, linked lists, and hash maps?",
+            "options": [
+              "Whichever operation actually dominates your real usage pattern",
+              "Whichever structure uses the least total memory in every case",
+              "Always defaulting to a hash map regardless of access pattern",
+              "Whichever structure was used in the most recently written code"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson frames this as the same 'measure your actual access pattern, then choose' discipline used elsewhere in the curriculum for picking a vector index type.",
+            "id": "q5"
+          },
+          {
+            "question": "In the code example, why does array_insert_front take longer than LinkedList.push_front for large N?",
+            "options": [
+              "Because arr.insert(0, value) must shift all N existing elements, while push_front only needs to point head at a new node",
+              "Because LinkedList.push_front actually sorts the list before inserting",
+              "Because array_insert_front recomputes every element's hash",
+              "Because Python lists cannot hold more than a few thousand elements"
+            ],
+            "correctAnswer": 0,
+            "explanation": "arr.insert(0, value) is documented as O(n) precisely because of the shifting cost, while push_front is O(1) since it just rewires one pointer.",
+            "id": "q6"
+          },
+          {
+            "question": "In the code example, what does LinkedList.get_at(index) have to do that arr[index] does not?",
+            "options": [
+              "Walk the list one node at a time from the head until it reaches the target index",
+              "Recompute a hash for the given index",
+              "Sort the entire list before returning a value",
+              "Allocate a new array of the same size"
+            ],
+            "correctAnswer": 0,
+            "explanation": "get_at's for loop steps through `node = node.next` index times, unlike a Python list's direct O(1) index access via arr[index].",
+            "id": "q7"
+          },
+          {
+            "question": "Per 'Common mistakes', why can a hash map's 'average O(1)' performance claim break down in practice?",
+            "options": [
+              "Because a pathological set of keys that collide heavily can degrade performance toward O(n) in the worst case",
+              "Because hash maps never actually achieve O(1) performance under any circumstances",
+              "Because hash maps only work correctly with integer keys",
+              "Because Python does not implement hash maps at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The mistakes section notes that the O(1) average case assumes a reasonably distributed hash function, and heavy collisions can push real performance toward the worst case.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "swe_trees_and_graphs",
+      "title": "Trees and Graphs",
+      "description": "Hierarchies and networks — two data structures that model almost every real-world relationship worth representing.",
+      "duration": 13,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Distinguish trees from graphs structurally, and name a real use case for each."
+          },
+          {
+            "title": "🌳 Trees: strictly hierarchical",
+            "content": "A tree is a graph with no cycles, where every node (except the root) has exactly one parent. Trees model naturally hierarchical data: a file system's folder structure, an HTML document's DOM, or — closer to this curriculum — a decision tree from the Machine Learning course, or the module/lesson hierarchy of this very learning platform's curriculum structure."
+          },
+          {
+            "title": "🕸️ Graphs: arbitrary relationships",
+            "content": "A graph generalizes a tree by allowing any node to connect to any other node, including cycles and multiple parents. Graphs model networks: a social network's connections, a road network, or a dependency graph — exactly the shape of the `prerequisiteTrackIds` relationships that structure this entire curriculum's course ordering."
+          },
+          {
+            "title": "🚶 Traversal: how you visit every node",
+            "content": "Breadth-first search (BFS) explores level by level, useful for finding the shortest path in an unweighted graph. Depth-first search (DFS) explores as far as possible down one branch before backtracking, useful for exploring all reachable nodes or detecting cycles. Both apply to trees and graphs alike, since a tree is just a graph without cycles."
+          },
+          {
+            "title": "🔗 Where you've already used these ideas",
+            "content": "The LangGraph course's state graphs and the Agents course's planning graphs are graphs in exactly this sense — nodes and edges representing steps and transitions. Understanding graph traversal here gives you the vocabulary underlying those higher-level, AI-specific graph abstractions."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "A small graph represented as an adjacency list, with both BFS (shortest path) and DFS (reachability) implemented:\n\n```python\nfrom collections import deque\n\n# A course prerequisite graph: course -> list of courses that require it directly.\ngraph = {\n    \"python\": [\"ml\", \"sql\"],\n    \"sql\": [\"data_engineering\"],\n    \"ml\": [\"deep_learning\"],\n    \"deep_learning\": [\"nlp\", \"computer_vision\"],\n    \"nlp\": [],\n    \"computer_vision\": [],\n    \"data_engineering\": [],\n}\n\n\ndef bfs_shortest_path(graph, start, target):\n    queue = deque([[start]])\n    visited = {start}\n    while queue:\n        path = queue.popleft()\n        node = path[-1]\n        if node == target:\n            return path\n        for neighbor in graph.get(node, []):\n            if neighbor not in visited:\n                visited.add(neighbor)\n                queue.append(path + [neighbor])\n    return None\n\n\ndef dfs_reachable(graph, start):\n    visited = set()\n    stack = [start]\n    while stack:\n        node = stack.pop()\n        if node in visited:\n            continue\n        visited.add(node)\n        stack.extend(graph.get(node, []))\n    return visited\n\n\nprint(\"shortest path python -> nlp:\", bfs_shortest_path(graph, \"python\", \"nlp\"))\nprint(\"everything reachable from python:\", sorted(dfs_reachable(graph, \"python\")))\n```\n\n`bfs_shortest_path` explores the graph level by level via a queue, so the first time it reaches `target` is guaranteed to be via the fewest edges — exactly why BFS suits shortest-path problems. `dfs_reachable` instead uses a stack to plunge as deep as possible before backtracking, which is a better fit for the \"what's everything reachable\" question than for finding the *shortest* route to any one node."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Using DFS when the shortest path is actually what's needed.** DFS will find *a* path, but not necessarily the shortest one in an unweighted graph — BFS's level-by-level exploration is what guarantees shortest-path correctness here.\n\n**Forgetting to track visited nodes in a graph with cycles.** Unlike a tree, a graph can have cycles, so a traversal without a `visited` set can loop forever revisiting the same nodes — the exact bug the `visited` set in both functions above exists to prevent.\n\n**Assuming every hierarchy-shaped problem is actually a tree.** If a \"child\" can legitimately have more than one \"parent\" (like a course that's a prerequisite reached via two different paths), it's a graph, not a tree, and tree-only assumptions (like \"every node has one parent\") will silently produce wrong results.\n\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "swe_trees_and_graphs_quiz",
+        "questions": [
+          {
+            "question": "What structurally distinguishes a tree from a general graph?",
+            "options": [
+              "A tree has no cycles and each non-root node has exactly one parent",
+              "A tree must have more nodes than a graph",
+              "A graph cannot have any edges",
+              "A tree always has more edges than nodes"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The 'no cycles, one parent per non-root node' property is exactly what makes a tree a special, more restricted case of a graph.",
+            "id": "q1"
+          },
+          {
+            "question": "Which traversal strategy is most naturally suited to finding the shortest path in an unweighted graph?",
+            "options": [
+              "Breadth-first search (BFS)",
+              "Depth-first search (DFS)",
+              "Binary search",
+              "Quick sort"
+            ],
+            "correctAnswer": 0,
+            "explanation": "BFS explores level by level, guaranteeing the first time it reaches a node is via the shortest unweighted path.",
+            "id": "q2"
+          },
+          {
+            "question": "The `prerequisiteTrackIds` relationships structuring this curriculum's course ordering are best modeled as",
+            "options": [
+              "A graph, since courses can have multiple prerequisites and be prerequisites for multiple other courses",
+              "A single linked list with one course following the previous one",
+              "A hash map with no relationships between entries",
+              "An array indexed purely by course release date"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Multiple, possibly overlapping prerequisite relationships between courses form exactly the kind of network structure a graph is built to represent.",
+            "id": "q3"
+          },
+          {
+            "question": "Per '🔗 Where you've already used these ideas', which earlier courses' abstractions are described as graphs in the same sense as this lesson?",
+            "options": [
+              "LangGraph's state graphs and the Agents course's planning graphs",
+              "The SQL course's table schemas",
+              "The Fine-Tuning course's LoRA adapters",
+              "The Vector Databases course's HNSW index"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly names LangGraph's state graphs and the Agents course's planning graphs as nodes-and-edges structures built on this same graph vocabulary.",
+            "id": "q4"
+          },
+          {
+            "question": "Per '🚶 Traversal: how you visit every node', why does DFS apply equally well to trees and graphs?",
+            "options": [
+              "Because a tree is just a graph without cycles, so graph traversal algorithms work on trees too",
+              "Because trees and graphs use entirely different traversal algorithms",
+              "Because DFS only works on trees, never on general graphs",
+              "Because trees never have more than one node"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson states plainly that both BFS and DFS apply to trees and graphs alike, since a tree is a special case of a graph.",
+            "id": "q5"
+          },
+          {
+            "question": "In the code example, what does bfs_shortest_path return for bfs_shortest_path(graph, 'python', 'nlp')?",
+            "options": [
+              "['python', 'ml', 'deep_learning', 'nlp']",
+              "['python', 'sql', 'data_engineering']",
+              "['python', 'nlp']",
+              "None, because nlp is unreachable from python"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Following the graph dict, python connects to ml, ml connects to deep_learning, and deep_learning connects to nlp — a 4-node path, which BFS finds as the shortest route.",
+            "id": "q6"
+          },
+          {
+            "question": "In dfs_reachable, what is the purpose of the `visited` set?",
+            "options": [
+              "To prevent revisiting (and potentially infinitely looping on) nodes already processed",
+              "To store the shortest path found so far",
+              "To count the total number of edges in the graph",
+              "To sort the nodes alphabetically before returning them"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The `if node in visited: continue` check skips nodes already processed, which is what prevents cycles from causing infinite traversal.",
+            "id": "q7"
+          },
+          {
+            "question": "Per 'Common mistakes', why can using DFS instead of BFS be a mistake when the goal is the shortest path?",
+            "options": [
+              "Because DFS will find a path, but not necessarily the shortest one, in an unweighted graph",
+              "Because DFS cannot be implemented using a stack",
+              "Because DFS always visits every node in the graph before returning any result",
+              "Because BFS and DFS always return identical paths in every graph"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The mistakes section reiterates that DFS's depth-first exploration doesn't guarantee the shortest route, unlike BFS's level-by-level guarantee.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "swe_stacks_queues_and_heaps",
+      "title": "Stacks, Queues, and Heaps",
+      "description": "Three specialized structures, each enforcing a different rule about what comes out next.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain the ordering rule each structure enforces and match each to a realistic use case."
+          },
+          {
+            "title": "📚 Stacks: last in, first out",
+            "content": "A stack only allows adding or removing from one end — the last thing pushed is the first thing popped (LIFO). This models function call stacks (which is literally how recursion, covered in the next lesson, works under the hood), undo history, and parsing nested structures like matching brackets."
+          },
+          {
+            "title": "🚶 Queues: first in, first out",
+            "content": "A queue only allows adding at one end and removing from the other — the first thing enqueued is the first thing dequeued (FIFO). This models task queues, like the background job systems covered in the App Dev course, and breadth-first search's node-visiting order from the previous lesson."
+          },
+          {
+            "title": "⛰️ Heaps: always retrieve the extreme",
+            "content": "A heap keeps track of the minimum (or maximum) element efficiently, giving O(log n) insertion and O(log n) removal of the extreme element, without needing to fully sort everything. This is exactly the structure behind priority queues — the scheduling and request-prioritization problem the LLM Inference course's scheduling lesson described conceptually, now with a concrete data structure behind it."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "A toy bracket-matching validator (stack), a FIFO task queue (queue), and a priority queue via Python's `heapq` (heap):\n\n```python\nimport heapq\nfrom collections import deque\n\n\ndef brackets_are_balanced(text):\n    # A stack: the most recently opened bracket must be the next one closed.\n    pairs = {\")\": \"(\", \"]\": \"[\", \"}\": \"{\"}\n    stack = []\n    for ch in text:\n        if ch in \"([{\":\n            stack.append(ch)\n        elif ch in \")]}\":\n            if not stack or stack.pop() != pairs[ch]:\n                return False\n    return not stack\n\n\ntask_queue = deque()\ntask_queue.append(\"send_email\")\ntask_queue.append(\"resize_image\")\ntask_queue.append(\"index_document\")\nprocessed_order = [task_queue.popleft() for _ in range(len(task_queue))]  # FIFO\n\n\npriority_tasks = []\nheapq.heappush(priority_tasks, (2, \"regenerate_thumbnail\"))\nheapq.heappush(priority_tasks, (0, \"handle_payment_failure\"))  # lower number = higher priority\nheapq.heappush(priority_tasks, (1, \"send_notification\"))\npriority_order = [heapq.heappop(priority_tasks)[1] for _ in range(len(priority_tasks))]\n\nprint(\"balanced '([{}])':\", brackets_are_balanced(\"([{}])\"))\nprint(\"balanced '([)]':\", brackets_are_balanced(\"([)]\"))\nprint(\"queue processed in order:\", processed_order)\nprint(\"priority queue processed in order:\", priority_order)\n```\n\n`brackets_are_balanced` pushes every opening bracket and pops on every closing one, failing the moment a popped bracket doesn't match — exactly LIFO behavior, which is why `'([)]'` fails (the `)` tries to close a `[`, not the `(` it should). `task_queue` processes strictly in the order items were appended (FIFO), while `priority_tasks` — a heap — always pops the lowest-numbered (highest-priority) task next regardless of insertion order, surfacing `handle_payment_failure` first even though it was pushed second."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Using a list's `pop(0)` to implement a queue.** Removing from the front of a Python list is O(n), since every remaining element shifts — `collections.deque`'s `popleft()` is O(1) and is the structure actually built for FIFO access.\n\n**Assuming a heap keeps its elements in fully sorted order internally.** A heap only guarantees the minimum (or maximum) is efficiently accessible at the top; the rest of its internal storage is not a sorted sequence, so indexing into it directly for \"the second smallest\" doesn't work the way it would on a sorted list.\n\n**Reaching for a stack when insertion order, not recency, is what actually matters.** A stack's LIFO behavior processes the newest item first — the wrong choice whenever fairness or arrival order matters, which is exactly what a queue is for instead.\n\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "swe_stacks_queues_and_heaps_quiz",
+        "questions": [
+          {
+            "question": "What ordering rule does a stack enforce?",
+            "options": [
+              "Last in, first out (LIFO)",
+              "First in, first out (FIFO)",
+              "Always retrieves the smallest element regardless of insertion order",
+              "Elements are retrieved in random order"
+            ],
+            "correctAnswer": 0,
+            "explanation": "A stack only allows access at one end, so the most recently added element is always the first one removed.",
+            "id": "q1"
+          },
+          {
+            "question": "A background job queue processing tasks in the order they were submitted is best modeled by which structure?",
+            "options": [
+              "A queue (FIFO)",
+              "A stack (LIFO)",
+              "A heap ordered by insertion time",
+              "A hash map with random iteration order"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Processing tasks in submission order is exactly the FIFO behavior a queue is designed to enforce.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is a heap well-suited for implementing a priority queue?",
+            "options": [
+              "Because it efficiently retrieves the minimum or maximum element without needing to fully sort the entire collection",
+              "Because it only supports LIFO ordering",
+              "Because it requires no comparisons between elements",
+              "Because it can only store a fixed number of elements"
+            ],
+            "correctAnswer": 0,
+            "explanation": "A heap's structure is specifically optimized for repeatedly extracting the highest- or lowest-priority element efficiently, which is exactly what a priority queue needs.",
+            "id": "q3"
+          },
+          {
+            "question": "Per '📚 Stacks: last in, first out', what is described as literally implemented using a stack under the hood?",
+            "options": [
+              "Function call stacks, which is how recursion (covered in the next lesson) works",
+              "Hash map key lookups",
+              "Breadth-first search's node-visiting order",
+              "A relational database's join operation"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly states that function call stacks are literally how recursion works under the hood, directly connecting to the following lesson.",
+            "id": "q4"
+          },
+          {
+            "question": "Per '⛰️ Heaps: always retrieve the extreme', what real problem from an earlier course does the lesson connect a heap-backed priority queue to?",
+            "options": [
+              "The scheduling and request-prioritization problem described conceptually in the LLM Inference course's scheduling lesson",
+              "The SQL course's join operations",
+              "The Vector Databases course's distance metrics",
+              "The Clean Code module's naming guidelines"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly ties the heap-backed priority queue structure back to the request-prioritization concept described conceptually in the LLM Inference course.",
+            "id": "q5"
+          },
+          {
+            "question": "In the code example, why does brackets_are_balanced('([)]') return False?",
+            "options": [
+              "Because when ')' is encountered, the top of the stack is '[' rather than the matching '(', so the popped bracket doesn't match",
+              "Because the string contains an unsupported character",
+              "Because the stack is empty before any bracket is processed",
+              "Because '([)]' contains more opening than closing brackets"
+            ],
+            "correctAnswer": 0,
+            "explanation": "After pushing '(' and '[', the ')' triggers a pop that returns '[', which doesn't match pairs[')'] == '(', so the function returns False immediately.",
+            "id": "q6"
+          },
+          {
+            "question": "In the code example, why does priority_order surface 'handle_payment_failure' before 'regenerate_thumbnail', even though it was pushed after 'regenerate_thumbnail'?",
+            "options": [
+              "Because heapq.heappush maintains heap order by priority number, and 0 (handle_payment_failure) is lower than 2 (regenerate_thumbnail), and lower numbers pop first",
+              "Because heapq processes items in the exact order they were pushed, ignoring the tuple's first element",
+              "Because regenerate_thumbnail was accidentally never pushed",
+              "Because heapq.heappop always returns the most recently pushed item"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The heap orders by each tuple's first element (the priority number), and the code comment notes lower numbers mean higher priority, so 0 (handle_payment_failure) pops before 2 (regenerate_thumbnail) despite insertion order.",
+            "id": "q7"
+          },
+          {
+            "question": "Per 'Common mistakes', why is using a Python list's pop(0) a poor way to implement a queue?",
+            "options": [
+              "Because removing from the front of a list is O(n), unlike collections.deque's O(1) popleft()",
+              "Because list.pop(0) always raises an exception",
+              "Because lists cannot store more than one type of data",
+              "Because pop(0) removes from the end of the list, not the front"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The mistakes section explains that a list's front removal costs O(n) due to shifting, while deque is the structure actually designed for efficient FIFO access.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "swe_choosing_the_right_data_structure",
+      "title": "Choosing the Right Data Structure",
+      "description": "The single skill that matters more than memorizing any individual structure: matching structure to access pattern.",
+      "duration": 11,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Work through a small design scenario and justify a data structure choice based on the operations that actually dominate."
+          },
+          {
+            "title": "❓ The questions to ask first",
+            "content": "What operation happens most often — lookup, insertion, deletion, or ordered traversal? Does order matter, or just membership? Is the data naturally hierarchical, networked, or flat? Answering these before reaching for a specific structure avoids the common mistake of picking a familiar structure out of habit rather than fit."
+          },
+          {
+            "title": "🧮 A worked example",
+            "content": "Building a 'recently viewed lessons' feature that needs fast membership checks (has this lesson been viewed?) and fast insertion, but doesn't need ordered traversal beyond recency: a hash set for membership plus a small fixed-size queue for recency ordering, combined, often beats reaching for a single one-size-fits-all structure."
+          },
+          {
+            "title": "🔗 The same instinct as every other trade-off in this curriculum",
+            "content": "This is the same requirements-first thinking behind choosing a vector index (Vector Databases course), a serving precision level (LLM Inference course), or a distance metric — start from what the system actually needs to do most often, then let that drive the structural choice, rather than picking the most familiar tool first."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "A small 'recently viewed lessons' tracker combining a hash set (fast membership) with a fixed-size deque (recency order), following the worked example above:\n\n```python\nfrom collections import deque\n\n\nclass RecentlyViewed:\n    def __init__(self, max_size=5):\n        self.max_size = max_size\n        self.order = deque()   # most-recent-first ordering, bounded size\n        self.members = set()   # O(1) membership checks\n\n    def mark_viewed(self, lesson_id):\n        if lesson_id in self.members:\n            self.order.remove(lesson_id)  # move it back to the front\n        elif len(self.order) >= self.max_size:\n            oldest = self.order.pop()      # evict the least-recently viewed\n            self.members.discard(oldest)\n        self.order.appendleft(lesson_id)\n        self.members.add(lesson_id)\n\n    def has_viewed(self, lesson_id):\n        return lesson_id in self.members  # O(1), not a linear scan\n\n    def recent_list(self):\n        return list(self.order)\n\n\ntracker = RecentlyViewed(max_size=3)\nfor lesson_id in [\"intro\", \"loops\", \"functions\", \"intro\", \"classes\"]:\n    tracker.mark_viewed(lesson_id)\n\nprint(\"has_viewed('loops'):\", tracker.has_viewed(\"loops\"))\nprint(\"has_viewed('functions'):\", tracker.has_viewed(\"functions\"))\nprint(\"recent order:\", tracker.recent_list())\n```\n\n`has_viewed` answers membership via the `members` set in O(1), never scanning the whole recency list — exactly the fast-membership requirement from the worked example. `mark_viewed` evicts the oldest entry (`order.pop()`) only once `max_size` is exceeded, which is why `'loops'` eventually falls out of `recent_list()` after enough newer lessons are viewed, while `has_viewed` still correctly reports it as no longer tracked."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Reaching for a single familiar structure (usually a list) and forcing every operation through it.** A plain list gives you neither fast membership checks nor efficient recency tracking at scale — combining structures suited to each specific requirement, as in the worked example, is often the better fit.\n\n**Optimizing for an operation that barely happens, at the cost of the one that dominates.** Choosing a structure for its ordered-traversal properties when the real workload is 99% membership checks trades away performance where it actually matters.\n\n**Skipping the requirements questions and jumping straight to an implementation.** Picking a structure before asking what actually dominates the access pattern often means discovering the mismatch only after the code is already built around the wrong choice.\n\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "swe_choosing_the_right_data_structure_quiz",
+        "questions": [
+          {
+            "question": "What should drive a data structure choice, according to this lesson?",
+            "options": [
+              "Which operations (lookup, insertion, deletion, ordered traversal) actually dominate the real usage pattern",
+              "Whichever structure the engineer is most familiar with, regardless of the problem",
+              "Always choosing the structure with the fewest lines of code to implement",
+              "Whichever structure uses the least memory in every scenario"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Matching the structure to the operations that actually happen most often is the core skill — not defaulting to whatever is most familiar.",
+            "id": "q1"
+          },
+          {
+            "question": "For a 'recently viewed items' feature needing fast membership checks and fast insertion, a reasonable combined approach is",
+            "options": [
+              "A hash set for membership plus a small queue for recency ordering",
+              "A single sorted array with no other structure",
+              "A stack alone with no hash-based lookup",
+              "A tree with no leaf nodes"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Combining structures to match distinct requirements (fast membership vs. recency order) often outperforms forcing one structure to do both jobs.",
+            "id": "q2"
+          },
+          {
+            "question": "This lesson's approach to choosing a data structure mirrors which other decision-making pattern in this curriculum?",
+            "options": [
+              "Choosing a vector index type or serving precision based on actual requirements, not habit",
+              "Always picking the newest technology available",
+              "Ignoring requirements entirely and using a fixed default",
+              "Choosing based solely on what's fastest to type"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The requirements-first, 'what does this system actually need' reasoning recurs throughout this curriculum, from vector indexes to serving precision to data structures here.",
+            "id": "q3"
+          },
+          {
+            "question": "Per '❓ The questions to ask first', what mistake does the lesson say answering these questions upfront helps avoid?",
+            "options": [
+              "Picking a familiar structure out of habit rather than fit",
+              "Writing any tests for the data structure at all",
+              "Ever needing to combine more than one data structure",
+              "Considering time complexity in the first place"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson states directly that answering these questions first avoids the common mistake of choosing a structure out of habit instead of based on what the problem actually needs.",
+            "id": "q4"
+          },
+          {
+            "question": "In the worked example, why does a hash set for membership plus a small queue for recency beat a single one-size-fits-all structure?",
+            "options": [
+              "Because the feature needs fast membership checks and fast insertion, but not ordered traversal beyond recency — two distinct requirements a single structure wouldn't serve equally well",
+              "Because hash sets are always faster than every other data structure in every situation",
+              "Because queues cannot be combined with any other data structure",
+              "Because the feature has no requirement for insertion at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson frames this as matching each distinct requirement (membership vs. recency order) to the structure best suited for it, rather than compromising with one structure for both.",
+            "id": "q5"
+          },
+          {
+            "question": "In the code example, why does has_viewed run in O(1) rather than scanning the full recent_list()?",
+            "options": [
+              "Because it checks membership against the `members` set, which supports O(1) average lookup, rather than iterating through `order`",
+              "Because recent_list() is always empty",
+              "Because has_viewed only ever checks the single most recent item",
+              "Because the deque automatically sorts its contents for fast searching"
+            ],
+            "correctAnswer": 0,
+            "explanation": "has_viewed's implementation is `lesson_id in self.members`, and self.members is a Python set, which gives average O(1) membership checks rather than a linear scan.",
+            "id": "q6"
+          },
+          {
+            "question": "In the code example, after marking 'intro', 'loops', 'functions', 'intro', 'classes' as viewed with max_size=3, why does has_viewed('loops') return False?",
+            "options": [
+              "Because 'loops' was evicted from both order and members once more than max_size=3 distinct lessons had been viewed more recently",
+              "Because 'loops' was never actually passed to mark_viewed",
+              "Because mark_viewed raises an error the second time 'intro' is viewed",
+              "Because has_viewed only works for the single most recently viewed lesson"
+            ],
+            "correctAnswer": 0,
+            "explanation": "With max_size=3, once 'intro' (re-viewed), 'classes', and 'functions' are the three most recent, 'loops' has been evicted via order.pop() and members.discard(oldest), so has_viewed correctly reports it as no longer tracked.",
+            "id": "q7"
+          },
+          {
+            "question": "Per 'Common mistakes', why can forcing every operation through a single familiar structure like a plain list be a problem?",
+            "options": [
+              "Because a plain list gives neither fast membership checks nor efficient recency tracking at scale, unlike structures suited to each specific requirement",
+              "Because Python lists cannot store more than a fixed number of elements",
+              "Because lists are always slower than every other data structure for every operation",
+              "Because combining structures is technically not possible in most programming languages"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The mistakes section explains that a single familiar structure often serves none of the distinct requirements well, unlike a combination purpose-built for each one.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

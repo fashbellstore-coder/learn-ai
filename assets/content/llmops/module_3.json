@@ -1,0 +1,575 @@
+{
+  "id": "llo_evaluation_gates",
+  "title": "Evaluation Gates & Quality Assurance",
+  "description": "Building LLM evaluation harnesses, LLM-as-judge at operational scale, regression testing for prompts and models, and gating deployment on combined evaluation results.",
+  "icon": "🧪",
+  "color": "#6A1B9A",
+  "order": 3,
+  "estimatedHours": 5,
+  "difficulty": "advanced",
+  "prerequisites": [
+    "llo_tracing_and_observability"
+  ],
+  "lessons": [
+    {
+      "id": "llo_building_eval_harnesses",
+      "title": "Building an Evaluation Harness for an LLM Application",
+      "description": "The infrastructure that turns 'I think this change is better' into a repeatable, defensible measurement.",
+      "duration": 13,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Describe the components of an LLM evaluation harness and connect it to the eval-set-building practices from the Fine-Tuning and RAG courses."
+          },
+          {
+            "title": "📋 What a harness needs",
+            "content": "A representative set of test cases (extending the Fine-Tuning course's held-out-set principle and the RAG course's eval-set-building lesson) covering the range of real inputs the system needs to handle, including known-hard edge cases discovered from actual production traffic. A defined scoring method for each test case — reference-based comparison where a clear correct answer exists, or a rubric for more open-ended cases. A way to run the whole suite automatically and get a summary result, not something requiring manual review of every single case every time it runs."
+          },
+          {
+            "title": "🔗 Reusing eval sets across courses' concepts",
+            "content": "This harness doesn't start from nothing — the RAG course's evaluation metrics (module 5 of that course), the Agents course's multi-dimensional evaluation approach (outcome, trajectory, component-level), and the Fine-Tuning course's evaluation principles all feed directly into what a comprehensive LLM application harness actually measures, applied now to the specific system being operated rather than treated as separate, unconnected evaluation frameworks."
+          },
+          {
+            "title": "🔄 Running the harness continuously, not just once",
+            "content": "Per this course's fundamentals module, the harness needs to run automatically on every relevant change (a prompt update, a model swap, a new retrieval strategy) as a CI/CD-style gate, mirroring the MLOps course's automated evaluation-gated model promotion directly — a harness that exists but only gets run manually, occasionally, provides much weaker protection than one wired into the deployment pipeline as a mandatory check."
+          },
+          {
+            "title": "🎯 Maintaining the harness over time",
+            "content": "Just as the MLOps course's production-monitoring lesson emphasized refreshing a stale evaluation set with real production examples, an LLM evaluation harness needs the same ongoing maintenance — as new failure patterns are discovered in production (via the tracing infrastructure from module 2), they should be added to the harness as new test cases, so the harness gets better at catching known problem categories over time rather than staying frozen at whatever it covered when first built."
+          },
+          {
+            "title": "💻 A minimal evaluation harness in Python",
+            "content": "The sketch below shows the shape a harness actually takes in code: a list of test cases, each with an input and a scoring strategy, run through the system under test and reduced to a single pass/fail summary. Reference-based cases compare against a known-good answer; rubric cases fall back to a scoring function (in practice, often an LLM-as-judge call from the next lesson). The important part isn't the scoring logic itself — it's that every case runs the same way, automatically, and produces one number a CI pipeline can gate on.\n\n```python\nfrom dataclasses import dataclass\nfrom typing import Callable, Optional\n\n@dataclass\nclass EvalCase:\n    case_id: str\n    input: str\n    reference: Optional[str] = None\n    rubric_scorer: Optional[Callable[[str, str], float]] = None\n\ndef build_eval_harness(cases: list[EvalCase], system_under_test: Callable[[str], str],\n                        pass_threshold: float = 0.8):\n    results = []\n    for case in cases:\n        output = system_under_test(case.input)\n        if case.reference is not None:\n            score = 1.0 if output.strip() == case.reference.strip() else 0.0\n        elif case.rubric_scorer is not None:\n            score = case.rubric_scorer(case.input, output)\n        else:\n            raise ValueError(f\"case {case.case_id} has no scoring method\")\n        results.append({\"case_id\": case.case_id, \"score\": score, \"output\": output})\n\n    pass_rate = sum(r[\"score\"] for r in results) / len(results)\n    return {\n        \"pass_rate\": pass_rate,\n        \"passed\": pass_rate >= pass_threshold,\n        \"results\": results,\n    }\n```\n\nEvery case runs through the same `build_eval_harness` entry point regardless of whether it's scored by exact reference match or by a rubric function, which is exactly what lets this run unattended as a CI/CD gate rather than needing a human to look at each case."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Building the harness around only the easy, obvious cases.** A harness that skips known-hard edge cases from production traffic will pass cleanly while the system keeps failing on the inputs that actually matter in the real world.\n\n**Treating the harness as a one-time build rather than a living asset.** Without feeding newly discovered production failures back in as test cases, the harness stays frozen at whatever it covered on day one and stops catching the problems the system is actually running into now.\n\n**Wiring the harness up but only running it manually.** A harness that isn't a mandatory, automated check on every relevant change gives much weaker protection than one that's actually gating deployments, since it's easy to skip 'just this once' under time pressure."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "llo_building_eval_harnesses_quiz",
+        "questions": [
+          {
+            "question": "What does a representative test-case set for an LLM evaluation harness build on from earlier courses?",
+            "options": [
+              "Nothing — evaluation harnesses are a completely new concept with no prior foundation",
+              "The Fine-Tuning course's held-out-set principle and the RAG course's eval-set-building lesson, extended to cover real inputs and known-hard edge cases",
+              "Only the MLOps course's data validation checks, with no other connection",
+              "The LangGraph course's state schema design principles"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This harness directly extends the held-out and eval-set-building principles already established in the Fine-Tuning and RAG courses, rather than introducing an unrelated new concept.",
+            "id": "q1"
+          },
+          {
+            "question": "Why should an evaluation harness run automatically on every relevant change, rather than manually and occasionally?",
+            "options": [
+              "Manual, occasional evaluation always provides equal or better protection",
+              "Mirroring the MLOps course's CI/CD-gated promotion, an automated, mandatory check provides much stronger protection than one that's only run manually and infrequently",
+              "Automated evaluation is technically impossible for LLM applications",
+              "Running the harness has no relationship to deployment safety"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Wiring the harness into the deployment pipeline as an automated gate (mirroring the MLOps course's model-promotion gate) provides consistent, reliable protection that manual, occasional runs cannot match.",
+            "id": "q2"
+          },
+          {
+            "question": "How should an evaluation harness be maintained over time, per this lesson?",
+            "options": [
+              "It should never be changed once initially built",
+              "New failure patterns discovered in production (via tracing) should be added as new test cases, keeping the harness effective against evolving real-world problems",
+              "The harness should be completely rebuilt from scratch every month regardless of findings",
+              "Maintenance is unnecessary since LLM applications never encounter new failure patterns"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Just as the MLOps course recommended refreshing a stale evaluation set with real production examples, an LLM harness should incorporate newly discovered failure patterns to stay effective over time.",
+            "id": "q3"
+          },
+          {
+            "question": "According to the lesson, what are the two scoring approaches a harness's test cases can use?",
+            "options": [
+              "Reference-based comparison for cases with a clear correct answer, and a rubric for more open-ended cases",
+              "Only reference-based comparison, since rubrics are never reliable enough to use",
+              "Only rubric scoring, since reference answers don't exist for LLM applications",
+              "Random sampling of outputs with no defined scoring method at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly describes reference-based comparison for cases with a clear correct answer and rubric scoring for more open-ended cases as the two defined scoring methods a harness needs.",
+            "id": "q4"
+          },
+          {
+            "question": "Why does the lesson emphasize that the harness should produce 'a summary result, not something requiring manual review of every single case'?",
+            "options": [
+              "Because manual review is always more accurate than automated summaries",
+              "Because a harness that still needs a human to look at every case every run can't realistically be run continuously as an automated CI/CD-style gate",
+              "Because summary results are required by law for LLM applications",
+              "Because individual case results are never useful for debugging"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A harness that requires manual review of every case defeats the purpose of continuous, automated gating — the whole point is a summary a pipeline can act on without a human in the loop each time.",
+            "id": "q5"
+          },
+          {
+            "question": "In the `build_eval_harness` code example, what determines whether a given `EvalCase` is scored by exact match or by a rubric function?",
+            "options": [
+              "The order the cases appear in the list",
+              "Whether `case.reference` is set (exact match) or `case.rubric_scorer` is set (rubric scoring)",
+              "The length of the case's input string",
+              "A random coin flip performed for each case"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The function checks `case.reference is not None` first for exact-match scoring, and falls back to `case.rubric_scorer` for rubric-based scoring — the case's own fields determine the scoring path.",
+            "id": "q6"
+          },
+          {
+            "question": "In the `build_eval_harness` code example, what does the function raise an error for?",
+            "options": [
+              "A case that scores 0.0",
+              "A case that has neither a `reference` nor a `rubric_scorer` set, since it has no way to be scored",
+              "A case whose input string is empty",
+              "A case where the system under test returns more than one line of output"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The function explicitly raises a `ValueError` when a case has no scoring method configured, since such a case can't be reduced to a pass/fail contribution.",
+            "id": "q7"
+          },
+          {
+            "question": "A team builds an evaluation harness once at project kickoff and never revisits it, even as new production failure modes get discovered. What mistake does this illustrate?",
+            "options": [
+              "Treating the harness as a one-time build rather than a living asset that should incorporate newly discovered production failures as test cases",
+              "Running the harness too frequently for the team's CI/CD pipeline",
+              "Using rubric-based scoring when reference-based scoring was available",
+              "Over-investing in edge-case coverage rather than common-case coverage"
+            ],
+            "correctAnswer": 0,
+            "explanation": "This is exactly the 'frozen harness' mistake called out in the Common Mistakes section — without ongoing maintenance fed by production tracing, the harness stops catching the problems the system is actually running into.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "llo_llm_as_judge_at_scale",
+      "title": "LLM-as-Judge at Operational Scale",
+      "description": "Using a model to grade another model's output is powerful and convenient — and needs its own safeguards to actually be trustworthy.",
+      "duration": 13,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain how LLM-as-judge evaluation works, its known limitations, and the practices that make it trustworthy enough to gate deployments."
+          },
+          {
+            "title": "⚖️ What LLM-as-judge does",
+            "content": "Building directly on the Fine-Tuning course's mention of LLM-based judges for scaling up qualitative review: a strong model is given a rubric and asked to score or compare outputs, standing in for expensive, slow human review at a scale that makes continuous, automated evaluation (per the previous lesson) actually feasible — without LLM-as-judge, evaluating open-ended generation quality automatically at the volume an operational gate requires would be genuinely difficult."
+          },
+          {
+            "title": "⚠️ Known limitations to design around",
+            "content": "LLM judges have their own biases (a tendency to favor longer responses regardless of actual quality, sensitivity to response ordering when comparing two outputs, inconsistency across repeated calls on the exact same input) — these aren't reasons to avoid LLM-as-judge entirely, but reasons to design its use carefully, exactly as the Fine-Tuning course's evaluation lesson recommended periodically spot-checking against real human judgment rather than trusting it blindly."
+          },
+          {
+            "title": "🎯 Practices that make LLM-as-judge more trustworthy",
+            "content": "A clear, specific rubric (vague grading criteria produce vague, inconsistent judgments). Randomizing response order when comparing two outputs, to counteract position bias. Running multiple judge calls and aggregating (majority vote or averaging) rather than trusting a single call, to reduce the impact of any one inconsistent judgment. Periodic calibration against human-labeled examples — checking that the judge's scores actually correlate with what a human reviewer would say, and recalibrating the rubric or approach if they've drifted apart."
+          },
+          {
+            "title": "🔗 Where LLM-as-judge fits in a complete evaluation strategy",
+            "content": "LLM-as-judge is one tool within the broader evaluation harness from the previous lesson, best suited to open-ended quality dimensions that reference-based automated metrics can't capture well — it complements, rather than replaces, reference-based checks (for tasks with a genuinely correct answer) and periodic human review (as a calibration check on the judge itself), echoing the same 'multiple complementary evaluation layers, not one silver bullet' theme from the Agents course's evaluation lesson."
+          },
+          {
+            "title": "💻 A position-randomized, multi-call LLM judge",
+            "content": "The example below shows the two practices from this lesson that matter most in code: randomizing which response is shown first before each judge call (to counteract position bias) and running several independent judge calls before aggregating, rather than trusting any single call. The judge itself is a stand-in — in a real harness it would be an actual model call against a rubric — but the surrounding structure is what makes the judgment trustworthy enough to gate on.\n\n```python\nimport random\nfrom collections import Counter\n\ndef call_judge_model(prompt: str) -> str:\n    \"\"\"Stand-in for an actual LLM call; returns 'A' or 'B'.\"\"\"\n    ...\n\ndef llm_judge(question: str, response_a: str, response_b: str,\n              rubric: str, num_calls: int = 5) -> str:\n    votes = []\n    for _ in range(num_calls):\n        # Randomize order each call to counteract position bias.\n        flipped = random.random() < 0.5\n        first, second = (response_b, response_a) if flipped else (response_a, response_b)\n        prompt = (\n            f\"{rubric}\\n\\nQuestion: {question}\\n\"\n            f\"Response 1: {first}\\nResponse 2: {second}\\n\"\n            \"Which response is better, 1 or 2?\"\n        )\n        verdict = call_judge_model(prompt)\n        # Map the verdict back to the original A/B labeling.\n        winner = (\"B\" if verdict == \"1\" else \"A\") if flipped else (\"A\" if verdict == \"1\" else \"B\")\n        votes.append(winner)\n\n    tally = Counter(votes)\n    return tally.most_common(1)[0][0]\n```\n\nBecause `llm_judge` reshuffles order on every call and aggregates several votes by majority rather than returning the first verdict it gets, a single inconsistent or position-biased call can't unilaterally decide the outcome."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Trusting a single judge call as ground truth.** One call reflects that call's particular ordering and whatever inconsistency the judge model happened to show that time, not a stable verdict — aggregating several calls smooths this out.\n\n**Comparing two responses in a fixed order every time.** Without randomizing which response appears first, a judge's position bias can systematically favor one side regardless of actual quality.\n\n**Never spot-checking the judge against human judgment.** A judge that drifts from correlating with real human evaluation can look like it's working (producing confident scores) while actually gating deployments on a broken signal."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "llo_llm_as_judge_at_scale_quiz",
+        "questions": [
+          {
+            "question": "Why does LLM-as-judge evaluation make continuous, automated quality evaluation feasible at scale?",
+            "options": [
+              "It doesn't — LLM-as-judge is slower than human review in every case",
+              "It stands in for expensive, slow human review, making automated evaluation of open-ended generation quality feasible at the volume an operational gate requires",
+              "LLM-as-judge eliminates the need for any evaluation rubric",
+              "Only reference-based metrics can ever be used at scale"
+            ],
+            "correctAnswer": 1,
+            "explanation": "LLM-as-judge scales up qualitative evaluation to a volume that continuous, automated gating requires, which pure human review couldn't practically sustain.",
+            "id": "q1"
+          },
+          {
+            "question": "What is a known bias of LLM judges mentioned in this lesson?",
+            "options": [
+              "LLM judges are always perfectly consistent across repeated calls",
+              "A tendency to favor longer responses regardless of actual quality, and sensitivity to response ordering when comparing outputs",
+              "LLM judges never have any biases whatsoever",
+              "LLM judges only work correctly on numerical data"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Length bias and position sensitivity are specific, well-documented LLM-as-judge limitations that need to be designed around rather than ignored.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is periodic calibration against human-labeled examples recommended for LLM-as-judge?",
+            "options": [
+              "Calibration is unnecessary once a judge model is chosen",
+              "It checks that the judge's scores still correlate with human judgment, catching drift and prompting recalibration if needed, echoing the Fine-Tuning course's spot-checking recommendation",
+              "Human labeling should completely replace LLM-as-judge in every case",
+              "Calibration only matters for reference-based evaluation, never for judge-based evaluation"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Periodically verifying the judge against human judgment, as the Fine-Tuning course recommended, catches cases where the automated judge has drifted from being a reliable proxy for actual quality.",
+            "id": "q3"
+          },
+          {
+            "question": "Per this lesson, where does LLM-as-judge fit relative to reference-based checks and human review?",
+            "options": [
+              "It should completely replace both reference-based checks and human review",
+              "It complements them, best suited to open-ended quality dimensions that reference-based metrics can't capture, while human review still serves as a calibration check",
+              "It is entirely redundant with reference-based checks and adds nothing new",
+              "It should only be used when no other evaluation method is available"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson frames LLM-as-judge as one layer among several complementary evaluation layers, not a silver bullet that replaces reference-based checks or human calibration.",
+            "id": "q4"
+          },
+          {
+            "question": "Why does a vague, non-specific rubric undermine LLM-as-judge trustworthiness?",
+            "options": [
+              "Vague rubrics make the judge model run more slowly",
+              "Vague grading criteria produce vague, inconsistent judgments, which is exactly the kind of unreliability the trustworthiness practices are meant to counteract",
+              "Vague rubrics are actually preferred because they let the judge use its own creativity",
+              "Rubrics have no effect on judge consistency"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson states directly that vague grading criteria produce vague, inconsistent judgments, which is why a clear, specific rubric is listed as a key trustworthiness practice.",
+            "id": "q5"
+          },
+          {
+            "question": "In the `llm_judge` code example, why does the function flip `first` and `second` based on a random coin flip before each call?",
+            "options": [
+              "To make the function run faster by skipping unnecessary comparisons",
+              "To counteract position bias by not always showing the same response in the same slot across calls",
+              "Because the judge model requires alphabetically sorted input",
+              "To ensure both responses are always identical before comparison"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Randomizing which response appears first on each call is exactly the position-bias mitigation described in the lesson, implemented via the `flipped` coin flip.",
+            "id": "q6"
+          },
+          {
+            "question": "In the `llm_judge` code example, what does the function return, and how is it determined?",
+            "options": [
+              "The result of the very first judge call, ignoring the rest",
+              "The response ('A' or 'B') with the most votes across `num_calls` independent, order-randomized judge calls",
+              "A random choice between 'A' and 'B' regardless of any judge calls",
+              "The response that appears first in the original argument order"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`llm_judge` tallies the mapped-back winners from all calls with `Counter` and returns the most common one, implementing the multi-call aggregation practice rather than trusting a single verdict.",
+            "id": "q7"
+          },
+          {
+            "question": "A team deploys an LLM-as-judge pipeline that always places the new model's response first and the baseline's response second when comparing them, and never checks judge scores against human ratings. What two mistakes does this illustrate?",
+            "options": [
+              "Using reference-based scoring instead of a rubric, and running too many judge calls",
+              "Comparing responses in a fixed order every time (position bias risk) and never spot-checking the judge against human judgment",
+              "Running too few LLM calls in production and using an overly detailed rubric",
+              "Using a single powerful judge model instead of several smaller ones"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Fixed-order comparison risks systematic position bias, and skipping human spot-checks means judge drift could go undetected — both are explicitly called out as mistakes in this lesson.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "llo_regression_testing_prompts_and_models",
+      "title": "Regression Testing for Prompts and Models",
+      "description": "The catastrophic-forgetting problem from the Fine-Tuning course has a direct analogue here: a prompt or model change that helps the target case while quietly breaking something that used to work.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Design a regression test suite for LLM application changes, connecting directly to the catastrophic-forgetting lesson from the Fine-Tuning course."
+          },
+          {
+            "title": "🔗 The direct parallel to catastrophic forgetting",
+            "content": "The Fine-Tuning course's catastrophic-forgetting lesson warned that improving a model on a narrow target task can silently degrade unrelated capabilities, and that every actively-tracked metric can look great while something unrelated regresses. The exact same risk applies to a prompt change: a tweak that fixes one specific failure case can change model behavior in ways that break a previously-working case, with nothing about the specific change under test revealing that regression."
+          },
+          {
+            "title": "🧪 Building a regression suite for prompts and system changes",
+            "content": "A fixed set of test cases representing capabilities and behaviors the system currently handles correctly — not just the specific case a given change is targeting — run against every proposed change (per the eval-harness lesson's continuous-gating approach), specifically to catch the case where a fix for one thing breaks something else. This is a distinct purpose from the target-case evaluation covered in the harness-building lesson: that lesson asks 'did this change improve what it was meant to improve,' while regression testing asks 'did this change break anything that used to work.'"
+          },
+          {
+            "title": "📊 What regression tests should specifically cover",
+            "content": "Previously-identified edge cases and failure modes (fed by production tracing, per module 2, exactly as the eval-harness-maintenance lesson described) that were fixed once and shouldn't silently reappear. Core, common-case behaviors that need to keep working reliably even as less common cases get iterated on. Safety-relevant behaviors (refusals, handling of sensitive inputs) that a prompt change could inadvertently affect even when the change's stated intent had nothing to do with safety."
+          },
+          {
+            "title": "🎯 Treating regression as seriously as the target improvement",
+            "content": "Mirroring the Fine-Tuning course's explicit guidance to treat a regression finding as seriously as a failure on the actual target task: a prompt change that improves its target case but regresses on the regression suite shouldn't ship as-is, even though it technically achieved its stated goal — exactly the trap the catastrophic-forgetting lesson warned narrow, single-metric evaluation falls into."
+          },
+          {
+            "title": "💻 A regression suite that flags newly broken cases",
+            "content": "The function below runs a fixed suite of previously-passing cases against a candidate change and compares the results to a stored baseline, so the output isn't just a pass rate but a specific list of cases that used to work and now don't — the detail that actually matters for a regression check, versus the target-case evaluation from the harness-building lesson.\n\n```python\nfrom dataclasses import dataclass\nfrom typing import Callable\n\n@dataclass\nclass RegressionCase:\n    case_id: str\n    input: str\n    expected_ok: Callable[[str], bool]  # returns True if output is still acceptable\n\ndef run_regression_suite(cases: list[RegressionCase],\n                          candidate_system: Callable[[str], str],\n                          baseline_pass_ids: set[str]) -> dict:\n    newly_broken = []\n    still_passing = []\n\n    for case in cases:\n        output = candidate_system(case.input)\n        ok = case.expected_ok(output)\n        if ok:\n            still_passing.append(case.case_id)\n        elif case.case_id in baseline_pass_ids:\n            # It used to pass under the baseline and doesn't anymore: a regression.\n            newly_broken.append(case.case_id)\n\n    return {\n        \"newly_broken\": newly_broken,\n        \"still_passing\": still_passing,\n        \"has_regression\": len(newly_broken) > 0,\n    }\n```\n\nBy comparing against `baseline_pass_ids` rather than just checking pass/fail in isolation, `run_regression_suite` surfaces exactly the cases that flipped from working to broken — the signal the target-case evaluation from the harness-building lesson isn't designed to catch."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Only re-testing the specific case a change was meant to fix.** A regression suite that doesn't also check previously-working, unrelated behaviors can't catch the exact failure mode this lesson is about — a fix that quietly breaks something else.\n\n**Treating a passing target-case score as sufficient to ship.** A change can technically achieve its stated goal while regressing on safety-relevant or core common-case behavior, which is why regression results need to be checked as seriously as the target metric, not treated as a secondary concern.\n\n**Letting the regression suite go stale.** If newly discovered production failures never get folded back in as regression cases, the suite stops reflecting what the system actually needs to keep getting right."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "llo_regression_testing_prompts_and_models_quiz",
+        "questions": [
+          {
+            "question": "What direct parallel does this lesson draw to the Fine-Tuning course's catastrophic-forgetting concept?",
+            "options": [
+              "There is no parallel — regression testing and catastrophic forgetting are unrelated",
+              "A prompt change that fixes one target case can silently break previously-working behavior, exactly like fine-tuning a model on a narrow task can degrade unrelated capabilities",
+              "Catastrophic forgetting only applies to model weights, never to prompts",
+              "Regression testing replaces the need for the catastrophic-forgetting concept entirely"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson explicitly draws this parallel: narrow, targeted improvements (whether via fine-tuning or a prompt change) can quietly regress unrelated capabilities that weren't being actively measured.",
+            "id": "q1"
+          },
+          {
+            "question": "How does regression testing differ in purpose from the target-case evaluation covered in the harness-building lesson?",
+            "options": [
+              "They serve the exact same purpose with no meaningful difference",
+              "Target-case evaluation asks whether a change improved what it was meant to improve, while regression testing asks whether the change broke anything that used to work",
+              "Regression testing only applies to classical ML models, never LLM prompts",
+              "Target-case evaluation is unnecessary once regression testing exists"
+            ],
+            "correctAnswer": 1,
+            "explanation": "These are distinct, complementary evaluation purposes — one measures intended improvement, the other guards against unintended, unrelated breakage.",
+            "id": "q2"
+          },
+          {
+            "question": "What should happen if a prompt change improves its target case but regresses on the regression suite?",
+            "options": [
+              "It should ship immediately since it achieved its stated goal",
+              "It shouldn't ship as-is, mirroring the Fine-Tuning course's guidance to treat a regression finding as seriously as a failure on the target task itself",
+              "Regression suite results should always be ignored in favor of target-case results",
+              "The regression suite should be deleted if it produces an inconvenient result"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Just as the Fine-Tuning course warned against narrow, single-metric evaluation, a genuine regression should block shipping even when the change technically succeeded at its stated goal.",
+            "id": "q3"
+          },
+          {
+            "question": "According to the lesson, what three categories should a regression suite specifically cover?",
+            "options": [
+              "Only the single case the current change is targeting",
+              "Previously-identified edge cases, core common-case behaviors, and safety-relevant behaviors",
+              "Only performance metrics like latency and cost",
+              "Only cases where the model's output is unusually long"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson lists previously-fixed edge cases, core common-case behaviors, and safety-relevant behaviors as the specific things a regression suite should cover.",
+            "id": "q4"
+          },
+          {
+            "question": "Where do the test cases fed into a regression suite come from, per this lesson's connection to module 2?",
+            "options": [
+              "They are generated randomly with no connection to real system behavior",
+              "They are fed by production tracing, incorporating previously discovered failure modes that were fixed and shouldn't silently reappear",
+              "They come exclusively from the original model training data",
+              "They are written once before launch and never updated"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson explicitly ties regression case sourcing to production tracing from module 2, mirroring the ongoing-maintenance approach described in the eval-harness-maintenance lesson.",
+            "id": "q5"
+          },
+          {
+            "question": "In the `run_regression_suite` code example, what makes a case count as part of `newly_broken`?",
+            "options": [
+              "Any case where the output is longer than expected",
+              "A case that fails the `expected_ok` check now but whose id is in `baseline_pass_ids`, meaning it used to pass and no longer does",
+              "Any case that was never run before",
+              "A case that passes `expected_ok` but has a low confidence score"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The function only adds a case to `newly_broken` when it fails now and its id appears in `baseline_pass_ids` — i.e., it specifically flipped from passing to failing.",
+            "id": "q6"
+          },
+          {
+            "question": "In the `run_regression_suite` code example, why does the function compare against `baseline_pass_ids` rather than just reporting a plain pass/fail count?",
+            "options": [
+              "Because plain pass/fail counts are computationally more expensive",
+              "Because the goal is to surface cases that flipped from working to broken, which a simple pass rate wouldn't distinguish from cases that never worked in the first place",
+              "Because `baseline_pass_ids` is required by the scoring rubric format",
+              "Because the candidate system cannot run without a baseline argument"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Comparing against the baseline lets the suite identify specifically the cases that regressed, which is the distinct signal regression testing is meant to provide beyond a generic pass rate.",
+            "id": "q7"
+          },
+          {
+            "question": "A team's regression suite only contains the exact case their latest prompt change was designed to fix, and they ship the change once that one case passes. Which mistake does this illustrate?",
+            "options": [
+              "Letting the regression suite go stale by not updating it with new production failures",
+              "Only re-testing the specific case a change was meant to fix, instead of also checking previously-working, unrelated behaviors",
+              "Treating a passing target-case score as insufficient to ship",
+              "Randomizing response order to counteract position bias"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A regression suite that covers only the targeted case can't catch the scenario this lesson warns about — an unrelated, previously-working behavior silently breaking as a side effect of the fix.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "llo_gating_deployment_on_eval_results",
+      "title": "Gating Deployment on Evaluation Results",
+      "description": "Turning the harness, LLM-as-judge, and regression suite from this module into an actual go/no-go decision wired into the deployment pipeline.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Design a deployment gate that combines the evaluation practices from this module into a concrete promotion decision, mirroring the MLOps course's CI/CD gate."
+          },
+          {
+            "title": "🚦 What a gate actually checks",
+            "content": "Combining this module's practices into one gate, mirroring the MLOps course's model-promotion threshold directly: does the change clear a minimum quality bar on the target evaluation (from the harness-building lesson), does it pass the regression suite (previous lesson) with no new failures on previously-working cases, and does it stay within acceptable cost and latency bounds (foreshadowing module 5) — a change needs to clear all of these, not just one, to be promoted, exactly the multi-dimensional evaluation principle from this course's fundamentals module made concrete as an actual gate."
+          },
+          {
+            "title": "📊 Setting meaningful thresholds",
+            "content": "Mirroring the MLOps course's alerting-threshold lesson directly: thresholds need to be calibrated to what actually matters for the application, not an arbitrary number — too strict, and legitimate improvements get blocked constantly, slowing iteration to a crawl (echoing the evaluation-thoroughness-versus-speed tension from this course's fundamentals module); too lax, and the gate provides only an illusion of safety."
+          },
+          {
+            "title": "🧍 Automated gating versus human review",
+            "content": "For lower-stakes changes, a fully automated pass/fail gate (clear the thresholds, deploy automatically via the canary/shadow strategies from the MLOps course) is often appropriate. For higher-stakes changes (a major prompt rewrite, a new model version, a change to a safety-relevant behavior), a human review step even after passing automated gates mirrors the same approval-gate pattern from the Agents and LangGraph courses, calibrated to risk exactly as the MLOps course's governance lesson recommended for model deployment decisions."
+          },
+          {
+            "title": "🎯 Closing the loop back to this course's fundamentals",
+            "content": "This gate is the concrete mechanism that makes the 'continuous, automated evaluation gate' vision from this course's third lesson actually real — every practice in this module (harness-building, LLM-as-judge, regression testing) exists to feed this one decision point, which is exactly why gating comes as this module's final lesson, integrating everything that came before it in this module into one operational checkpoint."
+          },
+          {
+            "title": "💻 A deployment gate combining all four checks",
+            "content": "The function below is the concrete 'go/no-go' checkpoint the whole module has been building toward: it takes the outputs of the eval harness, the regression suite, and cost/latency measurements, and combines them into a single decision plus a human-readable list of which specific check(s) failed — the detail that lets a reviewer see why a change was blocked, not just that it was.\n\n```python\ndef deployment_gate(quality_pass_rate: float, regression_has_new_failures: bool,\n                     p95_latency_ms: float, cost_per_request: float, *,\n                     min_quality: float = 0.85, max_latency_ms: float = 2000,\n                     max_cost: float = 0.02, requires_human_review: bool = False) -> dict:\n    failures = []\n\n    if quality_pass_rate < min_quality:\n        failures.append(f\"quality {quality_pass_rate:.2f} below threshold {min_quality:.2f}\")\n    if regression_has_new_failures:\n        failures.append(\"regression suite found newly broken cases\")\n    if p95_latency_ms > max_latency_ms:\n        failures.append(f\"p95 latency {p95_latency_ms:.0f}ms exceeds {max_latency_ms:.0f}ms\")\n    if cost_per_request > max_cost:\n        failures.append(f\"cost {cost_per_request:.4f} exceeds {max_cost:.4f} per request\")\n\n    automated_pass = len(failures) == 0\n    return {\n        \"automated_pass\": automated_pass,\n        \"failures\": failures,\n        \"can_auto_deploy\": automated_pass and not requires_human_review,\n        \"needs_human_review\": automated_pass and requires_human_review,\n    }\n```\n\nNotice that `deployment_gate` only reaches `can_auto_deploy` when every check passes AND the change wasn't flagged as high-stakes — a change to safety-relevant behavior can clear every automated threshold and still route to human review, exactly the risk-calibrated pattern described in this lesson."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Gating on a single dimension, like quality alone.** A change can look great on the target evaluation while quietly regressing, or while blowing past acceptable cost or latency bounds — the gate has to check all of these together, not just the one that's easiest to measure.\n\n**Setting thresholds arbitrarily instead of calibrating them to the application.** Thresholds set too strict block legitimate improvements and slow iteration to a crawl; set too lax, they provide only an illusion of safety.\n\n**Auto-deploying every change that clears the automated thresholds, regardless of stakes.** High-stakes changes — a major prompt rewrite, a new model version, anything touching safety-relevant behavior — benefit from a human review step even after passing automated gates, calibrated to risk rather than treated as identical to a low-stakes tweak."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "llo_gating_deployment_on_eval_results_quiz",
+        "questions": [
+          {
+            "question": "What does a complete deployment gate for an LLM application change need to check, per this lesson?",
+            "options": [
+              "Only whether the change improves the target evaluation metric, with no other checks needed",
+              "Whether it clears a quality bar, passes the regression suite, and stays within cost/latency bounds — all together, not just one dimension",
+              "Only cost and latency, ignoring quality entirely",
+              "Whether the change was written by a senior team member"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A complete gate checks multiple dimensions together (quality, regression, cost/latency), directly implementing the multi-dimensional evaluation principle from this course's fundamentals module.",
+            "id": "q1"
+          },
+          {
+            "question": "How should gate thresholds be calibrated, mirroring the MLOps course's alerting-threshold lesson?",
+            "options": [
+              "Thresholds should always be set as strictly as technically possible",
+              "Thresholds need to be calibrated to what actually matters for the application — too strict blocks legitimate improvements, too lax provides only an illusion of safety",
+              "Threshold calibration is unnecessary since any threshold works equally well",
+              "Gate thresholds should be randomly generated"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Just as the MLOps course warned about alert fatigue from overly sensitive thresholds versus missed problems from overly lax ones, deployment gate thresholds need genuine calibration to the application's actual needs.",
+            "id": "q2"
+          },
+          {
+            "question": "When does a human review step remain valuable even after a change passes automated evaluation gates?",
+            "options": [
+              "Human review is never valuable once automated gates exist",
+              "For higher-stakes changes (major rewrites, safety-relevant behavior changes), mirroring the approval-gate pattern from the Agents and LangGraph courses, calibrated to risk",
+              "Human review should replace automated gating entirely for every single change",
+              "Only changes that fail automated gates ever need human review"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Consistent with the approval-gate pattern and the MLOps course's risk-calibrated governance approach, higher-stakes changes benefit from human review even after clearing automated thresholds.",
+            "id": "q3"
+          },
+          {
+            "question": "Why is this gating lesson placed as the final lesson of the module, per the lesson's own framing?",
+            "options": [
+              "It's an unrelated topic placed last for variety",
+              "Because it's the concrete mechanism that turns every earlier practice in the module (harness-building, LLM-as-judge, regression testing) into one operational go/no-go decision point",
+              "Because gating has no real dependency on the earlier lessons in the module",
+              "Because it introduces an entirely new evaluation metric unrelated to the rest of the module"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson explicitly frames itself as the integration point where the harness, LLM-as-judge, and regression testing practices all feed into a single concrete deployment decision.",
+            "id": "q4"
+          },
+          {
+            "question": "For lower-stakes changes, what deployment approach does the lesson describe as often appropriate?",
+            "options": [
+              "Mandatory human review for every single change regardless of stakes",
+              "A fully automated pass/fail gate that deploys automatically via canary/shadow strategies once thresholds are cleared",
+              "Skipping evaluation entirely for changes deemed low-stakes",
+              "Deploying without any gate and monitoring only after the fact"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson describes a fully automated gate paired with canary/shadow deployment strategies from the MLOps course as appropriate for lower-stakes changes, reserving human review for higher-stakes ones.",
+            "id": "q5"
+          },
+          {
+            "question": "In the `deployment_gate` code example, under what condition does the function return `needs_human_review: True`?",
+            "options": [
+              "Whenever `cost_per_request` is exactly zero",
+              "When the change passes every automated check (`automated_pass` is True) but `requires_human_review` was set True for that change",
+              "Whenever any automated check fails",
+              "Only when `p95_latency_ms` is negative"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`needs_human_review` is set to `automated_pass and requires_human_review`, meaning it's only True when the change cleared every automated threshold but was still flagged as needing human sign-off.",
+            "id": "q6"
+          },
+          {
+            "question": "In the `deployment_gate` code example, what does the `failures` list represent, and why does it matter?",
+            "options": [
+              "A list of every test case that was ever run, regardless of outcome",
+              "A human-readable record of specifically which check(s) — quality, regression, latency, or cost — caused the gate to block the change",
+              "A count of how many times the function has been called",
+              "A list of alternative model versions to try instead"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The `failures` list accumulates a specific, readable reason for each failed check, which is what lets a reviewer see exactly why a change was blocked rather than just seeing a bare pass/fail result.",
+            "id": "q7"
+          },
+          {
+            "question": "A team's deployment pipeline auto-deploys any change that clears the quality threshold, without checking regression, cost, or latency, and applies this same rule even to changes affecting safety-relevant behavior. What mistakes does this illustrate?",
+            "options": [
+              "Calibrating thresholds correctly and using canary deployment appropriately",
+              "Gating on a single dimension instead of all four together, and skipping human review for high-stakes changes regardless of risk",
+              "Running the regression suite too frequently and over-using human review",
+              "Randomizing response order and aggregating multiple judge calls"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This combines two mistakes called out in the lesson: checking only one dimension of the gate, and treating every change as equally low-stakes rather than calibrating the automated-versus-human-review decision to risk.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

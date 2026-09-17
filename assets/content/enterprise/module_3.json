@@ -1,0 +1,567 @@
+{
+  "id": "ent_high_availability",
+  "title": "High Availability & Disaster Recovery",
+  "description": "Designing for HA, failover strategies (active-passive vs. active-active), backup/DR for AI systems, and testing the DR plan.",
+  "icon": "🛟",
+  "color": "#4A148C",
+  "order": 3,
+  "estimatedHours": 4,
+  "difficulty": "advanced",
+  "prerequisites": [
+    "ent_multi_tenancy"
+  ],
+  "lessons": [
+    {
+      "id": "ent_designing_for_high_availability",
+      "title": "Designing for High Availability",
+      "description": "An enterprise AI system's downtime isn't a minor inconvenience — it's often a contractual SLA violation.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain what high availability means concretely and how redundancy at each layer contributes to it.\n"
+          },
+          {
+            "title": "📈 What HA actually means",
+            "content": "**High availability** describes a system designed so that no single failure — a server crashing, a network link dropping, an entire data center going offline — takes the whole system down, typically expressed as an uptime target like 99.9% or 99.99% (\"three nines\" or \"four nines\"), each additional nine representing a dramatically smaller allowed downtime budget per year.\n"
+          },
+          {
+            "title": "🔁 Redundancy at every layer",
+            "content": "No single point of failure means redundancy has to exist everywhere a failure could occur:\n\n- Multiple replicas of a service (the Kubernetes deployment concept from the Cloud course)\n- A database with replication (the Vector Databases course's sharding-and-replication lesson, and the Software Engineering course's SQL-vs-NoSQL trade-offs)\n- For the most critical systems, redundancy across entire data centers or regions, not just within one\n"
+          },
+          {
+            "title": "🎯 HA is a design decision with a real cost, not a default",
+            "content": "Higher availability targets cost more — more redundant infrastructure, more engineering effort validating failover paths — so the appropriate HA target should be set based on the actual cost of downtime for that specific system, not maximized by default. An internal analytics dashboard likely needs a much lower HA target than the customer-facing production inference endpoint the whole business depends on.\n"
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "Here's a simplified simulation converting uptime targets into annual downtime budgets, showing how each additional nine shrinks the budget dramatically:\n\n```python\nMINUTES_PER_YEAR = 365 * 24 * 60\n\ndef allowed_downtime_minutes(uptime_target_pct):\n    downtime_fraction = 1 - (uptime_target_pct / 100)\n    return round(MINUTES_PER_YEAR * downtime_fraction, 1)\n\nfor target in [99.0, 99.9, 99.99]:\n    minutes = allowed_downtime_minutes(target)\n    print(f\"{target}% uptime -> {minutes} minutes/year allowed downtime\")\n```\n\n`MINUTES_PER_YEAR = 365 * 24 * 60 = 525600`. At `99.0%`, `downtime_fraction = 1 - 0.99 = 0.01`, so allowed downtime is `round(525600 * 0.01, 1) = 5256.0` minutes/year (about 3.6 days). At `99.9%` (\"three nines\"), `downtime_fraction = 0.001`, giving `525.6` minutes/year (about 8.8 hours) — a 10x reduction from adding just one nine. At `99.99%` (\"four nines\"), `downtime_fraction = 0.0001`, giving `52.6` minutes/year — another 10x reduction. Each additional nine doesn't shrink the budget by a fixed amount, it shrinks it by another factor of 10, which is exactly why the jump from three nines to four nines demands so much more redundant infrastructure and engineering rigor for a comparatively small-looking change in the percentage.\n"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Choosing an HA target as a round, impressive-sounding number without connecting it to actual downtime cost.** As the code example shows, the jump from 99.9% to 99.99% is a 10x reduction in allowed downtime — a target set by habit or aspiration rather than the real cost of an outage can mean paying for redundancy the system's actual criticality doesn't justify.\n\n**Building redundancy at only one layer and assuming the whole system is now highly available.** Redundant service replicas don't help if the database beneath them is a single point of failure — every layer where a failure could occur needs its own redundancy plan.\n\n**Applying the same HA target uniformly to every system regardless of what downtime actually costs for that specific system.** An internal dashboard and a customer-facing production endpoint have very different downtime costs — treating them identically either overspends on the dashboard or underprotects the endpoint.\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ent_designing_for_high_availability_quiz",
+        "questions": [
+          {
+            "question": "What does a high availability target like '99.99% uptime' represent?",
+            "options": [
+              "An uptime goal where each additional nine represents a dramatically smaller allowed downtime budget per year",
+              "A guarantee that the system will never experience any failure",
+              "The percentage of users satisfied with the system's performance",
+              "A measure of how fast the system processes individual requests"
+            ],
+            "correctAnswer": 0,
+            "explanation": "HA targets are downtime budgets expressed as a percentage of uptime, with each additional nine representing a much stricter allowance.",
+            "id": "q1"
+          },
+          {
+            "question": "In the code example, what is `allowed_downtime_minutes(99.9)`, and how is it computed?",
+            "options": [
+              "5256.0 minutes/year, the same as the 99.0% target",
+              "525.6 minutes/year, computed as `525600 * (1 - 0.999) = 525600 * 0.001`",
+              "52.6 minutes/year",
+              "0.1 minutes/year"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`downtime_fraction = 1 - 0.999 = 0.001`, and `525600 * 0.001 = 525.6`, matching the three-nines downtime budget in the example.",
+            "id": "q2"
+          },
+          {
+            "question": "In the code example, by what factor does the allowed downtime shrink when going from 99.9% to 99.99%?",
+            "options": [
+              "By about 2x",
+              "By about 10x — from 525.6 minutes/year down to 52.6 minutes/year",
+              "It doesn't change at all",
+              "By about 100x"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`525.6 / 52.6 ≈ 10` — each additional nine multiplies `downtime_fraction` by 0.1, so the allowed downtime shrinks by roughly a factor of 10 each time.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, why does `99.0%` uptime allow so much more downtime (5256.0 minutes/year) than `99.99%` (52.6 minutes/year)?",
+            "options": [
+              "Because `downtime_fraction = 1 - (uptime_target_pct / 100)` is 100 times larger at 99.0% (`0.01`) than at 99.99% (`0.0001`), and that fraction is multiplied directly by the fixed `MINUTES_PER_YEAR`",
+              "Because `MINUTES_PER_YEAR` changes depending on the uptime target",
+              "Because the function has different logic for each target value",
+              "Because 99.0% and 99.99% represent the same actual downtime, just expressed differently"
+            ],
+            "correctAnswer": 0,
+            "explanation": "`downtime_fraction` at 99.0% is `0.01` versus `0.0001` at 99.99% — a 100x difference — which directly produces the 100x difference in computed allowed downtime minutes (`5256.0` vs `52.6`).",
+            "id": "q4"
+          },
+          {
+            "question": "What does the code example illustrate about why the jump from three nines to four nines demands disproportionately more engineering investment?",
+            "options": [
+              "Because each additional nine doesn't shrink the downtime budget by a fixed amount — it shrinks it by another factor of 10, making the target progressively harder to hit for a comparatively small-looking change in the percentage",
+              "Because four nines actually allows more downtime than three nines",
+              "Because uptime percentages have no relationship to actual downtime budgets",
+              "Because the difference between three and four nines is negligible in practice"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The exponential (factor-of-10-per-nine) relationship between the percentage and the actual downtime budget is exactly why small percentage changes at the high end require dramatically more redundancy and rigor.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does achieving high availability require redundancy at multiple layers, not just one?",
+            "options": [
+              "Because a single point of failure anywhere — a server, network link, or data center — could take the whole system down if that layer alone lacks redundancy",
+              "Because redundancy at only one layer always guarantees full system availability",
+              "Because HA only depends on database replication and nothing else",
+              "Because redundancy is only needed for network infrastructure, never for compute"
+            ],
+            "correctAnswer": 0,
+            "explanation": "True 'no single point of failure' design requires addressing every layer where failure could occur, not just the most obvious one.",
+            "id": "q6"
+          },
+          {
+            "question": "Why shouldn't every system in an enterprise be designed for the maximum possible HA target?",
+            "options": [
+              "Because higher availability targets cost more, so the target should match the actual cost of downtime for that specific system",
+              "Because maximum HA is technically impossible to achieve for any system",
+              "Because HA targets have no relationship to infrastructure cost",
+              "Because lower-availability systems are always more reliable than higher-availability ones"
+            ],
+            "correctAnswer": 0,
+            "explanation": "HA is a cost-benefit decision — matching the availability investment to what downtime actually costs for a given system avoids over-investing in redundancy that isn't justified by the system's actual criticality.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does the lesson warn against choosing an HA target as a round, impressive-sounding number without connecting it to actual downtime cost?",
+            "options": [
+              "Because, as the code example shows, the jump from 99.9% to 99.99% is a 10x reduction in allowed downtime — a target set without regard for actual cost can mean paying for redundancy the system doesn't need",
+              "Because HA targets have no meaningful relationship to allowed downtime",
+              "Because round-number HA targets are always the cheapest option available",
+              "Because 99.9% and 99.99% represent identical actual downtime allowances"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The common mistakes section connects directly to the code example's finding: the disproportionate cost of each additional nine makes an ungrounded target choice a real financial risk.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ent_failover_strategies",
+      "title": "Failover Strategies",
+      "description": "When the primary system fails, something has to take over — the question is how automatically and how fast.",
+      "duration": 13,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Distinguish active-passive from active-active failover and explain the trade-offs between them.\n"
+          },
+          {
+            "title": "🔴🟢 Active-passive: a standby waiting to take over",
+            "content": "In an **active-passive** setup, a standby replica sits idle (or handles minimal traffic) while the primary handles all normal traffic; if the primary fails, traffic fails over to the standby. Simpler to reason about, but the standby capacity sits mostly unused during normal operation, and there's usually a brief gap during the failover itself.\n"
+          },
+          {
+            "title": "🟢🟢 Active-active: multiple instances sharing load simultaneously",
+            "content": "In an **active-active** setup, multiple instances handle traffic simultaneously all the time — if one fails, the others absorb its share of load immediately, with no distinct \"failover moment\" since there was never a purely idle standby waiting. More complex to implement correctly (especially for anything stateful, like a database, needing to stay consistent across active instances) but generally faster and less disruptive during an actual failure.\n"
+          },
+          {
+            "title": "⏱️ RTO and RPO: naming the acceptable gap",
+            "content": "**Recovery Time Objective (RTO)** is how long the system can acceptably be down during a failover. **Recovery Point Objective (RPO)** is how much data loss is acceptable — how far back in time a restored system's data might lag behind the failure moment. Both should be explicitly defined targets, not implicit assumptions, since they directly drive which failover strategy (and how much redundancy) is actually justified.\n"
+          },
+          {
+            "title": "🔗 Connecting to the deployment strategies covered earlier",
+            "content": "This is the same failover thinking behind the App Dev course's blue-green deployment pattern, just triggered by an unplanned failure rather than a planned release — the \"keep a validated alternative ready to take over\" idea recurs across this curriculum in both planned and unplanned contexts.\n"
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "Here's a simplified simulation contrasting active-passive and active-active failover behavior when an instance fails mid-request:\n\n```python\nclass ActivePassive:\n    def __init__(self):\n        self.primary_healthy = True\n        self.failover_gap_ms = 400  # brief gap while standby takes over\n\n    def handle_request(self):\n        if self.primary_healthy:\n            return {\"served_by\": \"primary\", \"delay_ms\": 0}\n        return {\"served_by\": \"standby\", \"delay_ms\": self.failover_gap_ms}\n\nclass ActiveActive:\n    def __init__(self):\n        self.instances = {\"instance-a\": True, \"instance-b\": True, \"instance-c\": True}\n\n    def handle_request(self):\n        healthy = [name for name, ok in self.instances.items() if ok]\n        return {\"served_by\": healthy[0], \"delay_ms\": 0}  # no failover gap, just fewer options\n\nap = ActivePassive()\naa = ActiveActive()\n\nprint(\"active-passive, primary healthy:\", ap.handle_request())\nap.primary_healthy = False  # primary fails\nprint(\"active-passive, after failure:\", ap.handle_request())\n\nprint(\"active-active, all healthy:\", aa.handle_request())\naa.instances[\"instance-a\"] = False  # one instance fails\nprint(\"active-active, after failure:\", aa.handle_request())\n```\n\nWith the primary healthy, `ap.handle_request()` returns `{\"served_by\": \"primary\", \"delay_ms\": 0}`. After `ap.primary_healthy = False`, it returns `{\"served_by\": \"standby\", \"delay_ms\": 400}` — the standby takes over, but only after the modeled 400ms failover gap. For active-active, `aa.handle_request()` initially returns `instance-a` with `delay_ms: 0`. After `instance-a` fails, `healthy` recomputes to `[\"instance-b\", \"instance-c\"]`, and the request is served by `\"instance-b\"` — still with `delay_ms: 0`, since there was never an idle standby needing to \"take over,\" just one fewer already-active option to route to.\n"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Choosing active-active for its speed advantage without accounting for stateful consistency complexity.** As the lesson notes, keeping multiple active instances consistent (especially for a database) is genuinely harder to implement correctly than active-passive — the speed benefit isn't free.\n\n**Leaving RTO and RPO as implicit assumptions instead of explicit, agreed targets.** Without stated targets, there's no way to verify whether a chosen failover strategy actually meets the business's real tolerance for downtime and data loss — the DR-testing lesson later in this module depends on having explicit targets to test against.\n\n**Assuming active-passive's standby is truly ready without regularly verifying it.** A standby that's never actually received live traffic can have configuration drift or an undetected bug — a failover gap of 400ms assumes the standby actually works, an assumption that needs testing, not just architecture.\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ent_failover_strategies_quiz",
+        "questions": [
+          {
+            "question": "What is the key structural difference between active-passive and active-active failover?",
+            "options": [
+              "Active-passive keeps a standby mostly idle until failover; active-active has multiple instances sharing load simultaneously all the time",
+              "Active-passive and active-active are two names for the exact same strategy",
+              "Active-active always requires less infrastructure than active-passive",
+              "Active-passive requires no standby infrastructure at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The core distinction is whether redundant capacity sits idle (active-passive) or is actively sharing load continuously (active-active), which affects both complexity and failover speed.",
+            "id": "q1"
+          },
+          {
+            "question": "In the code example, why does `ap.handle_request()` return `delay_ms: 400` after `ap.primary_healthy = False`?",
+            "options": [
+              "Because `handle_request` falls to the `else` branch, returning `{\"served_by\": \"standby\", \"delay_ms\": self.failover_gap_ms}`, and `failover_gap_ms` was set to 400 in `__init__`",
+              "Because the standby is also unhealthy",
+              "Because `ActivePassive` has no concept of a delay",
+              "Because 400 is a random value chosen each call"
+            ],
+            "correctAnswer": 0,
+            "explanation": "With `primary_healthy=False`, the `if self.primary_healthy` check fails, so the function returns the standby branch, which includes the fixed `self.failover_gap_ms` value of 400 set at construction.",
+            "id": "q2"
+          },
+          {
+            "question": "In the code example, why does `aa.handle_request()` return `delay_ms: 0` both before and after `instance-a` fails?",
+            "options": [
+              "Because `ActiveActive.handle_request` always returns `delay_ms: 0` regardless of health — there's no failover gap modeled, since serving simply moves to whichever instance is next in the still-active `healthy` list",
+              "Because `instance-a`'s failure has no effect on the `instances` dict",
+              "Because `ActiveActive` and `ActivePassive` behave identically",
+              "Because `aa.handle_request()` raises an exception after the failure"
+            ],
+            "correctAnswer": 0,
+            "explanation": "`ActiveActive.handle_request` hardcodes `\"delay_ms\": 0` in its return value — there's no standby \"taking over\" moment to model a gap for; it simply routes to whichever instance is currently healthy.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, what does `healthy` evaluate to immediately after `aa.instances[\"instance-a\"] = False`?",
+            "options": [
+              "`[\"instance-a\", \"instance-b\", \"instance-c\"]`, unchanged",
+              "`[\"instance-b\", \"instance-c\"]`, since the list comprehension filters `self.instances` to only names with `ok=True`, excluding the now-`False` `instance-a`",
+              "An empty list, since one failure disables the whole system",
+              "`[\"instance-a\"]` only"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`healthy = [name for name, ok in self.instances.items() if ok]` excludes any instance whose value is `False`; with `instance-a` set to `False`, only `instance-b` and `instance-c` remain in `healthy`.",
+            "id": "q4"
+          },
+          {
+            "question": "What does the contrast between `ap.handle_request()` and `aa.handle_request()` after their respective failures illustrate about the trade-off between the two strategies?",
+            "options": [
+              "That active-passive and active-active have identical failure-handling behavior",
+              "That active-active avoids the distinct failover delay active-passive incurs, since there's no idle standby that needs to \"take over\" — consistent with the lesson's point that active-active is generally faster and less disruptive",
+              "That active-passive is always faster than active-active",
+              "That active-active cannot handle any instance failures"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The code makes concrete exactly what the lesson states in prose: active-passive's standby incurs a modeled gap, while active-active's already-active remaining instances absorb the loss with no such gap.",
+            "id": "q5"
+          },
+          {
+            "question": "What does Recovery Point Objective (RPO) specifically measure?",
+            "options": [
+              "How much data loss is acceptable — how far back in time a restored system's data might lag behind the failure moment",
+              "How long the system can acceptably be down during a failover",
+              "The total number of servers in a failover configuration",
+              "The percentage of users affected by an outage"
+            ],
+            "correctAnswer": 0,
+            "explanation": "RPO is specifically about acceptable data loss extent, distinct from RTO's focus on acceptable downtime duration.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does the lesson warn against choosing active-active for its speed advantage without accounting for stateful consistency complexity?",
+            "options": [
+              "Because keeping multiple active instances consistent, especially for a database, is genuinely harder to implement correctly than active-passive — the speed benefit isn't free",
+              "Because active-active is always slower than active-passive in practice",
+              "Because stateful consistency is never actually a concern for active-active systems",
+              "Because active-active systems cannot handle any database workloads"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson is explicit that active-active's implementation complexity, particularly around stateful consistency, is the real cost behind its speed and resilience advantage.",
+            "id": "q7"
+          },
+          {
+            "question": "How does this lesson's failover concept relate to the App Dev course's blue-green deployment pattern?",
+            "options": [
+              "Both share the same 'keep a validated alternative ready to take over' idea, just triggered by unplanned failure here versus a planned release there",
+              "Failover and blue-green deployment are entirely unrelated concepts",
+              "Blue-green deployment eliminates the need for any failover strategy",
+              "Failover only applies to database systems, never application deployments"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The underlying pattern — having a validated, ready alternative to switch to — recurs in both a planned release context (blue-green) and an unplanned failure context (failover).",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ent_backup_and_disaster_recovery_for_ai",
+      "title": "Backup and Disaster Recovery for AI Systems",
+      "description": "Extending the Vector Databases course's backup lesson to every stateful piece of an enterprise AI platform.",
+      "duration": 13,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "List the distinct components of an enterprise AI system that each need their own backup and recovery plan.\n"
+          },
+          {
+            "title": "🧩 What needs backing up, piece by piece",
+            "content": "- **Model weights and versions** (fine-tuned or customized models per the per-tenant-customization lesson, which may not be trivially reproducible if the original training data or process isn't preserved).\n- **Vector store data** (the Vector Databases course's backup lesson, applied per-tenant here).\n- **Application and configuration databases.**\n- **Audit logs** (which themselves need protection, given the previous module's tamper-resistance requirement).\n\nEach of these has different size, change frequency, and recovery-priority characteristics, so a single one-size-fits-all backup policy rarely fits all of them well.\n"
+          },
+          {
+            "title": "🎯 Disaster recovery is broader than backup alone",
+            "content": "Backup answers \"do we have a copy of the data.\" **Disaster recovery** answers the broader question: if an entire data center or region becomes unavailable, how does the whole system — not just the data, but the compute, networking, and DNS routing — actually come back online, and how long does that realistically take, which is exactly the RTO defined in the previous lesson.\n"
+          },
+          {
+            "title": "🔐 Backups need the same access discipline as the original data",
+            "content": "A backup of sensitive tenant data is still sensitive tenant data — it needs the same tenant-isolation and access-control discipline from Module 2, not a lower security bar just because it's \"only a backup,\" echoing the Vector Databases course's closing lesson point that a backup can itself become a data leak if handled carelessly.\n"
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "Here's a simplified simulation of a per-component backup policy, matching backup frequency and retention to each component's actual characteristics rather than a single uniform policy:\n\n```python\ncomponents = {\n    \"model_weights\": {\"change_frequency_days\": 30, \"size_gb\": 14},\n    \"vector_store\": {\"change_frequency_days\": 1, \"size_gb\": 200},\n    \"app_database\": {\"change_frequency_days\": 0.01, \"size_gb\": 5},  # changes constantly\n    \"audit_logs\": {\"change_frequency_days\": 0.01, \"size_gb\": 50},\n}\n\ndef recommend_backup_interval_hours(change_frequency_days):\n    # back up at roughly half the change frequency, so at most half a change cycle is ever lost\n    return max(1, round(change_frequency_days * 24 / 2))\n\nfor name, info in components.items():\n    interval = recommend_backup_interval_hours(info[\"change_frequency_days\"])\n    print(f\"{name}: back up every {interval} hour(s)\")\n```\n\n`model_weights` changes roughly every 30 days, so `recommend_backup_interval_hours(30) = round(30 * 24 / 2) = round(360.0) = 360` hours (15 days) between backups. `vector_store` changes daily, giving `round(1 * 24 / 2) = 12` hours. `app_database` and `audit_logs` both change constantly (`change_frequency_days=0.01`), so `round(0.01 * 24 / 2) = round(0.12) = 0` — but `max(1, 0) = 1` hour, the function's floor, since backing up less than hourly would risk losing far too much of a constantly-changing component. One uniform policy — say, a single daily backup for everything — would under-protect `app_database` and `audit_logs` while over-backing-up `model_weights` unnecessarily often, exactly the mismatch the lesson warns a one-size-fits-all policy creates.\n"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Applying one uniform backup schedule across every component regardless of its change frequency.** As the code example shows, a slow-changing component like model weights and a constantly-changing one like an application database have very different backup needs — a single schedule under-protects one or wastes resources on the other.\n\n**Treating a completed backup as equivalent to a completed disaster recovery plan.** Having a copy of the data says nothing about whether compute, networking, and DNS routing can actually be brought back online within the target RTO — DR is the larger operational question backup alone doesn't answer.\n\n**Applying weaker access controls to backup copies than to the original data.** A backup of sensitive tenant data carries the same sensitivity as the original — treating it as a lower-security artifact creates exactly the kind of leak path the Vector Databases course warned about.\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ent_backup_and_disaster_recovery_for_ai_quiz",
+        "questions": [
+          {
+            "question": "Why doesn't a single one-size-fits-all backup policy typically fit every component of an enterprise AI system well?",
+            "options": [
+              "Because model weights, vector store data, application databases, and audit logs each have different size, change frequency, and recovery-priority characteristics",
+              "Because only one component of an AI system actually needs any backup at all",
+              "Because backup policies are legally required to be identical across every system component",
+              "Because AI systems have no components that require backup"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The varying characteristics of different data types mean a backup strategy tuned to one component's needs is unlikely to be optimal for all the others.",
+            "id": "q1"
+          },
+          {
+            "question": "In the code example, why is `recommend_backup_interval_hours` for `app_database` and `audit_logs` equal to 1 hour, the function's floor, rather than 0?",
+            "options": [
+              "Because `round(0.01 * 24 / 2) = round(0.12) = 0`, but `max(1, 0)` returns 1 — the function enforces a minimum interval of 1 hour even for extremely fast-changing components",
+              "Because `app_database` and `audit_logs` never actually change",
+              "Because the function ignores `change_frequency_days` for these two components specifically",
+              "Because 1 hour is hardcoded as the default for every component"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The raw calculation `0.01 * 24 / 2 = 0.12`, rounding to `0`, but `max(1, 0)` enforces the function's floor of at least 1 hour, since backing up less often than hourly for a constantly-changing component would risk excessive data loss.",
+            "id": "q2"
+          },
+          {
+            "question": "In the code example, what is `recommend_backup_interval_hours(30)` for `model_weights`, and how is it computed?",
+            "options": [
+              "1 hour, the same floor as the fast-changing components",
+              "360 hours, computed as `round(30 * 24 / 2) = round(360.0)`",
+              "12 hours, the same as `vector_store`",
+              "30 hours"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`change_frequency_days * 24 / 2 = 30 * 24 / 2 = 360.0`, which rounds to `360` and comfortably exceeds the `max(1, ...)` floor.",
+            "id": "q3"
+          },
+          {
+            "question": "What does the wide range of computed backup intervals in the code example (1 hour vs. 360 hours) demonstrate?",
+            "options": [
+              "That a uniform backup schedule would necessarily mismatch at least some components' actual change frequency — either backing up too rarely for fast-changing data or too often for slow-changing data",
+              "That all components should always be backed up at exactly the same interval",
+              "That model weights change faster than the application database",
+              "That the function's output has no relationship to `change_frequency_days`"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The 360x difference between the slowest and fastest recommended intervals concretely illustrates why a single uniform policy would poorly serve at least some of these components.",
+            "id": "q4"
+          },
+          {
+            "question": "How does disaster recovery differ from backup alone?",
+            "options": [
+              "Backup addresses having a copy of the data; disaster recovery addresses how the whole system — compute, networking, DNS — comes back online after a broader outage",
+              "Backup and disaster recovery are identical concepts with no distinction",
+              "Disaster recovery only concerns data, never infrastructure",
+              "Backup is a broader concept that fully encompasses disaster recovery"
+            ],
+            "correctAnswer": 0,
+            "explanation": "DR is the larger operational question of full system recovery, of which having backed-up data is only one necessary piece, alongside compute, networking, and routing recovery.",
+            "id": "q5"
+          },
+          {
+            "question": "Why should a backup of sensitive tenant data receive the same access discipline as the original data?",
+            "options": [
+              "Because a backup is still sensitive data and can itself become a data leak if handled with a lower security bar than the original",
+              "Because backups are technically incapable of containing any sensitive information",
+              "Because backups are automatically exempt from any access control requirements",
+              "Because backup access control is only relevant for non-sensitive data"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Treating a backup as somehow less sensitive than its source is a common mistake — the data's sensitivity doesn't diminish just because it's stored as a backup copy.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does the lesson warn against applying one uniform backup schedule across every component regardless of change frequency?",
+            "options": [
+              "Because, as the code example shows, a slow-changing component and a constantly-changing one have very different backup needs — a single schedule under-protects one or wastes resources on the other",
+              "Because uniform backup schedules are technically impossible to implement",
+              "Because all system components always change at the exact same rate",
+              "Because backup frequency has no relationship to how often data actually changes"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The common mistakes section restates the code example's finding directly — the 360x spread in recommended intervals shows exactly why one schedule can't serve every component well.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does the lesson warn against treating a completed backup as equivalent to a completed disaster recovery plan?",
+            "options": [
+              "Because having a copy of the data says nothing about whether compute, networking, and DNS routing can actually be brought back online within the target RTO",
+              "Because backups are entirely unrelated to disaster recovery",
+              "Because disaster recovery plans never actually require any backed-up data",
+              "Because a backup alone always guarantees full system recovery automatically"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The common mistakes section reinforces the lesson's distinction: DR is the broader operational question of bringing the whole system back online, which backed-up data alone doesn't answer.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ent_testing_your_dr_plan",
+      "title": "Testing Your DR Plan",
+      "description": "Closing this module with the same lesson the MLOps course insisted on for rollback: an untested plan is a hypothesis, not a safety net.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain why a disaster recovery plan must be actively tested, and describe what a DR test typically involves.\n"
+          },
+          {
+            "title": "📄 A DR plan that's never been executed is just a document",
+            "content": "A written disaster recovery plan that's never actually been run through end to end is, at best, an untested hypothesis about what would happen during a real disaster — directly echoing the Vector Databases course's \"test your restore, not just your backup\" lesson, now scaled up to an entire system's recovery, not just one data store.\n"
+          },
+          {
+            "title": "🎲 Game days and chaos engineering",
+            "content": "A **\"game day\"** deliberately simulates a failure (an intentional region outage, a killed critical service) in a controlled way to see whether the DR plan and the team executing it actually work as expected — surfacing gaps (a missing runbook step, an access credential nobody remembers, an assumption about a resource that turned out to be wrong) before a real disaster forces you to discover them under pressure.\n"
+          },
+          {
+            "title": "📋 What a DR test reveals beyond the technical mechanics",
+            "content": "Beyond whether the technology actually fails over correctly, a DR test reveals whether the human process works too — does the on-call team know the runbook exists and where to find it, does the RTO/RPO from the failover lesson actually hold up in practice or was it an optimistic guess, and does the whole exercise happen within the time budget the business actually needs.\n"
+          },
+          {
+            "title": "🎓 Closing this module's arc",
+            "content": "This module moved from designing for availability (Lesson 1), to choosing a failover strategy (Lesson 2), to backing up every stateful component (Lesson 3), to finally verifying all of it actually works under a simulated real failure — completing the reliability engineering arc for an enterprise AI platform, the same rigor applied throughout this curriculum to model quality now applied to the infrastructure that keeps the model reachable at all.\n"
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "Here's a simplified simulation of a game day comparing a DR plan's assumed RTO against what actually happens when it's executed:\n\n```python\ndr_plan = {\n    \"assumed_rto_minutes\": 15,\n    \"steps\": [\n        {\"name\": \"detect region outage\", \"assumed_minutes\": 2, \"actual_minutes\": 2},\n        {\"name\": \"page on-call team\", \"assumed_minutes\": 1, \"actual_minutes\": 6},  # runbook link was stale\n        {\"name\": \"trigger failover\", \"assumed_minutes\": 3, \"actual_minutes\": 3},\n        {\"name\": \"verify traffic restored\", \"assumed_minutes\": 4, \"actual_minutes\": 4},\n    ],\n}\n\ndef run_game_day(plan):\n    actual_total = sum(step[\"actual_minutes\"] for step in plan[\"steps\"])\n    gaps = [\n        step[\"name\"] for step in plan[\"steps\"]\n        if step[\"actual_minutes\"] > step[\"assumed_minutes\"]\n    ]\n    return actual_total, gaps\n\nactual_total, gaps = run_game_day(dr_plan)\nprint(f\"assumed RTO: {dr_plan['assumed_rto_minutes']} min, actual: {actual_total} min\")\nprint(\"steps that ran over:\", gaps)\nprint(\"RTO met:\", actual_total <= dr_plan[\"assumed_rto_minutes\"])\n```\n\n`actual_total` sums each step's `actual_minutes`: `2 + 6 + 3 + 4 = 15`. The assumed RTO was also `15` minutes, so on the surface it looks met — but `gaps` finds `\"page on-call team\"` specifically, since its `actual_minutes` (6) exceeded its `assumed_minutes` (1), because the runbook link turned out to be stale. `actual_total <= dr_plan[\"assumed_rto_minutes\"]` evaluates to `True` (15 <= 15), so the overall RTO was technically met this time — but only because other steps finished faster than expected, masking a real problem (the broken runbook link) that a slightly worse day could easily have pushed over the RTO entirely. This is exactly the kind of gap the lesson says a DR test is meant to surface before a real disaster forces the discovery.\n"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Treating a met RTO total as proof the plan has no problems.** As the code example shows, the total can happen to meet the target even while a specific step — like a stale runbook link — ran significantly over budget, masked by other steps finishing early; the per-step gaps matter, not just the aggregate.\n\n**Running DR tests so rarely that the plan drifts out of sync with the real system.** A runbook or access credential that was accurate when last tested can go stale as the system evolves — infrequent testing means that drift goes undetected for a long time.\n\n**Only testing the technical failover mechanics, skipping the human process.** A DR test that only verifies traffic reroutes correctly, without involving the actual on-call team following the actual runbook, misses exactly the kind of gap — like the stale runbook link in the example — that only surfaces when real people execute the real process.\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ent_testing_your_dr_plan_quiz",
+        "questions": [
+          {
+            "question": "Why is an untested disaster recovery plan considered just a 'hypothesis' rather than a real safety net?",
+            "options": [
+              "Because it hasn't been verified to actually work, mirroring the Vector Databases course's point about untested restores being unproven",
+              "Because written plans are always technically incapable of working correctly",
+              "Because DR plans don't need any testing once they're written down clearly",
+              "Because hypotheses are always more reliable than tested plans"
+            ],
+            "correctAnswer": 0,
+            "explanation": "A plan that exists only on paper carries the same unverified-assumption risk the Vector Databases course flagged for untested backups — it might work, but nobody actually knows until it's tried.",
+            "id": "q1"
+          },
+          {
+            "question": "In the code example, what is `actual_total`, and how is it computed?",
+            "options": [
+              "15, computed as `sum(step[\"actual_minutes\"] for step in plan[\"steps\"]) = 2 + 6 + 3 + 4`",
+              "10, using only the `assumed_minutes` values",
+              "6, using only the slowest step's actual time",
+              "4, using only the last step's actual time"
+            ],
+            "correctAnswer": 0,
+            "explanation": "`actual_total` sums each step's `actual_minutes`: `2 + 6 + 3 + 4 = 15`, matching the assumed RTO exactly by coincidence.",
+            "id": "q2"
+          },
+          {
+            "question": "In the code example, why does `gaps` include \"page on-call team\" but none of the other steps?",
+            "options": [
+              "Because it's the only step whose `actual_minutes` (6) exceeds its `assumed_minutes` (1) — the other three steps have `actual_minutes` equal to their `assumed_minutes`",
+              "Because it's the first step in the list",
+              "Because `run_game_day` only checks the second step by design",
+              "Because all four steps actually appear in `gaps`"
+            ],
+            "correctAnswer": 0,
+            "explanation": "`gaps` is built from the condition `step[\"actual_minutes\"] > step[\"assumed_minutes\"]`; only \"page on-call team\" satisfies that (6 > 1) — the others have matching assumed and actual values.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, why is `actual_total <= dr_plan[\"assumed_rto_minutes\"]` `True` even though one step ran significantly over its individual budget?",
+            "options": [
+              "Because the other three steps' actual times exactly matched their assumed times, so the one step that overran (5 extra minutes) didn't push the sum above the total assumed RTO of 15",
+              "Because `run_game_day` ignores the overrun step when computing `actual_total`",
+              "Because the assumed RTO was recalculated after the overrun",
+              "Because the overrun step's actual time is actually less than its assumed time"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The other three steps hit their assumed times exactly, so the sum (15) happens to still equal the assumed RTO (15) despite the paging step running 5 minutes over — the total masks the per-step problem.",
+            "id": "q4"
+          },
+          {
+            "question": "What does the code example illustrate about relying on the aggregate RTO check alone?",
+            "options": [
+              "That a met aggregate RTO can hide a real per-step problem (like a stale runbook link) that a slightly worse day could push over budget entirely — the per-step gaps reveal risk the total alone doesn't show",
+              "That the aggregate RTO check is always sufficient on its own to declare a DR plan sound",
+              "That per-step gaps and the aggregate total always tell the same story",
+              "That a stale runbook link has no effect on the DR plan's actual reliability"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The example specifically shows the aggregate metric passing while `gaps` reveals a real, unaddressed problem — illustrating why a DR test needs to look past just the totals.",
+            "id": "q5"
+          },
+          {
+            "question": "What is the purpose of a 'game day' exercise in disaster recovery testing?",
+            "options": [
+              "To deliberately simulate a failure in a controlled way and surface gaps in the DR plan before a real disaster forces discovery under pressure",
+              "To celebrate the successful completion of a project with no technical purpose",
+              "To permanently disable a system's redundancy for cost savings",
+              "To replace the need for any written DR plan"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Controlled failure simulation is exactly what turns an untested plan into a verified one, revealing gaps in a safe, planned context rather than during an actual crisis.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does the lesson warn against treating a met RTO total as proof the plan has no problems?",
+            "options": [
+              "Because, as the code example shows, the total can happen to meet the target even while a specific step ran significantly over budget, masked by other steps finishing early",
+              "Because RTO totals are always inaccurate regardless of how they're measured",
+              "Because meeting the RTO total is always a sign of a flawless plan with no further verification needed",
+              "Because individual step timing never actually matters for DR planning"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The common mistakes section directly reflects the code example's lesson: an aggregate pass can hide a real per-step gap that deserves attention on its own.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does the lesson warn against only testing the technical failover mechanics while skipping the human process?",
+            "options": [
+              "Because a DR test that only verifies traffic reroutes correctly, without involving the actual on-call team following the actual runbook, misses exactly the kind of gap — like the stale runbook link in the example — that only surfaces when real people execute the real process",
+              "Because human processes have no relationship to disaster recovery outcomes",
+              "Because technical failover mechanics are always more important to verify than the human process",
+              "Because on-call teams are never actually involved in real disaster recovery"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The common mistakes section states this directly, and the code example's paging-delay gap is exactly the kind of problem that only a test involving the real human process — not just the technical failover — would have surfaced.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

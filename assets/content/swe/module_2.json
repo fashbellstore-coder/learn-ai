@@ -1,0 +1,563 @@
+{
+  "id": "swe_algorithms",
+  "title": "Algorithms & Complexity",
+  "description": "Big-O reasoning, sorting and searching, recursion and dynamic programming, and a process for algorithmic thinking.",
+  "icon": "🧮",
+  "color": "#1565C0",
+  "order": 2,
+  "estimatedHours": 4,
+  "difficulty": "intermediate",
+  "prerequisites": [
+    "swe_data_structures"
+  ],
+  "lessons": [
+    {
+      "id": "swe_big_o_and_complexity_analysis",
+      "title": "Big-O and Complexity Analysis",
+      "description": "A shared vocabulary for talking about how an algorithm's cost grows, without depending on any specific machine.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Read and reason about the most common Big-O complexity classes and what each implies about scaling."
+          },
+          {
+            "title": "📈 What Big-O actually describes",
+            "content": "Big-O notation describes how an algorithm's running time (or memory use) grows as input size grows, ignoring constant factors and lower-order terms — it answers 'what happens as n gets large,' not 'exactly how many milliseconds will this take on my laptop.'"
+          },
+          {
+            "title": "📊 The complexity classes worth knowing by feel",
+            "content": "O(1): constant, independent of input size — a hash map lookup. O(log n): grows very slowly — binary search. O(n): grows linearly — scanning a list once. O(n log n): typical of efficient sorting algorithms. O(n²): grows quadratically — nested loops over the same data, often a red flag at scale. O(2ⁿ): exponential — usually a sign an algorithm won't work on anything but small inputs."
+          },
+          {
+            "title": "🔗 You've already met this idea without the name",
+            "content": "Exact nearest-neighbor search's O(n) cost, and why it doesn't scale to millions of vectors, was exactly this kind of complexity argument, made in the Vector Databases course's first lesson. Big-O is the general vocabulary that argument was borrowing from."
+          },
+          {
+            "title": "⚠️ A tool for design, not a substitute for measurement",
+            "content": "Big-O tells you how an algorithm scales in principle, but real performance also depends on constant factors, hardware, and data characteristics — the same reason the LLM Inference course insisted on real benchmarking rather than reasoning about complexity alone. Use Big-O to catch obviously bad designs early, then measure for anything that actually needs tuning."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "A small timing experiment comparing an O(n) function to an O(n²) function as input size grows, making the abstract growth-rate claim concrete:\n\n```python\nimport time\n\n\ndef sum_linear(items):\n    # O(n): one pass over the input.\n    total = 0\n    for x in items:\n        total += x\n    return total\n\n\ndef count_duplicate_pairs_quadratic(items):\n    # O(n^2): every element compared against every other element.\n    count = 0\n    for i in range(len(items)):\n        for j in range(len(items)):\n            if i != j and items[i] == items[j]:\n                count += 1\n    return count // 2\n\n\ndef time_it(func, items):\n    start = time.perf_counter()\n    func(items)\n    return (time.perf_counter() - start) * 1000\n\n\nfor n in [500, 1000, 2000]:\n    data = list(range(n))\n    linear_ms = time_it(sum_linear, data)\n    quadratic_ms = time_it(count_duplicate_pairs_quadratic, data)\n    print(f\"n={n:5d}  sum_linear={linear_ms:7.3f}ms  quadratic={quadratic_ms:8.3f}ms\")\n```\n\nDoubling `n` roughly doubles `sum_linear`'s time (consistent with O(n)), but roughly quadruples `count_duplicate_pairs_quadratic`'s time (consistent with O(n²)) — the nested loop compares every pair, so the work grows with n multiplied by itself. This is the same growth-rate distinction the lesson describes in the abstract, now visible as an actual timing gap that gets more dramatic as `n` grows."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Reading Big-O as an exact prediction of runtime in milliseconds.** Big-O deliberately ignores constant factors and hardware specifics — two O(n) algorithms can have very different real-world speeds despite sharing the same complexity class.\n\n**Assuming a lower Big-O class is always faster in practice for realistic input sizes.** An O(n log n) algorithm with a large constant factor can be slower than a simple O(n²) one for small enough n — asymptotic behavior only dominates once n is large enough for it to matter.\n\n**Skipping complexity analysis because \"it works fine in testing.\"** A quadratic algorithm can feel instant on a 100-item test dataset and become unusably slow on a 100,000-item production dataset — exactly the gap Big-O is meant to help you anticipate before it becomes an incident.\n\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "swe_big_o_and_complexity_analysis_quiz",
+        "questions": [
+          {
+            "question": "What does Big-O notation primarily describe?",
+            "options": [
+              "How an algorithm's running time or memory use grows as input size grows, ignoring constant factors",
+              "The exact number of milliseconds an algorithm takes on a specific machine",
+              "The number of lines of code in an implementation",
+              "The programming language an algorithm is implemented in"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Big-O captures asymptotic growth behavior — the trend as input scales — rather than a precise, machine-specific timing.",
+            "id": "q1"
+          },
+          {
+            "question": "An algorithm with nested loops over the same n-sized data, without any way to skip work, is typically",
+            "options": [
+              "O(n²)",
+              "O(1)",
+              "O(log n)",
+              "O(n log n)"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Nested loops over the same data generally multiply the work, giving a quadratic growth rate as input size increases.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is Big-O analysis alone not a substitute for real benchmarking?",
+            "options": [
+              "Because real performance also depends on constant factors, hardware, and data characteristics that Big-O deliberately ignores",
+              "Because Big-O notation only applies to sorting algorithms",
+              "Because Big-O cannot be computed for any real algorithm",
+              "Because benchmarking always produces the exact same result as Big-O predicts"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Big-O is a useful design-time tool for catching bad scaling early, but actual performance requires measurement, the same principle behind real benchmarking elsewhere in this curriculum.",
+            "id": "q3"
+          },
+          {
+            "question": "Per '📊 The complexity classes worth knowing by feel', what does O(2ⁿ) usually signal about an algorithm?",
+            "options": [
+              "That it's usually only workable on small inputs, since its cost grows exponentially",
+              "That it runs in constant time regardless of input size",
+              "That it is always the most efficient possible solution",
+              "That it is equivalent in growth rate to O(log n)"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly describes O(2ⁿ) as exponential, usually a sign an algorithm won't scale beyond small inputs.",
+            "id": "q4"
+          },
+          {
+            "question": "Per '🔗 You've already met this idea without the name', what earlier example does the lesson connect to the concept of Big-O?",
+            "options": [
+              "Exact nearest-neighbor search's O(n) cost and why it doesn't scale, from the Vector Databases course's first lesson",
+              "The SOLID principles from the Clean Code module",
+              "Backpropagation's computational cost from the Deep Learning course",
+              "REST API versioning from the System Design module"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly names the Vector Databases course's exact nearest-neighbor search discussion as an instance of this same complexity argument, made before Big-O was named as such.",
+            "id": "q5"
+          },
+          {
+            "question": "In the code example, why does count_duplicate_pairs_quadratic's time roughly quadruple when n doubles, while sum_linear's time roughly doubles?",
+            "options": [
+              "Because the nested loop in count_duplicate_pairs_quadratic compares every pair of elements (O(n²)), while sum_linear makes just one pass (O(n))",
+              "Because sum_linear actually contains a hidden nested loop",
+              "Because count_duplicate_pairs_quadratic is implemented using recursion",
+              "Because time_it measures memory usage rather than execution time"
+            ],
+            "correctAnswer": 0,
+            "explanation": "sum_linear's single for loop scales linearly with n, while count_duplicate_pairs_quadratic's two nested range(len(items)) loops scale with n multiplied by itself.",
+            "id": "q6"
+          },
+          {
+            "question": "In the code example, what does the `if i != j and items[i] == items[j]` check inside count_duplicate_pairs_quadratic do?",
+            "options": [
+              "Counts a match for every pair of distinct positions holding equal values, comparing every element against every other element",
+              "Skips over any element that appears more than once",
+              "Sorts the list before counting duplicates",
+              "Ensures the function only runs once regardless of n"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The nested loops iterate i and j independently over the full range, and the condition counts matching values at distinct positions — the O(n²) all-pairs comparison the lesson's prose describes.",
+            "id": "q7"
+          },
+          {
+            "question": "Per 'Common mistakes', why can an algorithm with a lower Big-O complexity class actually be slower in practice for small inputs?",
+            "options": [
+              "Because an algorithm with a large constant factor can be slower than a simpler higher-complexity algorithm until n is large enough for the asymptotic difference to dominate",
+              "Because Big-O notation is always incorrect for small inputs",
+              "Because lower complexity classes are only valid for inputs larger than one million",
+              "Because constant factors are impossible to measure"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The mistakes section explains that constant factors, which Big-O ignores, can outweigh the asymptotic advantage until the input is large enough for that advantage to actually show up.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "swe_sorting_and_searching",
+      "title": "Sorting and Searching",
+      "description": "Two problems so fundamental that most other algorithms end up building on solutions to them.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain the complexity trade-offs among common sorting approaches, and how binary search depends on sorted data."
+          },
+          {
+            "title": "🔀 Sorting: the O(n log n) baseline",
+            "content": "Comparison-based sorting algorithms like merge sort and quicksort achieve O(n log n) average-case time, which is the best possible for general comparison-based sorting. A naive approach like bubble sort runs in O(n²) — correct, but impractical for anything beyond small inputs, illustrating why complexity analysis from the previous lesson matters in practice."
+          },
+          {
+            "title": "🔍 Binary search: the payoff of being sorted",
+            "content": "Binary search finds a target in a sorted array in O(log n) by repeatedly halving the search range, compared to O(n) for a linear scan through unsorted data. This is the same 'do upfront work (sorting) to make repeated queries cheap' trade-off that motivated database indexing in the SQL course and ANN indexing in the Vector Databases course."
+          },
+          {
+            "title": "🧮 When sorting first is worth it",
+            "content": "If you'll search the same dataset many times, sorting once (O(n log n)) and then binary-searching repeatedly (O(log n) each) beats scanning linearly every time, once the number of searches is large enough to amortize the upfront sort cost — the same amortization logic behind deciding whether to fine-tune a model versus prompting it each time, from the Fine-Tuning course."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "A binary search implementation, plus a demonstration of why it silently produces wrong answers on unsorted data:\n\n```python\ndef binary_search(sorted_items, target):\n    low, high = 0, len(sorted_items) - 1\n    while low <= high:\n        mid = (low + high) // 2\n        if sorted_items[mid] == target:\n            return mid\n        elif sorted_items[mid] < target:\n            low = mid + 1\n        else:\n            high = mid - 1\n    return -1\n\n\nsorted_data = [2, 5, 8, 12, 16, 23, 38, 45, 56, 72]\nunsorted_data = [23, 5, 72, 12, 2, 56, 8, 45, 38, 16]  # same elements, no order\n\nprint(\"binary_search on sorted data for 45:\", binary_search(sorted_data, 45))\nprint(\"binary_search on UNSORTED data for 45:\", binary_search(unsorted_data, 45))\n\nimport bisect\n\n# Sort once, then binary-search repeatedly -- the amortization argument.\nvalues = sorted(unsorted_data)\ntargets = [45, 8, 999, 2]\nfound = [(t, bisect.bisect_left(values, t) < len(values) and values[bisect.bisect_left(values, t)] == t) for t in targets]\nprint(\"repeated lookups after sorting once:\", found)\n```\n\n`binary_search` finds 45 correctly at index 7 in `sorted_data`, but returns -1 (not found) when run on `unsorted_data`, even though 45 is definitely in that list — because the `elif sorted_items[mid] < target` branch's halving logic assumes sorted order, and silently gives a wrong answer instead of raising an error when that assumption is violated. The second half shows the \"sort once, search many times\" pattern: `sorted(unsorted_data)` pays the O(n log n) cost a single time, after which every `bisect_left` call is O(log n)."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Running binary search on unsorted data.** As the code example shows, binary search doesn't detect unsorted input — it just silently returns a wrong answer, because its halving logic assumes an order that isn't actually there.\n\n**Sorting a dataset before every single search when it will only be searched once.** If a dataset is searched exactly once, sorting it first (O(n log n)) to then binary search (O(log n)) costs more total work than a single O(n) linear scan — the amortization only pays off across repeated searches.\n\n**Assuming all sorting algorithms have the same real-world performance because they share a Big-O class.** Merge sort and quicksort are both O(n log n) on average, but they have different constant factors, memory behavior, and worst-case guarantees — the choice between them can matter in practice even within the same complexity class.\n\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "swe_sorting_and_searching_quiz",
+        "questions": [
+          {
+            "question": "What is the best achievable average-case time complexity for general comparison-based sorting?",
+            "options": [
+              "O(n log n)",
+              "O(n)",
+              "O(n²)",
+              "O(log n)"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Merge sort and quicksort both achieve O(n log n) on average, which is the established lower bound for comparison-based sorting.",
+            "id": "q1"
+          },
+          {
+            "question": "Binary search achieves O(log n) lookup time by relying on which precondition?",
+            "options": [
+              "That the data is already sorted",
+              "That the data contains no duplicate values",
+              "That the data fits entirely in cache",
+              "That the data is stored in a hash map"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Binary search's halving strategy only works correctly on sorted data — without that precondition, it can't reliably eliminate half the remaining search space each step.",
+            "id": "q2"
+          },
+          {
+            "question": "When does sorting a dataset once and then binary-searching it repeatedly pay off compared to linear scanning every time?",
+            "options": [
+              "When the number of repeated searches is large enough to amortize the upfront O(n log n) sorting cost",
+              "Only when the dataset has fewer than 10 elements",
+              "Never, since linear scanning is always faster",
+              "Only if the data is already stored in a hash map"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The upfront sorting investment is worth it once enough subsequent fast searches offset that one-time cost — the same amortization logic used elsewhere in this curriculum for training-versus-inference trade-offs.",
+            "id": "q3"
+          },
+          {
+            "question": "Per '🔀 Sorting: the O(n log n) baseline', why is bubble sort's O(n²) complexity described as impractical, even though it's correct?",
+            "options": [
+              "Because O(n²) becomes unworkable for anything beyond small inputs, unlike the O(n log n) achieved by merge sort or quicksort",
+              "Because bubble sort produces incorrect results on large inputs",
+              "Because bubble sort cannot be implemented in most programming languages",
+              "Because O(n²) is actually faster than O(n log n) for large inputs"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson contrasts bubble sort's correctness with its impracticality at scale, directly illustrating why the complexity analysis from the previous lesson has real consequences.",
+            "id": "q4"
+          },
+          {
+            "question": "Per '🧮 When sorting first is worth it', what other decision elsewhere in this curriculum does the lesson compare this amortization logic to?",
+            "options": [
+              "Deciding whether to fine-tune a model versus prompting it each time, from the Fine-Tuning course",
+              "Choosing between GQA and MQA attention in the LLM Inference course",
+              "Choosing a distance metric in the Vector Databases course",
+              "Deciding between SQL and NoSQL storage in the System Design module"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly draws this parallel: paying an upfront cost that pays off over repeated use is the same reasoning behind the Fine-Tuning course's fine-tune-versus-prompt decision.",
+            "id": "q5"
+          },
+          {
+            "question": "In the code example, why does binary_search(unsorted_data, 45) return -1 even though 45 is present in unsorted_data?",
+            "options": [
+              "Because binary_search's halving logic assumes sorted order, and that assumption is violated by unsorted_data, so it silently produces a wrong answer",
+              "Because 45 was accidentally left out of unsorted_data",
+              "Because binary_search always returns -1 for odd-length lists",
+              "Because Python's list indexing does not support unsorted lists"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The prose explains this directly: binary_search doesn't detect unsorted input and just returns an incorrect result because its core assumption (sorted order) doesn't hold for unsorted_data.",
+            "id": "q6"
+          },
+          {
+            "question": "In the code example, what does the `sorted(unsorted_data)` plus repeated `bisect_left` calls demonstrate?",
+            "options": [
+              "The 'sort once, search many times' pattern — paying the O(n log n) sort cost a single time, then O(log n) per subsequent search",
+              "That bisect_left works correctly on unsorted data without any sorting first",
+              "That sorting must be repeated before every individual search",
+              "That bisect_left is slower than a full linear scan in every case"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The code sorts values once outside the loop over targets, so each bisect_left call benefits from the one-time sort — exactly the amortization pattern the lesson's prose describes.",
+            "id": "q7"
+          },
+          {
+            "question": "Per 'Common mistakes', why is it risky to run binary search on unsorted data rather than getting an explicit error?",
+            "options": [
+              "Because binary search doesn't detect unsorted input — it silently returns a wrong answer instead of raising an error",
+              "Because binary search always crashes immediately on unsorted data",
+              "Because binary search runs in O(n²) time on unsorted data",
+              "Because unsorted data cannot be represented as a Python list"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The mistakes section emphasizes the silent-failure nature of this bug: no exception is raised, just an incorrect result, which is exactly what the code example demonstrated.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "swe_recursion_and_dynamic_programming",
+      "title": "Recursion and Dynamic Programming",
+      "description": "Solving a problem by solving smaller versions of itself — and remembering the answers so you don't redo the work.",
+      "duration": 13,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Write a simple recursive solution and identify when memoization (dynamic programming) would improve it."
+          },
+          {
+            "title": "🪆 Recursion: a function calling itself on a smaller problem",
+            "content": "A recursive function solves a problem by calling itself on a smaller version of the same problem, combined with a base case that stops the recursion — like computing a factorial, traversing a tree from the earlier lesson, or exploring a graph via depth-first search. Every recursive call adds a frame to the call stack — the very stack data structure from Module 1."
+          },
+          {
+            "title": "🔁 The overlapping-subproblems trap",
+            "content": "Naive recursion can recompute the same subproblem many times — a naive recursive Fibonacci implementation recalculates the same smaller Fibonacci values repeatedly, leading to exponential time complexity for a problem that has an obviously better solution."
+          },
+          {
+            "title": "💾 Dynamic programming: remember what you've already solved",
+            "content": "Dynamic programming (DP) stores the results of subproblems already solved (memoization) so they're never recomputed, turning an exponential naive recursive solution into a polynomial one. This is conceptually the same idea as caching an expensive computation's result — the same principle behind semantic caching in the App Dev course, just applied within a single algorithm's execution rather than across API requests."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "A naive recursive Fibonacci alongside a memoized version, counting actual function calls to make the overlapping-subproblems cost concrete:\n\n```python\ncall_count_naive = 0\ncall_count_memo = 0\n\n\ndef fib_naive(n):\n    global call_count_naive\n    call_count_naive += 1\n    if n <= 1:\n        return n\n    return fib_naive(n - 1) + fib_naive(n - 2)\n\n\ndef fib_memo(n, cache=None):\n    global call_count_memo\n    if cache is None:\n        cache = {}\n    call_count_memo += 1\n    if n <= 1:\n        return n\n    if n in cache:\n        return cache[n]\n    result = fib_memo(n - 1, cache) + fib_memo(n - 2, cache)\n    cache[n] = result\n    return result\n\n\nn = 25\nresult_naive = fib_naive(n)\nresult_memo = fib_memo(n)\n\nprint(f\"fib({n}) = {result_naive} == {result_memo}\")\nprint(f\"naive calls:  {call_count_naive}\")\nprint(f\"memoized calls: {call_count_memo}\")\n```\n\nBoth functions compute the identical result for `fib(25)`, but `fib_naive` makes tens of thousands of calls because it recomputes `fib(20)`, `fib(19)`, and so on from scratch every time they're needed again, while `fib_memo` makes roughly `2n` calls because `cache[n]` short-circuits every repeat — the `cache` dict is exactly the \"remember what's already been solved\" mechanism the lesson describes, turning exponential blowup into linear work."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Writing recursion without a reachable base case.** A recursive function that never hits its base case (or has one that's unreachable for some inputs) recurses forever, eventually crashing with a stack overflow rather than an intentional error.\n\n**Adding memoization without first confirming the subproblems actually overlap.** Caching only helps when the same subproblem genuinely gets requested more than once — for a recursive function whose subproblems are all distinct, memoization adds bookkeeping overhead for no benefit.\n\n**Forgetting to reset or scope the cache correctly across separate calls.** A cache reused incorrectly across unrelated inputs (or never cleared when it should be) can return stale results computed for a different context — the cache needs to be scoped to what it's actually memoizing.\n\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "swe_recursion_and_dynamic_programming_quiz",
+        "questions": [
+          {
+            "question": "What causes naive recursive Fibonacci to run in exponential time?",
+            "options": [
+              "It recomputes the same overlapping subproblems many times instead of reusing previously computed results",
+              "Recursion always runs in exponential time regardless of the problem",
+              "Fibonacci numbers cannot be computed with recursion at all",
+              "The base case is never reached"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Without memoization, the same smaller Fibonacci values get recalculated repeatedly across many recursive calls, causing the cost to blow up exponentially.",
+            "id": "q1"
+          },
+          {
+            "question": "What does dynamic programming (memoization) fundamentally add to a naive recursive solution?",
+            "options": [
+              "Storing already-computed subproblem results so they're never recomputed",
+              "Removing the base case entirely",
+              "Converting the recursive solution into an iterative one with no other changes",
+              "Increasing the input size the algorithm can handle by changing hardware"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Memoization is exactly the 'remember what's already been solved' technique that avoids redundant recomputation of overlapping subproblems.",
+            "id": "q2"
+          },
+          {
+            "question": "The idea behind dynamic programming's memoization is conceptually similar to which other topic in this curriculum?",
+            "options": [
+              "Semantic caching of expensive LLM API responses from the App Dev course",
+              "Sharding a vector database across multiple machines",
+              "SOLID's Single Responsibility Principle",
+              "Autoregressive decoding in LLM inference"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Both cache the result of expensive work so it doesn't need to be redone, just applied at different scopes — within an algorithm versus across API requests.",
+            "id": "q3"
+          },
+          {
+            "question": "Per '🪆 Recursion: a function calling itself on a smaller problem', what data structure does every recursive call add a frame to?",
+            "options": [
+              "The call stack, the same stack structure covered in Module 1",
+              "A hash map",
+              "A binary search tree",
+              "A priority queue"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly connects recursion's mechanism to the call stack, tying it directly back to the stack data structure from the earlier module.",
+            "id": "q4"
+          },
+          {
+            "question": "Per '🔁 The overlapping-subproblems trap', what specifically does naive recursive Fibonacci do that makes it slow?",
+            "options": [
+              "It recalculates the same smaller Fibonacci values repeatedly across different recursive branches",
+              "It never actually returns a correct result for any input",
+              "It uses an iterative loop instead of true recursion",
+              "It requires an externally provided cache to run at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson names this precisely as recalculating the same smaller Fibonacci values repeatedly, which is the overlapping-subproblems trap.",
+            "id": "q5"
+          },
+          {
+            "question": "In the code example, why does fib_memo make far fewer calls than fib_naive for the same input n=25?",
+            "options": [
+              "Because fib_memo checks cache and returns immediately for any n it has already computed, avoiding redundant recursive branches",
+              "Because fib_memo uses a completely different mathematical formula for Fibonacci",
+              "Because fib_naive is called with a smaller value of n than fib_memo",
+              "Because fib_memo does not use recursion at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "fib_memo's `if n in cache: return cache[n]` line is exactly what short-circuits repeat subproblems, unlike fib_naive which always recomputes both recursive branches.",
+            "id": "q6"
+          },
+          {
+            "question": "In the code example, what does the `cache` dictionary inside fib_memo store?",
+            "options": [
+              "Previously computed Fibonacci results, keyed by n, so they don't need to be recalculated",
+              "The total number of function calls made so far",
+              "Only the final result of fib_memo(25)",
+              "A list of every intermediate call_count_memo value"
+            ],
+            "correctAnswer": 0,
+            "explanation": "cache[n] = result stores each computed Fibonacci value by its input n, which is checked via `if n in cache` before any recomputation happens.",
+            "id": "q7"
+          },
+          {
+            "question": "Per 'Common mistakes', when does adding memoization fail to provide any real benefit?",
+            "options": [
+              "When the subproblems being solved don't actually overlap — memoization adds bookkeeping overhead with nothing to reuse",
+              "When the recursive function has a base case",
+              "When the input size is larger than 100",
+              "When the function is written in Python rather than another language"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The mistakes section explains that memoization only pays off when the same subproblem is genuinely requested more than once; otherwise it's pure overhead.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "swe_practicing_algorithmic_thinking",
+      "title": "Practicing Algorithmic Thinking",
+      "description": "Turning the concepts from this module into a repeatable process for approaching a new problem.",
+      "duration": 11,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Apply a structured process for approaching an unfamiliar algorithmic problem, rather than guessing at a solution."
+          },
+          {
+            "title": "🧭 A repeatable process",
+            "content": "Restate the problem in your own words and identify the input/output precisely. Work through a small example by hand before writing any code. Identify which data structure from Module 1 naturally fits the access pattern the problem needs. Consider the brute-force solution first, analyze its Big-O, and only then look for a more efficient approach if the brute-force cost is actually a problem for your real input sizes."
+          },
+          {
+            "title": "🚫 Premature optimization is still a trap here",
+            "content": "Jumping straight to a clever O(log n) solution for a problem that only ever runs on 20 items is wasted effort — the same 'measure before you optimize' discipline that runs through the LLM Inference course's precision-choice lesson and the vector search course's recall/latency tuning. Get a correct brute-force solution first; optimize only where the numbers say it matters."
+          },
+          {
+            "title": "🎓 Why this module exists in an AI curriculum at all",
+            "content": "Model architectures, training loops, and serving systems are themselves built from these same fundamentals — a transformer's attention computation has a complexity class worth understanding, an efficient data pipeline depends on the right data structure, and reasoning about scale throughout this curriculum has, from the very first course, been an algorithmic thinking exercise wearing an AI-specific costume."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "A worked example following the repeatable process: a brute-force O(n²) solution to \"find any two numbers in a list that sum to a target,\" analyzed, then improved to O(n) using a hash set once the brute-force cost is shown to matter:\n\n```python\nimport time\n\n\ndef two_sum_bruteforce(numbers, target):\n    # Step 1 of the process: get a correct, simple solution first.\n    for i in range(len(numbers)):\n        for j in range(i + 1, len(numbers)):\n            if numbers[i] + numbers[j] == target:\n                return (i, j)\n    return None\n\n\ndef two_sum_hash_set(numbers, target):\n    # Step 2: only reached after confirming brute-force cost is a real problem.\n    seen = {}\n    for i, value in enumerate(numbers):\n        complement = target - value\n        if complement in seen:\n            return (seen[complement], i)\n        seen[value] = i\n    return None\n\n\ndef time_it(func, numbers, target):\n    start = time.perf_counter()\n    func(numbers, target)\n    return (time.perf_counter() - start) * 1000\n\n\nsmall = list(range(20))\nlarge = list(range(8000))\n\nprint(\"small input (n=20):\")\nprint(f\"  bruteforce: {time_it(two_sum_bruteforce, small, 37):.4f}ms\")\nprint(f\"  hash_set:   {time_it(two_sum_hash_set, small, 37):.4f}ms\")\n\nprint(\"large input (n=8000):\")\nprint(f\"  bruteforce: {time_it(two_sum_bruteforce, large, 15997):.4f}ms\")\nprint(f\"  hash_set:   {time_it(two_sum_hash_set, large, 15997):.4f}ms\")\n```\n\nOn the small input (n=20), `two_sum_bruteforce`'s O(n²) cost is negligible — both versions finish in a fraction of a millisecond, so optimizing here would be exactly the premature optimization the lesson warns against. On the large input (n=8000), the O(n²) brute-force approach's cost becomes measurably worse than `two_sum_hash_set`'s O(n) approach, which is the concrete \"the numbers say it matters now\" signal the process describes before reaching for the more complex solution."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Skipping the brute-force step and guessing at an \"optimized\" solution directly.** Without a correct baseline, there's nothing to verify a cleverer solution against, and no evidence the optimization was actually necessary in the first place.\n\n**Never working through a small example by hand before coding.** Jumping straight into code without tracing the logic on paper first often means discovering a fundamental misunderstanding of the problem only after writing (and debugging) a lot of code.\n\n**Treating every algorithmic problem as if it demands the theoretically optimal solution.** As the timing example shows, a brute-force solution can be entirely adequate at small scale — the process explicitly says to optimize only once the brute-force cost is a real problem for your actual input sizes.\n\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "swe_practicing_algorithmic_thinking_quiz",
+        "questions": [
+          {
+            "question": "What should generally come before searching for a clever, optimized algorithm?",
+            "options": [
+              "A correct brute-force solution, with its Big-O analyzed to see if optimization is actually needed",
+              "Immediately implementing the most complex known algorithm for the problem class",
+              "Skipping the problem statement and starting to code immediately",
+              "Choosing a data structure before understanding what the problem asks for"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Starting from a correct, simple solution and only optimizing where analysis shows it's needed avoids wasted effort on premature optimization.",
+            "id": "q1"
+          },
+          {
+            "question": "Why might optimizing an algorithm from O(n) to O(log n) be a waste of effort in some real situations?",
+            "options": [
+              "If the real input size is always small, the difference may be negligible while adding real implementation complexity",
+              "Because O(log n) is always slower than O(n) in practice",
+              "Because Big-O analysis is never accurate",
+              "Because optimized algorithms cannot be tested"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The value of an asymptotic improvement depends on actual input sizes — for small, bounded inputs, the theoretical gain may not be worth the added complexity.",
+            "id": "q2"
+          },
+          {
+            "question": "How does this lesson connect algorithmic thinking to the rest of this AI-focused curriculum?",
+            "options": [
+              "It frames complexity reasoning about scale — used throughout model training, serving, and search — as fundamentally the same skill, just applied to AI-specific problems",
+              "It claims algorithmic thinking is irrelevant to AI engineering",
+              "It argues that AI systems never need to consider complexity or scale",
+              "It suggests data structures are unrelated to how AI systems are built"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The scaling and complexity reasoning behind sorting or searching is the same underlying skill behind reasoning about attention complexity, ANN search, or serving throughput elsewhere in this curriculum.",
+            "id": "q3"
+          },
+          {
+            "question": "Per '🧭 A repeatable process', what step does the process recommend before writing any code?",
+            "options": [
+              "Working through a small example by hand",
+              "Immediately implementing the most complex known solution",
+              "Skipping straight to Big-O analysis with no example",
+              "Deploying a prototype to production for feedback"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson lists working through a small example by hand, before any code, as one of the process's explicit steps.",
+            "id": "q4"
+          },
+          {
+            "question": "Per '🚫 Premature optimization is still a trap here', which two other course lessons does this same 'measure before you optimize' discipline connect to?",
+            "options": [
+              "The LLM Inference course's precision-choice lesson and the vector search course's recall/latency tuning",
+              "The SQL course's join syntax and the Clean Code module's naming guidelines",
+              "The Agents course's planning graphs and the MCP course's protocol design",
+              "The Fine-Tuning course's PEFT lesson and the RAG course's chunking strategy"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly names these two: the LLM Inference course's precision-choice lesson and the vector search course's recall/latency tuning, as examples of the same discipline applied elsewhere.",
+            "id": "q5"
+          },
+          {
+            "question": "In the code example, why does two_sum_bruteforce's timing look similar to two_sum_hash_set's on the small input (n=20) but noticeably worse on the large input (n=8000)?",
+            "options": [
+              "Because O(n²) cost is negligible at small n but grows much faster than O(n) as n increases, matching the lesson's point about optimizing only once it matters",
+              "Because two_sum_hash_set does not actually run on the small input",
+              "Because two_sum_bruteforce contains a bug that only appears for large inputs",
+              "Because the large input uses a different target value that has no valid answer"
+            ],
+            "correctAnswer": 0,
+            "explanation": "This is exactly the timing gap the section's prose describes: negligible difference at n=20, a measurable gap at n=8000, illustrating when optimization actually becomes worth it.",
+            "id": "q6"
+          },
+          {
+            "question": "In two_sum_hash_set, what does the `seen` dictionary store, and how is it used?",
+            "options": [
+              "Previously seen numbers mapped to their index, checked against each new value's complement to find a pair in one pass",
+              "The final answer, updated on every iteration",
+              "A count of how many times two_sum_hash_set has been called",
+              "A sorted copy of the input list"
+            ],
+            "correctAnswer": 0,
+            "explanation": "seen[value] = i records each number's index as it's encountered, and `if complement in seen` checks whether the number needed to reach target has already been seen, avoiding a second nested loop.",
+            "id": "q7"
+          },
+          {
+            "question": "Per 'Common mistakes', why is skipping the brute-force step and guessing at an optimized solution directly risky?",
+            "options": [
+              "Because without a correct baseline, there's nothing to verify a cleverer solution against, and no evidence the optimization was actually necessary",
+              "Because brute-force solutions are always faster than optimized ones",
+              "Because optimized solutions cannot be written in Python",
+              "Because skipping steps in the process causes a runtime error"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The mistakes section explains that a correct brute-force baseline is what lets you verify a more complex solution's correctness and confirm the optimization was actually warranted.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

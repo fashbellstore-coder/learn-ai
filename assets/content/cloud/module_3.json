@@ -1,0 +1,559 @@
+{
+  "id": "cld_cicd",
+  "title": "CI/CD Pipelines",
+  "description": "Why continuous integration solves integration hell, how GitHub Actions workflows implement CI as version-controlled YAML built on shell-command fundamentals, the distinction between continuous delivery and continuous deployment with the safety nets automation requires, and how to structure pipeline testing to mirror the testing pyramid's cost/coverage tradeoff.",
+  "icon": "🔁",
+  "color": "#37474F",
+  "order": 3,
+  "estimatedHours": 4,
+  "difficulty": "advanced",
+  "prerequisites": [
+    "cld_kubernetes"
+  ],
+  "lessons": [
+    {
+      "id": "cld_continuous_integration_basics",
+      "title": "Continuous Integration Basics",
+      "description": "Why integration gets harder the longer branches stay isolated, what Continuous Integration actually automates, and the standard set of checks a CI pipeline runs — and gates merges on — for every change.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson you should be able to explain why integrating code changes gets harder the longer they're isolated, describe what **Continuous Integration (CI)** actually automates, and list the checks a typical CI pipeline runs on every change.\n"
+          },
+          {
+            "title": "🔀 The problem: integration gets harder the longer you wait",
+            "content": "When multiple people work on the same codebase in long-lived, isolated branches, merging their changes back together gets exponentially harder the longer those branches diverge — more files touched, more conflicting assumptions, more surface area for one change to silently break another. This is called **integration hell**, and it used to be common practice to merge only at the end of a release cycle, when the pain was worst.\n"
+          },
+          {
+            "title": "🤖 CI: running checks automatically, on every change",
+            "content": "**Continuous Integration** is the practice of merging code changes frequently — ideally multiple times a day — and running an automated suite of checks against every change immediately, rather than waiting. The goal is to catch integration problems within minutes of them being introduced, while the change is still small and fresh in the author's mind, instead of weeks later when untangling it is expensive.\n\nCI is fundamentally about *automation* and *frequency*: a check that only runs when someone remembers to run it manually isn't CI, and merging weekly instead of daily reintroduces much of the integration pain CI exists to prevent.\n"
+          },
+          {
+            "title": "✅ What a CI pipeline typically checks",
+            "content": "A typical CI pipeline runs, on every push or pull request:\n\n- **Build**: does the code compile / does the package install cleanly?\n- **Automated tests**: unit tests, and often fast integration tests\n- **Linting and formatting**: is the code consistent with the project's style rules?\n- **Static analysis / type checking**: are there obvious bugs or type errors catchable without running the code?\n- **Security scanning**: known-vulnerable dependencies, leaked secrets\n\nA failing check typically blocks the change from merging, which is what makes CI effective — it's not just informational, it's a gate.\n"
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "Here's a simplified simulation of a CI pipeline running a sequence of checks and gating a merge on whether they all pass:\n\n```python\ndef run_ci_pipeline(change, checks):\n    results = {}\n    for check_name, check_fn in checks.items():\n        results[check_name] = check_fn(change)\n    all_passed = all(results.values())\n    return results, all_passed\n\ndef build_check(change):\n    return change[\"syntax_valid\"]\n\ndef test_check(change):\n    return change[\"tests_passing\"]\n\ndef lint_check(change):\n    return change[\"style_violations\"] == 0\n\nchecks = {\"build\": build_check, \"tests\": test_check, \"lint\": lint_check}\n\ngood_change = {\"syntax_valid\": True, \"tests_passing\": True, \"style_violations\": 0}\nresults, can_merge = run_ci_pipeline(good_change, checks)\nprint(\"good change:\", results, \"-> can merge:\", can_merge)\n\nbad_change = {\"syntax_valid\": True, \"tests_passing\": False, \"style_violations\": 3}\nresults, can_merge = run_ci_pipeline(bad_change, checks)\nprint(\"bad change:\", results, \"-> can merge:\", can_merge)\n```\n\nFor `good_change`, every check function returns `True`, so `results` is `{\"build\": True, \"tests\": True, \"lint\": True}` and `all(results.values())` is `True` — `can_merge` is `True`. For `bad_change`, `test_check` returns `False` (tests aren't passing) and `lint_check` returns `False` (3 style violations, not 0), so `results` is `{\"build\": True, \"tests\": False, \"lint\": False}` and `all()` short-circuits to `False` — `can_merge` is `False`, blocking the merge even though the build itself succeeded.\n"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Treating a failing CI check as informational rather than blocking.** If merges can happen regardless of check results, CI loses its main enforcement value — it becomes a dashboard nobody has to act on, not a gate.\n\n**Letting CI checks become slow enough that people start skipping or ignoring them.** A pipeline that takes 40 minutes trains people to merge before it finishes, or to stop running it locally at all — speed is part of what keeps CI actually used.\n\n**Merging infrequently and calling it CI anyway.** Running the same checks but only merging weekly reintroduces integration hell — frequency of integration, not just the existence of automated checks, is what CI is named for.\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "cld_continuous_integration_basics_quiz",
+        "questions": [
+          {
+            "question": "Per the \"🔀 The problem\" section, why does merging get harder the longer branches stay isolated?",
+            "options": [
+              "Because Git has a hard technical limit on how old a branch can be before merging",
+              "Because more files get touched and more conflicting assumptions accumulate the longer changes diverge, making conflicts bigger and integration more expensive",
+              "Because CI pipelines automatically delete old branches",
+              "Because longer-lived branches use more disk space"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson describes this as integration hell — divergence compounds over time, making later merges involve more conflicting assumptions and touched files than early, frequent ones would.",
+            "id": "q1"
+          },
+          {
+            "question": "According to the \"🤖 CI\" section, what two properties does the lesson say CI is fundamentally about?",
+            "options": [
+              "Cost and scalability",
+              "Automation and frequency — checks that run automatically, on every change, not just when someone remembers to run them manually",
+              "Security and compliance",
+              "Documentation and readability"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson states CI is fundamentally about automation and frequency, explicitly noting that a manually run check isn't CI and infrequent merging reintroduces integration pain.",
+            "id": "q2"
+          },
+          {
+            "question": "In the code example, why does `bad_change` result in `can_merge=False`?",
+            "options": [
+              "Because `build_check` returns `False`",
+              "Because `test_check` and `lint_check` both return `False` (failing tests and 3 style violations), so `all(results.values())` evaluates to `False`",
+              "Because `run_ci_pipeline` always returns `False` for the second call",
+              "Because `bad_change` is missing the `syntax_valid` key"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`bad_change` has `tests_passing: False` and `style_violations: 3`, making `test_check` and `lint_check` both return `False` — with `all()` requiring every value to be `True`, the merge is blocked.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, what does `results` look like for `good_change`, and why?",
+            "options": [
+              "`{\"build\": False, \"tests\": False, \"lint\": False}`, because good_change fails all checks",
+              "`{\"build\": True, \"tests\": True, \"lint\": True}`, because `good_change` has `syntax_valid=True`, `tests_passing=True`, and `style_violations=0`, satisfying every check function",
+              "An empty dict, because no checks ran",
+              "`{\"build\": True}`, because only the build check ran"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Each check function reads a specific field from `good_change`, all of which are set to pass (`syntax_valid=True`, `tests_passing=True`, `style_violations=0`), so every entry in `results` is `True`.",
+            "id": "q4"
+          },
+          {
+            "question": "What does `run_ci_pipeline` use to decide `all_passed`?",
+            "options": [
+              "`any(results.values())` — merges if at least one check passes",
+              "`all(results.values())` — merges only if every check in `results` passed",
+              "A fixed count of exactly 2 passing checks",
+              "It ignores `results` and always returns `True`"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The function computes `all_passed = all(results.values())`, requiring every check's result to be truthy — a single failing check is enough to block the merge.",
+            "id": "q5"
+          },
+          {
+            "question": "Per the \"✅ What a CI pipeline typically checks\" section, what makes a failing check effective as an enforcement mechanism?",
+            "options": [
+              "That it sends an email to the team lead",
+              "That it typically blocks the change from merging — it's a gate, not just informational output",
+              "That it automatically fixes the code",
+              "That it deletes the offending branch"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson explicitly says a failing check typically blocks merging, and that this gating behavior — not just running the checks — is what makes CI effective.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does the lesson warn against treating a failing CI check as merely informational?",
+            "options": [
+              "Because informational checks run faster",
+              "Because if merges can happen regardless of check results, CI loses its main enforcement value and becomes a dashboard nobody has to act on",
+              "Because informational checks are more accurate than blocking ones",
+              "Because CI tools do not support blocking behavior technically"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The common mistakes section states this directly: without blocking power, CI checks become passive output rather than an actual gate on what merges.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does the lesson warn against merging infrequently even while still running automated checks?",
+            "options": [
+              "Because infrequent merges make CI pipelines run faster",
+              "Because merging weekly rather than continuously reintroduces integration hell — frequency of integration, not just the existence of checks, is what makes it CI",
+              "Because CI tools require merges to happen at least once per hour",
+              "Because infrequent merges are always rejected by CI automatically"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson is explicit that calling infrequent merging \"CI\" misses the point — the frequency of integration is core to what the practice is named for, not merely running automated checks.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "cld_github_actions_workflows",
+      "title": "GitHub Actions Workflows",
+      "description": "How GitHub Actions workflows are defined as version-controlled YAML, the common triggers that start them, and how each step ultimately reduces to the same shell-command and exit-code fundamentals covered earlier in this course.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson you should be able to describe how GitHub Actions workflows are defined as YAML configuration, list the common triggers that start a workflow, and explain how workflow steps build directly on the shell scripting concepts from earlier in this course.\n"
+          },
+          {
+            "title": "📄 Workflows as YAML configuration",
+            "content": "A **GitHub Actions workflow** is defined in a YAML file (conventionally under `.github/workflows/`) describing: what triggers it, one or more **jobs** (each running on its own fresh virtual machine), and within each job, an ordered sequence of **steps** — either a reusable **action** (a packaged unit someone else wrote) or a raw shell command. Because the whole pipeline is version-controlled YAML alongside the code it tests, changes to the pipeline itself go through the same review process as any other code change.\n"
+          },
+          {
+            "title": "⚡ Triggers: when a workflow runs",
+            "content": "Common triggers include:\n\n- `push`: runs whenever commits are pushed, often scoped to specific branches\n- `pull_request`: runs when a PR is opened or updated — this is what powers CI gating on PRs\n- `schedule`: runs on a cron schedule, independent of any code change\n- `workflow_dispatch`: allows manually triggering a run from the UI or API\n\nA single workflow file can declare multiple triggers, and different workflows in the same repository commonly use different triggers for different purposes — for example, fast checks on every `push`, and a heavier nightly suite on a `schedule`.\n"
+          },
+          {
+            "title": "🔗 Building on the shell scripting foundation",
+            "content": "Each step in a job is, underneath the YAML, ultimately shell commands running on a machine — the same fundamentals covered earlier in this course apply directly: exit codes determine step success or failure (a non-zero exit fails the step, which by default fails the job), environment variables carry configuration into the step, and the same command you'd type locally to run tests or lint code is usually the same command a workflow step runs. Actions add convenience (checking out code, caching dependencies, uploading artifacts) but the core mental model is still: a sequence of shell commands whose exit codes gate what happens next.\n"
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "Here's a simplified simulation of a workflow's steps running in order, stopping at the first failure — mirroring how a real CI job's exit-code gating works:\n\n```python\ndef run_step(name, exit_code):\n    print(f\"running step: {name}\")\n    return exit_code == 0\n\ndef run_job(steps):\n    for name, exit_code in steps:\n        ok = run_step(name, exit_code)\n        if not ok:\n            print(f\"step '{name}' failed (exit {exit_code}) -> job failed\")\n            return False\n    print(\"all steps passed -> job succeeded\")\n    return True\n\npassing_steps = [(\"checkout\", 0), (\"install deps\", 0), (\"run tests\", 0), (\"lint\", 0)]\nprint(\"job 1 result:\", run_job(passing_steps))\n\nfailing_steps = [(\"checkout\", 0), (\"install deps\", 0), (\"run tests\", 1), (\"lint\", 0)]\nprint(\"job 2 result:\", run_job(failing_steps))\n```\n\nIn `passing_steps`, every `exit_code` is `0`, so `run_step` returns `True` for all four steps and the loop completes without hitting the `if not ok` branch — `run_job` returns `True`. In `failing_steps`, the third step, `\"run tests\"`, has `exit_code=1`, so `run_step` returns `False` there; `run_job` immediately prints the failure and returns `False` — critically, it never reaches the `\"lint\"` step at all, exactly mirroring how a real job stops at the first failing step by default.\n"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming later steps run even after an earlier step fails.** By default, a job stops at the first failing step — as the code example shows, `\"lint\"` never runs after `\"run tests\"` fails. If you need a step to run regardless (like uploading logs), it must be explicitly configured to do so.\n\n**Not pinning action versions.** Referencing an action by a mutable tag like `@main` instead of a specific version means the workflow's behavior can change without any change to your own repository — an upstream action update can silently break your pipeline.\n\n**Putting secrets directly in workflow YAML instead of using the platform's secrets mechanism.** Workflow files are typically visible to anyone with repository read access (and are part of your version history), so hardcoded credentials there are effectively public.\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "cld_github_actions_workflows_quiz",
+        "questions": [
+          {
+            "question": "Per the \"📄 Workflows as YAML configuration\" section, why does defining a workflow as version-controlled YAML matter?",
+            "options": [
+              "Because YAML runs faster than other configuration formats",
+              "Because changes to the pipeline itself go through the same review process as any other code change, since it's version-controlled alongside the code it tests",
+              "Because GitHub Actions only supports YAML and no other format",
+              "Because YAML files cannot contain secrets, unlike other formats"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson's stated benefit is that pipeline changes get the same review scrutiny as application code, precisely because the workflow definition lives in version control as YAML.",
+            "id": "q1"
+          },
+          {
+            "question": "According to the \"⚡ Triggers\" section, which trigger is described as powering CI gating on pull requests?",
+            "options": [
+              "`schedule`",
+              "`workflow_dispatch`",
+              "`pull_request`",
+              "`push` only, with no other trigger involved"
+            ],
+            "correctAnswer": 2,
+            "explanation": "The lesson explicitly names `pull_request` as the trigger that runs when a PR is opened or updated, and states this is what powers CI gating on PRs.",
+            "id": "q2"
+          },
+          {
+            "question": "In the code example, why does `run_job(failing_steps)` never print \"running step: lint\"?",
+            "options": [
+              "Because `lint` is commented out in the `failing_steps` list",
+              "Because `run_step` for the `\"run tests\"` step (exit_code=1) returns `False`, causing `run_job`'s loop to return early via the `if not ok` branch before reaching the `\"lint\"` tuple",
+              "Because `run_job` runs steps in random order",
+              "Because `\"lint\"` always runs last regardless of other steps"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`failing_steps` is ordered checkout, install deps, run tests, lint — the third step's `exit_code=1` makes `run_step` return `False`, and `run_job` returns immediately at that point, so the loop never reaches the fourth (`lint`) tuple.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, what does `run_step` return when given `exit_code=0`, and what does that represent?",
+            "options": [
+              "`False`, representing a failed step",
+              "`True`, representing a successful step — the function returns `exit_code == 0`",
+              "`None`, since the function doesn't return anything",
+              "The exit code itself, unmodified"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`run_step` returns `exit_code == 0`, which is `True` whenever the exit code is 0 — matching the standard convention that a zero exit code means success.",
+            "id": "q4"
+          },
+          {
+            "question": "What does `run_job(passing_steps)` return, and why?",
+            "options": [
+              "`False`, because one step is missing",
+              "`True`, because every step in `passing_steps` has `exit_code=0`, so `run_step` returns `True` for each and the loop completes without ever triggering the early-return branch",
+              "`None`, because the function has no final return statement reached in this case",
+              "It raises an exception because there are 4 steps"
+            ],
+            "correctAnswer": 1,
+            "explanation": "All four tuples in `passing_steps` have `exit_code=0`, so every `run_step` call returns `True`, the `if not ok` branch is never taken, and the loop falls through to `return True` at the end.",
+            "id": "q5"
+          },
+          {
+            "question": "Per the \"🔗 Building on the shell scripting foundation\" section, what determines whether a workflow step succeeds or fails?",
+            "options": [
+              "Whether the step's YAML is syntactically valid",
+              "The step's exit code — a non-zero exit fails the step, which by default fails the job, the same convention covered in the earlier shell scripting lesson",
+              "Whether the step took less than 60 seconds to run",
+              "A manual approval from a repository administrator"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson ties workflow step success directly back to exit codes, the same convention from the shell scripting lesson — non-zero fails the step and, by default, the job.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does the lesson warn against referencing GitHub Actions by a mutable tag like `@main` instead of a pinned version?",
+            "options": [
+              "Because mutable tags make workflows run slower",
+              "Because the action's behavior can change without any change to your own repository, and an upstream update can silently break your pipeline",
+              "Because GitHub disables mutable tags after 30 days",
+              "Because pinned versions are required for `pull_request` triggers specifically"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The common mistakes section explains that an unpinned reference lets the action's behavior drift independent of your repo's history, so an upstream change can silently break things.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does the lesson warn against putting secrets directly in workflow YAML?",
+            "options": [
+              "Because YAML files cannot technically store string values containing special characters",
+              "Because workflow files are typically visible to anyone with repository read access and are part of version history, making hardcoded credentials effectively public",
+              "Because GitHub Actions automatically encrypts all YAML file contents",
+              "Because secrets in YAML cause workflows to fail to parse"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The common mistakes section is explicit: workflow YAML is generally readable to anyone with repo access and persists in history, so credentials placed there directly are effectively exposed.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "cld_continuous_deployment_strategies",
+      "title": "Continuous Deployment Strategies",
+      "description": "The distinction between continuous delivery and continuous deployment, how deployment strategies connect back to rolling updates and rollback, and why removing the human approval gate means automated safety nets have to do that job instead.",
+      "duration": 13,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson you should be able to distinguish continuous delivery from continuous deployment, connect deployment strategies back to the rolling-update and rollback concepts covered earlier in this course, and explain why automated deployment requires automated safety nets.\n"
+          },
+          {
+            "title": "📦 Continuous delivery vs. continuous deployment",
+            "content": "These two terms are related but distinct:\n\n- **Continuous delivery**: every change that passes CI is automatically packaged into a release-ready artifact, but a human still decides *when* to actually deploy it to production\n- **Continuous deployment**: every change that passes CI is automatically deployed to production, with no manual approval step at all\n\nContinuous deployment is the more aggressive of the two — it requires enough confidence in the automated checks that no human gate is needed before code reaches production. Many teams use continuous delivery as a stepping stone, keeping a manual \"deploy\" button while everything up to that point is fully automated.\n"
+          },
+          {
+            "title": "🚀 Where this connects to earlier deployment strategies",
+            "content": "Whichever of the two a team uses, the actual deployment mechanism is usually the rolling update covered earlier in this course: new pods gradually replace old ones behind a stable Service, keeping the application available throughout. Continuous deployment doesn't introduce a new deployment mechanism — it just removes the manual approval step that used to precede triggering that same rolling update.\n"
+          },
+          {
+            "title": "🛡️ Automated deployment needs automated safety nets",
+            "content": "Removing a human approval gate means automated checks have to catch what a human reviewer previously would have. This typically means:\n\n- **Comprehensive automated tests**, since there's no manual QA pass before production\n- **Automated rollback** triggered by post-deploy health signals (error rate spikes, latency regressions), not just by a human noticing something is wrong\n- **Progressive rollout** (canary releases, feature flags) so a bad change affects a small fraction of traffic before it reaches everyone\n\nContinuous deployment without these safety nets isn't more efficient continuous delivery — it's just shipping bugs to 100% of users faster.\n"
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "Here's a simplified simulation of an automated deployment pipeline with a canary stage and health-triggered automatic rollback:\n\n```python\ndef deploy_with_canary(change, canary_error_rate, rollback_threshold):\n    if not change[\"ci_passed\"]:\n        return \"blocked: CI failed\"\n\n    # stage 1: canary gets a small fraction of traffic\n    if canary_error_rate > rollback_threshold:\n        return f\"rolled back: canary error rate {canary_error_rate}% > threshold {rollback_threshold}%\"\n\n    # stage 2: canary healthy, proceed to full rollout\n    return \"deployed: full rollout completed\"\n\ngood_change = {\"ci_passed\": True}\nprint(deploy_with_canary(good_change, canary_error_rate=0.2, rollback_threshold=2.0))\n\nregressing_change = {\"ci_passed\": True}\nprint(deploy_with_canary(regressing_change, canary_error_rate=5.5, rollback_threshold=2.0))\n\nbroken_change = {\"ci_passed\": False}\nprint(deploy_with_canary(broken_change, canary_error_rate=0.0, rollback_threshold=2.0))\n```\n\nFor `good_change`, `ci_passed` is `True` and `canary_error_rate` (0.2) is below `rollback_threshold` (2.0), so it prints `\"deployed: full rollout completed\"`. For `regressing_change`, CI passed but the canary's error rate (5.5) exceeds the threshold (2.0), so it prints the rollback message — the bug only ever reached the canary's small slice of traffic, never the full user base. For `broken_change`, the function returns at the very first check, before any canary traffic is even considered, because `ci_passed` is `False`.\n"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Adopting continuous deployment without automated rollback.** As the code example shows, a canary stage is only useful if a bad signal actually triggers a rollback automatically — a canary that a human has to notice and react to manually reintroduces the delay continuous deployment is meant to remove.\n\n**Rolling out to 100% of traffic immediately instead of progressively.** Skipping the canary stage means any bug reaches every user at once, with no smaller blast radius to catch it in first.\n\n**Confusing continuous delivery with continuous deployment when discussing risk.** Continuous delivery still has a human deciding when to deploy, which is a materially different risk profile than continuous deployment's fully automatic path to production — conflating them leads to underestimating what safety nets continuous deployment specifically requires.\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "cld_continuous_deployment_strategies_quiz",
+        "questions": [
+          {
+            "question": "Per the \"📦 Continuous delivery vs. continuous deployment\" section, what is the key difference between the two?",
+            "options": [
+              "Continuous delivery has no automated tests at all, unlike continuous deployment",
+              "Continuous delivery automatically packages release-ready artifacts but leaves the deploy decision to a human; continuous deployment automatically deploys with no manual approval",
+              "They are identical terms describing the same practice",
+              "Continuous deployment only applies to database changes"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson draws this exact distinction: delivery stops at a release-ready, human-approved artifact; deployment removes that human approval step entirely.",
+            "id": "q1"
+          },
+          {
+            "question": "According to the \"🚀 Where this connects\" section, does continuous deployment introduce a new deployment mechanism?",
+            "options": [
+              "Yes, it requires an entirely new mechanism unrelated to rolling updates",
+              "No — it typically still uses the rolling update mechanism covered earlier in the course; it just removes the manual approval step that used to precede triggering it",
+              "Yes, it replaces rolling updates with instant full-traffic cutover",
+              "No, but it disables health checks during deployment"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson is explicit that continuous deployment reuses the same rolling-update mechanism — the change is removing the manual gate, not the underlying deployment approach.",
+            "id": "q2"
+          },
+          {
+            "question": "In the code example, why does `deploy_with_canary(regressing_change, canary_error_rate=5.5, rollback_threshold=2.0)` return a rollback message?",
+            "options": [
+              "Because `ci_passed` is `False` for `regressing_change`",
+              "Because `canary_error_rate` (5.5) exceeds `rollback_threshold` (2.0), triggering the `if canary_error_rate > rollback_threshold` branch",
+              "Because the function always rolls back on the second call",
+              "Because `regressing_change` is missing the `ci_passed` key"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`regressing_change` has `ci_passed=True`, so it passes the first check; the rollback trigger is purely the comparison `5.5 > 2.0`, which is `True`.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, what happens for `broken_change`, and at what point in the function?",
+            "options": [
+              "It reaches the canary stage and is rolled back due to high error rate",
+              "It's blocked at the very first check (`if not change[\"ci_passed\"]`), before any canary traffic is considered, because `ci_passed` is `False`",
+              "It deploys successfully because `canary_error_rate=0.0`",
+              "It raises a KeyError"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`deploy_with_canary` checks `ci_passed` first and returns immediately if it's `False` — the canary error rate for `broken_change` is never even evaluated.",
+            "id": "q4"
+          },
+          {
+            "question": "What does the code example demonstrate about the purpose of the canary stage?",
+            "options": [
+              "That canaries are only used for cosmetic logging, not decision-making",
+              "That a bad change caught at the canary stage (`regressing_change`) is rolled back before a full rollout, limiting the blast radius to a small slice of traffic",
+              "That canary error rate has no effect on the deployment outcome",
+              "That canaries always block deployment regardless of error rate"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`regressing_change` demonstrates exactly this: the elevated canary error rate triggers a rollback before the function ever reaches the \"full rollout\" branch.",
+            "id": "q5"
+          },
+          {
+            "question": "Per the \"🛡️ Automated deployment needs automated safety nets\" section, what does automated rollback need to be triggered by?",
+            "options": [
+              "A human noticing something is wrong and manually issuing a rollback command",
+              "Post-deploy health signals such as error rate spikes or latency regressions, detected automatically",
+              "A fixed weekly schedule, regardless of system health",
+              "The number of commits merged that day"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson specifies automated rollback triggered by health signals like error rate and latency regressions — not by a human noticing and reacting manually.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does the lesson warn against adopting continuous deployment without automated rollback?",
+            "options": [
+              "Because automated rollback is required by GitHub Actions specifically",
+              "Because a canary or health signal is only useful if it actually triggers a rollback automatically — requiring a human to notice and react manually reintroduces the delay continuous deployment is meant to remove",
+              "Because manual rollback is technically impossible in Kubernetes",
+              "Because automated rollback makes deployments slower than manual ones"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The common mistakes section states this directly — a canary without automatic rollback still depends on human reaction time, undermining the whole point of removing the manual gate.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does the lesson warn against conflating continuous delivery with continuous deployment when discussing risk?",
+            "options": [
+              "Because they use completely different CI tools",
+              "Because continuous delivery still has a human deciding when to deploy, a materially different risk profile than continuous deployment's fully automatic path — conflating them causes underestimating what safety nets deployment specifically needs",
+              "Because continuous delivery is always riskier than continuous deployment",
+              "Because the two terms refer to unrelated parts of the pipeline"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson explicitly warns that treating the two as interchangeable risks under-provisioning the safety nets that continuous deployment's lack of human gate specifically requires.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "cld_testing_in_the_pipeline",
+      "title": "Testing in the Pipeline",
+      "description": "Why fast checks run on every push while slower, more expensive checks are gated elsewhere, and how a well-structured CI pipeline mirrors the same cost/coverage tradeoff as the testing pyramid.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson you should be able to explain why fast checks run on every push while slower checks run at a different gate, and connect a CI pipeline's structure back to the testing pyramid covered earlier in this curriculum.\n"
+          },
+          {
+            "title": "⚡ Fast feedback on every push",
+            "content": "The checks that run on every single push need to be fast — typically seconds to a couple of minutes — because they're meant to give the author near-immediate feedback while the change is still fresh. This tier is dominated by unit tests, linting, and type checking: cheap, numerous checks that catch the large majority of simple mistakes quickly.\n"
+          },
+          {
+            "title": "🐢 Slower checks at the right gate",
+            "content": "Slower checks — broader integration tests, end-to-end tests, security scans, performance benchmarks — don't need to run on every single push to be effective. They're commonly gated to run on merges to a main branch, on a schedule (nightly), or specifically before a release. This keeps the fast, frequent feedback loop fast while still running the expensive, thorough checks somewhere in the process — just not on every commit.\n"
+          },
+          {
+            "title": "📊 The pipeline should reflect the testing pyramid's shape",
+            "content": "This structure mirrors the testing pyramid directly: many fast, cheap unit tests form the base and run constantly; fewer, slower integration tests run less often; and a small number of expensive end-to-end tests run least often of all. A pipeline that runs its full end-to-end suite on every single push inverts this — it makes the *most* expensive checks the *most* frequent, which is exactly backwards from how the pyramid's cost/coverage tradeoff is meant to work.\n"
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "Here's a simplified simulation of a pipeline scheduling different test tiers at different triggers, and computing the total time cost per push versus per day:\n\n```python\ntiers = {\n    \"unit\": {\"seconds\": 30, \"runs_per_push\": 1},\n    \"integration\": {\"seconds\": 300, \"runs_per_push\": 0},   # only on merge to main\n    \"e2e\": {\"seconds\": 1800, \"runs_per_push\": 0},          # only nightly\n}\n\ndef seconds_per_push(tiers):\n    return sum(t[\"seconds\"] * t[\"runs_per_push\"] for t in tiers.values())\n\npushes_per_day = 40\nmerges_to_main_per_day = 8\n\nfast_pipeline_seconds_per_push = seconds_per_push(tiers)\nprint(\"seconds per push (fast pipeline):\", fast_pipeline_seconds_per_push)\n\ndaily_cost_fast = fast_pipeline_seconds_per_push * pushes_per_day\ndaily_cost_fast += tiers[\"integration\"][\"seconds\"] * merges_to_main_per_day\ndaily_cost_fast += tiers[\"e2e\"][\"seconds\"] * 1  # once nightly\nprint(\"total pipeline seconds per day (tiered):\", daily_cost_fast)\n\n# the inverted, everything-on-every-push approach\neverything_seconds_per_push = tiers[\"unit\"][\"seconds\"] + tiers[\"integration\"][\"seconds\"] + tiers[\"e2e\"][\"seconds\"]\ndaily_cost_inverted = everything_seconds_per_push * pushes_per_day\nprint(\"total pipeline seconds per day (everything on every push):\", daily_cost_inverted)\n```\n\n`fast_pipeline_seconds_per_push` is `30` (only the unit tier has `runs_per_push=1`), so each individual push waits just 30 seconds. The tiered daily total is `30*40 + 300*8 + 1800*1 = 1200 + 2400 + 1800 = 5400` seconds. The inverted approach runs all three tiers on every push: `30 + 300 + 1800 = 2130` seconds per push, times 40 pushes = **85,200** seconds per day — nearly 16x the tiered total — while also making every single author wait 2,130 seconds (35+ minutes) instead of 30 seconds for feedback.\n"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Running the full end-to-end suite on every push.** As the code example shows, this both multiplies total compute cost dramatically and destroys the fast-feedback loop that makes CI useful in the first place — authors start waiting tens of minutes for basic feedback.\n\n**Running slow checks so rarely that failures pile up.** If integration or end-to-end tests only run nightly on a fast-moving codebase, a failure can be caused by any of dozens of changes merged that day, making it much harder to isolate than a failure caught closer to the change that caused it.\n\n**Treating pipeline structure as fixed instead of revisiting it as the codebase grows.** A tiering that made sense at 5 pushes a day may need adjustment at 50 — the right balance between feedback speed and coverage depth isn't a one-time decision.\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "cld_testing_in_the_pipeline_quiz",
+        "questions": [
+          {
+            "question": "Per the \"⚡ Fast feedback\" section, what kinds of checks typically run on every single push?",
+            "options": [
+              "Full end-to-end test suites and performance benchmarks",
+              "Unit tests, linting, and type checking — cheap, numerous checks that catch the large majority of simple mistakes quickly",
+              "Nightly security scans",
+              "Manual QA review"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson names unit tests, linting, and type checking specifically as the fast tier meant to run on every push for near-immediate feedback.",
+            "id": "q1"
+          },
+          {
+            "question": "According to the \"📊 The pipeline should reflect the testing pyramid's shape\" section, what happens when the full end-to-end suite runs on every push?",
+            "options": [
+              "It has no effect on pipeline cost or speed",
+              "It inverts the testing pyramid — making the most expensive checks the most frequent, exactly backwards from the pyramid's intended cost/coverage tradeoff",
+              "It makes the pipeline faster because e2e tests are cached",
+              "It automatically converts e2e tests into unit tests"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson states this explicitly: running the priciest tier on every push inverts the pyramid's intended shape, where cheap checks should be the most frequent.",
+            "id": "q2"
+          },
+          {
+            "question": "In the code example, why is `fast_pipeline_seconds_per_push` equal to 30, not 30+300+1800?",
+            "options": [
+              "Because `seconds_per_push` sums `seconds * runs_per_push` for each tier, and only the `unit` tier has `runs_per_push=1` — `integration` and `e2e` both have `runs_per_push=0`, contributing 0",
+              "Because integration and e2e tests are not defined in the `tiers` dict",
+              "Because the function only looks at the `unit` key by name",
+              "Because 30 is a hardcoded return value"
+            ],
+            "correctAnswer": 0,
+            "explanation": "`seconds_per_push` multiplies each tier's `seconds` by its `runs_per_push`; since integration and e2e have `runs_per_push=0`, only unit's `30 * 1 = 30` contributes to the sum.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, what is `daily_cost_fast`, and how is it computed?",
+            "options": [
+              "30 seconds, the same as the per-push cost",
+              "5400 seconds — `30*40` (unit on every push) + `300*8` (integration on merges to main) + `1800*1` (e2e once nightly) = 1200 + 2400 + 1800",
+              "85200 seconds, the same as the inverted approach",
+              "It cannot be computed from the given code"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`daily_cost_fast` starts at `30*40=1200`, then adds `300*8=2400` for integration and `1800*1=1800` for e2e, totaling `1200+2400+1800=5400`.",
+            "id": "q4"
+          },
+          {
+            "question": "In the code example, how many times larger is `daily_cost_inverted` compared to `daily_cost_fast`?",
+            "options": [
+              "About the same, roughly 1x",
+              "About 2x",
+              "About 16x (85,200 vs. 5,400 seconds)",
+              "About 100x"
+            ],
+            "correctAnswer": 2,
+            "explanation": "`daily_cost_inverted = 85200` and `daily_cost_fast = 5400`; `85200 / 5400 ≈ 15.8`, roughly 16 times larger — illustrating the dramatic cost of running every tier on every push.",
+            "id": "q5"
+          },
+          {
+            "question": "Per the \"🐢 Slower checks at the right gate\" section, where are slower checks like end-to-end tests commonly gated to run instead of on every push?",
+            "options": [
+              "Only when a developer manually requests them via a support ticket",
+              "On merges to a main branch, on a nightly schedule, or specifically before a release",
+              "Exactly once, when the repository is first created",
+              "Only during business hours on weekdays"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson lists these three common gating points for the slower tier — main-branch merges, nightly schedules, and pre-release — instead of running them on every individual push.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does the lesson warn against running slow integration/end-to-end checks so rarely that failures pile up?",
+            "options": [
+              "Because rare runs make the checks technically invalid",
+              "Because if a nightly-only check fails, the failure could be caused by any of dozens of changes merged that day, making it much harder to isolate than a failure caught close to the change that caused it",
+              "Because infrequent checks always pass regardless of actual code state",
+              "Because nightly checks cannot detect integration bugs at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The common mistakes section explains that infrequent runs widen the pool of suspect changes for any given failure, making root-causing much harder than a check run closer to each change.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does the lesson recommend revisiting pipeline tiering as a codebase grows, rather than treating it as fixed?",
+            "options": [
+              "Because CI tools require reconfiguration every month regardless of usage",
+              "Because a tiering balance that made sense at a low push volume (e.g. 5/day) may no longer be right at a much higher volume (e.g. 50/day) — the right balance between feedback speed and coverage depth isn't a one-time decision",
+              "Because pipeline YAML files expire automatically after a fixed period",
+              "Because fixed tiering causes builds to fail after 90 days"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The common mistakes section frames this as an ongoing tradeoff, not a one-time setup decision, since push volume and codebase scale change over time.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

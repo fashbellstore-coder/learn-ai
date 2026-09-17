@@ -1,0 +1,679 @@
+{
+  "id": "module_5",
+  "title": "Modifying Data, Schema & Performance",
+  "description": "Insert, update, and delete data; define tables with constraints; use transactions safely; speed up queries with indexes; and bring it all together in a capstone report",
+  "icon": "🚀",
+  "color": "#336791",
+  "order": 5,
+  "estimatedHours": 3,
+  "difficulty": "Advanced",
+  "prerequisites": [
+    "Window Functions"
+  ],
+  "lessons": [
+    {
+      "id": "lesson_5_1",
+      "title": "INSERT, UPDATE, DELETE",
+      "description": "Add, change, and remove rows — the three ways SQL modifies data",
+      "duration": "13 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Write INSERT, UPDATE, and DELETE statements, and explain why WHERE matters so much on the last two."
+          },
+          {
+            "title": "➕ INSERT: adding new rows",
+            "content": "`INSERT` adds a new row to a table by listing the columns and their values:\n\n```sql\nINSERT INTO customers (name, email, city, signup_date)\nVALUES ('Priya Shah', 'priya@example.com', 'Austin', '2026-01-15');\n```\n\nThe column list and the values list must line up one-to-one, in the same order. Any column you leave out gets its default value (or NULL, if it allows one)."
+          },
+          {
+            "title": "✏️ UPDATE: changing existing rows",
+            "content": "`UPDATE` changes the values in rows that already exist:\n\n```sql\nUPDATE products\nSET price = 24.99\nWHERE product_id = 101;\n```\n\n**The WHERE clause here is critical.** Without it, `UPDATE` changes **every row in the table** — there's no built-in \"are you sure?\" step. Always double-check your WHERE clause (ideally by running it first as a SELECT) before running an UPDATE."
+          },
+          {
+            "title": "🗑️ DELETE: removing rows",
+            "content": "`DELETE` removes whole rows from a table:\n\n```sql\nDELETE FROM orders\nWHERE status = 'cancelled' AND order_date < '2025-01-01';\n```\n\nJust like UPDATE, `DELETE` without a `WHERE` clause removes **every row** in the table. This is one of the most common — and most damaging — mistakes in SQL, so it's worth building the habit of writing and checking the WHERE clause before you even think about the DELETE keyword."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "Running UPDATE or DELETE without a WHERE clause and affecting the entire table. Not testing the WHERE condition as a SELECT first, to see exactly which rows would be hit, before running the UPDATE or DELETE for real."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "quiz_lesson_5_1",
+        "questions": [
+          {
+            "question": "What happens if you run UPDATE products SET price = 0; with no WHERE clause?",
+            "options": [
+              "Nothing changes, since WHERE is required",
+              "Every row in the products table gets its price set to 0",
+              "Only the first row is updated",
+              "It only affects rows where price was already 0"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Without a WHERE clause, UPDATE applies to every single row in the table — this is one of the most common and costly SQL mistakes.",
+            "id": "q1"
+          },
+          {
+            "question": "What's a good habit before running a risky UPDATE or DELETE?",
+            "options": [
+              "Run it directly, then check the results",
+              "Run the same WHERE condition as a SELECT first, to see exactly which rows would be affected",
+              "Always add ORDER BY",
+              "Avoid using WHERE entirely to keep the query simple"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Testing the WHERE condition with a SELECT first lets you confirm exactly which rows would be touched, before making an irreversible change with UPDATE or DELETE.",
+            "id": "q2"
+          },
+          {
+            "question": "In INSERT INTO customers (name, email) VALUES ('Sam', 'sam@example.com');, what determines which value goes into which column?",
+            "options": [
+              "Values are matched alphabetically to column names",
+              "The order of the VALUES list matches the order of the column list, position by position",
+              "SQL guesses based on data type",
+              "It's random unless ORDER BY is used"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The column list and VALUES list are matched by position: the first value goes to the first listed column, the second value to the second column, and so on.",
+            "id": "q3"
+          },
+          {
+            "question": "What does INSERT INTO ... SELECT ... let you do that a plain INSERT with VALUES cannot?",
+            "options": [
+              "Insert exactly one row at a time",
+              "Insert multiple rows copied or computed from the result of a query",
+              "Delete rows before inserting",
+              "Update existing rows"
+            ],
+            "correctAnswer": 1,
+            "explanation": "INSERT INTO ... SELECT lets you populate a table with however many rows a query produces, rather than typing out literal VALUES for each row.",
+            "id": "q4"
+          },
+          {
+            "question": "If a column has a NOT NULL constraint and you try to INSERT without providing a value for it (and no default), what happens?",
+            "options": [
+              "The value defaults to an empty string",
+              "The insert fails with a constraint violation",
+              "The value defaults to 0",
+              "SQL silently skips that column"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A NOT NULL column with no default and no supplied value causes the INSERT to fail, since the database can't leave it empty.",
+            "id": "q5"
+          },
+          {
+            "question": "What's the difference between DELETE FROM table and TRUNCATE TABLE?",
+            "options": [
+              "They are identical in every database",
+              "DELETE removes rows one by one and can be filtered with WHERE; TRUNCATE removes all rows at once and typically can't be filtered",
+              "TRUNCATE only works on empty tables",
+              "DELETE cannot be used with WHERE"
+            ],
+            "correctAnswer": 1,
+            "explanation": "DELETE supports WHERE to remove specific rows and is logged row-by-row, while TRUNCATE quickly clears the entire table and generally doesn't accept a WHERE clause.",
+            "id": "q6"
+          },
+          {
+            "question": "In UPDATE orders SET status = 'shipped' WHERE order_id = 42;, what rows are affected?",
+            "options": [
+              "Every row in the orders table",
+              "Only the row where order_id equals 42",
+              "No rows, since UPDATE needs two conditions",
+              "Only rows shipped previously"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The WHERE clause restricts the UPDATE to just the row(s) matching order_id = 42, leaving every other row untouched.",
+            "id": "q7"
+          },
+          {
+            "question": "Why might you wrap an UPDATE affecting many rows in a transaction with BEGIN/COMMIT?",
+            "options": [
+              "Transactions are required for every UPDATE",
+              "So you can review the effect and ROLLBACK if something looks wrong before committing",
+              "It makes the UPDATE run without a WHERE clause",
+              "It automatically creates a backup table"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Wrapping a risky UPDATE in a transaction lets you inspect the results and roll back if they're not what you expected, before making the change permanent.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "lesson_5_2",
+      "title": "Creating Tables & Constraints",
+      "description": "Define a new table's columns, types, and the rules that keep its data valid",
+      "duration": "14 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Write a CREATE TABLE statement with appropriate data types and constraints (PRIMARY KEY, FOREIGN KEY, NOT NULL, UNIQUE, CHECK)."
+          },
+          {
+            "title": "🏗️ CREATE TABLE",
+            "content": "`CREATE TABLE` defines a brand-new table — its columns, and each column's data type:\n\n```sql\nCREATE TABLE customers (\n  customer_id  INTEGER PRIMARY KEY,\n  name         TEXT NOT NULL,\n  email        TEXT UNIQUE NOT NULL,\n  city         TEXT,\n  signup_date  DATE\n);\n```\n\n**Common data types** you'll see everywhere: `INTEGER` (whole numbers), `TEXT`/`VARCHAR` (strings), `DECIMAL`/`NUMERIC` (exact decimals — good for money), `DATE`/`TIMESTAMP` (dates and times), and `BOOLEAN` (true/false)."
+          },
+          {
+            "title": "🚧 Constraints: rules the database enforces for you",
+            "content": "Constraints aren't just documentation — the database actively rejects any change that would break them:\n\n• `PRIMARY KEY` — uniquely identifies each row (implies NOT NULL + unique)\n• `NOT NULL` — this column can never be left empty\n• `UNIQUE` — no two rows may share the same value in this column\n• `FOREIGN KEY` — this column must match an existing value in another table's primary key\n• `CHECK` — a custom condition every row must satisfy\n\n```sql\nCREATE TABLE orders (\n  order_id     INTEGER PRIMARY KEY,\n  customer_id  INTEGER NOT NULL REFERENCES customers(customer_id),\n  total_amount DECIMAL CHECK (total_amount >= 0),\n  status       TEXT NOT NULL\n);\n```\n\nThat `REFERENCES customers(customer_id)` is the foreign key constraint — it stops you from ever inserting an order for a customer_id that doesn't actually exist."
+          },
+          {
+            "title": "🛡️ Why constraints matter",
+            "content": "Constraints turn \"we hope the application code always gets this right\" into \"the database itself guarantees it.\" A CHECK constraint on `total_amount >= 0` means a negative order total is *impossible*, no matter what inserts it — a bug in one part of an application can't silently corrupt data that constraints protect."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "Skipping NOT NULL on columns that should always have a value, only to find NULLs causing problems much later. Choosing FLOAT for money instead of DECIMAL/NUMERIC — floating point math can introduce tiny rounding errors that matter for currency."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "quiz_lesson_5_2",
+        "questions": [
+          {
+            "question": "What does the PRIMARY KEY constraint guarantee about a column?",
+            "options": [
+              "It can contain duplicate values",
+              "Every value in it is unique, and it can never be NULL",
+              "It must always be a text column",
+              "It automatically indexes every other column too"
+            ],
+            "correctAnswer": 1,
+            "explanation": "PRIMARY KEY combines uniqueness and NOT NULL — every row must have a value in that column, and no two rows can share the same one.",
+            "id": "q1"
+          },
+          {
+            "question": "What does customer_id INTEGER NOT NULL REFERENCES customers(customer_id) enforce?",
+            "options": [
+              "Nothing — REFERENCES is just a comment",
+              "customer_id can't be NULL, and must match an existing customer_id in the customers table",
+              "customer_id must be unique across all orders",
+              "It automatically creates a new customer row if one doesn't exist"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This combines NOT NULL (a value is required) with a foreign key reference (REFERENCES), which requires the value to already exist as a customer_id in the customers table — protecting against orders pointing at nonexistent customers.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is DECIMAL usually preferred over FLOAT for storing money?",
+            "options": [
+              "DECIMAL is always faster to compute with",
+              "FLOAT can introduce small rounding errors that matter for exact currency values, while DECIMAL stores exact values",
+              "FLOAT can't store negative numbers",
+              "There's no real difference between them"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Floating-point types are optimized for a wide range of values but can introduce tiny rounding imprecision. DECIMAL/NUMERIC types store exact values, which is important when every cent needs to be exactly correct.",
+            "id": "q3"
+          },
+          {
+            "question": "What does the UNIQUE constraint enforce on a column, as opposed to PRIMARY KEY?",
+            "options": [
+              "Exactly the same thing as PRIMARY KEY, with no differences",
+              "No duplicate values, but unlike PRIMARY KEY it can typically allow NULL",
+              "That the column must be numeric",
+              "That the column is indexed but not enforced"
+            ],
+            "correctAnswer": 1,
+            "explanation": "UNIQUE prevents duplicate values like PRIMARY KEY does, but a table can have multiple UNIQUE columns and, in most databases, UNIQUE columns can contain NULL while PRIMARY KEY cannot.",
+            "id": "q4"
+          },
+          {
+            "question": "What does a DEFAULT value on a column do?",
+            "options": [
+              "Forces every insert to explicitly provide that value",
+              "Automatically fills in that value when an INSERT doesn't specify one for that column",
+              "Prevents NULLs from ever appearing",
+              "Deletes rows missing that column"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A DEFAULT supplies an automatic value for the column whenever an INSERT statement doesn't explicitly set it.",
+            "id": "q5"
+          },
+          {
+            "question": "What does a CHECK constraint let you enforce?",
+            "options": [
+              "That a column must reference another table",
+              "A custom condition a column's value must satisfy, such as price >= 0",
+              "That a column is always unique",
+              "That a table has at least one row"
+            ],
+            "correctAnswer": 1,
+            "explanation": "CHECK constraints let you define arbitrary conditions, like requiring price to be non-negative, that every row must satisfy.",
+            "id": "q6"
+          },
+          {
+            "question": "What typically happens if you try to DROP a table that's referenced by a FOREIGN KEY in another table?",
+            "options": [
+              "It always succeeds silently",
+              "The database usually blocks it unless the dependent constraint or data is handled first",
+              "The referencing table is automatically deleted too",
+              "Foreign keys are ignored during DROP"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Most databases prevent dropping a table that other tables still reference via foreign key, to avoid leaving broken references, unless you explicitly cascade or remove the dependency first.",
+            "id": "q7"
+          },
+          {
+            "question": "Why choose an appropriate column type (like DATE instead of TEXT for dates) when designing a schema?",
+            "options": [
+              "Column types are purely cosmetic",
+              "Proper types enable correct sorting, validation, and date-specific functions that a generic TEXT column can't provide",
+              "TEXT columns are always faster",
+              "It's required for PRIMARY KEY to work"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Using the right type lets the database validate the data, sort it correctly, and support type-specific operations (like date arithmetic) that a generic TEXT column wouldn't support reliably.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "lesson_5_3",
+      "title": "Transactions & ACID",
+      "description": "Group several changes into one all-or-nothing unit of work",
+      "duration": "13 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain what a transaction is, why COMMIT/ROLLBACK matter, and what each ACID guarantee means in plain terms."
+          },
+          {
+            "title": "📦 Bundling changes together",
+            "content": "Some real-world actions need **more than one** change to happen together, or not at all. Transferring money between two accounts needs to subtract from one and add to the other — if only one of those succeeds, the data is now wrong. A **transaction** groups multiple statements into a single all-or-nothing unit:\n\n```sql\nBEGIN;\n\nUPDATE accounts SET balance = balance - 100 WHERE account_id = 1;\nUPDATE accounts SET balance = balance + 100 WHERE account_id = 2;\n\nCOMMIT;\n```\n\n`BEGIN` starts the transaction, and `COMMIT` makes both changes permanent together. If anything goes wrong before COMMIT, you run `ROLLBACK` instead — undoing everything since BEGIN, as if none of it happened."
+          },
+          {
+            "title": "🔐 ACID, in plain language",
+            "content": "ACID is the set of guarantees a database makes about transactions:\n\n• **Atomicity** — all the statements in the transaction succeed together, or none of them do\n• **Consistency** — the database moves from one valid state to another; constraints are never violated, even mid-transaction\n• **Isolation** — one transaction's in-progress changes don't leak into another transaction that's running at the same time\n• **Durability** — once a transaction commits, it survives — even a crash right afterward won't lose it\n\nYou don't need to memorize the acronym — just remember the core idea: **a transaction is a promise that a group of changes either all happen, or none do.**"
+          },
+          {
+            "title": "↩️ Why ROLLBACK matters",
+            "content": "```sql\nBEGIN;\n\nUPDATE accounts SET balance = balance - 100 WHERE account_id = 1;\n-- something looks wrong here — maybe account 2 doesn't actually exist\n\nROLLBACK;\n```\n\nWithout transactions, that first UPDATE would already be permanent, leaving account 1 short $100 with nothing added anywhere. ROLLBACK is the safety net that undoes everything since BEGIN, so a problem partway through never leaves the data in a half-finished, inconsistent state."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "Forgetting to COMMIT, leaving changes stuck in an open transaction that nobody else can see yet. Assuming every single individual statement is automatically its own safe transaction — for a sequence of related changes, you need an explicit BEGIN...COMMIT around all of them together."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "quiz_lesson_5_3",
+        "questions": [
+          {
+            "question": "What does a transaction guarantee about a group of statements between BEGIN and COMMIT?",
+            "options": [
+              "Each statement runs independently and can partially succeed",
+              "They all succeed together, or none of them take effect — it's all-or-nothing",
+              "Only the first statement is guaranteed to run",
+              "They run in a random order for performance"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The core promise of a transaction is atomicity: the whole group of changes is treated as a single unit that either fully commits or has no effect at all.",
+            "id": "q1"
+          },
+          {
+            "question": "What does ROLLBACK do?",
+            "options": [
+              "Permanently saves all changes since BEGIN",
+              "Undoes every change made since BEGIN, as if the transaction never happened",
+              "Deletes the entire table",
+              "Restarts the database"
+            ],
+            "correctAnswer": 1,
+            "explanation": "ROLLBACK cancels an in-progress transaction, reverting any changes made since BEGIN back to how things were before it started.",
+            "id": "q2"
+          },
+          {
+            "question": "In the ACID guarantees, which one ensures that once a transaction commits, it survives even a crash right after?",
+            "options": [
+              "Atomicity",
+              "Consistency",
+              "Isolation",
+              "Durability"
+            ],
+            "correctAnswer": 3,
+            "explanation": "Durability is specifically the guarantee that committed changes are permanent — they won't be lost even if the system crashes immediately afterward.",
+            "id": "q3"
+          },
+          {
+            "question": "Which ACID property ensures other transactions don't see a transaction's partial, uncommitted changes?",
+            "options": [
+              "Atomicity",
+              "Consistency",
+              "Isolation",
+              "Durability"
+            ],
+            "correctAnswer": 2,
+            "explanation": "Isolation ensures that concurrent transactions don't interfere with each other by seeing incomplete or intermediate changes from a transaction still in progress.",
+            "id": "q4"
+          },
+          {
+            "question": "Which ACID property ensures a transaction moves the database from one valid state to another, respecting constraints?",
+            "options": [
+              "Atomicity",
+              "Consistency",
+              "Isolation",
+              "Durability"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Consistency means a transaction can only bring the database from one valid state to another, never violating defined constraints and rules.",
+            "id": "q5"
+          },
+          {
+            "question": "What does COMMIT do?",
+            "options": [
+              "Undoes all changes since BEGIN",
+              "Makes all changes made since BEGIN permanent",
+              "Deletes the transaction log",
+              "Locks the table permanently"
+            ],
+            "correctAnswer": 1,
+            "explanation": "COMMIT finalizes every change made during the transaction, making it permanent and visible to other transactions.",
+            "id": "q6"
+          },
+          {
+            "question": "Why are transactions important when transferring money between two bank accounts (debit one, credit another)?",
+            "options": [
+              "They aren't important — each statement can run independently",
+              "Without a transaction, a crash between the debit and credit could leave money missing or duplicated",
+              "Transactions make the transfer happen twice",
+              "Only SELECT statements need transactions"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Wrapping both statements in a transaction ensures they either both succeed or both fail together, preventing a crash from leaving the accounts in an inconsistent state.",
+            "id": "q7"
+          },
+          {
+            "question": "What's a real risk of NOT using a transaction for a multi-step operation that must succeed or fail as a unit?",
+            "options": [
+              "The operation runs faster",
+              "A failure partway through could leave the database in an inconsistent, half-updated state",
+              "SQL automatically prevents partial updates without transactions",
+              "There is no risk"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Without a transaction wrapping related statements, a failure partway through can leave some changes applied and others not, resulting in inconsistent data.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "lesson_5_4",
+      "title": "Indexes & Query Performance",
+      "description": "Understand why some queries are slow, and how an index speeds them up",
+      "duration": "14 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain what an index does, when it helps, and read a basic EXPLAIN plan."
+          },
+          {
+            "title": "🔎 Why some queries are slow",
+            "content": "Without any help, a database answers `WHERE email = 'sam@example.com'` by checking **every single row**, one at a time — this is called a **full table scan**. On a small table that's instant; on a table with millions of rows, it can take real time."
+          },
+          {
+            "title": "📇 Indexes: a shortcut to the right rows",
+            "content": "An **index** is a separate, sorted structure the database maintains alongside a table, built on one or more columns — think of it like the index at the back of a book, letting you jump straight to the right page instead of reading cover to cover:\n\n```sql\nCREATE INDEX idx_customers_email ON customers (email);\n```\n\nNow a lookup by email can jump almost straight to the matching row instead of scanning the whole table. Primary keys and (usually) foreign keys are indexed automatically by most databases; other columns you query often — especially in WHERE, JOIN, and ORDER BY — are good candidates to index explicitly."
+          },
+          {
+            "title": "⚖️ The tradeoff: indexes aren't free",
+            "content": "Indexes speed up reads, but they come at a cost:\n\n• Extra storage space, since the index is a separate structure\n• Slower writes, since every INSERT/UPDATE/DELETE has to keep the index up to date too\n\nThat's why you don't index *every* column \"just in case\" — the right approach is to index columns you actually filter, join, or sort by frequently, and skip the rest."
+          },
+          {
+            "title": "🩻 A quick look at EXPLAIN",
+            "content": "Most databases let you preview how a query will actually run with `EXPLAIN`:\n\n```sql\nEXPLAIN SELECT * FROM customers WHERE email = 'sam@example.com';\n```\n\nThe output shows whether the database plans to use an index (fast) or scan the whole table (slow) for that query. You don't need to master every detail of an EXPLAIN plan right away — just knowing it exists, and roughly what \"index scan\" vs \"full table scan\" mean, already puts you ahead."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "Adding an index to every column without a real reason, which slows down writes for little benefit. Expecting an index to help a query that doesn't actually filter, join, or sort on the indexed column."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "quiz_lesson_5_4",
+        "questions": [
+          {
+            "question": "What's a full table scan?",
+            "options": [
+              "A special kind of index",
+              "The database checking every row one by one, because it has no faster way to find the matching rows",
+              "A backup of the entire table",
+              "A syntax error"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Without an index to jump to the right rows, the database has no choice but to examine every row to find matches — that's a full table scan, and it gets slow on large tables.",
+            "id": "q1"
+          },
+          {
+            "question": "What's the tradeoff of adding an index?",
+            "options": [
+              "Indexes have no downside — always add as many as possible",
+              "Indexes speed up matching reads, but cost extra storage and slow down writes, since the index must stay up to date",
+              "Indexes only work on primary keys",
+              "Indexes make SELECT * FROM slower"
+            ],
+            "correctAnswer": 1,
+            "explanation": "An index speeds up lookups that use it, but every INSERT, UPDATE, or DELETE also has to update the index, and the index itself takes extra disk space — so indexes should be added deliberately, not everywhere.",
+            "id": "q2"
+          },
+          {
+            "question": "What does EXPLAIN show you about a query?",
+            "options": [
+              "The exact rows it will return",
+              "How the database plans to execute the query — for example, whether it will use an index or scan the whole table",
+              "The query's syntax errors",
+              "A backup of the query's results"
+            ],
+            "correctAnswer": 1,
+            "explanation": "EXPLAIN reveals the database's execution plan for a query, which is how you can confirm whether it's using an index efficiently or falling back to a slow full table scan.",
+            "id": "q3"
+          },
+          {
+            "question": "What kind of column is typically the best candidate for an index?",
+            "options": [
+              "A column that's rarely used in WHERE or JOIN conditions",
+              "A column frequently used in WHERE clauses, JOIN conditions, or ORDER BY",
+              "A column with the same value in every row",
+              "Any column, regardless of usage"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Indexes speed up lookups on columns that are frequently filtered, joined on, or sorted by — indexing rarely-queried columns wastes storage and write performance for no benefit.",
+            "id": "q4"
+          },
+          {
+            "question": "Why does a PRIMARY KEY column usually already have an index automatically?",
+            "options": [
+              "It doesn't — you must always add one manually",
+              "Because most databases automatically create an index to enforce the uniqueness and fast lookup PRIMARY KEY requires",
+              "Because PRIMARY KEY columns can't be indexed",
+              "Indexes only apply to TEXT columns"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Databases typically create an index automatically on a PRIMARY KEY to efficiently enforce uniqueness and support fast lookups by that key.",
+            "id": "q5"
+          },
+          {
+            "question": "What can happen if you add too many indexes to a heavily-written table?",
+            "options": [
+              "Reads become instant with no downside",
+              "Every INSERT/UPDATE/DELETE has to update all those indexes too, slowing down writes",
+              "Indexes are automatically limited to one per table",
+              "Nothing changes for writes"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Every index must be kept in sync with the table's data, so each write operation has more work to do as more indexes are added, which can slow writes noticeably.",
+            "id": "q6"
+          },
+          {
+            "question": "If EXPLAIN shows a query is doing a full table scan despite a WHERE clause on an indexed column, what might be happening?",
+            "options": [
+              "The index is guaranteed to be used regardless",
+              "The query planner may have decided a scan is cheaper, or the WHERE condition doesn't match the index well (e.g. using a function on the column)",
+              "EXPLAIN always lies about scans",
+              "Full table scans never happen with an index present"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A query planner can choose a full scan over an index if it estimates it's cheaper, or if the WHERE clause applies a function or pattern that prevents the index from being used effectively.",
+            "id": "q7"
+          },
+          {
+            "question": "What's a composite (multi-column) index useful for?",
+            "options": [
+              "Indexing a single column twice",
+              "Speeding up queries that filter or sort on multiple specific columns together, in that order",
+              "Only usable for PRIMARY KEY columns",
+              "Replacing the need for any single-column indexes"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A composite index on multiple columns can speed up queries that filter or sort using that specific combination and order of columns together.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "lesson_5_5",
+      "title": "Capstone: A Real Business Report",
+      "description": "Combine everything from this course into one realistic, multi-part report query",
+      "duration": "15 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Write a multi-CTE report query that combines joins, aggregation, and a window function to answer a realistic business question."
+          },
+          {
+            "title": "🎓 The question",
+            "content": "\"For each product category, show total revenue, and highlight the single best-selling product in that category.\" This one question needs nearly everything from this course: joins across four tables, aggregation, and a window function — a genuine test of everything you've learned."
+          },
+          {
+            "title": "🧱 Building it step by step with CTEs",
+            "content": "Rather than one giant tangled query, build it as a chain of named steps — exactly the CTE pattern from the subqueries module:\n\n```sql\nWITH line_revenue AS (\n  SELECT oi.product_id, p.category, p.name AS product_name,\n         oi.quantity * oi.unit_price AS revenue\n  FROM order_items AS oi\n  JOIN products AS p ON oi.product_id = p.product_id\n),\nproduct_totals AS (\n  SELECT category, product_name, SUM(revenue) AS product_revenue\n  FROM line_revenue\n  GROUP BY category, product_name\n),\nranked_products AS (\n  SELECT category, product_name, product_revenue,\n         ROW_NUMBER() OVER (\n           PARTITION BY category ORDER BY product_revenue DESC\n         ) AS rank_in_category,\n         SUM(product_revenue) OVER (PARTITION BY category) AS category_revenue\n  FROM product_totals\n)\nSELECT category, category_revenue, product_name AS best_seller, product_revenue\nFROM ranked_products\nWHERE rank_in_category = 1\nORDER BY category_revenue DESC;\n```"
+          },
+          {
+            "title": "🗺️ Tracing the logic",
+            "content": "Each CTE has exactly one job:\n\n• `line_revenue` — compute revenue per order line, with the product's category attached\n• `product_totals` — GROUP BY to get total revenue per product\n• `ranked_products` — a window function ranks products within each category, and another totals up the whole category's revenue\n• the final `SELECT` keeps only rank 1 (the best seller) per category\n\nThis is exactly how experienced SQL users tackle a complex report: break it into small, named, individually understandable steps, and let the final query just pick from the last one."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "Trying to write this as one giant nested query instead of breaking it into CTEs — it becomes far harder to debug and to reason about. Forgetting that a window function's PARTITION BY needs to match the grouping level you actually care about (here, category)."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "quiz_lesson_5_5",
+        "questions": [
+          {
+            "question": "In the capstone query, what is the job of the line_revenue CTE?",
+            "options": [
+              "Rank products within each category",
+              "Compute revenue per individual order line item, along with the product's category",
+              "Filter to only the best-selling product",
+              "Calculate a running total by date"
+            ],
+            "correctAnswer": 1,
+            "explanation": "line_revenue is the first step: it joins order_items to products and computes quantity * unit_price for each line, tagging each with its category — the raw material the later steps build on.",
+            "id": "q1"
+          },
+          {
+            "question": "Why does the query use ROW_NUMBER() OVER (PARTITION BY category ORDER BY product_revenue DESC) rather than just MAX(product_revenue)?",
+            "options": [
+              "MAX would be identical here in every way",
+              "ROW_NUMBER lets the final query also keep the product's name and other columns for the top row per category, not just the maximum number",
+              "ROW_NUMBER is required whenever PARTITION BY is used",
+              "MAX() cannot be used inside a CTE"
+            ],
+            "correctAnswer": 1,
+            "explanation": "MAX(product_revenue) alone would only give you the top number, not which product it belongs to. Ranking with ROW_NUMBER lets you filter down to the full row — product name and all — for the top-ranked entry in each category.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is breaking this report into three chained CTEs (line_revenue, product_totals, ranked_products) a good approach?",
+            "options": [
+              "It's required by SQL syntax",
+              "It makes each step individually simple to write, test, and understand, instead of one large tangled query",
+              "It runs faster than any other approach in every database",
+              "CTEs are the only way to use a window function"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Chaining small, clearly-named CTEs mirrors how you'd reason through the problem by hand — each step does one understandable thing, which makes the whole query far easier to write correctly and to debug later.",
+            "id": "q3"
+          },
+          {
+            "question": "In a report like the capstone's, why compute line_revenue as its own CTE before aggregating?",
+            "options": [
+              "It's not necessary — the final aggregation could skip it",
+              "It isolates the per-line-item calculation (quantity x price) cleanly before summing it up by product or category",
+              "CTEs are required for SUM to work",
+              "It deletes duplicate order lines"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Separating the row-level revenue calculation into its own CTE keeps that logic simple and testable before the next step aggregates it further.",
+            "id": "q4"
+          },
+          {
+            "question": "Why might a capstone-style report combine JOIN, GROUP BY, and a window function in one query?",
+            "options": [
+              "Because SQL requires using every feature in one query",
+              "Because real business questions often need combining tables, aggregating values, and then ranking or comparing those aggregates",
+              "Window functions can't be used with JOIN or GROUP BY otherwise",
+              "It's purely for style, with no functional reason"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Real-world reporting questions often need to combine data from multiple tables, summarize it, and then rank or compare those summaries — which naturally uses JOIN, GROUP BY, and window functions together.",
+            "id": "q5"
+          },
+          {
+            "question": "If the goal is 'top-selling product per category', what does filtering on a rank of 1 accomplish after using ROW_NUMBER() PARTITION BY category?",
+            "options": [
+              "It removes all data",
+              "It keeps only the single highest-revenue product within each category",
+              "It keeps every product tied for any rank",
+              "It's unrelated to the goal"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Once each product is ranked within its category by revenue, filtering to rank = 1 leaves exactly one row per category — the top performer.",
+            "id": "q6"
+          },
+          {
+            "question": "Why is it useful to build a report step-by-step with intermediate CTEs rather than testing only the final query?",
+            "options": [
+              "It's not useful — only the final result matters",
+              "You can inspect each CTE's output individually to catch mistakes early, before they compound in later steps",
+              "CTEs can't be tested individually",
+              "It doubles the runtime unnecessarily"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Checking each CTE's output as you build lets you catch errors in an early step before they silently propagate and produce a wrong final result.",
+            "id": "q7"
+          },
+          {
+            "question": "What broader SQL skill does writing a multi-CTE business report exercise most directly?",
+            "options": [
+              "Memorizing keyword syntax alone",
+              "Decomposing a real business question into a sequence of clear, verifiable query steps",
+              "Avoiding the use of JOIN",
+              "Formatting output for spreadsheets"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The capstone exercises the practical skill of breaking a real-world question down into ordered, understandable query steps rather than one large, opaque statement.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

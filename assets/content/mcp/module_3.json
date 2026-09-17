@@ -1,0 +1,575 @@
+{
+  "id": "mcp_clients_and_discovery",
+  "title": "MCP Clients & Discovery",
+  "description": "How discovery works, integrating an MCP client into an agent's loop, dynamic tool loading and curation, and handling multiple connected servers gracefully.",
+  "icon": "🔍",
+  "color": "#673AB7",
+  "order": 3,
+  "estimatedHours": 5,
+  "difficulty": "intermediate",
+  "prerequisites": [
+    "mcp_transports"
+  ],
+  "lessons": [
+    {
+      "id": "mcp_how_discovery_works",
+      "title": "How a Client Discovers What a Server Offers",
+      "description": "After the initial handshake, the client asks the server exactly what's available — and gets back the same kind of information a locally-defined tool would provide.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Describe the discovery methods a client uses to find a server's tools, resources, and prompts after connecting."
+          },
+          {
+            "title": "📋 Listing available tools",
+            "content": "After capability negotiation confirms the server supports tools, the client requests a list of them, and the server responds with each tool's **name, description, and parameter schema** — exactly the same information a tool definition would carry if it were defined directly in application code, just obtained dynamically over the MCP connection instead of hardcoded."
+          },
+          {
+            "title": "📄 Listing available resources and prompts",
+            "content": "Parallel listing operations exist for **resources** (returning identifiers and metadata, per the resources-in-depth lesson's listing-versus-reading distinction) and **prompts** (returning available prompt templates and their parameters) — the same discovery pattern applied to each of the three primitives from module 1."
+          },
+          {
+            "title": "🔄 Discovery can happen more than once",
+            "content": "A server's available tools, resources, or prompts aren't necessarily fixed for the lifetime of a connection — a server can **notify** a connected client that its offerings have changed (a new tool became available, a resource was removed), and a well-behaved client **re-runs discovery** in response rather than assuming what it learned at connection time remains accurate forever."
+          },
+          {
+            "title": "🎯 What the host application does with discovered information",
+            "content": "Once discovered, a server's tools get surfaced to the model using exactly the same tool-calling mechanics covered in the LLM Engineering and Agents courses — from the model's perspective, a dynamically-discovered MCP tool and a tool hardcoded into the application look **identical** by the time they reach the model's context. This is the direct payoff of MCP's standardization: discovery is a new mechanism for how tool definitions arrive, but everything downstream of that (the model deciding to call it, the tool-calling format) is unchanged."
+          },
+          {
+            "title": "💻 Discovery, then reacting to a change notification",
+            "content": "```python\nconn = mcp_client.connect(server_url)\nconn.initialize(...)\n\ntools = conn.list_tools()          # discovery: name, description, schema per tool\nresources = conn.list_resources()  # parallel discovery for resources\nprompts = conn.list_prompts()       # parallel discovery for prompts\n\ndef on_tools_changed_notification():\n    # well-behaved client: re-discover rather than trust stale data\n    nonlocal tools\n    tools = conn.list_tools()\n\nconn.on(\"notifications/tools/list_changed\", on_tools_changed_notification)\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Discovering once at connection time and never again.** A server's offerings can change mid-connection — ignoring change notifications means silently operating on stale information.\n\n**Writing special-case handling for MCP-discovered tools before they reach the model.** By the time a discovered tool reaches `llm.call(..., tools=...)`, it should look identical to a hardcoded one — extra branching here is unnecessary.\n\n**Assuming a server supports all three listing operations.** Always check negotiated capabilities (from the previous lesson) before calling `list_resources()` or `list_prompts()` on a server that may only support tools."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "mcp_how_discovery_works_quiz",
+        "questions": [
+          {
+            "question": "What information does a server return when a client lists its available tools?",
+            "options": [
+              "Only the server's IP address",
+              "Each tool's name, description, and parameter schema — the same information a locally-defined tool would carry",
+              "The server's entire source code",
+              "A list of every other MCP server that exists"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Tool listing returns exactly the kind of definition information (name, description, parameters) needed for the model to use the tool, just obtained dynamically rather than hardcoded.",
+            "id": "q1"
+          },
+          {
+            "question": "Why might a client need to re-run discovery after the initial connection?",
+            "options": [
+              "Discovery can only ever happen once per connection, with no exceptions",
+              "A server's available tools, resources, or prompts can change during a connection's lifetime, and a well-behaved client responds to such notifications by re-discovering",
+              "Re-running discovery is never useful or necessary",
+              "Servers cannot notify clients of any changes"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since a server's offerings aren't necessarily static, clients need to handle change notifications by refreshing their view of what's available rather than assuming initial discovery is permanently accurate.",
+            "id": "q2"
+          },
+          {
+            "question": "From the model's perspective, how does a dynamically-discovered MCP tool differ from one hardcoded into the application?",
+            "options": [
+              "The model can never use dynamically-discovered tools",
+              "They look identical by the time they reach the model's context — the tool-calling mechanics are unchanged regardless of where the definition came from",
+              "Dynamically-discovered tools require a completely different calling format",
+              "MCP tools cannot have parameters, unlike hardcoded ones"
+            ],
+            "correctAnswer": 1,
+            "explanation": "MCP standardizes how the definition arrives (via discovery) but leaves the downstream tool-calling mechanics from the LLM Engineering and Agents courses completely unchanged.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, what does on_tools_changed_notification() do, and why?",
+            "options": [
+              "It disconnects from the server entirely to force a fresh connection",
+              "It re-runs conn.list_tools() to refresh the client's view, rather than continuing to trust the tools list captured at initial connection time",
+              "It deletes all previously discovered tools with no replacement",
+              "It sends a request to change the server's own tool implementations"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The handler exemplifies the well-behaved client pattern this lesson describes: reacting to a change notification by re-discovering rather than assuming stale information is still accurate.",
+            "id": "q4"
+          },
+          {
+            "question": "What three listing operations does the code example show being called in parallel fashion?",
+            "options": [
+              "list_tools(), list_transports(), list_hosts()",
+              "list_tools(), list_resources(), list_prompts()",
+              "list_servers(), list_clients(), list_errors()",
+              "list_capabilities(), list_versions(), list_connections()"
+            ],
+            "correctAnswer": 1,
+            "explanation": "These three calls mirror the three MCP primitives from module 1, each with its own parallel discovery/listing operation.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is discovering once at connection time and never again considered a mistake?",
+            "options": [
+              "Because discovery is only allowed to happen exactly once by the MCP specification",
+              "Because a server's offerings can change mid-connection, and never re-discovering means silently operating on stale, possibly inaccurate information",
+              "Because re-discovery would break the initial handshake",
+              "Because tools never change once a server starts running"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Ignoring change notifications and never refreshing the client's view directly contradicts the well-behaved-client pattern of re-running discovery when a server signals its offerings changed.",
+            "id": "q6"
+          },
+          {
+            "question": "Why is writing special-case handling for MCP-discovered tools before they reach the model considered unnecessary?",
+            "options": [
+              "Because MCP-discovered tools cannot be passed to an LLM API at all",
+              "Because by the time a tool reaches the model-facing tool-calling call, an MCP-discovered tool and a hardcoded one look identical, so extra branching adds no value",
+              "Because hardcoded tools are always deprecated in favor of MCP tools",
+              "Because the Agents course requires all tools to come exclusively from MCP servers"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This is the direct payoff of MCP's standardization described in the lesson: downstream of discovery, tool-calling mechanics are completely unchanged regardless of a tool's origin.",
+            "id": "q7"
+          },
+          {
+            "question": "Why should a client check negotiated capabilities before calling list_resources() or list_prompts()?",
+            "options": [
+              "Because capability checks are purely optional formalities with no real consequence",
+              "Because a server may only support a subset of MCP's primitive types, and calling a listing operation for an unsupported type produces an avoidable, confusing failure",
+              "Because list_resources() and list_prompts() are deprecated methods",
+              "Because only list_tools() is ever a valid operation to call"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Following the capability-negotiation lesson, a client should only call listing operations for primitive types the server has actually confirmed it supports.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "mcp_integrating_a_client_into_an_agent",
+      "title": "Integrating an MCP Client into an Agent",
+      "description": "Connecting MCP-discovered tools into an agent's loop means treating them exactly like any other tool once discovery is done.",
+      "duration": 13,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Describe the integration points between an MCP client and an agent's control loop, connecting this to the Agents and LangGraph courses' concepts."
+          },
+          {
+            "title": "🔌 Where the MCP client sits",
+            "content": "Inside the host application (which, per the Agents and LangGraph courses, might itself be built as an agent loop or a LangGraph graph), the MCP client manages the connection and discovery, while the tools it discovers get **registered into the same tool-calling setup** that any other tool (locally-defined or otherwise) would use — the agent's reasoning node or control loop doesn't fundamentally need to know or care that a particular tool happens to have come from an MCP server rather than being defined directly in code."
+          },
+          {
+            "title": "🔄 Tool-call routing to the right place",
+            "content": "When the model decides to call a tool that happens to be MCP-provided, the application's **orchestration code** (the same orchestrating code responsible for executing tool calls, covered in the Agents course's tool-calling-mechanics lesson) routes that specific call through the appropriate MCP client, which forwards it to the correct server, waits for the response, and returns the result back into the agent's loop as an observation — exactly the same round trip as any other tool call, just with an MCP hop in the middle."
+          },
+          {
+            "title": "🕸️ In a LangGraph context specifically",
+            "content": "An MCP-discovered tool becomes just another callable a graph's tool-execution node can invoke, following exactly the tool-calling mechanics covered in the LangGraph course's own treatment of tool nodes — the node doesn't need special-case logic for 'this tool came from MCP' versus 'this tool was defined locally,' since both look the same by the time they reach that node."
+          },
+          {
+            "title": "🧩 Multiple MCP servers in one agent",
+            "content": "An agent can connect to **several MCP servers simultaneously** (a filesystem server, a database server, a specific SaaS integration server), each managed by its own client instance — this is exactly the tool-selection-at-scale problem from the Agents course, just with the tool pool now assembled dynamically from multiple discovered sources rather than defined all at once in application code, making the curation and routing strategies from that lesson even more relevant, not less."
+          },
+          {
+            "title": "💻 An MCP tool call inside a graph's tool node",
+            "content": "```python\ndef tool_execution_node(state):\n    tool_call = state[\"messages\"][-1].tool_calls[0]\n    name, args = tool_call[\"name\"], tool_call[\"args\"]\n\n    # The node doesn't care whether this tool is local or MCP-provided --\n    # the orchestration layer routes it to the right place either way.\n    if name in mcp_tool_registry:\n        client = mcp_tool_registry[name][\"client\"]\n        result = client.call_tool(name, args)     # MCP hop\n    else:\n        result = local_tools[name](**args)         # direct call\n\n    return {\"messages\": [ToolMessage(content=result, tool_call_id=tool_call[\"id\"])]}\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Writing separate reasoning paths for MCP tools versus local tools.** The tool-execution node's own logic should stay uniform; only the orchestration layer's routing needs to know a tool's origin.\n\n**Forgetting that multiple connected servers reintroduce the tool-selection-at-scale problem.** Aggregating tools from several servers can grow the effective tool pool just as much as a large hardcoded tool list would — the same curation strategies still apply.\n\n**Assuming a LangGraph tool node needs MCP-specific branching.** It doesn't — the node calls whatever's registered under a tool's name, and the registration/routing layer is where the MCP hop actually lives."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "mcp_integrating_a_client_into_an_agent_quiz",
+        "questions": [
+          {
+            "question": "Does an agent's reasoning node or control loop need special logic to distinguish an MCP-provided tool from a locally-defined one?",
+            "options": [
+              "Yes, entirely separate handling logic is required for every MCP tool",
+              "No, once discovered and registered, an MCP tool is treated the same as any other tool in the agent's tool-calling setup",
+              "MCP tools cannot be used within an agent's control loop at all",
+              "Only LangGraph agents can use MCP tools, not other agent architectures"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The whole point of MCP's standardization is that by the time a tool reaches the agent's reasoning and tool-calling logic, it looks identical regardless of whether it came from MCP discovery or was hardcoded.",
+            "id": "q1"
+          },
+          {
+            "question": "What happens when the model decides to call a tool that happens to be MCP-provided?",
+            "options": [
+              "The call fails automatically since MCP tools cannot be invoked by models",
+              "The application's orchestration code routes the call through the appropriate MCP client, which forwards it to the server and returns the result as an observation",
+              "The model must be retrained specifically to call MCP tools",
+              "The call bypasses the agent's control loop entirely"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The round trip mirrors any other tool call from the Agents course's tool-calling-mechanics lesson, with an MCP client/server hop added in the middle, but the same orchestration pattern applies.",
+            "id": "q2"
+          },
+          {
+            "question": "Why does connecting to multiple MCP servers simultaneously make the Agents course's tool-selection-at-scale strategies more relevant, not less?",
+            "options": [
+              "Multiple MCP servers eliminate the need for any tool selection strategy",
+              "The tool pool is now assembled dynamically from multiple discovered sources, making curation and routing at least as important as with a large statically-defined tool set",
+              "MCP servers can only ever expose exactly one tool each",
+              "Tool selection is irrelevant once MCP is involved"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A dynamically-assembled, multi-server tool pool faces the same or greater tool-selection challenges as a large static tool set, so the curation and routing strategies from that lesson remain directly applicable.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, what determines whether tool_execution_node routes a call through an MCP client versus a direct local call?",
+            "options": [
+              "The order in which tools were defined in the application",
+              "Whether the tool's name is found in mcp_tool_registry, which the orchestration layer checks to decide how to route the call",
+              "The length of the tool's name",
+              "Whether the call originated from a human user or the model"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The example shows the routing decision made by checking the tool name against a registry — the node's overall shape doesn't otherwise change based on a tool's origin.",
+            "id": "q4"
+          },
+          {
+            "question": "Why does the code example return a ToolMessage the same way regardless of whether the call went through MCP or was local?",
+            "options": [
+              "Because ToolMessage objects are only valid for MCP-provided tools",
+              "Because from the graph's perspective downstream, both kinds of tool results should be indistinguishable observations feeding back into the agent's loop",
+              "Because local tools cannot return any result at all",
+              "Because MCP tool calls always fail and require a fallback message"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Keeping the returned observation's shape uniform regardless of a tool's origin is exactly what lets the rest of the graph avoid needing to know or care where a given tool came from.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is writing separate reasoning paths for MCP tools versus local tools considered a mistake?",
+            "options": [
+              "Because MCP tools cannot be reasoned about by the model at all",
+              "Because the tool-execution node's own logic should stay uniform; only the orchestration/routing layer needs to know a tool's origin",
+              "Because local tools are always deprecated once MCP is introduced",
+              "Because LangGraph forbids using more than one kind of tool source"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Keeping the node's logic uniform and pushing origin-specific routing down into the orchestration layer avoids unnecessary duplication and complexity in the agent's reasoning path.",
+            "id": "q6"
+          },
+          {
+            "question": "Where in the architecture does the 'MCP hop' actually happen, per the code example?",
+            "options": [
+              "Inside the LLM's own weights during generation",
+              "In the orchestration/routing layer, specifically when client.call_tool(name, args) is invoked for MCP-registered tools",
+              "Inside the state schema definition itself",
+              "There is no MCP hop in a properly integrated agent"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The routing layer is where the distinction between local and MCP-provided tools actually matters — that's where the call gets forwarded to the correct MCP client and server.",
+            "id": "q7"
+          },
+          {
+            "question": "Why is it incorrect to assume a LangGraph tool-execution node needs MCP-specific branching logic?",
+            "options": [
+              "Because LangGraph nodes cannot call any tools at all",
+              "Because the node just calls whatever is registered under a tool's name; the actual MCP-specific routing lives in the registration/orchestration layer, not the node itself",
+              "Because MCP tools cannot be represented as ToolMessage objects",
+              "Because LangGraph requires every tool to be locally defined"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The node's job is to execute whatever tool was requested; keeping MCP-awareness at the routing/registration layer instead keeps the node itself simple and uniform.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "mcp_dynamic_tool_loading",
+      "title": "Dynamic Tool Loading and Curation",
+      "description": "Just because a tool was discovered doesn't mean it should always be shown to the model on every single request.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain why dynamically-discovered MCP tools still benefit from curation before being exposed to the model, and describe a strategy for doing it."
+          },
+          {
+            "title": "📦 The 'discover everything, expose everything' default",
+            "content": "The simplest approach is to expose every tool discovered from every connected MCP server to the model on every request. This works fine when the total tool count across all connected servers is small, but runs directly into the **tool-selection-at-scale problem** from the Agents course once several MCP servers are connected, each contributing their own set of tools — the aggregate can grow well past what's comfortable for reliable tool selection or reasonable context usage."
+          },
+          {
+            "title": "🎯 Curating a relevant subset dynamically",
+            "content": "The same **retrieval-based tool curation** strategy from the Agents course's tool-selection-at-scale lesson applies directly here — rather than exposing every discovered tool from every server, select a relevant subset based on the current task, potentially even deciding which MCP servers to query for tools in the first place based on what the task seems to need, rather than always querying and exposing from every connected server unconditionally."
+          },
+          {
+            "title": "🔀 Task-based or context-based server selection",
+            "content": "In a system connected to many MCP servers (a filesystem server, a code-execution server, a dozen different SaaS integration servers), it's often worth deciding **upfront** — based on the nature of the current task or conversation — which subset of connected servers are even relevant to query for tools, rather than always aggregating from all of them. This mirrors the hierarchical/router-based tool organization from the Agents course, just applied one level up, at the **server-selection level** rather than the individual-tool level."
+          },
+          {
+            "title": "⚡ Caching discovery results appropriately",
+            "content": "Since discovery (per the how-discovery-works lesson) is itself a round trip to each connected server, and a server's offerings don't necessarily change on every single request, **caching** discovery results (while still respecting the change-notification mechanism from that lesson) avoids redundant discovery calls on every agent step — an efficiency consideration that compounds as more servers are connected."
+          },
+          {
+            "title": "💻 Curating tools instead of exposing everything",
+            "content": "```python\n# Naive: exposes every tool from every connected server, every request\nall_tools = [t for client in mcp_clients for t in client.list_tools()]\n\n# Curated: select a relevant subset for the current task,\n# and only query servers that seem relevant in the first place\ndef relevant_servers_for(task):\n    if \"file\" in task or \"document\" in task:\n        return [\"filesystem_client\"]\n    if \"database\" in task or \"record\" in task:\n        return [\"database_client\"]\n    return list(mcp_clients.keys())\n\nrelevant = relevant_servers_for(current_task)\ntools = retrieve_top_k_tools(\n    candidates=[t for name in relevant for t in cached_tools[name]],\n    query=current_task, k=8,\n)\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Defaulting to 'discover everything, expose everything' as connected servers grow.** What's harmless with two servers becomes a genuine tool-selection-at-scale problem once a handful of servers are aggregated together.\n\n**Re-running discovery on every single agent step without caching.** This adds a redundant round trip per server per step — cache results and rely on change notifications to know when to refresh.\n\n**Curating individual tools but never curating at the server level.** For systems with many connected servers, deciding which servers are even worth querying for a given task is a lever worth using in addition to (or before) per-tool curation."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "mcp_dynamic_tool_loading_quiz",
+        "questions": [
+          {
+            "question": "Why does simply exposing every discovered tool from every connected MCP server to the model become problematic at scale?",
+            "options": [
+              "It never becomes problematic, regardless of scale",
+              "It runs into the same tool-selection-at-scale problem from the Agents course, since the aggregate tool count across servers can grow well past what's comfortable for reliable selection",
+              "MCP servers are limited to exposing at most one tool each",
+              "The model automatically filters out irrelevant tools with no developer effort needed"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Aggregating tools from multiple connected servers can quickly produce the same tool-count problem the Agents course described, just with the tools coming from multiple discovered sources instead of one static list.",
+            "id": "q1"
+          },
+          {
+            "question": "What strategy from the Agents course applies directly to curating tools across multiple connected MCP servers?",
+            "options": [
+              "Always exposing every tool from every server with no curation",
+              "Retrieval-based curation — selecting a relevant subset based on the current task, potentially even deciding which servers to query at all",
+              "Randomly selecting a fixed number of tools regardless of the task",
+              "Disconnecting from all but one server permanently"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The same retrieval-based curation approach from the tool-selection-at-scale lesson applies here, now potentially operating at the server-selection level as well as the individual-tool level.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is caching discovery results a reasonable efficiency consideration?",
+            "options": [
+              "Discovery results should never be cached under any circumstances",
+              "Discovery is a round trip to each connected server, and offerings don't necessarily change on every request, so caching (while respecting change notifications) avoids redundant calls",
+              "Caching eliminates the need for the change-notification mechanism entirely",
+              "MCP servers explicitly forbid caching of any kind"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since repeated discovery calls have a real cost and server offerings are often stable between changes, caching (combined with honoring change notifications) is a sensible efficiency practice, especially as more servers are connected.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, what does relevant_servers_for(task) accomplish?",
+            "options": [
+              "It permanently disconnects from servers deemed irrelevant",
+              "It decides upfront which subset of connected servers are worth querying for tools, based on keywords in the current task, before any per-tool curation happens",
+              "It discovers every tool from every server regardless of the task",
+              "It replaces the need for retrieve_top_k_tools() entirely"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This function implements the server-selection layer of curation described in the lesson — deciding which servers to even query, one level above individual-tool selection.",
+            "id": "q4"
+          },
+          {
+            "question": "Why does the curated example call retrieve_top_k_tools() only on tools from relevant servers, rather than on cached_tools from every connected server?",
+            "options": [
+              "Because retrieve_top_k_tools() cannot handle more than one server's tools at once",
+              "Because narrowing to relevant servers first reduces the candidate pool before individual-tool retrieval, combining server-level and tool-level curation",
+              "Because tools from irrelevant servers are always broken",
+              "Because MCP forbids retrieving tools from more than one server per request"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The example layers server-level curation (relevant_servers_for) on top of tool-level curation (retrieve_top_k_tools), exactly the two-level approach the lesson describes.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is defaulting to 'discover everything, expose everything' as more servers get connected considered a mistake?",
+            "options": [
+              "Because it is always the best approach regardless of scale",
+              "Because what's harmless with a couple of servers becomes a genuine tool-selection-at-scale problem once several servers' tools are aggregated together",
+              "Because MCP technically forbids connecting to more than one server",
+              "Because discovered tools cannot be filtered in any way"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The naive approach's cost scales with the number of connected servers, eventually reproducing the same reliability and context-usage problems a large static tool list would cause.",
+            "id": "q6"
+          },
+          {
+            "question": "Why is re-running discovery on every single agent step, with no caching, inefficient?",
+            "options": [
+              "Because discovery calls are always instantaneous and free",
+              "Because it adds a redundant round trip to each connected server on every step, when a server's offerings often haven't changed since the last check",
+              "Because discovery can only be run once per server for the lifetime of an application",
+              "Because caching discovery results is explicitly prohibited by MCP"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since offerings are typically stable between changes, repeating a full discovery round trip every single step wastes effort that caching (paired with change notifications) would avoid.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does the lesson recommend curating at the server level in addition to the individual-tool level?",
+            "options": [
+              "Because individual-tool curation is always sufficient on its own and server-level curation adds nothing",
+              "Because for systems with many connected servers, deciding which servers are even worth querying for a given task is an additional useful lever, mirroring hierarchical tool organization one level up",
+              "Because MCP servers cannot expose more than one tool each, making tool-level curation meaningless",
+              "Because server-level curation replaces the need for any tool-level curation"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Server-level selection mirrors the hierarchical/router-based tool organization from the Agents course, just applied to deciding which servers to query rather than which individual tools to expose.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "mcp_handling_multiple_servers",
+      "title": "Handling Multiple Connected Servers Gracefully",
+      "description": "Real MCP-based applications rarely connect to just one server — and multiple servers bring their own coordination challenges.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Identify the coordination challenges that arise from connecting to multiple MCP servers and describe reasonable handling strategies for each."
+          },
+          {
+            "title": "🏷️ Name collisions across servers",
+            "content": "Two different MCP servers might happen to expose a tool with the same or a very similar name for genuinely different functionality (two different servers both offering a `search` tool, doing entirely different kinds of searches) — a host application needs a strategy for disambiguating these before they reach the model, commonly by **namespacing** tool names with an indication of which server they came from, so the model (and the orchestrating code routing calls) can tell them apart reliably."
+          },
+          {
+            "title": "🔌 Partial connectivity",
+            "content": "Some connected servers might be available while others are down, slow to respond, or failed to connect at all — the host application needs to decide how to handle this **gracefully**: proceeding with a reduced tool set from the servers that are actually reachable, rather than failing the entire application because one of several connected servers is unavailable, mirroring the tool-failure-handling principles from the Agents course applied at the server-connection level."
+          },
+          {
+            "title": "⚖️ Inconsistent quality across servers",
+            "content": "Because different MCP servers might be built by different teams or organizations with varying levels of care around the tool-design principles covered in module 1, a host application aggregating tools from many servers may end up with a mix of well-designed and poorly-designed tool definitions — something worth **monitoring for** (via the component-level tool-selection evaluation approach from the Agents course), since a single poorly-designed tool from one server can degrade overall tool-selection reliability even when every other connected server's tools are well designed."
+          },
+          {
+            "title": "🎯 A practical approach",
+            "content": "- **Namespace tool names by server** to avoid collisions.\n- **Design for partial connectivity from the start**, rather than assuming every connected server will always be available.\n- **Apply the same evaluation rigor** to tools from external MCP servers that you'd apply to your own locally-defined tools, rather than assuming a third-party server's tool design meets the bar your own application needs, even though you didn't build it yourself."
+          },
+          {
+            "title": "💻 Namespacing and graceful degradation",
+            "content": "```python\ndef aggregate_tools(mcp_clients: dict) -> list:\n    tools = []\n    for server_name, client in mcp_clients.items():\n        try:\n            for t in client.list_tools():\n                t[\"name\"] = f\"{server_name}.{t['name']}\"   # namespace to avoid collisions\n                tools.append(t)\n        except ConnectionError:\n            # partial connectivity: degrade gracefully, don't fail everything\n            log.warning(f\"{server_name} unreachable, continuing without its tools\")\n            continue\n    return tools\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Exposing unnamespaced tool names from multiple servers.** Two `search` tools from different servers become genuinely ambiguous to both the model and the routing code without some way to tell them apart.\n\n**Failing the entire application when one of several servers is unreachable.** Graceful degradation to a reduced tool set almost always beats an all-or-nothing failure.\n\n**Trusting third-party servers' tool design by default.** A poorly-designed tool from even one external server can drag down overall tool-selection reliability — apply the same evaluation rigor regardless of who built it."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "mcp_handling_multiple_servers_quiz",
+        "questions": [
+          {
+            "question": "Why might two different MCP servers exposing tools with the same name cause a problem?",
+            "options": [
+              "This situation is technically impossible in MCP",
+              "The model and the orchestrating code need to be able to disambiguate which server's tool is meant, commonly handled via namespacing by server",
+              "Name collisions are automatically resolved by the JSON-RPC protocol",
+              "Only one MCP server can ever be connected at a time, so this never happens"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Without disambiguation, two similarly-named tools from different servers create ambiguity for both the model's selection and the application's routing — namespacing by server is a common fix.",
+            "id": "q1"
+          },
+          {
+            "question": "How should a host application generally handle one of several connected MCP servers being unavailable?",
+            "options": [
+              "Fail the entire application immediately regardless of how many other servers are still reachable",
+              "Proceed gracefully with a reduced tool set from the servers that are actually reachable, mirroring tool-failure-handling principles from the Agents course",
+              "Ignore the possibility of partial connectivity entirely, since it never occurs in practice",
+              "Permanently disconnect from all servers if even one becomes unavailable"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Graceful degradation — continuing with what's actually available rather than failing everything over one unavailable server — mirrors the same resilience principle from the Agents course's tool-failure-handling lesson, applied at the server level.",
+            "id": "q2"
+          },
+          {
+            "question": "Why should a host application apply the same evaluation rigor to third-party MCP servers' tools as to its own locally-defined tools?",
+            "options": [
+              "Third-party tools are always guaranteed to be well-designed by default",
+              "Different servers may vary in tool-design quality, and even one poorly-designed tool can degrade overall tool-selection reliability for the whole aggregated set",
+              "Evaluation is unnecessary once a server has been successfully connected to",
+              "This only matters for servers using the stdio transport"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since tool-design quality can vary across independently-built servers, applying the same evaluation standards from the Agents course to all aggregated tools (not just locally-defined ones) helps catch quality issues that could otherwise degrade the whole system's tool-selection reliability.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, what does prefixing a tool's name with f\"{server_name}.{t['name']}\" accomplish?",
+            "options": [
+              "It disables the tool from being called at all",
+              "It namespaces the tool name by its originating server, avoiding collisions between similarly-named tools from different servers",
+              "It converts the tool into a resource instead",
+              "It removes the tool's parameter schema"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Namespacing by server name is exactly the disambiguation strategy this lesson recommends for avoiding tool-name collisions across multiple connected servers.",
+            "id": "q4"
+          },
+          {
+            "question": "What does the except ConnectionError block in aggregate_tools() illustrate?",
+            "options": [
+              "That a single unreachable server should crash the entire aggregation process",
+              "Graceful degradation: logging the issue and continuing to aggregate tools from the remaining reachable servers rather than failing everything",
+              "That connection errors are impossible once a server has been added to mcp_clients",
+              "That tools from an unreachable server are cached indefinitely instead of skipped"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The try/except structure lets aggregation continue with whatever servers are actually reachable, exactly the partial-connectivity handling strategy the lesson recommends.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is unnamespaced tool aggregation from multiple servers considered a mistake?",
+            "options": [
+              "Because MCP servers are physically incapable of having overlapping tool names",
+              "Because two differently-functioning tools sharing a name (like two separate 'search' tools) become genuinely ambiguous to the model and the routing code without a disambiguation strategy",
+              "Because namespacing is required by the JSON-RPC specification itself",
+              "Because unnamespaced tools cannot be called under any circumstances"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Without some way to distinguish origin, identically-named tools performing different functions create real ambiguity for both tool selection and call routing.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does failing the entire application when just one of several connected servers is unreachable go against this lesson's recommended approach?",
+            "options": [
+              "Because unreachable servers should always cause an immediate full outage by design",
+              "Because it discards the resilience benefit of continuing with a reduced but functional tool set from the servers that are still reachable",
+              "Because MCP guarantees all servers are always reachable, making this scenario impossible",
+              "Because partial connectivity cannot be detected programmatically"
+            ],
+            "correctAnswer": 1,
+            "explanation": "All-or-nothing failure over a single unavailable server, when others remain reachable, sacrifices availability the application doesn't actually need to give up.",
+            "id": "q7"
+          },
+          {
+            "question": "Why can a single poorly-designed tool from one third-party server degrade overall tool-selection reliability, even when every other connected server's tools are well designed?",
+            "options": [
+              "Because the model selects tools completely at random regardless of design quality",
+              "Because the aggregated tool pool is presented to the model as a whole, and one confusing or poorly-scoped tool can increase the chance of a wrong selection among the full set",
+              "Because poorly-designed tools automatically disconnect all other servers",
+              "Because tool quality has no bearing on model tool-selection at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since the model reasons over the full aggregated tool set, one badly-designed entry can degrade selection reliability across the board, which is why applying consistent evaluation rigor to all sources matters.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

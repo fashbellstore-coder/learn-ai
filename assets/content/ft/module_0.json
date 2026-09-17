@@ -1,0 +1,537 @@
+{
+  "id": "ft_fundamentals",
+  "title": "Fine-Tuning Fundamentals",
+  "description": "What fine-tuning is, when to reach for it instead of RAG or prompting, the stages it comes in, and what good training data looks like.",
+  "icon": "🎓",
+  "color": "#FB8C00",
+  "order": 0,
+  "estimatedHours": 5,
+  "difficulty": "beginner",
+  "prerequisites": [],
+  "lessons": [
+    {
+      "id": "ft_what_is_finetuning",
+      "title": "What Fine-Tuning Actually Is",
+      "description": "Take a pretrained model and keep training it on your own examples, so its behavior shifts toward what you need.",
+      "duration": "12 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain what fine-tuning changes inside a model, and describe the difference between pretraining and fine-tuning in plain terms."
+          },
+          {
+            "title": "🧠 The idea",
+            "content": "A pretrained LLM already knows grammar, facts, and reasoning patterns from a huge, general training run. **Fine-tuning** takes that same model and keeps training it — usually for much less time, on a much smaller, much more specific dataset — so its outputs shift toward a particular style, format, or task. Nothing architecturally new is added by default: you're adjusting the same weights, just nudging them with new examples.\n\nThink of pretraining as someone reading a huge chunk of the internet and forming a broad, general sense of language and the world. Fine-tuning is like handing that same person a stack of your company's support tickets and saying 'now write replies like these.' They don't forget everything else they know — they just get much better and much more consistent at this one thing.\n\n```python\n# Conceptually, fine-tuning is just... more training\nmodel = load_pretrained(\"base-model-7b\")\nfor batch in your_small_specific_dataset:\n    loss = model.compute_loss(batch)\n    loss.backward()\n    optimizer.step()  # the same weights, nudged toward your examples\n```"
+          },
+          {
+            "title": "🔧 Why it matters",
+            "content": "Base pretrained models are surprisingly bad at doing what you actually want by default. Ask a raw pretrained (non-instruction-tuned) model a question and it might continue your question with more questions, because 'continue the text' is literally all it learned to do. Fine-tuning is the tool that turns a general next-token predictor into something that reliably follows instructions, adopts a tone, sticks to a format, or handles a narrow domain — which is why almost every model you've used as a product (ChatGPT, Claude, etc.) started as a pretrained base and was then fine-tuned (often several times, in several stages) before it ever reached you."
+          },
+          {
+            "title": "📌 The three big use cases",
+            "content": "Fine-tuning tends to solve one of three problems:\n\n- **Format and style** — get outputs to consistently follow a schema, a tone, a house style, or a specific output structure.\n- **Behavior and instruction-following** — teach the model to be an assistant that follows instructions, uses tools, or refuses certain requests, rather than just continuing text.\n- **Narrow domain adaptation** — make the model fluent in a specialized vocabulary or task pattern (legal contract clauses, radiology reports, a company's internal jargon) that's underrepresented in general pretraining data.\n\nNotice what's missing from that list: 'teaching the model new facts it doesn't already know.' That's a common misconception, and it's the subject of the next lesson."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming fine-tuning adds new architecture or abilities the base model never had.** It only continues training existing weights — it can't give a model a capability, like vision or tool use, it had no mechanism for in the first place.\n\n**Treating fine-tuning as a way to teach a model new facts.** It nudges behavior, not a knowledge base — the next lesson covers why RAG is usually the better tool for facts.\n\n**Forgetting that a base model already has most of the capability you need.** Fine-tuning's job is to demonstrate exactly the behavior you want, not to teach language or reasoning from scratch — over-training on a task the model can basically already do wastes data and risks overfitting."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ft_what_is_finetuning_quiz",
+        "questions": [
+          {
+            "question": "What does fine-tuning do to a pretrained model's weights?",
+            "options": [
+              "It replaces them entirely with new weights",
+              "It continues training them on a smaller, more specific dataset",
+              "It freezes them and adds a lookup table instead",
+              "It compresses them to a smaller model size"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Fine-tuning continues training the same weights on new, usually much smaller and more specific, data — it doesn't discard or replace the model.",
+            "id": "q1"
+          },
+          {
+            "question": "Why are raw pretrained (non-instruction-tuned) models often bad at following instructions directly?",
+            "options": [
+              "They have too few parameters",
+              "Their only trained objective was predicting the next token in text, not following commands",
+              "They were never exposed to English",
+              "They can't process more than one sentence"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Pretraining only teaches next-token prediction. Following instructions reliably is a behavior that has to be taught afterward, typically via instruction fine-tuning.",
+            "id": "q2"
+          },
+          {
+            "question": "Which of these is NOT one of the three main use cases for fine-tuning described in this lesson?",
+            "options": [
+              "Getting consistent output format or tone",
+              "Teaching instruction-following behavior",
+              "Adapting to a narrow domain vocabulary",
+              "Injecting large amounts of new factual knowledge"
+            ],
+            "correctAnswer": 3,
+            "explanation": "Fine-tuning is not a great tool for injecting lots of new facts — that's better handled by retrieval (RAG). Fine-tuning shines at style, behavior, and narrow domain fluency.",
+            "id": "q3"
+          },
+          {
+            "question": "In this lesson's conceptual code example, what does the training loop do with each batch from the small, specific dataset?",
+            "options": [
+              "Computes a loss, backpropagates it, and steps the optimizer to nudge the existing weights",
+              "Deletes the batch without using it",
+              "Replaces the model's architecture with a new one",
+              "Only stores the batch for later, with no training happening"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example shows a standard training loop: compute loss, call backward(), and step the optimizer — the same fundamental mechanism as pretraining, just applied to a smaller dataset.",
+            "id": "q4"
+          },
+          {
+            "question": "According to this lesson's analogy, what does pretraining correspond to, compared to fine-tuning?",
+            "options": [
+              "Someone reading a huge chunk of the internet and forming a broad, general sense of language and the world",
+              "Someone being handed a stack of support tickets and told to write replies like them",
+              "Someone forgetting everything they previously knew",
+              "Someone being given a completely different set of instructions with no prior knowledge"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's analogy maps pretraining to broad general reading, and fine-tuning to the more specific, narrower task of learning to write in a particular style from a smaller set of examples.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does the lesson say almost every product model (like ChatGPT or Claude) went through fine-tuning before reaching users?",
+            "options": [
+              "Because a raw pretrained model would just continue text unreliably rather than acting like a helpful assistant",
+              "Because fine-tuning is required to increase a model's total parameter count",
+              "Because pretraining alone always produces a fully instruction-following assistant",
+              "Because fine-tuning is only used for translation tasks"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explains that pretrained models default to continuing text rather than following instructions, so fine-tuning (often through multiple stages) is what turns that into assistant-like behavior.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson warn against assuming fine-tuning can give a model an entirely new architectural capability?",
+            "options": [
+              "Because fine-tuning only continues training existing weights — it can't add a mechanism the model never had, like vision, from scratch",
+              "Because fine-tuning always redesigns the model's underlying architecture",
+              "Because new capabilities are always added automatically during fine-tuning",
+              "Because architecture and weights are unrelated to what fine-tuning changes"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is assuming fine-tuning can add fundamentally new abilities, when it can only adjust weights within the model's existing architecture.",
+            "id": "q7"
+          },
+          {
+            "question": "Why might over-training a model on a task it can basically already do waste data and risk overfitting?",
+            "options": [
+              "Because fine-tuning's job is to demonstrate the target behavior clearly, and it doesn't need to reteach language or reasoning the base model already has",
+              "Because a base model never has any relevant capability before fine-tuning",
+              "Because overfitting only occurs when a dataset is too small, never when it's redundant",
+              "Because fine-tuning always requires as much data as possible regardless of the base model's existing skill"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is forgetting the base model's existing capability, since fine-tuning data should demonstrate the desired behavior rather than re-teach something the model can already mostly do.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ft_finetune_vs_rag_vs_prompting",
+      "title": "Fine-Tuning vs. RAG vs. Prompting",
+      "description": "Three different tools for three different problems — and picking the wrong one wastes weeks.",
+      "duration": "13 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, given a real-world requirement, you can decide whether prompting, RAG, or fine-tuning (or some combination) is the right first move."
+          },
+          {
+            "title": "🧠 Three levers, three jobs",
+            "content": "**Prompting** changes what you ask the model to do, per request — no training involved, instant to change, but limited by what the model already knows and can do. **RAG** (retrieval-augmented generation) changes what the model can see, by pulling relevant documents into the context window at request time — great for facts and knowledge that go stale or that you don't want baked into weights. **Fine-tuning** changes what the model does by default, by adjusting its weights — best for behavior, style, and format, not for facts.\n\nA useful mental model: prompting is like giving someone instructions right before a task. RAG is like handing them a reference book to consult while doing it. Fine-tuning is like sending them through months of on-the-job training so the behavior becomes automatic.\n\n```python\n# The same problem, three different levers\nprompt_only = \"Answer in JSON: {question}\"                 # per-request instruction\nrag_answer  = generate(prompt, context=retrieve(question))  # inject facts at request time\nft_answer   = finetuned_model.generate(question)             # behavior is now the default\n```"
+          },
+          {
+            "title": "⚠️ The classic mistake: fine-tuning for facts",
+            "content": "A very common failure mode: a team wants the model to 'know about our product docs' and reaches straight for fine-tuning. They fine-tune on the docs, and the model does absorb some facts — but unreliably, with no way to cite sources, no way to update a single fact without retraining, and a real risk of the model confidently hallucinating plausible-sounding but wrong details it half-learned. Weeks later they discover that RAG — just retrieving the relevant doc snippet and putting it in the prompt — gives more accurate, easily-updatable, citable answers with far less effort. This is exactly why RAG existed as a course before this one: retrieval is usually the right default for 'the model needs to know X.'"
+          },
+          {
+            "title": "✅ A practical decision order",
+            "content": "Start with prompting — can better instructions, examples in the prompt (few-shot), or a system prompt solve it? If the problem is 'the model doesn't know something,' reach for RAG next — feed it the facts at query time. Only reach for fine-tuning when the problem is about consistent behavior, format, tone, or a skill that's hard to describe in a prompt (like always emitting valid JSON matching your exact schema, or reliably using your company's specific tool-calling conventions). In real systems, these combine: a fine-tuned model that's also given retrieved context, driven by a well-designed prompt, is extremely common."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Reaching for fine-tuning before trying prompting or RAG.** Fine-tuning is the most expensive and slowest lever to pull — it should usually be the last one tried, not the first.\n\n**Fine-tuning to inject facts instead of using RAG.** Baked-in facts are unreliable, uncitable, and expensive to update — retrieval solves all three problems better and cheaper.\n\n**Treating the three tools as mutually exclusive.** Production systems routinely combine a fine-tuned model, retrieved context, and a well-designed prompt — the question is rarely 'which one' but 'which combination.'"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ft_finetune_vs_rag_vs_prompting_quiz",
+        "questions": [
+          {
+            "question": "A team wants their assistant to always answer using the latest version of their internal wiki, which changes daily. What's the best first approach?",
+            "options": [
+              "Fine-tune on the wiki content",
+              "Use RAG to retrieve the relevant wiki pages at query time",
+              "Prompt engineering alone with no external data",
+              "Increase the model's parameter count"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Fast-changing factual content is exactly what RAG is built for — retrieve the current version at query time rather than baking a stale snapshot into weights via fine-tuning.",
+            "id": "q1"
+          },
+          {
+            "question": "Which problem is fine-tuning best suited to solve?",
+            "options": [
+              "The model needs access to today's stock prices",
+              "The model needs to consistently output a specific JSON schema in your house style",
+              "The model needs to look up rarely-changing company facts",
+              "The model needs more context window space"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Consistent format, tone, and behavior are exactly what fine-tuning is good at — it's a poor tool for facts, freshness, or context length.",
+            "id": "q2"
+          },
+          {
+            "question": "What is a key risk of fine-tuning on a document set purely to teach the model \"facts\" instead of using RAG?",
+            "options": [
+              "The model becomes too slow to run",
+              "The model may hallucinate half-learned details with no way to cite or easily update individual facts",
+              "The model loses the ability to follow instructions entirely",
+              "It's technically impossible to fine-tune on documents"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Facts baked into weights via fine-tuning are unreliable, not citable, and expensive to update — RAG's retrieved snippets solve all three problems better.",
+            "id": "q3"
+          },
+          {
+            "question": "In this lesson's code example, what does the rag_answer line pass to generate() that prompt_only does not?",
+            "options": [
+              "A context argument built from retrieve(question)",
+              "A completely different model checkpoint",
+              "A larger temperature value",
+              "A hardcoded JSON schema"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example shows rag_answer calling generate with context=retrieve(question), injecting retrieved facts at request time — something the prompt_only line doesn't do.",
+            "id": "q4"
+          },
+          {
+            "question": "According to this lesson's analogy, what does fine-tuning correspond to, compared to prompting and RAG?",
+            "options": [
+              "Sending someone through months of on-the-job training so the behavior becomes automatic",
+              "Giving someone instructions right before a task",
+              "Handing someone a reference book to consult while working",
+              "Doing nothing at all and hoping for the best"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's analogy maps fine-tuning to extended on-the-job training that makes a behavior automatic, contrasted with prompting's per-request instructions and RAG's reference-book lookup.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does this lesson recommend starting with prompting before considering RAG or fine-tuning?",
+            "options": [
+              "Because it's the cheapest and fastest lever to try, and better instructions or few-shot examples might already solve the problem",
+              "Because prompting always produces strictly better results than RAG or fine-tuning",
+              "Because prompting is the only approach that can ever handle factual questions",
+              "Because RAG and fine-tuning can never be combined with prompting"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's decision order starts with prompting precisely because it's the fastest, cheapest thing to try before reaching for retrieval or the much heavier investment of fine-tuning.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson call reaching for fine-tuning before trying prompting or RAG a mistake?",
+            "options": [
+              "Because fine-tuning is the most expensive and slowest lever to pull, and should usually be tried last, not first",
+              "Because fine-tuning is always the cheapest and fastest option available",
+              "Because prompting and RAG can never actually solve any real problem",
+              "Because fine-tuning has no cost or time investment associated with it"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is skipping straight to fine-tuning, when its cost and slowness make it the tool to reach for last, after cheaper options have been tried.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson warn against treating prompting, RAG, and fine-tuning as mutually exclusive choices?",
+            "options": [
+              "Because production systems routinely combine a fine-tuned model, retrieved context, and a well-designed prompt together",
+              "Because using more than one of these techniques at once is technically impossible",
+              "Because combining these techniques always produces worse results than using just one",
+              "Because RAG and fine-tuning are actually identical techniques with no meaningful difference"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is treating this as an either-or choice, when real systems commonly combine all three rather than picking exactly one.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ft_types_of_finetuning",
+      "title": "The Types of Fine-Tuning",
+      "description": "Full fine-tuning, instruction tuning, and preference tuning are three different stages, not three interchangeable options.",
+      "duration": "12 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can name the main stages of fine-tuning a modern LLM goes through and explain what each stage is responsible for."
+          },
+          {
+            "title": "🏗️ Full fine-tuning",
+            "content": "**Full fine-tuning** updates every parameter in the model. It's the most flexible and can produce the biggest behavior shifts, but it's expensive — you need enough GPU memory to hold the full model plus optimizer states plus gradients, which for a large model can mean many high-end GPUs. It also risks **catastrophic forgetting**: aggressively overwriting weights can degrade capabilities the model had before, if you're not careful with learning rate and data mix. Because of the cost, full fine-tuning is used less often today than parameter-efficient methods, which the next module covers in depth.\n\n```python\n# Full fine-tuning: every parameter is trainable\nfor param in model.parameters():\n    param.requires_grad = True\n# Memory needed: model weights + gradients + optimizer states,\n# roughly 3-4x the model's own size for a full fine-tune\n```"
+          },
+          {
+            "title": "📋 Instruction tuning (SFT)",
+            "content": "**Supervised fine-tuning (SFT)** on (instruction, response) pairs is the stage that turns a base pretrained model into something that follows instructions and behaves like an assistant. This is typically the first fine-tuning stage after pretraining, and it's what most people mean by 'fine-tuning' when they're building a task-specific assistant on top of an already-instruction-tuned model."
+          },
+          {
+            "title": "🎚️ Preference tuning (RLHF / DPO and friends)",
+            "content": "After a model can follow instructions, there's usually a further stage that shapes *which* of several plausible responses it should prefer — more helpful, more honest, less harmful, matching a particular tone. This uses preference data (pairs of responses where one is marked better) rather than single 'correct' answers, and includes methods like RLHF and DPO, covered in depth in a later module. The three stages roughly build on each other: pretraining gives general capability, SFT gives instruction-following, preference tuning gives refinement and alignment."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Treating full fine-tuning as the default choice.** Its GPU memory cost and forgetting risk make it the exception today, not the rule — parameter-efficient methods (next module) handle most real use cases.\n\n**Confusing SFT with preference tuning.** SFT trains on single correct-answer examples; preference tuning trains on comparisons between responses — they use different data and solve different problems.\n\n**Skipping straight to preference tuning without a solid instruction-tuned base.** Preference tuning refines which of several already-reasonable responses is better — it isn't a substitute for teaching basic instruction-following first."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ft_types_of_finetuning_quiz",
+        "questions": [
+          {
+            "question": "What is the main risk of full fine-tuning compared to parameter-efficient methods?",
+            "options": [
+              "It cannot change model behavior at all",
+              "It's expensive in GPU memory and risks catastrophic forgetting of prior capabilities",
+              "It only works on models under 1 billion parameters",
+              "It requires no training data"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Full fine-tuning updates every weight, which needs substantial compute/memory and can overwrite useful prior behavior if not done carefully — hence the appeal of PEFT methods covered next module.",
+            "id": "q1"
+          },
+          {
+            "question": "What does supervised fine-tuning (SFT) typically use as training data?",
+            "options": [
+              "Pairs of (instruction, response) examples",
+              "Pairs of (better response, worse response) preference comparisons",
+              "Raw unlabeled internet text",
+              "Only numerical embeddings"
+            ],
+            "correctAnswer": 0,
+            "explanation": "SFT trains on instruction-response pairs to teach the model to follow instructions — this is what turns a base model into an assistant-like model.",
+            "id": "q2"
+          },
+          {
+            "question": "What distinguishes preference tuning (like RLHF or DPO) from instruction tuning (SFT)?",
+            "options": [
+              "Preference tuning uses comparisons between responses (which is better) rather than single correct-answer examples",
+              "Preference tuning happens before pretraining",
+              "Preference tuning removes the need for any prior training stage",
+              "Preference tuning only works on image models"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Preference tuning refines behavior using relative judgments — 'response A is better than response B' — building on top of a model that has already learned to follow instructions via SFT.",
+            "id": "q3"
+          },
+          {
+            "question": "In this lesson's code example, what happens when every parameter's requires_grad is set to True?",
+            "options": [
+              "The model performs full fine-tuning, making all parameters trainable",
+              "The model becomes permanently frozen with no parameters trainable",
+              "Only the embedding layer becomes trainable",
+              "The model's architecture is deleted"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example shows setting requires_grad = True on every parameter as the defining mechanic of full fine-tuning: everything is updated during training.",
+            "id": "q4"
+          },
+          {
+            "question": "According to this lesson's code comment, roughly how much memory does full fine-tuning need relative to the model's own size?",
+            "options": [
+              "Roughly 3-4x the model's own size",
+              "Exactly the same as the model's own size, with nothing extra",
+              "Roughly half of the model's own size",
+              "No additional memory beyond storing the model weights"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code comment explicitly estimates full fine-tuning memory at roughly 3-4x the model's size, accounting for weights, gradients, and optimizer states.",
+            "id": "q5"
+          },
+          {
+            "question": "According to this lesson, what does pretraining contribute in the overall three-stage progression?",
+            "options": [
+              "General capability, which SFT and preference tuning then build on",
+              "Preference alignment, which pretraining supposedly does before any other stage",
+              "Nothing; pretraining is unrelated to the fine-tuning stages",
+              "Instruction-following behavior directly, with no further stages needed"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson describes the three stages as building on each other: pretraining provides general capability, SFT adds instruction-following, and preference tuning adds refinement.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson call treating full fine-tuning as the default choice a mistake?",
+            "options": [
+              "Because its GPU memory cost and forgetting risk make it the exception today, with parameter-efficient methods handling most real use cases",
+              "Because full fine-tuning has no meaningful cost or risk compared to other methods",
+              "Because parameter-efficient methods are always strictly worse than full fine-tuning",
+              "Because full fine-tuning is required for every single fine-tuning task"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is defaulting to full fine-tuning, when its cost and forgetting risk make parameter-efficient methods the more common real-world choice.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson warn against skipping straight to preference tuning without a solid instruction-tuned base?",
+            "options": [
+              "Because preference tuning refines which of several already-reasonable responses is better, and isn't a substitute for teaching basic instruction-following first",
+              "Because preference tuning can only be applied to models that have never been trained at all",
+              "Because instruction tuning and preference tuning are actually the exact same process",
+              "Because preference tuning always works equally well regardless of the model's starting capability"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is skipping SFT, since preference tuning assumes a model that can already produce reasonable responses to compare and refine.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ft_data_requirements_and_curation",
+      "title": "Fine-Tuning Data: Quality Over Quantity",
+      "description": "A few hundred excellent examples reliably beat tens of thousands of sloppy ones.",
+      "duration": "13 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can describe what makes a fine-tuning dataset good, and identify common data quality problems before they waste a training run."
+          },
+          {
+            "title": "📊 Less data than you think, if it's good",
+            "content": "One of the most reproduced findings in fine-tuning research is that a small, carefully curated dataset (hundreds to low thousands of examples) often outperforms a much larger but noisier one, especially for instruction tuning and style adaptation. The model already has enormous general capability from pretraining — fine-tuning data's job isn't to teach it language, it's to demonstrate exactly the behavior you want, consistently and correctly, so the signal is clean."
+          },
+          {
+            "title": "🧹 What 'good' data looks like",
+            "content": "- **Consistent formatting** — the same structure and conventions across every example, since inconsistency is itself a pattern the model will learn.\n- **Correctness** — every example should be an output you'd actually be happy to see the model produce; a single wrong or low-quality example teaches the model a bad habit just as effectively as a good one.\n- **Diversity within scope** — enough varied phrasing and edge cases that the model generalizes the underlying skill, not just memorizes exact input-output pairs.\n- **Deduplication** — near-duplicate examples inflate apparent dataset size without adding real signal, and can cause overfitting to a narrow pattern.\n\n```python\n# A minimal quality check before training\ndef check_dataset(examples):\n    assert len(examples) == len(set(map(str, examples))), \"duplicates found\"\n    for ex in examples:\n        assert ex[\"output\"], \"empty output\"\n        assert ex[\"format\"] == examples[0][\"format\"], \"inconsistent format\"\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Mixing inconsistent formats or tones across examples.** The model can't tell what 'the standard' actually is if every example looks different.\n\n**Including auto-generated examples that were never reviewed by a human.** This silently bakes errors into the model just as effectively as a genuine mistake would.\n\n**Having far too many easy examples and almost none of the edge cases that matter in production.** A dataset that doesn't reflect real usage teaches a skill that doesn't transfer.\n\n**Not holding out a validation set.** Without one, there's no way to tell real improvement from overfitting during training."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ft_data_requirements_and_curation_quiz",
+        "questions": [
+          {
+            "question": "According to widely reproduced fine-tuning findings, what usually matters more for a good result?",
+            "options": [
+              "Dataset size above all else",
+              "Data quality and consistency, even with a small dataset",
+              "Using the largest possible base model",
+              "Training for as many epochs as possible regardless of data"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A small, clean, consistent dataset routinely beats a large noisy one — fine-tuning mostly needs to demonstrate the target behavior clearly, not teach language from scratch.",
+            "id": "q1"
+          },
+          {
+            "question": "Why is deduplication important in a fine-tuning dataset?",
+            "options": [
+              "It makes the JSON file smaller",
+              "Near-duplicate examples inflate apparent size without adding signal and can cause overfitting",
+              "It removes the need for a validation set",
+              "It's required by most training frameworks or the job will fail"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Duplicated or near-duplicate examples don't add new information; they just concentrate the model's attention on one narrow pattern, risking overfitting.",
+            "id": "q2"
+          },
+          {
+            "question": "What's a common data mistake mentioned in this lesson?",
+            "options": [
+              "Reviewing every training example by hand",
+              "Holding out a validation set",
+              "Including auto-generated examples that were never reviewed for correctness",
+              "Using consistent formatting throughout"
+            ],
+            "correctAnswer": 2,
+            "explanation": "Unreviewed auto-generated data can silently bake in errors that the model will faithfully learn — every one of the other options is a good practice, not a mistake.",
+            "id": "q3"
+          },
+          {
+            "question": "In this lesson's code example, what does the check_dataset function verify about the examples?",
+            "options": [
+              "That there are no duplicates, no empty outputs, and consistent formatting across examples",
+              "That the dataset contains at least one million examples",
+              "That every example is written in a different format from the others",
+              "That the dataset has been translated into multiple languages"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example shows check_dataset asserting no duplicates, non-empty outputs, and consistent formatting — a minimal quality gate before training.",
+            "id": "q4"
+          },
+          {
+            "question": "According to this lesson, why doesn't fine-tuning data need to 'teach the model language' the way pretraining does?",
+            "options": [
+              "Because the model already has enormous general capability from pretraining, so fine-tuning data's job is just to demonstrate the target behavior clearly",
+              "Because fine-tuning data is always written in a completely different language than pretraining data",
+              "Because fine-tuning never actually changes any of the model's behavior",
+              "Because pretraining and fine-tuning use the exact same dataset every time"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explains that pretraining already gave the model general language capability, so fine-tuning data only needs to demonstrate the specific target behavior clearly and consistently.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does this lesson say diversity within scope matters for a fine-tuning dataset?",
+            "options": [
+              "Because enough varied phrasing and edge cases helps the model generalize the underlying skill rather than just memorize exact input-output pairs",
+              "Because diversity always increases the total size of the dataset with no other effect",
+              "Because a dataset with no diversity at all always produces the best possible results",
+              "Because diversity has no relationship to whether a model generalizes or memorizes"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson lists diversity within scope as one of the traits of good data, specifically because it helps the model learn the general skill rather than overfit to a narrow set of exact examples.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson warn against having far too many easy examples and almost none of the edge cases that matter in production?",
+            "options": [
+              "Because a dataset that doesn't reflect real usage teaches a skill that doesn't transfer to what the model will actually face",
+              "Because edge cases are never actually encountered in real production usage",
+              "Because easy examples always teach the model more than edge cases would",
+              "Because dataset composition has no effect on how well a fine-tuned model performs in production"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is over-representing easy cases, since a dataset skewed away from real production patterns produces a skill that doesn't generalize to actual usage.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson recommend holding out a validation set during fine-tuning?",
+            "options": [
+              "Because without one, there's no way to tell real improvement from overfitting during training",
+              "Because a validation set is only useful for full fine-tuning, never for parameter-efficient methods",
+              "Because holding out data always reduces the final model's quality with no benefit",
+              "Because validation sets are only relevant for preference tuning, not supervised fine-tuning"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is skipping a validation set, since it's what actually distinguishes genuine improvement from the model simply overfitting to the training examples.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

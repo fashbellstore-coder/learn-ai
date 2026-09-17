@@ -1,0 +1,525 @@
+{
+  "id": "module_5",
+  "title": "Embeddings in Practice",
+  "description": "How chunking strategy directly affects embedding quality, why switching embedding models requires a real migration process, multilingual and cross-modal embeddings, and a field guide to common production pitfalls.",
+  "icon": "🧰",
+  "color": "#004D40",
+  "order": 5,
+  "estimatedHours": 2,
+  "difficulty": "Intermediate",
+  "prerequisites": [],
+  "lessons": [
+    {
+      "id": "emb_chunking_effect_on_quality",
+      "title": "How Chunking Affects Embedding Quality",
+      "description": "Connect chunking strategy (from the LLM engineering course) directly to retrieval quality.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain why chunk size and boundaries directly affect how useful the resulting embeddings are for retrieval."
+          },
+          {
+            "title": "📏 Chunk size shapes what an embedding can represent",
+            "content": "The LLM engineering course covered chunking strategies for fitting long documents into context windows — here, the same technique matters for a different reason: an embedding represents *the whole chunk* as one vector, so a chunk that's too large mixes multiple distinct ideas into one embedding (diluting each one's semantic signal), while a chunk that's too small may lack enough context to be meaningfully distinct from other chunks."
+          },
+          {
+            "title": "🎯 Boundary quality directly affects retrieval usefulness",
+            "content": "A chunk that cuts an idea in half at an awkward boundary (echoing the fixed-size vs. semantic chunking tradeoff from the LLM engineering course) produces an embedding that only partially represents either idea on each side of the cut — this is exactly why semantic chunking (splitting at natural paragraph or section boundaries) tends to produce more useful embeddings for retrieval than blind fixed-size splitting, even though it's more complex to implement.\n\n```python\n# Conceptual: why chunk size matters for embedding quality\n# too large: one embedding blending 5 unrelated subtopics -> vague, diluted vector\n# too small: fragments lacking enough context to be distinctly meaningful\n# well-chunked: one coherent idea per chunk -> a focused, useful embedding\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Reusing a chunking strategy tuned for a different purpose (like fitting a context window) without reconsidering it for embedding quality specifically.** The right chunk size for staying under a token limit isn't automatically the right chunk size for producing high-quality, distinct embeddings.\n\n**Never testing different chunk sizes against actual retrieval quality metrics.** The recall@k and precision@k metrics from earlier in this course are exactly the tools for empirically comparing chunking strategies, rather than guessing.\n\n**Forgetting that chunk overlap (from the LLM engineering course) also affects embeddings.** Overlapping chunks can produce near-duplicate embeddings for the overlapping content, which is worth accounting for when interpreting retrieval results."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "emb_chunking_effect_on_quality_quiz",
+        "questions": [
+          {
+            "question": "Why does chunk size directly affect the quality of the resulting embedding?",
+            "options": [
+              "Chunk size has no relationship to embedding quality whatsoever",
+              "An embedding represents an entire chunk as one vector, so a chunk that's too large mixes multiple distinct ideas into one diluted embedding, while a chunk that's too small may lack enough context to be meaningfully distinct",
+              "Larger chunks always produce strictly better embeddings with no downside",
+              "Embedding quality is determined entirely by the embedding model, never by chunk size"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since one embedding vector represents an entire chunk's content, the chunk's size directly shapes what that single vector can meaningfully capture — too much content dilutes the signal, too little lacks sufficient context.",
+            "id": "q1"
+          },
+          {
+            "question": "Why does semantic chunking (splitting at natural boundaries) tend to produce more useful embeddings than blind fixed-size chunking?",
+            "options": [
+              "Semantic chunking and fixed-size chunking always produce identical embedding quality",
+              "Fixed-size chunking can cut an idea awkwardly in half, producing an embedding that only partially represents either resulting fragment, whereas semantic chunking tends to keep coherent ideas intact within a single chunk",
+              "Fixed-size chunking always produces better embeddings than semantic chunking",
+              "Chunk boundaries have no effect on what an embedding actually represents"
+            ],
+            "correctAnswer": 1,
+            "explanation": "When a chunk boundary splits a coherent idea awkwardly, the resulting embedding on each side only partially captures that idea — semantic chunking's natural boundaries help keep each chunk (and thus each embedding) representing one coherent concept.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is it a mistake to reuse a chunking strategy tuned for fitting a context window (from the LLM engineering course) without reconsidering it for embedding quality?",
+            "options": [
+              "Chunking strategies are always equally appropriate for both purposes with no reconsideration needed",
+              "The right chunk size for staying under a token limit isn't automatically the right chunk size for producing high-quality, distinct embeddings, since the two goals optimize for different things",
+              "Context window fitting and embedding quality are actually the exact same concern",
+              "Chunking is only relevant for context windows, never for embeddings at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Fitting within a token budget and producing a semantically coherent, well-represented embedding are different goals — a chunk size chosen purely to satisfy a context limit may not be the size that produces the most useful embeddings for retrieval.",
+            "id": "q3"
+          },
+          {
+            "question": "In the lesson's conceptual example, what happens to an embedding when a chunk is too large?",
+            "options": [
+              "It blends multiple unrelated subtopics into one vague, diluted vector",
+              "It becomes perfectly precise regardless of how many topics it contains",
+              "It automatically splits itself into multiple separate embeddings",
+              "It has no representation at all and is discarded"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's example explicitly describes an oversized chunk as producing 'one embedding blending 5 unrelated subtopics -> vague, diluted vector'.",
+            "id": "q4"
+          },
+          {
+            "question": "According to this lesson, what course originally covered chunking strategies for a different reason?",
+            "options": [
+              "The LLM engineering course, for fitting long documents into context windows",
+              "The computer vision course, for splitting images into patches",
+              "The math course, for splitting matrices into blocks",
+              "The reinforcement learning course, for splitting episodes into steps"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly states that the LLM engineering course covered chunking strategies for fitting long documents into context windows, and this lesson applies the same technique for a different reason: embedding quality.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does this lesson say semantic chunking tends to produce more useful embeddings than blind fixed-size splitting?",
+            "options": [
+              "Because splitting at natural paragraph or section boundaries avoids cutting an idea in half, producing an embedding that more fully represents a coherent idea",
+              "Because semantic chunking always produces chunks of exactly the same size as fixed-size chunking",
+              "Because fixed-size chunking always produces higher-quality embeddings in every case",
+              "Because chunk boundaries have no effect on what an embedding can represent"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explains that fixed-size chunking can awkwardly cut an idea in half, producing a partially representative embedding, while semantic chunking's natural boundaries tend to keep ideas intact.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson recommend testing different chunk sizes against actual retrieval quality metrics?",
+            "options": [
+              "Because recall@k and precision@k from earlier in this course are exactly the tools for empirically comparing chunking strategies, rather than guessing",
+              "Because chunk size has no measurable effect on retrieval quality metrics",
+              "Because retrieval quality metrics cannot be applied to different chunking strategies",
+              "Because guessing chunk size always produces better results than measuring it"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is never testing chunk sizes empirically, when recall@k and precision@k are exactly the tools available from earlier in the course to make this comparison rigorous.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson note that chunk overlap is also worth accounting for when interpreting retrieval results?",
+            "options": [
+              "Because overlapping chunks can produce near-duplicate embeddings for the overlapping content",
+              "Because chunk overlap always eliminates all duplication in retrieval results",
+              "Because overlap has no effect on the resulting embeddings whatsoever",
+              "Because overlap is only relevant for fixed-size chunking, never semantic chunking"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is forgetting that chunk overlap, carried over from the LLM engineering course, can produce near-duplicate embeddings for the overlapping portions of adjacent chunks.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "emb_versioning_migration",
+      "title": "Embedding Versioning and Migration",
+      "description": "Plan for the reality that embedding models eventually get replaced.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can describe why embedding model changes require a genuine migration process, and what that process typically involves."
+          },
+          {
+            "title": "🔄 A new model means a new, incompatible space",
+            "content": "Recall from early in this course: different embedding models produce incompatible vector spaces. This means switching to a new (perhaps more accurate, or cheaper, or newly released) embedding model isn't a simple drop-in replacement — every previously stored embedding was computed with the old model and is meaningless when compared against new embeddings from the new model."
+          },
+          {
+            "title": "🚚 A real migration process",
+            "content": "A genuine migration typically involves: re-embedding the entire existing collection with the new model (a potentially significant compute and time cost for a large collection), a period where both old and new embeddings might need to coexist (for a gradual rollout or to allow rollback), and re-validating retrieval quality against your task-specific eval set (echoing the LLM engineering course's regression-testing lesson) before fully cutting over.\n\n```python\n# Conceptual migration outline\n# 1. re-embed all existing documents with the new model\n# 2. run recall@k / precision@k on the eval set against both\n#    old and new embeddings to confirm the new one is actually better\n# 3. cut over once validated, keeping a rollback path if needed\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Underestimating the compute and time cost of re-embedding a large existing collection.** For a very large collection, this can be a genuinely significant undertaking, not a quick background task.\n\n**Cutting over to a new embedding model without validating retrieval quality first.** A newer or differently-benchmarked model isn't automatically better for your specific task — the same evaluation discipline from earlier in this course applies directly here.\n\n**Having no rollback plan.** If the new model unexpectedly underperforms on your real data, being able to revert quickly (rather than being stuck mid-migration) protects against a bad surprise."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "emb_versioning_migration_quiz",
+        "questions": [
+          {
+            "question": "Why does switching to a new embedding model require re-embedding the entire existing collection?",
+            "options": [
+              "New embedding models are always compatible with embeddings from any other model, no re-embedding needed",
+              "Different embedding models produce incompatible vector spaces, so previously stored embeddings from the old model are meaningless when compared against new embeddings from the new model",
+              "Re-embedding is only needed if the new model has more dimensions than the old one",
+              "Vector spaces from different models are always directly comparable without any conversion"
+            ],
+            "correctAnswer": 1,
+            "explanation": "As established early in this course, each embedding model defines its own distinct vector space — mixing old and new model embeddings in the same comparison is meaningless, making a full re-embedding of existing data a genuine requirement, not an optional step.",
+            "id": "q1"
+          },
+          {
+            "question": "Why should retrieval quality be validated against a task-specific eval set before fully cutting over to a new embedding model?",
+            "options": [
+              "Validation is unnecessary since newer embedding models are always better for every task",
+              "A model that seems better on general benchmarks or specifications isn't automatically better for your specific task, so validating against your own eval set confirms the switch is actually an improvement before committing to it",
+              "Eval sets are only relevant for LLM applications, never for embedding models",
+              "Cutting over to a new model always requires no validation of any kind"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This directly echoes the LLM engineering course's regression-testing and benchmark-gap lessons: confirming real, task-specific improvement (not just an assumption from general specs) before fully committing to a migration avoids an unvalidated, potentially worse switch.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is having a rollback plan important during an embedding model migration?",
+            "options": [
+              "Rollback plans are never necessary since migrations always succeed as expected",
+              "If the new model unexpectedly underperforms on real data despite initial validation, being able to revert quickly protects against being stuck with a worse system mid-migration",
+              "Rollback plans have no relevance to embedding model migrations specifically",
+              "Once a migration begins, it's impossible to ever revert to the previous model"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Even with careful validation, real-world performance can still surprise you — a rollback plan is the safety net that prevents an unexpected regression from becoming a prolonged, hard-to-reverse problem.",
+            "id": "q3"
+          },
+          {
+            "question": "In the lesson's conceptual migration outline, what happens before fully cutting over to a new embedding model?",
+            "options": [
+              "Running recall@k / precision@k on the eval set against both old and new embeddings to confirm the new one is actually better",
+              "Deleting all old embeddings immediately with no comparison at all",
+              "Skipping validation entirely and trusting the new model's general reputation",
+              "Switching over instantly with no re-embedding of existing data"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's example migration outline explicitly validates the new model against the eval set using recall@k / precision@k before cutting over, keeping a rollback path if needed.",
+            "id": "q4"
+          },
+          {
+            "question": "According to this lesson, why can't a new embedding model simply be swapped in as a drop-in replacement?",
+            "options": [
+              "Because different embedding models produce incompatible vector spaces, so previously stored embeddings become meaningless when compared against the new model's embeddings",
+              "Because embedding models are always fully compatible with any other embedding model",
+              "Because swapping models is always instant and requires no re-embedding at all",
+              "Because vector spaces from different models are always directly comparable"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson recalls the earlier lesson's point that different embedding models produce incompatible vector spaces, which is exactly why a full migration process is required rather than a simple swap.",
+            "id": "q5"
+          },
+          {
+            "question": "How does this lesson's recommendation to validate before cutting over connect to the LLM engineering course?",
+            "options": [
+              "It echoes the LLM engineering course's regression-testing lesson",
+              "It contradicts everything covered in the LLM engineering course's evaluation module",
+              "It has no relationship to any lesson from the LLM engineering course",
+              "It only applies to LLMs, never to embedding model migrations"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly draws this parallel, stating that re-validating retrieval quality before fully cutting over echoes the LLM engineering course's regression-testing lesson.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson warn against underestimating the compute and time cost of re-embedding a large existing collection?",
+            "options": [
+              "Because for a very large collection, this can be a genuinely significant undertaking, not a quick background task",
+              "Because re-embedding a large collection is always instantaneous regardless of size",
+              "Because compute cost has no relationship to collection size",
+              "Because re-embedding never actually requires any meaningful compute resources"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is underestimating this cost, since re-embedding a very large collection can be a genuinely significant undertaking requiring real time and compute.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson recommend having a rollback plan during an embedding model migration?",
+            "options": [
+              "Because if the new model unexpectedly underperforms on real data, being able to revert quickly protects against a bad surprise",
+              "Because rollback plans are never actually useful during any kind of migration",
+              "Because a migration, once started, can never be reverted under any circumstances",
+              "Because new embedding models always outperform old ones with no exceptions"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is having no rollback plan, when a quick ability to revert protects against an unexpected underperformance surprise discovered after validation.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "emb_multilingual_cross_modal",
+      "title": "Multilingual and Cross-Modal Embeddings",
+      "description": "Extend embeddings beyond a single language and beyond text alone.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain what a multilingual embedding model provides and how cross-modal embeddings extend the same idea across modalities."
+          },
+          {
+            "title": "🌍 One shared space across languages",
+            "content": "A **multilingual embedding model** is trained so that semantically equivalent text in different languages lands near each other in the same embedding space — a French sentence and its English translation should embed close together, even though they share no common vocabulary. This enables cross-lingual search: a query in one language retrieving relevant results written in another."
+          },
+          {
+            "title": "🖼️➕🔤 The same idea across modalities, revisited",
+            "content": "This directly connects back to the generative AI course's CLIP lesson: a cross-modal embedding model places images and their text descriptions in one shared space, using the exact same underlying principle (contrastive training toward a shared space) as multilingual text embeddings — just applied across images and text instead of across two different human languages."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming a monolingual embedding model will handle multilingual data reasonably well.** A model trained predominantly on one language often performs noticeably worse on other languages unless it was specifically trained to be multilingual.\n\n**Assuming multilingual performance is uniform across all included languages.** Coverage and quality often vary significantly by language depending on how much training data existed for each — worth checking specifically for the languages your application actually needs.\n\n**Treating cross-modal embeddings as a completely separate technique from everything else in this course.** The underlying principles (contrastive training, shared vector space, cosine similarity for comparison) are the same ideas covered throughout this course, just extended across languages or modalities."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "emb_multilingual_cross_modal_quiz",
+        "questions": [
+          {
+            "question": "What does a multilingual embedding model provide that a monolingual one doesn't?",
+            "options": [
+              "It provides no meaningful benefit over a monolingual model",
+              "It's trained so that semantically equivalent text in different languages lands near each other in the same embedding space, enabling cross-lingual search where a query in one language can retrieve results in another",
+              "It only works for exactly two specific languages and no others",
+              "Multilingual models cannot use cosine similarity for comparison"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A multilingual embedding model's key capability is placing translations or semantically equivalent content from different languages close together in one shared space, which is what makes cross-lingual retrieval possible.",
+            "id": "q1"
+          },
+          {
+            "question": "How do cross-modal embeddings (like CLIP, from the generative AI course) relate to multilingual text embeddings?",
+            "options": [
+              "They are completely unrelated techniques with no shared underlying principle",
+              "Both use the same underlying principle — contrastive training toward a shared embedding space — just applied across different languages for multilingual embeddings, and across images and text for cross-modal embeddings",
+              "Cross-modal embeddings never use any form of contrastive training",
+              "Multilingual embeddings only work for images, never for text"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The core technique is identical: contrastive training that pulls semantically equivalent content together into one shared space — multilingual embeddings apply this across human languages, while cross-modal embeddings like CLIP apply the same idea across images and text.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is it a mistake to assume a multilingual embedding model performs uniformly well across every language it supports?",
+            "options": [
+              "Multilingual models always perform identically across every language with no variation",
+              "Coverage and quality often vary significantly by language depending on how much training data existed for each, so performance for a specific language of interest should be checked rather than assumed",
+              "Language has no effect on an embedding model's performance",
+              "Multilingual models only ever support exactly one language despite the name"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Just as with any trained model, performance depends heavily on the amount and quality of training data available — languages with less training data are likely to be represented less well, making it worth verifying performance for the specific languages an application actually needs.",
+            "id": "q3"
+          },
+          {
+            "question": "In this lesson's description, what happens to a French sentence and its English translation in a well-trained multilingual embedding model?",
+            "options": [
+              "They embed close together in the same shared space, despite sharing no common vocabulary",
+              "They are always placed at opposite ends of the embedding space",
+              "They can never both be represented in the same embedding model",
+              "They are converted into a single merged language before being embedded"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly states that a French sentence and its English translation should embed close together in a multilingual model's shared space, even though they share no common vocabulary.",
+            "id": "q4"
+          },
+          {
+            "question": "According to this lesson, what capability does a shared multilingual embedding space specifically enable?",
+            "options": [
+              "Cross-lingual search — a query in one language retrieving relevant results written in another",
+              "The ability to translate text word-for-word with perfect grammar",
+              "The complete elimination of any need for a text encoder",
+              "The ability to generate entirely new languages that don't yet exist"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly names cross-lingual search as the capability enabled by a shared multilingual embedding space — a query in one language can retrieve results written in a different one.",
+            "id": "q5"
+          },
+          {
+            "question": "How does this lesson connect cross-modal embeddings back to the generative AI course?",
+            "options": [
+              "It connects back to the generative AI course's CLIP lesson, using the same underlying principle across images and text",
+              "It states that CLIP has no relationship to cross-modal embeddings at all",
+              "It claims the generative AI course never discussed anything related to embeddings",
+              "It says cross-modal embeddings were invented independently of CLIP"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly connects cross-modal embeddings directly back to the generative AI course's CLIP lesson, describing them as using the exact same contrastive-training-toward-a-shared-space principle.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson warn against assuming a monolingual embedding model will handle multilingual data reasonably well?",
+            "options": [
+              "Because a model trained predominantly on one language often performs noticeably worse on other languages unless specifically trained to be multilingual",
+              "Because monolingual models always perform identically well on every language",
+              "Because multilingual performance has no relationship to what languages a model was trained on",
+              "Because monolingual models are technically incapable of processing any non-English text"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is assuming a monolingual model handles multilingual data well, when performance on languages outside its primary training focus is typically noticeably worse.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson caution against assuming multilingual performance is uniform across all included languages?",
+            "options": [
+              "Because coverage and quality often vary significantly by language depending on how much training data existed for each",
+              "Because every language included in a multilingual model always receives identical training data volume",
+              "Because multilingual models are incapable of exhibiting any performance variation across languages",
+              "Because performance variation across languages is purely random with no underlying cause"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is assuming uniform multilingual performance, when in practice coverage and quality vary by how much training data existed for each specific language.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "emb_common_pitfalls",
+      "title": "Common Pitfalls in Real Embedding Systems",
+      "description": "A field guide to the mistakes that quietly degrade embedding-based search in production.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can name several real-world pitfalls that degrade embedding-based search quality, pulling together themes from across this course."
+          },
+          {
+            "title": "🧩 Mismatches that silently hurt quality",
+            "content": "**Query-document asymmetry**: some embedding models are specifically trained with different encoding behavior for short queries versus longer documents — using the wrong mode for either can hurt performance in a way that's easy to miss without dedicated testing. **Preprocessing inconsistency**: if the text preprocessing (cleaning, formatting) applied when indexing differs from what's applied to a live query at search time, the mismatch introduces noise that isn't obviously the cause of degraded results."
+          },
+          {
+            "title": "🔍 Pitfalls that compound across this whole course",
+            "content": "**Ignoring the calibration lesson**: applying a similarity threshold without recalibrating it for a new model, dataset, or task (from earlier in this course). **Forgetting update discipline**: letting an index quietly go stale without a maintenance plan (also covered earlier). **Skipping evaluation entirely**: shipping an embedding-based feature without ever measuring recall@k/precision@k against a real, representative eval set — trusting that it 'seems to work' from a handful of manual spot-checks.\n\n```python\n# A practical pre-launch checklist, pulling from this whole course:\n# - is the embedding model actually validated on MY domain and data?\n# - is the similarity threshold calibrated, not guessed?\n# - is there an index update strategy for changing data?\n# - has recall@k / precision@k actually been measured against a real eval set?\n# - would hybrid search meaningfully help my specific query mix?\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Debugging a quality problem by guessing at the embedding model, when the actual cause is often something more mundane.** Preprocessing mismatches and stale indexes are common, boring, and easy-to-overlook causes of poor results that get wrongly blamed on 'the embeddings aren't good enough'.\n\n**Treating this course's individual lessons as isolated facts rather than a connected system.** Chunking, thresholds, indexing freshness, and hybrid search all interact — a real production system needs to get all of them right together, not just one in isolation.\n\n**Assuming a working prototype will hold up at production scale and data volume without revisiting these same considerations.** What worked fine on a small test set doesn't automatically hold at real scale — the scaling, staleness, and evaluation lessons from this course matter more, not less, as a system grows."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "emb_common_pitfalls_quiz",
+        "questions": [
+          {
+            "question": "What is 'query-document asymmetry' and why does it matter?",
+            "options": [
+              "It refers to queries and documents always being embedded identically with no distinction",
+              "Some embedding models are specifically trained with different encoding behavior for short queries versus longer documents, so using the wrong mode for either can quietly hurt search performance",
+              "It's a term for when a query is longer than the documents being searched",
+              "Asymmetry only affects lexical search, never embedding-based search"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Some models expect queries and documents to be encoded differently (given their different typical lengths and purposes), and mismatching that expected usage is a subtle, easy-to-miss cause of degraded retrieval quality.",
+            "id": "q1"
+          },
+          {
+            "question": "Why can preprocessing inconsistency between indexing time and query time hurt search quality in a way that's hard to diagnose?",
+            "options": [
+              "Preprocessing consistency never actually matters for embedding-based search",
+              "If the text cleaning and formatting applied when indexing differs from what's applied to a query at search time, the resulting mismatch introduces noise that isn't obviously the root cause of degraded results, making it easy to misattribute to the embedding model itself",
+              "This issue only affects lexical search, never embedding-based search",
+              "Preprocessing inconsistency always produces an obvious, easily traceable error message"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since the symptom (worse search results) looks the same regardless of cause, a preprocessing mismatch is easy to mistake for a fundamental embedding model limitation rather than recognizing it as a fixable pipeline inconsistency.",
+            "id": "q2"
+          },
+          {
+            "question": "Why does this lesson emphasize treating the course's individual topics (chunking, thresholds, staleness, hybrid search) as a connected system rather than isolated facts?",
+            "options": [
+              "These topics are completely unrelated to each other and can be considered in total isolation",
+              "A real production embedding system needs to get chunking, calibrated thresholds, index freshness, and search strategy right together, since they interact — getting only one right in isolation doesn't guarantee good overall results",
+              "Only one of these topics actually matters in practice; the rest are optional",
+              "These considerations only matter for very small-scale prototypes, not production systems"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since these pieces interact (a great embedding model with a poorly-calibrated threshold, or fresh data with bad chunking, both still produce poor results), genuinely good production search quality requires attending to all of them together as a coherent system, not treating any single piece as sufficient on its own.",
+            "id": "q3"
+          },
+          {
+            "question": "In this lesson's pre-launch checklist, what should be checked regarding the similarity threshold?",
+            "options": [
+              "Whether it is calibrated, not guessed",
+              "Whether it is set to exactly 1.0 in every case",
+              "Whether it has been permanently hardcoded with no possibility of adjustment",
+              "Whether it matches the threshold used by a completely unrelated application"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's pre-launch checklist explicitly asks 'is the similarity threshold calibrated, not guessed?' as one of the key items to verify before shipping an embedding-based feature.",
+            "id": "q4"
+          },
+          {
+            "question": "What does 'query-document asymmetry' refer to, according to this lesson?",
+            "options": [
+              "Some embedding models are trained with different encoding behavior for short queries versus longer documents",
+              "Queries and documents are always embedded using an identical process with no distinction",
+              "Only documents can ever be embedded; queries cannot be embedded at all",
+              "Asymmetry refers exclusively to a mismatch in document length between two different documents"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson defines query-document asymmetry as some models having distinct encoding behavior for short queries versus longer documents, and using the wrong mode for either can quietly hurt performance.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does this lesson say preprocessing inconsistency between indexing and query time is a 'boring, easy-to-overlook' cause of poor results?",
+            "options": [
+              "Because it introduces noise that isn't obviously the cause of degraded results, so it often gets wrongly blamed on 'the embeddings aren't good enough'",
+              "Because preprocessing inconsistency always produces an obvious, clearly labeled error message",
+              "Because preprocessing has no actual effect on embedding-based search quality",
+              "Because this issue is always immediately obvious and easy to diagnose"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explains that this kind of pipeline mismatch produces the same symptom as many other problems, making it easy to misattribute to the embedding model itself rather than recognizing the actual, fixable cause.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson emphasize treating chunking, thresholds, staleness, and hybrid search as a connected system?",
+            "options": [
+              "Because a real production system needs to get all of them right together, since they interact — getting only one right in isolation doesn't guarantee good results",
+              "Because only one of these topics actually matters for a working system",
+              "Because these topics are completely independent and never interact with each other",
+              "Because this consideration only applies to very small-scale prototypes"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly states that these pieces interact — a great embedding model paired with a poorly-calibrated threshold, or fresh data with bad chunking, both still produce poor results — so all of them need attention together.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson warn against assuming a working prototype will hold up at production scale without revisiting these considerations?",
+            "options": [
+              "Because what worked fine on a small test set doesn't automatically hold at real scale — scaling, staleness, and evaluation matter more, not less, as a system grows",
+              "Because production scale always behaves identically to a small prototype with no differences",
+              "Because scaling considerations only matter for prototypes, never for production systems",
+              "Because a prototype's behavior is always a perfectly reliable predictor of production performance"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is assuming prototype-scale success transfers automatically to production scale, when in fact these considerations become more important, not less, as a system grows.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

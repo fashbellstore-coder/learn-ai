@@ -1,0 +1,525 @@
+{
+  "id": "module_1",
+  "title": "Building the Retrieval Pipeline",
+  "description": "Parsing real-world documents, chunking specifically for RAG's dual requirements, embedding and indexing a corpus with proper metadata, and rewriting queries to improve retrieval.",
+  "icon": "🏗️",
+  "color": "#43A047",
+  "order": 1,
+  "estimatedHours": 2,
+  "difficulty": "Intermediate",
+  "prerequisites": [],
+  "lessons": [
+    {
+      "id": "rag_parsing_documents",
+      "title": "Parsing Real-World Documents",
+      "description": "Turn messy PDFs, tables, and HTML into clean text a RAG pipeline can actually use.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain why document parsing is a genuine, non-trivial first step in a RAG pipeline."
+          },
+          {
+            "title": "📄 Real documents are messier than plain text",
+            "content": "Before chunking and embedding can happen, raw source documents (PDFs, Word docs, HTML pages, scanned images) need to be parsed into clean, usable text. This sounds simple but often isn't: PDFs can have multi-column layouts that get scrambled when extracted naively, tables need special handling to preserve their row/column structure as meaningful text, and scanned documents need OCR (optical character recognition) before there's any text to extract at all."
+          },
+          {
+            "title": "🎯 Parsing quality is a ceiling on everything downstream",
+            "content": "If parsing garbles a table into a meaningless jumble of numbers, or scrambles a multi-column PDF's reading order, no amount of good chunking, embedding, or retrieval afterward can recover the information that was lost or corrupted at this very first step — parsing quality sets a hard ceiling on the whole pipeline's potential quality.\n\n```python\n# Conceptual: naive text extraction can scramble structure\n# A two-column PDF page read naively might interleave\n# text from both columns line-by-line, producing\n# nonsensical sentences that were never adjacent in the original\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Using the simplest available text-extraction tool without checking its output on your actual documents.** Different tools handle multi-column layouts, tables, and formatting very differently — verify against your real document types, not just simple test cases.\n\n**Treating tables as if they were plain paragraphs.** A table's meaning depends on its row/column structure; naively flattening it into running text can destroy the information the table was organized to convey.\n\n**Skipping OCR quality checks on scanned documents.** OCR errors introduce wrong characters or words directly into the text that gets embedded and retrieved — an OCR mistake becomes an invisible source of downstream retrieval and answer errors."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "rag_parsing_documents_quiz",
+        "questions": [
+          {
+            "question": "Why is document parsing a nontrivial first step in a RAG pipeline, rather than a trivial formality?",
+            "options": [
+              "Parsing is always simple and never introduces any real challenges",
+              "Real documents like PDFs with multi-column layouts, tables, or scanned images require careful handling to extract clean, correctly-ordered text — naive extraction can scramble or lose information",
+              "Parsing only matters for documents that contain no text at all",
+              "Document parsing has no effect on the quality of a RAG system's answers"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Turning messy real-world document formats into clean, correctly-structured text is genuinely difficult — multi-column layouts, tables, and scans each present their own extraction challenges that naive approaches can get badly wrong.",
+            "id": "q1"
+          },
+          {
+            "question": "Why does parsing quality set a ceiling on everything downstream in a RAG pipeline?",
+            "options": [
+              "Parsing quality has no relationship to the quality of later pipeline stages",
+              "If parsing garbles or loses information at the very first step, no amount of good chunking, embedding, or retrieval afterward can recover information that was already corrupted or lost",
+              "Later pipeline stages always fix any errors introduced during parsing",
+              "Chunking and embedding happen before parsing, not after"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since every later stage operates on the parsed text, information that's already scrambled or lost at the parsing step is permanently unavailable to every subsequent stage — parsing errors propagate forward and can't be corrected later.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is naively flattening a table into plain running text a mistake during parsing?",
+            "options": [
+              "Tables should always be flattened into plain text with no loss of meaning",
+              "A table's meaning depends on its row/column structure, so flattening it into unstructured running text can destroy the relationships the table was specifically organized to convey",
+              "Tables never contain any information worth preserving",
+              "Flattening tables always improves retrieval quality"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A table encodes meaning through its structure (which value belongs to which row and column) — collapsing that structure into plain text can turn a meaningful, organized dataset into a confusing, uninterpretable jumble of numbers and labels.",
+            "id": "q3"
+          },
+          {
+            "question": "According to this lesson, what four types of raw source documents does parsing need to handle?",
+            "options": [
+              "PDFs, Word docs, HTML pages, and scanned images",
+              "Only plain text files with no other formats",
+              "Only spreadsheets and databases",
+              "Only audio and video files"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly lists PDFs, Word docs, HTML pages, and scanned images as the kinds of raw source documents that need to be parsed into clean, usable text.",
+            "id": "q4"
+          },
+          {
+            "question": "In this lesson's conceptual example, what specifically goes wrong when a two-column PDF is read naively?",
+            "options": [
+              "Text from both columns can get interleaved line-by-line, producing nonsensical sentences that were never adjacent in the original",
+              "The PDF becomes completely unreadable with no text extracted at all",
+              "Only one of the two columns is extracted, with the other discarded",
+              "The columns are automatically detected and correctly separated every time"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's example explicitly describes naive extraction interleaving text from both columns, producing nonsensical sentences that weren't actually adjacent in the source.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does this lesson say parsing quality sets 'a hard ceiling' on the whole pipeline's potential quality?",
+            "options": [
+              "Because if parsing garbles or loses information at the first step, no amount of good chunking, embedding, or retrieval afterward can recover it",
+              "Because later pipeline stages always automatically correct any parsing errors",
+              "Because parsing has no actual effect on later stages of the pipeline",
+              "Because chunking and embedding happen before parsing in the pipeline order"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson states that since every later stage builds on the parsed text, information lost or corrupted during parsing can never be recovered downstream.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson recommend verifying a parsing tool's output against your actual document types rather than simple test cases?",
+            "options": [
+              "Because different tools handle multi-column layouts, tables, and formatting very differently, so results on simple test cases may not reflect real performance",
+              "Because all parsing tools produce identical results regardless of document type",
+              "Because simple test cases always perfectly predict performance on real, complex documents",
+              "Because verifying against real documents is never actually necessary"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is using the simplest available extraction tool without checking its output on your actual documents, since tools vary significantly in how they handle real-world formatting.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson single out OCR quality checks as important for scanned documents specifically?",
+            "options": [
+              "Because OCR errors introduce wrong characters or words directly into the text that gets embedded and retrieved, becoming an invisible source of downstream errors",
+              "Because OCR is never actually necessary for scanned documents",
+              "Because OCR errors are always immediately obvious and easy to catch",
+              "Because scanned documents never contain any text worth extracting"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is skipping OCR quality checks, since OCR mistakes silently corrupt the text before it even reaches chunking or embedding.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "rag_chunking_for_retrieval",
+      "title": "Chunking Strategies, Revisited for RAG",
+      "description": "Apply chunking specifically to what makes a chunk retrievable and useful as generation context.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain what makes a chunking strategy specifically good for RAG, beyond the general chunking concepts from earlier courses."
+          },
+          {
+            "title": "🎯 Two jobs, one chunk",
+            "content": "The LLM engineering and embeddings courses both covered chunking — but in a RAG context, a chunk has to do two things well at once: be embeddable as a coherent, focused unit (from the embeddings course's chunking-quality lesson) AND be directly usable as generation context once retrieved (a chunk needs enough surrounding information to actually answer a question, not just enough to be semantically distinct)."
+          },
+          {
+            "title": "📏 Chunk size as a RAG-specific tradeoff",
+            "content": "Too-small chunks may retrieve well (each one is very focused) but lack enough context for the generator to produce a complete, useful answer once inserted into the prompt. Too-large chunks may carry enough context but dilute the embedding (from the embeddings course) and waste token budget on irrelevant surrounding material. This is a genuinely RAG-specific balancing act, not just a generic 'pick a reasonable chunk size' decision.\n\n```python\n# Conceptual RAG-specific chunking check:\n# - is this chunk focused enough to embed distinctly? (embeddings course)\n# - does this chunk contain ENOUGH surrounding context to actually\n#   answer a question about it, once retrieved and inserted into a prompt?\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Optimizing chunk size purely for embedding quality without checking generation usefulness.** A chunk that embeds beautifully but lacks enough surrounding context to actually answer a question fails at the generation stage, even if retrieval found it correctly.\n\n**Using the exact same chunking parameters across very different document types.** A legal contract, a FAQ page, and a table of specifications may each need a different chunking approach to stay coherent and useful.\n\n**Never testing chunking choices against actual end-to-end RAG answer quality, not just retrieval metrics alone.** Retrieval finding 'the right chunk' doesn't guarantee that chunk, once inserted into the prompt, actually contains enough for a good final answer."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "rag_chunking_for_retrieval_quiz",
+        "questions": [
+          {
+            "question": "Why does a chunk in a RAG system need to satisfy two different requirements at once?",
+            "options": [
+              "A chunk only ever needs to satisfy one requirement: being embeddable",
+              "It needs to be focused enough to embed as a coherent, distinct unit, while also containing enough surrounding context to actually be useful as generation context once retrieved and inserted into a prompt",
+              "Chunk requirements are identical to those covered in the embeddings course with no RAG-specific considerations",
+              "Chunks in RAG systems have no relationship to embedding quality at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A RAG chunk has to work well at two different stages: it needs to embed distinctly for good retrieval, and it needs to carry enough context to actually support answering a question once it's retrieved and used as generation input — a dual requirement specific to RAG.",
+            "id": "q1"
+          },
+          {
+            "question": "What is the risk of choosing chunks that are too small, purely to maximize embedding focus?",
+            "options": [
+              "There is no risk; smaller chunks are always strictly better in every way",
+              "Very small chunks may embed well individually but lack enough surrounding context for the generator to produce a complete, useful answer once retrieved",
+              "Small chunks always contain too much irrelevant information",
+              "Chunk size has no effect on the usefulness of generation context"
+            ],
+            "correctAnswer": 1,
+            "explanation": "While small, focused chunks can support precise retrieval, they can also be too narrow to give the generator enough surrounding information to actually construct a complete, useful answer — a tradeoff distinct from pure embedding quality.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is testing chunking choices against end-to-end RAG answer quality more informative than testing retrieval metrics alone?",
+            "options": [
+              "Retrieval metrics always perfectly predict final answer quality with no additional testing needed",
+              "Retrieval finding 'the right chunk' doesn't guarantee that chunk contains enough information to actually support a good final answer once used as generation context — the two are related but distinct measures of success",
+              "End-to-end testing and retrieval-only testing always produce identical conclusions",
+              "Answer quality has no relationship to which chunks were retrieved"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since a technically 'correct' retrieved chunk can still lack the context needed for a complete answer, checking actual end-to-end answer quality catches problems that retrieval metrics alone (measuring whether the right chunk was found, not whether it was sufficient) would miss.",
+            "id": "q3"
+          },
+          {
+            "question": "According to this lesson, which two courses previously covered chunking before this lesson revisits it for RAG specifically?",
+            "options": [
+              "The LLM engineering course and the embeddings course",
+              "The computer vision course and the math course",
+              "The SQL course and the transformers course",
+              "The Hugging Face course and the deep learning course"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly states that both the LLM engineering and embeddings courses covered chunking, and this lesson applies it specifically to RAG's dual requirements.",
+            "id": "q4"
+          },
+          {
+            "question": "In this lesson's conceptual code check, what two questions should a RAG-specific chunk satisfy?",
+            "options": [
+              "Is the chunk focused enough to embed distinctly, and does it contain enough surrounding context to actually answer a question once retrieved",
+              "Is the chunk exactly 100 tokens long, and does it contain no punctuation",
+              "Is the chunk written in English, and does it avoid all technical terms",
+              "Is the chunk the first paragraph of a document, and does it contain a table"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's conceptual code comment lists these two specific checks: focus for embedding quality, and sufficiency of context for answering a question once retrieved.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does this lesson describe RAG chunk-size selection as 'a genuinely RAG-specific balancing act'?",
+            "options": [
+              "Because too-small chunks may retrieve well but lack context for generation, while too-large chunks dilute the embedding and waste token budget — a tradeoff distinct from generic chunk-size advice",
+              "Because chunk size never actually matters in a RAG system",
+              "Because there is only one correct chunk size that works for every RAG application",
+              "Because this tradeoff is identical to a purely generic chunking decision with no RAG-specific element"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson frames this as RAG-specific because it involves balancing embedding quality against generation usefulness simultaneously, not just a generic 'pick a reasonable size' choice.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson warn against using identical chunking parameters across very different document types?",
+            "options": [
+              "Because a legal contract, a FAQ page, and a table of specifications may each need a different chunking approach to stay coherent and useful",
+              "Because document type never actually affects the ideal chunking approach",
+              "Because every document type requires exactly the same chunk size to be effective",
+              "Because chunking parameters can never actually be varied by document type"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is applying the same chunking parameters everywhere, when different document types can need distinct approaches to remain coherent.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson recommend testing chunking against end-to-end RAG answer quality, not just retrieval metrics alone?",
+            "options": [
+              "Because retrieval finding 'the right chunk' doesn't guarantee that chunk, once inserted into the prompt, actually contains enough for a good final answer",
+              "Because retrieval metrics always perfectly predict final answer quality",
+              "Because end-to-end testing is never actually useful for evaluating chunking choices",
+              "Because retrieval metrics and answer quality are the exact same measurement"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is testing retrieval metrics alone, since a technically correct retrieved chunk can still be insufficient for generating a good final answer.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "rag_embedding_indexing_corpus",
+      "title": "Embedding and Indexing the Corpus",
+      "description": "Apply the embedding and indexing concepts from the previous course specifically to a RAG knowledge base.",
+      "duration": "7 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can describe the practical steps of turning a chunked document collection into a searchable RAG knowledge base."
+          },
+          {
+            "title": "🏗️ From chunks to a searchable index",
+            "content": "Once documents are parsed and chunked, each chunk is embedded (using an embedding model chosen with the criteria from the previous course) and stored in a vector index (HNSW, IVF, or a full vector database, also from the previous course) alongside metadata like source document, section, and any access-control information needed for filtering."
+          },
+          {
+            "title": "🏷️ Metadata is part of the knowledge base, not an afterthought",
+            "content": "Storing rich metadata alongside each chunk's embedding (source document name, page number, last-updated date, access permissions) is what enables the metadata filtering and citation features covered elsewhere in this course — treating metadata as a first-class part of the index, not something to bolt on only if it turns out to be needed later.\n\n```python\n# Conceptual: what actually gets stored per chunk\nvector_db.upsert(\n    id=chunk_id,\n    embedding=embed(chunk_text),\n    metadata={\n        \"source_document\": \"refund_policy.pdf\",\n        \"page\": 3,\n        \"last_updated\": \"2026-01-15\",\n    },\n)\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Embedding and indexing without storing enough metadata for later citation.** If the original source and location aren't stored alongside the chunk, providing an accurate citation later becomes impossible.\n\n**Choosing an embedding model without considering the corpus's specific domain.** The embedding-model-choice lesson from the previous course applies directly here — a general-purpose model may underperform on a highly specialized knowledge base.\n\n**Not planning for corpus updates from the start.** The indexing-workflow and staleness lessons from the embeddings course apply directly to a RAG knowledge base — documents will change, and the index needs a plan for staying current."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "rag_embedding_indexing_corpus_quiz",
+        "questions": [
+          {
+            "question": "What information should typically be stored alongside each chunk's embedding in a RAG knowledge base?",
+            "options": [
+              "Only the raw embedding vector, with nothing else needed",
+              "Metadata like the source document, section or page, last-updated date, and access-control information, which enables filtering and accurate citation later",
+              "Only the chunk's exact character count",
+              "Metadata is never useful for a RAG system and can be safely omitted"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Storing metadata alongside each embedding is what enables the metadata filtering and citation capabilities a real RAG system needs — treating it as an essential part of the index rather than an optional add-on.",
+            "id": "q1"
+          },
+          {
+            "question": "Why does omitting source and location metadata make providing accurate citations impossible later?",
+            "options": [
+              "Citations don't actually require knowing where information came from",
+              "Without storing the original source document and location alongside each chunk, there's no way to later trace a retrieved chunk back to a specific, verifiable source for citation purposes",
+              "Metadata has no relationship to a system's ability to cite sources",
+              "Citations can always be generated even without any stored metadata"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Accurate citation depends on knowing exactly where a piece of retrieved content came from — if that information was never captured and stored during indexing, there's nothing concrete to cite back to later.",
+            "id": "q2"
+          },
+          {
+            "question": "Why do the staleness and indexing-workflow concerns from the embeddings course apply directly to a RAG knowledge base?",
+            "options": [
+              "RAG knowledge bases never change once they're initially indexed",
+              "A RAG knowledge base's source documents can change over time just like any other indexed data, so the same update strategies (upsert-on-change, batch re-indexing) are needed to keep the RAG index from going stale",
+              "Staleness is only a concern for non-RAG vector search applications",
+              "RAG systems automatically handle staleness without any explicit strategy"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A RAG knowledge base is just another instance of a vector-indexed collection, subject to the same staleness risk as any other — the update strategies covered generally in the embeddings course apply directly to keeping a RAG system's retrieved information current.",
+            "id": "q3"
+          },
+          {
+            "question": "In this lesson's code example, what specific metadata fields are stored alongside a chunk's embedding via vector_db.upsert?",
+            "options": [
+              "source_document, page, and last_updated",
+              "Only the chunk's raw text with no other fields",
+              "Only a randomly generated unique identifier",
+              "The name of the embedding model used, with nothing else"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example shows vector_db.upsert storing metadata including source_document, page, and last_updated alongside the embedding.",
+            "id": "q4"
+          },
+          {
+            "question": "According to this lesson, what determines the vector index or database used to store a RAG corpus's embeddings?",
+            "options": [
+              "Options like HNSW, IVF, or a full vector database, all covered in the previous (embeddings) course",
+              "A single mandatory index type with no alternatives",
+              "Whichever index type is randomly assigned at indexing time",
+              "Only a plain text file with no indexing structure at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly names HNSW, IVF, or a full vector database — all from the previous course — as the options for storing a RAG corpus's embeddings.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does this lesson describe metadata as 'part of the knowledge base, not an afterthought'?",
+            "options": [
+              "Because storing rich metadata is what enables the metadata filtering and citation features covered elsewhere in this course",
+              "Because metadata has no functional purpose in a RAG system",
+              "Because metadata is only ever needed for aesthetic or display purposes",
+              "Because metadata can always be added later with no consequence to earlier design decisions"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson frames metadata as first-class because it's specifically what enables later filtering and citation capabilities, not something to bolt on only if needed.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson warn against choosing an embedding model without considering the corpus's specific domain?",
+            "options": [
+              "Because a general-purpose model may underperform on a highly specialized knowledge base, echoing the embedding-model-choice lesson from the previous course",
+              "Because embedding model choice never actually affects performance on any corpus",
+              "Because general-purpose embedding models always outperform domain-specific ones",
+              "Because domain specificity is only relevant for chunking decisions, never embedding model choice"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake directly applies the previous course's embedding-model-choice lesson: a general-purpose model may underperform on a specialized domain-specific corpus.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson stress planning for corpus updates 'from the start' rather than as an afterthought?",
+            "options": [
+              "Because the indexing-workflow and staleness lessons from the embeddings course apply directly, and documents will change, requiring a plan for staying current",
+              "Because RAG knowledge bases never actually change once initially indexed",
+              "Because corpus update planning has no relationship to the earlier embeddings course",
+              "Because staleness is only a concern for non-RAG vector search systems"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is not planning for updates from the start, since the staleness concerns from the embeddings course apply directly to a RAG knowledge base's documents changing over time.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "rag_query_formulation",
+      "title": "Query Formulation and Rewriting",
+      "description": "Improve retrieval by transforming the user's raw question before searching with it.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain why a user's raw question isn't always the best possible search query, and describe a technique for improving it."
+          },
+          {
+            "title": "❓ A user's question isn't always a good search query",
+            "content": "A user might ask something conversational, ambiguous, or dependent on earlier conversation turns ('What about the second one?') — none of which necessarily embeds well as a standalone search query. **Query rewriting** transforms the raw user input into a clearer, more self-contained, more retrieval-friendly form before it's used to search the knowledge base."
+          },
+          {
+            "title": "🔧 A few concrete rewriting techniques",
+            "content": "**Conversation-aware rewriting** resolves references from earlier turns ('the second one' becomes the actual thing being referred to, using the conversation-state ideas from the LLM engineering course) into a standalone query. **Query expansion** adds related terms or rephrasing to increase the chance of matching relevant content phrased differently than the original question. **Decomposition** breaks a complex, multi-part question into several simpler sub-queries, each retrieved separately.\n\n```python\n# Conceptual: rewriting a context-dependent question into a standalone query\n# conversation history: \"Tell me about the Enterprise plan.\" -> \"What's its price?\"\n# raw query \"What's its price?\" -> poor standalone search query\n# rewritten query: \"What is the price of the Enterprise plan?\" -> good search query\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Sending the raw conversational query directly to the retriever without any rewriting.** This is a common, easy-to-miss cause of poor retrieval in multi-turn conversational RAG applications specifically.\n\n**Over-rewriting and drifting from the user's actual intent.** A rewritten query needs to preserve what the user actually meant — an overly aggressive rewrite can search for something subtly different from the original question.\n\n**Not evaluating rewriting's actual effect on retrieval quality.** Like any other pipeline change, query rewriting should be validated against the task-specific eval set (from the LLM engineering course) rather than assumed to always help."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "rag_query_formulation_quiz",
+        "questions": [
+          {
+            "question": "Why might a user's raw conversational question not work well as a direct search query for retrieval?",
+            "options": [
+              "User questions are always perfectly suited as search queries with no issues",
+              "A raw question can be conversational, ambiguous, or dependent on earlier conversation turns (like 'What about the second one?'), which may not embed well or retrieve effectively as a standalone query",
+              "Search queries and user questions are always identical in every case",
+              "Retrieval quality has no relationship to how a query is phrased"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Conversational language often relies on context from earlier turns or is phrased in ways that don't stand alone well as a search query — this mismatch is exactly what query rewriting is designed to address before retrieval happens.",
+            "id": "q1"
+          },
+          {
+            "question": "What does conversation-aware query rewriting specifically address?",
+            "options": [
+              "It has no relationship to conversation history at all",
+              "It resolves references from earlier conversation turns (like 'the second one') into a standalone, self-contained query that can be used effectively for retrieval",
+              "It always shortens every query to a single word",
+              "It replaces the retrieval step entirely with pure generation"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since a follow-up question can depend heavily on earlier context, conversation-aware rewriting turns a context-dependent fragment into a complete, standalone query that retrieval can actually work with effectively.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is over-rewriting a query a real risk, not just a theoretical concern?",
+            "options": [
+              "Over-rewriting never actually changes what a query searches for",
+              "An overly aggressive rewrite can drift from what the user actually meant, causing the retriever to search for something subtly different from the original intended question",
+              "Rewriting a query always perfectly preserves the user's exact original intent with no risk of drift",
+              "Query rewriting is only ever applied to single-turn conversations"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since rewriting reshapes the actual text used for retrieval, an overly aggressive transformation risks introducing a meaningful mismatch with the user's real intent — a genuine risk worth guarding against, not just a hypothetical edge case.",
+            "id": "q3"
+          },
+          {
+            "question": "In this lesson's conceptual example, how does the raw query 'What's its price?' get improved through rewriting?",
+            "options": [
+              "It becomes the standalone query 'What is the price of the Enterprise plan?' by resolving the reference from conversation history",
+              "It is left completely unchanged since rewriting has no effect on pricing questions",
+              "It is shortened even further to just the word 'price'",
+              "It is translated into a different language before being used as a search query"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's example shows the context-dependent 'What's its price?' being rewritten into the standalone, retrieval-friendly 'What is the price of the Enterprise plan?' using conversation history.",
+            "id": "q4"
+          },
+          {
+            "question": "According to this lesson, what does 'query expansion' specifically do?",
+            "options": [
+              "Adds related terms or rephrasing to increase the chance of matching relevant content phrased differently than the original question",
+              "Removes all but a single keyword from the original question",
+              "Translates the query into every supported language simultaneously",
+              "Deletes the original question and replaces it with a single generic query"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson defines query expansion as adding related terms or rephrasings to improve the chance of matching relevantly-phrased content.",
+            "id": "q5"
+          },
+          {
+            "question": "What does this lesson call the technique of breaking a complex, multi-part question into several simpler sub-queries?",
+            "options": [
+              "Decomposition",
+              "Consolidation",
+              "Truncation",
+              "Normalization"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly names 'decomposition' as breaking a complex, multi-part question into several simpler sub-queries, each retrieved separately.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson call sending a raw conversational query directly to the retriever 'a common, easy-to-miss cause of poor retrieval'?",
+            "options": [
+              "Because this specifically causes problems in multi-turn conversational RAG applications where questions depend on earlier turns",
+              "Because raw conversational queries always retrieve perfectly regardless of context dependence",
+              "Because this issue only ever occurs in single-turn, non-conversational applications",
+              "Because retrieval quality has no relationship to how a query is phrased"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is skipping rewriting for conversational queries, which is specifically problematic for multi-turn conversational RAG applications.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson recommend evaluating query rewriting against a task-specific eval set rather than assuming it always helps?",
+            "options": [
+              "Because, like any other pipeline change, its actual effect on retrieval quality should be validated rather than assumed",
+              "Because query rewriting always helps in every single case with no exceptions",
+              "Because eval sets have no relevance to evaluating query rewriting specifically",
+              "Because rewriting can never actually be measured for its effect on retrieval"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is not evaluating rewriting's actual effect, echoing the LLM engineering course's task-specific eval set discipline applied here.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

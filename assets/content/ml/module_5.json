@@ -1,0 +1,543 @@
+{
+  "id": "module_5",
+  "title": "Unsupervised Learning & Beyond",
+  "description": "Find structure without labels — clustering with k-means, hierarchical clustering, and DBSCAN, dimensionality reduction with PCA, and a first taste of reinforcement learning.",
+  "icon": "🔍",
+  "color": "#43A047",
+  "order": 5,
+  "estimatedHours": 2,
+  "difficulty": "Intermediate",
+  "prerequisites": [
+    "module_4"
+  ],
+  "lessons": [
+    {
+      "id": "ml_kmeans",
+      "title": "K-Means Clustering",
+      "description": "Learn the most popular algorithm for automatically grouping similar data points together.",
+      "duration": "9 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain how k-means clustering works and how to choose a reasonable number of clusters."
+          },
+          {
+            "title": "🎯 The core idea",
+            "content": "**K-means** groups data into `k` clusters by trying to make points within each cluster as similar (close together) as possible. It works iteratively:\n\n1. Randomly place `k` cluster centers (**centroids**)\n2. Assign every point to its nearest centroid\n3. Move each centroid to the average position of the points now assigned to it\n4. Repeat steps 2-3 until the assignments stop changing"
+          },
+          {
+            "title": "🛠️ Using k-means",
+            "content": "```python\nfrom sklearn.cluster import KMeans\n\nmodel = KMeans(n_clusters=3, random_state=42)\nmodel.fit(X)\n\nlabels = model.labels_               # which cluster each point belongs to\ncenters = model.cluster_centers_     # the final centroid positions\n```\n\nLike KNN and SVMs, k-means relies on distance, so **feature scaling matters** — an unscaled feature can dominate which points get grouped together."
+          },
+          {
+            "title": "🤔 Choosing k: the elbow method",
+            "content": "K-means requires you to *choose* the number of clusters upfront — it doesn't discover this automatically. One common approach, the **elbow method**, plots the total within-cluster distance for a range of k values and looks for the point where adding more clusters stops giving much improvement.\n\n```python\ninertias = []\nfor k in range(1, 10):\n    model = KMeans(n_clusters=k, random_state=42).fit(X)\n    inertias.append(model.inertia_)\n\n# plot k vs inertias — look for the \"elbow\" where the curve flattens\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Forgetting to scale features before clustering.** Since k-means groups by distance, unscaled features distort the notion of \"similar\" points.\n\n**Assuming k-means will find the \"correct\" number of natural groups on its own.** You choose k — the algorithm just optimizes cluster assignments for whatever k you give it.\n\n**Assuming clusters are always meaningful.** K-means will produce k clusters even from data with no real underlying group structure — it's worth sanity-checking whether the clusters actually make business sense, not just accepting them at face value."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ml_kmeans_quiz",
+        "questions": [
+          {
+            "question": "What does k-means require you to specify before it runs?",
+            "options": [
+              "The number of features in the data",
+              "The number of clusters, k",
+              "The exact centroid locations",
+              "The correct labels for each point"
+            ],
+            "correctAnswer": 1,
+            "explanation": "K-means needs the number of clusters (k) decided upfront — it groups the data into exactly that many clusters, without discovering the \"right\" number on its own.",
+            "id": "q1"
+          },
+          {
+            "question": "What does the elbow method help you choose?",
+            "options": [
+              "Which features to drop",
+              "A reasonable value of k by looking for where adding more clusters stops meaningfully reducing within-cluster distance",
+              "The learning rate for training",
+              "The train/test split ratio"
+            ],
+            "correctAnswer": 1,
+            "explanation": "By plotting how within-cluster distance changes as k increases, the elbow method highlights a point of diminishing returns — a practical (if imperfect) way to pick a reasonable k.",
+            "id": "q2"
+          },
+          {
+            "question": "Why does k-means require feature scaling, similar to KNN?",
+            "options": [
+              "It doesn't — k-means is unaffected by feature scale",
+              "K-means groups points based on distance, so an unscaled feature with large raw values can dominate cluster assignment",
+              "Scaling is only needed for classification tasks",
+              "K-means doesn't use numeric features"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since cluster assignment in k-means depends entirely on distance between points, features on very different scales can distort which points end up grouped together unless they're scaled comparably first.",
+            "id": "q3"
+          },
+          {
+            "question": "What does a k-means 'centroid' represent?",
+            "options": [
+              "A single specific data point chosen from the original dataset",
+              "The average position of all points currently assigned to that cluster",
+              "The very first point processed by the algorithm",
+              "The point furthest from all other points"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A centroid is the computed average (mean) position of every point currently belonging to a cluster, which gets updated as the algorithm iterates.",
+            "id": "q4"
+          },
+          {
+            "question": "How does k-means typically initialize and then update its cluster assignments?",
+            "options": [
+              "It assigns every point to the same cluster and never updates",
+              "It starts with initial centroids, assigns each point to its nearest centroid, then recomputes centroids, repeating until assignments stabilize",
+              "It only runs a single pass with no iteration",
+              "It requires manually labeled data to initialize centroids"
+            ],
+            "correctAnswer": 1,
+            "explanation": "K-means alternates between assigning points to their nearest current centroid and recalculating centroids based on those assignments, repeating until the clusters stop changing much.",
+            "id": "q5"
+          },
+          {
+            "question": "What kind of cluster shapes does k-means tend to work best with?",
+            "options": [
+              "Highly irregular, elongated, or intertwined shapes",
+              "Roughly round, similarly-sized clusters",
+              "Only clusters shaped like straight lines",
+              "K-means has no assumptions about cluster shape at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Because k-means relies on distance to a central point, it naturally favors compact, roughly spherical clusters of similar size and struggles with irregular shapes.",
+            "id": "q6"
+          },
+          {
+            "question": "What can happen if k-means is initialized with poorly chosen starting centroids?",
+            "options": [
+              "It always converges to the same optimal result regardless of initialization",
+              "It can converge to a suboptimal clustering, which is why techniques like running it multiple times with different initializations are often used",
+              "K-means will fail to run entirely",
+              "Initialization has no effect on the final result"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Because k-means can get stuck in a locally good but globally suboptimal solution, practitioners often rerun it with different starting points and keep the best result.",
+            "id": "q7"
+          },
+          {
+            "question": "What's a limitation of k-means when clusters in the data have very different sizes or densities?",
+            "options": [
+              "K-means always handles this perfectly with no issues",
+              "K-means can struggle to correctly separate them, since it tends to favor similarly-sized, evenly-distributed clusters",
+              "This scenario doesn't affect k-means because it ignores density entirely",
+              "K-means can only handle exactly two clusters at a time"
+            ],
+            "correctAnswer": 1,
+            "explanation": "K-means' assumption of roughly equal-sized, compact clusters can break down when the true groupings in the data vary a lot in size or density.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ml_other_clustering",
+      "title": "Hierarchical Clustering and DBSCAN",
+      "description": "Learn two more clustering approaches that handle situations k-means struggles with.",
+      "duration": "9 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can describe hierarchical clustering and DBSCAN, and explain when each might be preferred over k-means."
+          },
+          {
+            "title": "🌳 Hierarchical clustering: building a tree of groups",
+            "content": "**Hierarchical clustering** builds a tree (a **dendrogram**) of nested clusters — starting with every point as its own cluster and repeatedly merging the closest pair, until everything is in one cluster. You then \"cut\" the tree at whatever level gives you the number of clusters you want.\n\n```python\nfrom sklearn.cluster import AgglomerativeClustering\n\nmodel = AgglomerativeClustering(n_clusters=3)\nlabels = model.fit_predict(X)\n```\n\nUnlike k-means, you don't have to decide the number of clusters *before* running the algorithm — you can look at the full dendrogram and decide afterward."
+          },
+          {
+            "title": "🔍 DBSCAN: clusters based on density",
+            "content": "**DBSCAN** groups points that are densely packed together, and marks points in low-density regions as **noise** (not belonging to any cluster) rather than forcing every point into a group.\n\n```python\nfrom sklearn.cluster import DBSCAN\n\nmodel = DBSCAN(eps=0.5, min_samples=5)\nlabels = model.fit_predict(X)\n# label -1 means \"noise\" — doesn't belong to any cluster\n```\n\n• You don't need to specify the number of clusters upfront — DBSCAN discovers however many dense regions exist\n• It can find oddly-shaped clusters that k-means (which assumes roughly round, evenly-sized clusters) would struggle with\n• It naturally identifies outliers as noise, rather than forcing them into the nearest cluster"
+          },
+          {
+            "title": "🤔 Choosing between the three",
+            "content": "• **K-means** — fast, simple, works well when clusters are roughly round and similarly sized, and you have a rough sense of k\n• **Hierarchical clustering** — useful when you want to explore different numbers of clusters after the fact, or when the natural grouping is genuinely nested\n• **DBSCAN** — best when clusters have irregular shapes, very different sizes, or when you expect genuine outliers/noise in the data that shouldn't be forced into any cluster"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Always defaulting to k-means regardless of the data's shape.** If clusters are irregularly shaped or very different in density, k-means can produce misleading groupings.\n\n**Using DBSCAN without tuning `eps` and `min_samples`.** These parameters control what counts as \"dense\" — poor settings can lump everything into one cluster or mark almost everything as noise.\n\n**Forgetting hierarchical clustering can be slow on very large datasets.** Its computation grows quickly with the number of points, unlike k-means or DBSCAN."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ml_other_clustering_quiz",
+        "questions": [
+          {
+            "question": "What's a key advantage of hierarchical clustering over k-means?",
+            "options": [
+              "It always runs faster than k-means",
+              "You don't need to choose the number of clusters before running it — you can decide after seeing the full dendrogram",
+              "It never requires any parameters to be set",
+              "It can only be used on text data"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Hierarchical clustering builds a full tree of nested groupings, letting you decide how many clusters to use by cutting the tree at different levels after the fact, rather than committing to k upfront.",
+            "id": "q1"
+          },
+          {
+            "question": "What makes DBSCAN different from k-means in how it treats points that don't fit well into any group?",
+            "options": [
+              "DBSCAN forces every point into the nearest cluster, just like k-means",
+              "DBSCAN can mark such points as noise, rather than forcing them into a cluster",
+              "DBSCAN ignores those points entirely and removes them from the dataset",
+              "DBSCAN doesn't handle unusual points any differently"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Unlike k-means, which assigns every point to some cluster, DBSCAN explicitly labels points in low-density regions as noise (not belonging to any cluster) — useful for data with genuine outliers.",
+            "id": "q2"
+          },
+          {
+            "question": "When might DBSCAN be preferred over k-means?",
+            "options": [
+              "When clusters are known to be perfectly round and evenly sized",
+              "When clusters have irregular shapes, very different sizes, or the data contains genuine outliers",
+              "When you want to specify the exact number of clusters in advance",
+              "DBSCAN should never be preferred over k-means"
+            ],
+            "correctAnswer": 1,
+            "explanation": "DBSCAN doesn't assume round, evenly-sized clusters the way k-means does, and it can naturally separate genuine outliers from real clusters — making it a better fit for irregularly shaped or noisy data.",
+            "id": "q3"
+          },
+          {
+            "question": "What does a dendrogram, produced by hierarchical clustering, visually represent?",
+            "options": [
+              "A single flat list of cluster assignments",
+              "A tree-like diagram showing how points and clusters merge together at increasing levels of dissimilarity",
+              "The exact centroid coordinates of each cluster",
+              "A confusion matrix for the clustering result"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A dendrogram displays the nested, hierarchical merging of points into clusters, letting you visually choose where to 'cut' the tree for a desired number of clusters.",
+            "id": "q4"
+          },
+          {
+            "question": "What's a common downside of hierarchical clustering compared to k-means, especially on large datasets?",
+            "options": [
+              "It's always faster than k-means on any dataset size",
+              "It tends to be more computationally expensive and scale less well to very large datasets",
+              "It requires you to specify the number of clusters in advance, unlike k-means",
+              "Hierarchical clustering can't be visualized at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Hierarchical clustering's computations typically grow more expensive with dataset size than k-means, making it less practical for very large datasets.",
+            "id": "q5"
+          },
+          {
+            "question": "What two key parameters does DBSCAN typically require, instead of a fixed number of clusters?",
+            "options": [
+              "The number of clusters and a random seed",
+              "A neighborhood radius (epsilon) and a minimum number of points required to form a dense region",
+              "The learning rate and number of iterations",
+              "The mean and standard deviation of the dataset"
+            ],
+            "correctAnswer": 1,
+            "explanation": "DBSCAN identifies dense regions using a radius parameter (epsilon) and a minimum points threshold, rather than requiring you to specify the number of clusters upfront.",
+            "id": "q6"
+          },
+          {
+            "question": "Why might DBSCAN be a good fit for detecting anomalies within a dataset?",
+            "options": [
+              "DBSCAN forces every point into some cluster, hiding anomalies",
+              "Points that don't belong to any dense region are naturally labeled as noise, which often corresponds well to outliers or anomalies",
+              "DBSCAN cannot be used on any datasets with outliers",
+              "Anomaly detection is unrelated to clustering methods"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Because DBSCAN explicitly marks sparse, isolated points as noise rather than forcing them into a cluster, this naturally aligns with identifying anomalous points.",
+            "id": "q7"
+          },
+          {
+            "question": "In hierarchical clustering, what does 'cutting the dendrogram' at a certain height accomplish?",
+            "options": [
+              "It deletes part of the dataset permanently",
+              "It determines the resulting number of clusters, by choosing where along the merge hierarchy to stop combining groups",
+              "It changes the distance metric used",
+              "It has no effect on the final clustering"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Choosing a height to cut the dendrogram effectively decides how many clusters to end up with, based on where in the hierarchy of merges you stop.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ml_pca",
+      "title": "PCA and Dimensionality Reduction",
+      "description": "Revisit dimensionality reduction from a machine learning angle: why and when to compress your features.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain why dimensionality reduction is useful in an ML pipeline and apply PCA with scikit-learn."
+          },
+          {
+            "title": "🔁 A quick recap from the math course",
+            "content": "**PCA (Principal Component Analysis)** finds the directions of greatest variance in the data (using eigenvectors of the feature covariance) and projects the data onto just the top few of those directions — compressing many features into fewer, while keeping as much of the original information as possible."
+          },
+          {
+            "title": "🎯 Why use it in an ML pipeline?",
+            "content": "• **Speed** — fewer features means faster training, especially for distance-based methods like KNN and k-means\n• **Fighting the curse of dimensionality** — very high-dimensional data can make distance-based methods behave poorly; reducing dimensions can help\n• **Visualization** — compressing data down to 2 or 3 dimensions lets you actually plot and eyeball it\n• **Removing redundancy** — highly correlated features get naturally consolidated"
+          },
+          {
+            "title": "🛠️ Using PCA",
+            "content": "```python\nfrom sklearn.decomposition import PCA\n\npca = PCA(n_components=2)\nX_reduced = pca.fit_transform(X_scaled)  # scale first!\n\nprint(pca.explained_variance_ratio_)\n# e.g. [0.62, 0.21] — component 1 captures 62% of variance, component 2 captures 21%\n```\n\n• **Always scale features before PCA** — since it's based on variance, an unscaled feature with a much larger range would dominate\n• `explained_variance_ratio_` tells you how much information each component preserves — helpful for deciding how many components to keep"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Running PCA before scaling features.** Since PCA looks for directions of maximum variance, an unscaled feature can dominate the result purely due to its units, not its actual importance.\n\n**Losing interpretability without realizing it.** The new PCA components are combinations of the original features, so \"component 1\" no longer has a simple, direct real-world meaning the way \"age\" did.\n\n**Reducing dimensions too aggressively.** Keeping too few components can throw away genuinely useful information — checking `explained_variance_ratio_` helps avoid over-compressing."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ml_pca_quiz",
+        "questions": [
+          {
+            "question": "What is PCA fundamentally trying to do?",
+            "options": [
+              "Add more features to the dataset",
+              "Find the directions of greatest variance in the data and project it onto fewer of those directions, preserving as much information as possible",
+              "Remove all missing values",
+              "Train a classification model"
+            ],
+            "correctAnswer": 1,
+            "explanation": "PCA identifies the directions (principal components) along which the data varies the most, then compresses the data down to just the top few of those directions.",
+            "id": "q1"
+          },
+          {
+            "question": "Why is scaling important before applying PCA?",
+            "options": [
+              "Scaling has no effect on PCA results",
+              "PCA is based on variance, so an unscaled feature with a larger range can dominate the identified directions purely due to its units",
+              "PCA can't run at all without scaled data",
+              "Scaling is only needed for classification, not PCA"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since PCA looks for directions of maximum variance, a feature measured on a much larger scale (like income vs. age) would artificially dominate the result unless features are scaled comparably first.",
+            "id": "q2"
+          },
+          {
+            "question": "What's a tradeoff of using PCA before training a model?",
+            "options": [
+              "It always makes the model worse",
+              "The resulting components are combinations of original features and lose the simple, direct interpretability those original features had",
+              "PCA can only be used with classification models",
+              "It requires no decisions about how many components to keep"
+            ],
+            "correctAnswer": 1,
+            "explanation": "While PCA is useful for speed, visualization, and reducing redundancy, its components no longer map to a single, easily explainable original feature — a real interpretability cost worth weighing against the benefits.",
+            "id": "q3"
+          },
+          {
+            "question": "What is a 'principal component' in PCA?",
+            "options": [
+              "An original raw feature, unchanged",
+              "A new direction (a combination of original features) capturing a maximal amount of variance in the data, ranked by importance",
+              "A single data point selected as representative",
+              "A cluster label assigned to a data point"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Principal components are new axes constructed as combinations of the original features, ordered by how much of the data's variance each one captures.",
+            "id": "q4"
+          },
+          {
+            "question": "How much variance does the first principal component typically capture, relative to the others?",
+            "options": [
+              "Always exactly the same amount as every other component",
+              "The most variance among all the components, since it's chosen first to capture the greatest spread in the data",
+              "Always the least variance of any component",
+              "Zero variance, by definition"
+            ],
+            "correctAnswer": 1,
+            "explanation": "PCA orders components so that the first one captures the largest possible variance, with each subsequent component capturing progressively less.",
+            "id": "q5"
+          },
+          {
+            "question": "What visualization is commonly used to decide how many principal components to retain?",
+            "options": [
+              "A confusion matrix",
+              "A scree plot (or cumulative explained variance plot), showing how much variance each additional component adds",
+              "A box plot of the raw target variable",
+              "A ROC curve"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A scree plot displays how much variance each component explains, helping identify a point of diminishing returns for how many components to keep.",
+            "id": "q6"
+          },
+          {
+            "question": "Besides speeding up training and enabling visualization, what's another common motivation for using PCA?",
+            "options": [
+              "Increasing the total number of features in a dataset",
+              "Reducing noise, since lower-variance components often correspond to noise rather than meaningful signal",
+              "Making a dataset's categorical columns numeric",
+              "Filling in missing values"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Discarding the lowest-variance components can help remove noise from the data, since meaningful structure is often concentrated in the higher-variance directions.",
+            "id": "q7"
+          },
+          {
+            "question": "Why is PCA considered an unsupervised technique?",
+            "options": [
+              "It uses class labels to determine the new axes",
+              "It only relies on the structure and variance within the feature data itself, without using any target labels",
+              "It requires labeled data to compute variance",
+              "PCA is actually a supervised method"
+            ],
+            "correctAnswer": 1,
+            "explanation": "PCA identifies directions of maximum variance purely from the feature data, with no reference to any labels, making it an unsupervised technique.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ml_rl_intro",
+      "title": "A Gentle Introduction to Reinforcement Learning",
+      "description": "Get an intuitive first look at how agents learn by trial, error, and reward.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can describe the core components of a reinforcement learning setup with a concrete example."
+          },
+          {
+            "title": "🎮 The core components",
+            "content": "Reinforcement learning is framed around a few key pieces:\n\n• **Agent** — the learner/decision-maker (a game-playing AI, a robot, a recommendation system)\n• **Environment** — the world the agent interacts with\n• **State** — the current situation the agent observes\n• **Action** — a choice the agent can make\n• **Reward** — feedback signal telling the agent how good or bad that action turned out to be\n\nThe agent's goal is to learn a **policy** — a strategy for choosing actions — that maximizes its total reward over time, not just the immediate one."
+          },
+          {
+            "title": "🕹️ A concrete example: a simple maze",
+            "content": "Imagine an agent navigating a maze:\n\n• **State** — the agent's current position in the maze\n• **Action** — move up, down, left, or right\n• **Reward** — +10 for reaching the exit, -1 for each step taken (to encourage finding the exit quickly), -5 for hitting a wall\n\nThe agent starts by acting randomly, gradually learning — through repeated trial and error — which actions in which states lead to higher long-term reward."
+          },
+          {
+            "title": "⏳ Why it's about delayed reward, not just the next step",
+            "content": "A key challenge in RL is that a good action might not pay off immediately — a move early in the maze that sets up a shorter path to the exit only shows its value several steps later. This is very different from supervised learning, where every training example comes with an immediate correct answer attached.\n\nBalancing **exploration** (trying new actions to discover what works) against **exploitation** (using what's already been learned to get the best known reward) is a central challenge throughout RL."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Confusing RL with supervised learning.** There's no fixed dataset of \"correct answers\" — the agent generates its own experience through interaction and learns from reward signals over time.\n\n**Assuming a reward function is easy to design well.** A poorly designed reward can lead an agent to find unexpected shortcuts that technically maximize reward without solving the intended problem — a well-known challenge called reward hacking.\n\n**Expecting RL to be the default choice for every problem involving decisions.** It's powerful for genuinely sequential decision-making with delayed rewards (games, robotics) but is usually overkill for problems that supervised learning already solves well."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ml_rl_intro_quiz",
+        "questions": [
+          {
+            "question": "In reinforcement learning, what is the agent ultimately trying to learn?",
+            "options": [
+              "A fixed lookup table of correct answers",
+              "A policy — a strategy for choosing actions that maximizes total reward over time",
+              "The exact structure of the environment in advance",
+              "A single correct label for every possible input"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Unlike supervised learning, which learns to match given labels, an RL agent learns a policy: a general strategy for choosing actions across different states that maximizes long-term cumulative reward.",
+            "id": "q1"
+          },
+          {
+            "question": "Why is delayed reward a key challenge in reinforcement learning?",
+            "options": [
+              "Rewards are always given immediately after each action",
+              "A good action's benefit might only become clear several steps later, making it harder to know which past actions to credit for a later reward",
+              "Delayed reward doesn't actually occur in RL problems",
+              "RL doesn't use rewards at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Because the consequences of an action can show up much later (like a maze move that sets up a shorter path found several steps afterward), the agent has to learn to connect actions to rewards that aren't immediate — a genuinely hard problem.",
+            "id": "q2"
+          },
+          {
+            "question": "What is the exploration-exploitation tradeoff in RL?",
+            "options": [
+              "Choosing between two different neural network architectures",
+              "Balancing trying new actions to discover potentially better strategies (exploration) against using known good actions to maximize immediate reward (exploitation)",
+              "Deciding how many training epochs to run",
+              "Selecting which features to include in the state representation"
+            ],
+            "correctAnswer": 1,
+            "explanation": "An agent has to balance trying unfamiliar actions that might reveal better long-term strategies against sticking with actions already known to work well — leaning too far either way can hurt overall learning.",
+            "id": "q3"
+          },
+          {
+            "question": "What is the 'environment' in a reinforcement learning setup?",
+            "options": [
+              "The programming language used to implement the agent",
+              "The system the agent interacts with, which responds to the agent's actions with new states and rewards",
+              "A synonym for the agent's internal policy",
+              "The dataset used to pretrain the agent"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The environment represents everything the agent interacts with — it receives the agent's actions and returns new observations and rewards in response.",
+            "id": "q4"
+          },
+          {
+            "question": "What does a 'state' represent in reinforcement learning?",
+            "options": [
+              "The agent's final learned policy",
+              "A snapshot representation of the current situation the agent is in, used to decide what action to take next",
+              "The total accumulated reward so far",
+              "A single training example with a fixed label"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The state captures the relevant information about the current situation, which the agent uses as input to decide its next action.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is reinforcement learning often described as learning through trial and error?",
+            "options": [
+              "Because it's given the exact correct action for every situation in advance",
+              "Because the agent tries actions, observes the resulting rewards, and gradually adjusts its behavior based on what leads to better outcomes",
+              "Because it never actually improves over time",
+              "Because it requires no interaction with any environment"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Unlike supervised learning with labeled correct answers, an RL agent must try different actions, see what rewards result, and use that experience to improve its behavior over time.",
+            "id": "q6"
+          },
+          {
+            "question": "What's an example of a real-world application often associated with reinforcement learning?",
+            "options": [
+              "Predicting housing prices from static features",
+              "Training an agent to play games strategically, learning from wins and losses over many attempts",
+              "Sorting a list of numbers",
+              "Detecting duplicate rows in a spreadsheet"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Game-playing agents are a classic RL application, since the agent can try strategies repeatedly and learn from the resulting outcomes (wins, losses, scores).",
+            "id": "q7"
+          },
+          {
+            "question": "Why does 'exploitation' alone (always choosing the currently best-known action) risk limiting an RL agent's long-term performance?",
+            "options": [
+              "Exploitation always guarantees the best possible long-term outcome",
+              "The agent might get stuck with a decent but suboptimal strategy, never discovering a better one it hasn't tried yet",
+              "Exploitation is identical to exploration in every way",
+              "Exploitation only applies to supervised learning, not RL"
+            ],
+            "correctAnswer": 1,
+            "explanation": "If an agent never tries new actions, it can miss out on discovering better strategies that it simply hasn't sampled yet, settling for a merely 'good enough' known option.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,529 @@
+{
+  "id": "module_2",
+  "title": "Datasets Library",
+  "description": "Load and explore Hub datasets, transform them at scale with map() and filter(), build clean train/val/test splits, and understand what data collators do at batch time.",
+  "icon": "📊",
+  "color": "#FF8F00",
+  "order": 2,
+  "estimatedHours": 2,
+  "difficulty": "Beginner",
+  "prerequisites": [],
+  "lessons": [
+    {
+      "id": "hf_datasets_load",
+      "title": "Loading and Exploring a Dataset",
+      "description": "Load a dataset from the Hub and inspect it like the DataFrame exploration you did in the data science course.",
+      "duration": "6 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can load a dataset from the Hub with the `datasets` library and inspect its structure."
+          },
+          {
+            "title": "📦 A DataFrame-like object, built for ML",
+            "content": "The `datasets` library's `load_dataset()` downloads a dataset from the Hub and returns a `Dataset` object (or `DatasetDict` with named splits like `train`/`test`). It behaves a bit like the pandas DataFrames from the data science course, but is built for memory-efficient, large-scale ML workflows.\n\n```python\nfrom datasets import load_dataset\n\ndataset = load_dataset(\"imdb\")\nprint(dataset)\n# DatasetDict({'train': Dataset(...), 'test': Dataset(...), ...})\n\nprint(dataset[\"train\"][0])\n# {'text': 'This movie was...', 'label': 0}\n```"
+          },
+          {
+            "title": "🔍 Inspecting before you train",
+            "content": "Just like the EDA lesson in the data science course, always look at raw examples, class balance, and text length distribution before fine-tuning anything on a new dataset — the same 'know your data first' principle applies here.\n\n```python\nprint(dataset[\"train\"].features)   # column names & types\nprint(len(dataset[\"train\"]))       # number of examples\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Fine-tuning without checking class balance.** A dataset that's 95% one label will bias your model unless you account for it.\n\n**Assuming the Hub's preset splits are always ideal for your task.** Sometimes you need to re-split or combine splits yourself.\n\n**Not checking text length distribution before setting `max_length`.** If most examples are short but a few are very long, your truncation strategy should reflect that."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "hf_datasets_load_quiz",
+        "questions": [
+          {
+            "question": "What does `load_dataset(\"imdb\")` return?",
+            "options": [
+              "A single Python list with no structure",
+              "A DatasetDict (or Dataset) object containing the data, typically organized into named splits like train and test",
+              "A trained model ready for inference",
+              "A raw CSV file only, no parsing"
+            ],
+            "correctAnswer": 1,
+            "explanation": "load_dataset returns a structured object — usually a DatasetDict with named splits (train, test, etc.), each holding a Dataset you can index, inspect, and transform.",
+            "id": "q1"
+          },
+          {
+            "question": "Why should you inspect class balance before fine-tuning on a dataset?",
+            "options": [
+              "Class balance never affects model training",
+              "A dataset dominated by one label can bias the model toward that label unless you account for the imbalance",
+              "Class balance only matters for image data",
+              "Datasets are always perfectly balanced by default"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Just as in the data science course's discussion of imbalanced data, a model fine-tuned on a heavily skewed dataset will tend to over-predict the majority class unless the imbalance is addressed.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is checking text length distribution useful before setting a tokenizer's `max_length`?",
+            "options": [
+              "Text length has no relationship to tokenization settings",
+              "If most examples are short but a few are very long, your truncation strategy should reflect that instead of blindly picking one fixed length",
+              "max_length is set automatically and cannot be changed",
+              "Text length only matters for image datasets"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Knowing the length distribution tells you whether a chosen max_length will truncate a small handful of outliers or a large chunk of your data — exactly the kind of exploratory check the data science course taught before any modeling decision.",
+            "id": "q3"
+          },
+          {
+            "question": "What does `load_dataset(\"imdb\")` typically return?",
+            "options": [
+              "A single unstructured Python list",
+              "A DatasetDict (or Dataset) object, often organized into named splits like train and test",
+              "A trained model ready for immediate inference",
+              "A raw, unparsed CSV file"
+            ],
+            "correctAnswer": 1,
+            "explanation": "load_dataset returns a structured object, usually a DatasetDict with named splits (like train and test), each holding a Dataset you can index, inspect, and transform.",
+            "id": "q4"
+          },
+          {
+            "question": "What does this lesson compare the `datasets` library's `Dataset` object to, from the data science course?",
+            "options": [
+              "A neural network architecture",
+              "A pandas DataFrame, though built for memory-efficient, large-scale ML workflows",
+              "A SQL database schema",
+              "A confusion matrix"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson compares a Dataset object to the pandas DataFrames from the data science course, noting it behaves similarly but is built for memory-efficient, large-scale ML workflows.",
+            "id": "q5"
+          },
+          {
+            "question": "Why should you check class balance before fine-tuning on a new dataset?",
+            "options": [
+              "Class balance never has any effect on model training",
+              "A dataset dominated by one label can bias the model toward that label unless the imbalance is accounted for",
+              "Class balance only matters for image datasets, not text",
+              "Datasets from the Hub are always perfectly balanced"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Echoing the data science course's discussion of imbalanced data, a dataset skewed heavily toward one label can bias a fine-tuned model toward that label unless you account for the imbalance.",
+            "id": "q6"
+          },
+          {
+            "question": "Why is checking text length distribution useful before setting a tokenizer's `max_length`?",
+            "options": [
+              "Text length has no relationship to tokenization decisions",
+              "If most examples are short but a few are very long, your truncation strategy should reflect that instead of blindly picking one fixed length",
+              "max_length is fixed and cannot be configured",
+              "Text length only matters for image datasets"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Knowing the length distribution tells you whether a chosen max_length will truncate a small handful of outliers or a large portion of your data — the same 'know your data first' principle from the data science course's EDA lesson.",
+            "id": "q7"
+          },
+          {
+            "question": "According to this lesson, should you always assume the Hub's preset splits are ideal for your task?",
+            "options": [
+              "Yes, preset splits are always perfectly suited to every task",
+              "No — sometimes you need to re-split or combine splits yourself",
+              "Preset splits cannot be changed under any circumstances",
+              "The Hub never provides any preset splits at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson explicitly warns against assuming Hub preset splits are always ideal — sometimes you need to re-split or combine the provided splits to suit your specific task.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "hf_datasets_map",
+      "title": "Transforming Data with map() and filter()",
+      "description": "Apply a function across an entire dataset efficiently, including tokenization at scale.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can use `.map()` to apply a transformation (like tokenization) across a whole dataset."
+          },
+          {
+            "title": "🗺️ map() applies a function to every example",
+            "content": "`.map()` runs a function across every row of a dataset and returns a new dataset with the results — the ML equivalent of the `.apply()` method on a pandas Series from the data science course, but built to handle datasets far larger than memory.\n\n```python\ndef tokenize_fn(example):\n    return tokenizer(example[\"text\"], truncation=True)\n\ntokenized = dataset.map(tokenize_fn, batched=True)\n```"
+          },
+          {
+            "title": "🚀 batched=True for speed",
+            "content": "Setting `batched=True` passes a batch of examples to your function at once instead of one row at a time, which lets the fast tokenizer batch its own work internally — often a large speedup for tokenization specifically."
+          },
+          {
+            "title": "🧹 filter() removes rows you don't want",
+            "content": "`.filter()` keeps only the rows where a function returns `True` — useful for removing empty texts, out-of-range labels, or examples that are too long before training even starts.\n\n```python\ncleaned = dataset.filter(lambda ex: len(ex[\"text\"]) > 0)\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Forgetting `batched=True` for tokenization.** Row-by-row tokenization works but is much slower than letting the fast tokenizer batch internally.\n\n**Mutating a dataset in place expecting the original to change.** `.map()` and `.filter()` return new datasets — you need to assign the result.\n\n**Filtering after tokenizing instead of before.** Filtering first (e.g. removing empty texts) avoids wasting compute tokenizing rows you'll throw away anyway."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "hf_datasets_map_quiz",
+        "questions": [
+          {
+            "question": "What does `dataset.map(tokenize_fn, batched=True)` do?",
+            "options": [
+              "Deletes the dataset",
+              "Applies tokenize_fn across the dataset, passing batches of examples at a time, and returns a new dataset with the results",
+              "Trains a model directly on the dataset",
+              "Only works on datasets with fewer than 100 rows"
+            ],
+            "correctAnswer": 1,
+            "explanation": "map() runs the given function across the dataset (in batches, when batched=True) and returns a new dataset containing the transformed results — commonly used to tokenize an entire dataset at once.",
+            "id": "q1"
+          },
+          {
+            "question": "Why does setting `batched=True` typically speed up tokenization with `.map()`?",
+            "options": [
+              "It doesn't speed anything up, it's purely stylistic",
+              "It lets the fast tokenizer process many examples together internally, which is much more efficient than tokenizing one row at a time",
+              "batched=True skips tokenization entirely",
+              "It only affects how the results are printed"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Fast tokenizers are optimized for batch processing. Passing a batch of examples at once (batched=True) lets that internal batching kick in, which is usually significantly faster than one row at a time.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is it usually better to filter out unwanted rows (like empty texts) before tokenizing rather than after?",
+            "options": [
+              "Order never matters for map/filter operations",
+              "Filtering first avoids spending compute tokenizing rows that will just be discarded afterward anyway",
+              "You cannot filter after tokenizing, only before",
+              "Filtering after tokenizing produces different, more accurate results"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since tokenization takes compute time, removing rows you don't want (like empty strings) before tokenizing means you never waste that work on data you were going to throw away regardless.",
+            "id": "q3"
+          },
+          {
+            "question": "What does `dataset.map(tokenize_fn, batched=True)` do?",
+            "options": [
+              "It permanently deletes the dataset",
+              "It applies tokenize_fn across the dataset, passing batches of examples at a time, and returns a new dataset with the results",
+              "It trains a model directly using the dataset",
+              "It only works if the dataset has fewer than 100 rows"
+            ],
+            "correctAnswer": 1,
+            "explanation": "map() runs the given function across the dataset (in batches when batched=True) and returns a new dataset containing the transformed results, commonly used for tokenizing an entire dataset at once.",
+            "id": "q4"
+          },
+          {
+            "question": "What earlier data science course concept does `.map()` resemble, according to this lesson?",
+            "options": [
+              "The train/test split function",
+              "The `.apply()` method on a pandas Series, but built to handle datasets far larger than memory",
+              "A confusion matrix",
+              "A correlation heatmap"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson describes .map() as the ML equivalent of pandas' .apply() method from the data science course, adapted to handle datasets far larger than memory.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does setting `batched=True` typically speed up tokenization with `.map()`?",
+            "options": [
+              "It doesn't speed anything up; it's purely stylistic",
+              "It lets the fast tokenizer process many examples together internally, which is much more efficient than tokenizing one row at a time",
+              "batched=True skips tokenization entirely",
+              "It only changes how results are displayed, not computed"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Fast tokenizers are optimized for batch processing, so passing a batch of examples at once lets that internal batching kick in, usually producing a significant speedup over row-by-row tokenization.",
+            "id": "q6"
+          },
+          {
+            "question": "What does `.filter()` do to a dataset?",
+            "options": [
+              "It deletes the entire dataset",
+              "It keeps only the rows where a given function returns True",
+              "It trains a model on the filtered rows automatically",
+              "It renames the dataset's columns"
+            ],
+            "correctAnswer": 1,
+            "explanation": ".filter() keeps only the rows where the provided function returns True, useful for removing empty texts, out-of-range labels, or overly long examples before training even starts.",
+            "id": "q7"
+          },
+          {
+            "question": "Why is it usually better to filter out unwanted rows before tokenizing rather than after?",
+            "options": [
+              "Order never matters for map/filter operations",
+              "Filtering first avoids spending compute tokenizing rows that will just be discarded afterward anyway",
+              "You cannot filter a dataset after tokenizing it, only before",
+              "Filtering after tokenizing always produces more accurate results"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since tokenization takes compute time, removing unwanted rows (like empty strings) before tokenizing means that compute is never wasted on data that would be thrown away regardless.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "hf_datasets_splits",
+      "title": "Train/Validation/Test Splits Done Right",
+      "description": "Apply the train/val/test discipline from the ML course to Hugging Face datasets specifically.",
+      "duration": "6 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can create clean train/validation/test splits from a Hugging Face dataset, avoiding leakage."
+          },
+          {
+            "title": "🔁 The same discipline, a new library",
+            "content": "The machine learning course covered why train/validation/test splits (and avoiding leakage) matter. The `datasets` library gives you `.train_test_split()` to do this cleanly, including stratifying by label to preserve class balance across splits.\n\n```python\nsplit = dataset[\"train\"].train_test_split(test_size=0.2, seed=42, stratify_by_column=\"label\")\ntrain_ds, val_ds = split[\"train\"], split[\"test\"]\n```"
+          },
+          {
+            "title": "🚫 Watching for leakage in text data",
+            "content": "Leakage in text datasets often looks different from tabular leakage: duplicate or near-duplicate examples across splits (e.g. the same review appearing twice with slightly different wording) can silently inflate validation accuracy. Deduplicate before splitting when this is a risk."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Not setting a `seed`.** Without a fixed seed, your split changes every run, making experiments impossible to reproduce.\n\n**Forgetting `stratify_by_column` on imbalanced data.** A random split can accidentally starve one split of minority-class examples.\n\n**Reusing the test set to tune hyperparameters.** Exactly the ML course's warning — the test set should only be touched once, at the very end."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "hf_datasets_splits_quiz",
+        "questions": [
+          {
+            "question": "Why does `train_test_split(seed=42, ...)` matter for reproducibility?",
+            "options": [
+              "The seed value has no effect on the split",
+              "Without a fixed seed, the random split changes every time the code runs, making experiments impossible to reproduce exactly",
+              "seed only affects the model, not the dataset",
+              "Seeds are required by the Hugging Face terms of service"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Setting a seed makes the 'random' split deterministic — running the same code again produces the exact same train/validation split, which is essential for reproducible experiments.",
+            "id": "q1"
+          },
+          {
+            "question": "Why would you use `stratify_by_column=\"label\"` when splitting an imbalanced dataset?",
+            "options": [
+              "It has no effect on class distribution",
+              "Without it, a random split could accidentally leave one split with very few examples of a minority class, distorting evaluation",
+              "Stratification is only relevant for numeric labels, never categorical ones",
+              "It automatically balances the dataset by duplicating minority examples"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Stratifying preserves each split's class proportions to match the original dataset, preventing a random split from accidentally starving the validation or test set of minority-class examples.",
+            "id": "q2"
+          },
+          {
+            "question": "Why can duplicate or near-duplicate examples across train and validation splits be a leakage problem specific to text data?",
+            "options": [
+              "Duplicates never cause any issues in text data",
+              "A model can effectively memorize a near-duplicate example seen in training, inflating validation performance in a way that doesn't reflect real generalization",
+              "Text datasets cannot contain duplicates by design",
+              "This is only a concern for image datasets, not text"
+            ],
+            "correctAnswer": 1,
+            "explanation": "If a near-duplicate of a training example ends up in validation, the model may 'recognize' it rather than generalize to it, making validation accuracy look better than the model's true performance on genuinely new data.",
+            "id": "q3"
+          },
+          {
+            "question": "What earlier course's discipline does this lesson apply specifically to Hugging Face datasets?",
+            "options": [
+              "The data science course's visualization lessons",
+              "The machine learning course's guidance on train/validation/test splits and avoiding leakage",
+              "The NLP course's tokenization lessons",
+              "The computer vision course's augmentation lessons"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This lesson applies the machine learning course's train/validation/test split discipline, including avoiding leakage, specifically using the datasets library's tools.",
+            "id": "q4"
+          },
+          {
+            "question": "Why does `train_test_split(seed=42, ...)` matter for reproducibility?",
+            "options": [
+              "The seed value has no actual effect on the split",
+              "Without a fixed seed, the random split changes every run, making experiments impossible to reproduce exactly",
+              "seed only affects the model architecture, not the dataset",
+              "Seeds are required by Hugging Face's terms of service"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Setting a seed makes the random split deterministic, so running the same code again produces the exact same train/validation split — essential for reproducible experiments.",
+            "id": "q5"
+          },
+          {
+            "question": "Why would you use `stratify_by_column=\"label\"` when splitting an imbalanced dataset?",
+            "options": [
+              "It has no effect on the resulting class distribution",
+              "Without it, a random split could accidentally leave one split with very few examples of a minority class, distorting evaluation",
+              "Stratification only works with numeric labels, never categorical ones",
+              "It automatically duplicates minority-class examples to balance the dataset"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Stratifying preserves each split's class proportions to match the original dataset, preventing a random split from accidentally starving the validation or test set of minority-class examples.",
+            "id": "q6"
+          },
+          {
+            "question": "How does leakage in text datasets often look different from leakage in tabular data, according to this lesson?",
+            "options": [
+              "Text data can never experience any form of leakage",
+              "Duplicate or near-duplicate examples across splits (like the same review reworded slightly) can silently inflate validation accuracy",
+              "Leakage in text data always inflates loss rather than accuracy",
+              "Text and tabular leakage look identical in every respect"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson highlights that text-specific leakage often takes the form of duplicate or near-duplicate examples appearing across splits, which can silently inflate validation performance.",
+            "id": "q7"
+          },
+          {
+            "question": "What warning from the machine learning course does this lesson repeat regarding the test set?",
+            "options": [
+              "The test set should be used to tune hyperparameters repeatedly",
+              "The test set should only be touched once, at the very end, not reused to tune hyperparameters",
+              "There is no meaningful difference between validation and test sets",
+              "Test sets are unnecessary once you have a validation set"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson repeats the machine learning course's warning that reusing the test set to tune hyperparameters defeats its purpose — it should be touched only once, at the very end.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "hf_data_collators",
+      "title": "Data Collators and Dynamic Padding",
+      "description": "Understand what a data collator does and why dynamic padding saves compute.",
+      "duration": "7 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain what a data collator does and why dynamic padding is more efficient than fixed padding."
+          },
+          {
+            "title": "🧱 Assembling a batch at the last moment",
+            "content": "A **data collator** takes a list of individual examples and assembles them into a single batch, applying padding at that point rather than ahead of time. `DataCollatorWithPadding` pads each batch only to the length of its own longest sequence.\n\n```python\nfrom transformers import DataCollatorWithPadding\n\ncollator = DataCollatorWithPadding(tokenizer=tokenizer)\nbatch = collator([tokenized[0], tokenized[1], tokenized[2]])\n```"
+          },
+          {
+            "title": "⚡ Dynamic padding saves real compute",
+            "content": "If you padded every example to the model's absolute maximum length ahead of time, most batches would be full of wasted `[PAD]` tokens. Padding **dynamically**, per batch, at collation time means a batch of naturally short sentences stays short, and only a batch that happens to contain a long sentence pays that cost."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Pre-padding the whole dataset to max_length.** This works but wastes memory and compute compared to per-batch dynamic padding.\n\n**Using the wrong collator for the task.** Classification, token classification (NER), and language modeling each have their own collator that handles labels differently — using a mismatched one silently breaks label alignment.\n\n**Forgetting the collator needs the same tokenizer as the model.** Padding uses the tokenizer's pad token id, which must match what the model expects."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "hf_data_collators_quiz",
+        "questions": [
+          {
+            "question": "What does a data collator like `DataCollatorWithPadding` do?",
+            "options": [
+              "It trains the model",
+              "It assembles a list of individual examples into a batch, applying padding at that point based on the batch's own longest sequence",
+              "It deletes examples that are too long",
+              "It tokenizes raw text for the first time"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The collator's job is batch assembly: given individual tokenized examples, it pads them to a common length (the batch's own maximum) and stacks them into tensors ready for the model.",
+            "id": "q1"
+          },
+          {
+            "question": "Why is dynamic (per-batch) padding more efficient than padding every example to the model's absolute maximum length ahead of time?",
+            "options": [
+              "There is no efficiency difference between the two approaches",
+              "Pre-padding to the absolute maximum wastes compute on [PAD] tokens even in batches where every real sequence is short",
+              "Dynamic padding is always less accurate",
+              "Dynamic padding is only usable during inference, never training"
+            ],
+            "correctAnswer": 1,
+            "explanation": "With dynamic padding, each batch is only padded to its own longest sequence. A batch of short sentences stays short and cheap to process, instead of being padded out to the model's overall maximum length regardless of actual content.",
+            "id": "q2"
+          },
+          {
+            "question": "Why does a task like token classification (NER) need a different data collator than plain text classification?",
+            "options": [
+              "It doesn't — every task uses the exact same collator",
+              "Token classification has per-token labels that need to be padded and aligned consistently with the padded input tokens, which a plain classification collator doesn't handle",
+              "NER never uses batching at all",
+              "Collators are unrelated to the type of task being trained"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Token classification labels one entry per input token, so padding the inputs also requires padding the labels in a matching, aligned way — something a plain sequence-classification collator (with one label per example) isn't built to do.",
+            "id": "q3"
+          },
+          {
+            "question": "What does a data collator like `DataCollatorWithPadding` do?",
+            "options": [
+              "It trains the model directly",
+              "It assembles a list of individual examples into a batch, applying padding based on that batch's own longest sequence",
+              "It permanently deletes examples that are too long",
+              "It performs the very first tokenization of raw text"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A collator's job is batch assembly: given individually tokenized examples, it pads them to a common length (the batch's own maximum) and stacks them into tensors ready for the model.",
+            "id": "q4"
+          },
+          {
+            "question": "Why is dynamic (per-batch) padding more efficient than pre-padding every example to the model's absolute maximum length?",
+            "options": [
+              "There is no efficiency difference between the two approaches",
+              "Pre-padding to the absolute maximum wastes compute on [PAD] tokens even in batches where every real sequence is short",
+              "Dynamic padding is always less accurate than pre-padding",
+              "Dynamic padding can only be used during inference, never training"
+            ],
+            "correctAnswer": 1,
+            "explanation": "With dynamic padding, each batch is only padded to its own longest sequence, so a batch of naturally short sentences stays cheap to process instead of being padded to the model's overall maximum regardless of actual content.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does token classification (like NER) need a different data collator than plain text classification?",
+            "options": [
+              "It doesn't — every task uses the exact same collator",
+              "Token classification has per-token labels that need to be padded and aligned with the padded inputs, which a plain classification collator doesn't handle",
+              "NER tasks never use batching of any kind",
+              "Collators have no relationship to the specific task being trained"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since token classification assigns one label per input token, padding the inputs also requires padding the labels in an aligned way — something a plain sequence-classification collator, built for one label per example, isn't designed to do.",
+            "id": "q6"
+          },
+          {
+            "question": "Why must a data collator use the same tokenizer as the model it's feeding?",
+            "options": [
+              "The collator's tokenizer choice has no effect on anything",
+              "Padding uses the tokenizer's pad token id, which must match what the model expects",
+              "Collators never actually interact with tokenizers at all",
+              "Any tokenizer can be used interchangeably with any collator and model combination"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The collator pads using the tokenizer's specific pad token id — if this doesn't match what the model expects, the padding could be misinterpreted, so the collator must use the same tokenizer as the model.",
+            "id": "q7"
+          },
+          {
+            "question": "What is the main downside of pre-padding the entire dataset to `max_length` ahead of time, rather than using a collator's dynamic padding?",
+            "options": [
+              "There is no downside; the two approaches are functionally identical",
+              "It wastes memory and compute compared to per-batch dynamic padding",
+              "Pre-padding always produces incorrect model outputs",
+              "Pre-padding is not technically possible with Hugging Face tools"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Pre-padding every example to the model's absolute maximum length ahead of time works, but wastes memory and compute compared to padding dynamically per batch at collation time.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

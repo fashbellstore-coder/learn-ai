@@ -1,0 +1,575 @@
+{
+  "id": "ops_data_versioning",
+  "title": "Data Versioning & Pipelines",
+  "description": "Versioning data and datasets, feature stores for training-serving consistency, data validation and schema checks, and tracing data lineage.",
+  "icon": "📊",
+  "color": "#546E7A",
+  "order": 1,
+  "estimatedHours": 5,
+  "difficulty": "intermediate",
+  "prerequisites": [
+    "ops_fundamentals"
+  ],
+  "lessons": [
+    {
+      "id": "ops_versioning_data_and_datasets",
+      "title": "Versioning Data and Datasets",
+      "description": "Code has git. Data needs something conceptually similar, but built for large, evolving, and often binary data.",
+      "duration": 13,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain why versioning data is harder than versioning code and describe the basic approaches used to do it."
+          },
+          {
+            "title": "📏 Why data versioning isn't just 'use git'",
+            "content": "Datasets are often far larger than source code (gigabytes to terabytes, versus kilobytes to megabytes of code), change more **incrementally** (new rows added continuously rather than discrete, reviewed commits), and are often **binary or semi-structured** rather than the line-based text that version control systems like git were designed around — a naive approach of committing an entire dataset to a code version control system quickly becomes unwieldy at any real scale."
+          },
+          {
+            "title": "📸 Snapshot-based approaches",
+            "content": "Store a **reference** (a pointer, a hash) to a specific state of a dataset at a point in time, rather than the full dataset content itself inside your code repository — the actual data lives in dedicated storage (a data lake, a versioned object store), while the reference recorded alongside your code and experiment tracking (covered next module) is what makes \"this training run used exactly this data snapshot\" a concrete, checkable fact rather than an approximate description."
+          },
+          {
+            "title": "➕ Incremental/delta-based approaches",
+            "content": "Rather than storing full copies of a dataset at every version, some data versioning tools track only **what changed** between versions (similar in spirit to how git tracks changes rather than full file copies at each commit), which is far more storage-efficient for large, frequently-updated datasets, while still letting you reconstruct the exact state of the dataset as of any recorded version when needed."
+          },
+          {
+            "title": "🎯 What data versioning enables",
+            "content": "The reproducibility chain from the previous module's lesson — \"this model was trained on this exact data\" — becomes an **actual, verifiable, retrievable fact** rather than a description that degrades in accuracy as the underlying data continues to change over time. It also makes debugging a production issue tractable: if a model started behaving oddly, you can compare its actual training data snapshot against current production data to check for the drift patterns covered in module 4, rather than guessing at what might have changed."
+          },
+          {
+            "title": "💻 Snapshot references versus full copies",
+            "content": "```python\n# What NOT to do: committing the whole dataset into git\n# (works for a 2MB CSV, falls apart at real scale)\n\n# A snapshot-based reference instead:\nexperiment_record = {\n    \"data_version\": {\n        \"dataset\": \"customer_transactions\",\n        \"snapshot_id\": \"2026-08-14T00:00:00Z\",\n        \"storage_uri\": \"s3://data-lake/customer_transactions/snap_20260814/\",\n        \"row_count\": 4_812_003,\n        \"hash\": \"sha256:9f2a...\",\n    }\n}\n\n# Later, reproducing exactly what a training run used is a lookup,\n# not a guess:\ndef fetch_training_data(data_version):\n    return load_from(data_version[\"storage_uri\"])\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Committing large datasets directly into a code version control system.** This works briefly at small scale and becomes unwieldy fast — data belongs in dedicated storage referenced by a lightweight pointer, not inside the code repo itself.\n\n**Describing training data informally instead of recording a concrete snapshot reference.** \"We trained on the customer data as of last month\" degrades in accuracy the moment the underlying table keeps changing — only a recorded snapshot ID or hash stays meaningfully checkable later.\n\n**Treating data versioning as separate from experiment tracking.** A snapshot reference that isn't recorded alongside the run it belongs to is much harder to actually retrieve when someone later asks what a specific model was trained on."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ops_versioning_data_and_datasets_quiz",
+        "questions": [
+          {
+            "question": "Why doesn't a naive approach of just committing datasets directly into a code version control system like git work well at scale?",
+            "options": [
+              "Git cannot store any binary files whatsoever",
+              "Datasets are often far larger than code, change more incrementally, and are frequently binary or semi-structured, which git wasn't designed around",
+              "Data versioning is never actually necessary for ML systems",
+              "Git automatically deletes any file larger than a few kilobytes"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The scale, format, and change patterns of typical datasets differ enough from source code that naively treating them the same way as code in git becomes unwieldy in practice.",
+            "id": "q1"
+          },
+          {
+            "question": "What does a snapshot-based data versioning approach store alongside the code and experiment tracking?",
+            "options": [
+              "The entire dataset copied directly into the code repository every time",
+              "A reference (a pointer or hash) to a specific state of the dataset at a point in time, with the actual data living in dedicated storage",
+              "Nothing — snapshot-based approaches don't record any reference at all",
+              "Only the dataset's file name, with no other identifying information"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Snapshot-based versioning keeps a lightweight, checkable reference to a specific data state, while the bulk of the data itself lives in dedicated storage rather than the code repository.",
+            "id": "q2"
+          },
+          {
+            "question": "How does data versioning help when debugging a production model issue?",
+            "options": [
+              "It has no relevance to debugging production issues at all",
+              "It lets you compare the model's actual training data snapshot against current production data to check for drift, rather than guessing at what might have changed",
+              "It automatically fixes any production model issue without further investigation",
+              "Data versioning only helps during the initial training phase, never afterward"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Being able to retrieve the exact training data snapshot makes a concrete comparison against current production data possible, directly supporting the drift-detection concerns covered later in this course.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, what does `experiment_record[\"data_version\"][\"hash\"]` provide that `snapshot_id` alone might not fully guarantee?",
+            "options": [
+              "Nothing — hash and snapshot_id are redundant and one could be removed",
+              "A content-based check that the retrieved data actually matches what was originally recorded, beyond just an identifying label",
+              "The exact row where a bug occurred",
+              "The programming language used to compute the snapshot"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A hash provides a content-based integrity check — confirming the retrieved data genuinely matches what was recorded — which is a stronger guarantee than an identifying label like snapshot_id alone.",
+            "id": "q4"
+          },
+          {
+            "question": "Why is `fetch_training_data` described as 'a lookup, not a guess' in the code example?",
+            "options": [
+              "Because it doesn't actually retrieve any real data",
+              "Because the storage_uri recorded in the snapshot reference concretely identifies where the exact data lives, rather than relying on an approximate description",
+              "Because it always returns the most recent version of the dataset regardless of what's requested",
+              "Because it requires no data versioning system at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since the snapshot reference concretely records where the exact data version lives, retrieving it later is a direct lookup rather than an approximation based on a rough description.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is describing training data informally (e.g. 'the customer data as of last month') called out as a mistake?",
+            "options": [
+              "Because informal descriptions are always more precise than a recorded snapshot",
+              "Because this description degrades in accuracy as the underlying table keeps changing, unlike a recorded snapshot ID or hash that stays checkable",
+              "Because customer data should never be used for training",
+              "Because this has no actual effect on reproducibility"
+            ],
+            "correctAnswer": 1,
+            "explanation": "An informal, evolving description loses its precision over time as the underlying data keeps changing — only a concrete recorded reference stays meaningfully accurate and checkable later.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does the lesson caution against treating data versioning as separate from experiment tracking?",
+            "options": [
+              "Because experiment tracking and data versioning are actually the exact same tool",
+              "Because a snapshot reference not recorded alongside the run it belongs to is much harder to retrieve later when someone asks what a model was trained on",
+              "Because data versioning should never be connected to any other system",
+              "Because experiment tracking makes data versioning entirely redundant"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The reproducibility value of a snapshot reference depends on it being tied to the specific run it was used for — recording it in isolation from experiment tracking undermines its usefulness later.",
+            "id": "q7"
+          },
+          {
+            "question": "What efficiency advantage do incremental/delta-based versioning approaches offer over storing full copies at every version?",
+            "options": [
+              "They eliminate the need to ever reconstruct a past dataset state",
+              "They are far more storage-efficient for large, frequently-updated datasets by tracking only what changed between versions, similar in spirit to how git tracks code changes",
+              "They only work for datasets smaller than one megabyte",
+              "They require discarding all historical versions permanently"
+            ],
+            "correctAnswer": 1,
+            "explanation": "By tracking changes rather than full copies at every version, delta-based approaches save substantial storage for large, frequently-updated datasets while still supporting full reconstruction of any recorded version.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ops_feature_stores",
+      "title": "Feature Stores: Consistent Features Across Training and Serving",
+      "description": "A subtle, common bug: the exact same feature computed slightly differently at training time versus serving time.",
+      "duration": 13,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain the training-serving skew problem a feature store solves and describe what a feature store actually provides."
+          },
+          {
+            "title": "⚠️ The training-serving skew problem",
+            "content": "A model is trained on features computed by one piece of code (perhaps a batch data pipeline, computing an average over the last 30 days), but at serving time, that same feature might get computed by a **different piece of code** (an online service, perhaps with a subtly different definition of \"30 days\" or a different handling of missing data) — even a small discrepancy between how a feature was computed during training versus at serving time can meaningfully degrade a model's real-world performance in a way that's notoriously hard to detect and debug, since nothing about the model itself changed."
+          },
+          {
+            "title": "🗄️ What a feature store provides",
+            "content": "A **centralized system** for defining a feature's computation logic exactly once, and using that same definition both to generate historical training data and to serve up-to-date feature values in production — eliminating the two-separate-implementations problem that causes training-serving skew in the first place, by construction rather than by careful discipline alone."
+          },
+          {
+            "title": "⏱️ Historical (offline) versus real-time (online) feature retrieval",
+            "content": "A feature store typically supports both:\n\n- An **offline store** for retrieving historical feature values (as they would have been at some past point in time) to build training datasets\n- An **online store** for retrieving current feature values with low latency at actual serving time\n\nBoth are backed by the same underlying feature definitions, which is the core guarantee that prevents skew between the two."
+          },
+          {
+            "title": "🎯 When a feature store earns its complexity",
+            "content": "For a simple model with features computed directly and consistently in one place for both training and serving, a full feature store may be more infrastructure than the problem warrants. For a system with many models sharing common features, or with a real training-serving skew risk due to separate training and serving code paths, a feature store's consistency guarantee becomes a meaningful reliability investment rather than unnecessary overhead — echoing the same \"match the tool to the actual need\" principle covered for other architectural choices earlier in this curriculum."
+          },
+          {
+            "title": "💻 Skew from two implementations versus one shared definition",
+            "content": "```python\n# The skew-prone pattern: two separate implementations of \"the same\" feature\ndef training_pipeline_feature(user_id):\n    # batch job, runs nightly, averages over a calendar month\n    return avg_spend(user_id, days=30, calendar_aligned=True)\n\ndef serving_feature(user_id):\n    # online service, written by a different team, averages over\n    # a rolling 30-day window instead — subtly different!\n    return avg_spend(user_id, days=30, calendar_aligned=False)\n\n# A feature store collapses this into one definition, used by both:\nclass FeatureStore:\n    def avg_spend_30d(self, user_id, as_of=None):\n        # one definition; as_of=None means \"now\" (online),\n        # as_of=<timestamp> means \"historical\" (offline, for training)\n        return self._compute_avg_spend(user_id, days=30, as_of=as_of)\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Letting training and serving code paths diverge, even slightly.** As the example shows, a difference as small as calendar-aligned versus rolling windows is enough to cause skew that's invisible in the code review of either piece alone.\n\n**Adopting a feature store for a system that doesn't need one.** A simple model with one consistent computation path for both training and serving doesn't need the added infrastructure — match the tool to the actual skew risk.\n\n**Assuming a feature store eliminates the need to think about consistency at all.** The store only guarantees consistency for features actually defined through it — a feature quietly computed outside the store reintroduces the same risk."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ops_feature_stores_quiz",
+        "questions": [
+          {
+            "question": "What is training-serving skew?",
+            "options": [
+              "A difference in model accuracy between two entirely different models",
+              "A discrepancy between how a feature is computed at training time versus at serving time, even though it's meant to be the same feature",
+              "A type of data drift that only affects text data",
+              "An error that occurs only during the model registration process"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Training-serving skew happens when a feature's computation logic differs subtly between the training pipeline and the serving system, degrading real-world performance in a way that's hard to detect.",
+            "id": "q1"
+          },
+          {
+            "question": "How does a feature store prevent training-serving skew?",
+            "options": [
+              "By deleting all features after each training run",
+              "By defining a feature's computation logic exactly once and using that same definition for both historical training data and real-time serving",
+              "By requiring that training and serving always happen on the same physical machine",
+              "Feature stores cannot actually prevent this problem"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Centralizing feature computation logic in one definition, used by both an offline and online store, eliminates the two-separate-implementations root cause of training-serving skew.",
+            "id": "q2"
+          },
+          {
+            "question": "When does a feature store's added complexity become worth the investment, per this lesson?",
+            "options": [
+              "Never — feature stores are never worth their complexity",
+              "When many models share common features, or there's a real training-serving skew risk from separate training and serving code paths",
+              "Only for models with fewer than five features",
+              "Feature stores are always necessary regardless of system complexity"
+            ],
+            "correctAnswer": 1,
+            "explanation": "As with other architectural choices in this curriculum, a feature store's consistency guarantee is worth its overhead specifically when the skew risk or feature-sharing need is real, not as a default for every system.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, what specific difference between `training_pipeline_feature` and `serving_feature` causes the skew?",
+            "options": [
+              "One uses Python and the other uses a different programming language",
+              "One computes a calendar-aligned 30-day average while the other computes a rolling 30-day window average",
+              "One includes the user_id and the other doesn't",
+              "There is no actual difference between the two functions"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The example specifically shows calendar_aligned=True versus calendar_aligned=False — a subtle definitional difference in what counts as '30 days' that produces skew despite both functions nominally computing 'average spend over 30 days.'",
+            "id": "q4"
+          },
+          {
+            "question": "How does the `FeatureStore.avg_spend_30d` method in the code example avoid the skew shown in the two separate functions?",
+            "options": [
+              "It ignores the as_of parameter entirely",
+              "It uses one shared definition of the computation, with `as_of` distinguishing a historical (offline) lookup from a current (online) one, rather than maintaining two separate implementations",
+              "It only supports online serving, never historical retrieval",
+              "It recomputes the feature using a completely different formula each time"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The single method with an `as_of` parameter demonstrates the feature store's core guarantee: one definition serves both the offline (historical, for training) and online (current, for serving) use cases, eliminating the two-implementation risk.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is a difference as small as calendar-aligned versus rolling windows particularly dangerous, per the 'common mistakes' section?",
+            "options": [
+              "Because it's always immediately obvious in code review",
+              "Because it's invisible in the code review of either piece alone, since each function looks reasonable in isolation despite producing a subtly different result",
+              "Because calendar-aligned windows are always incorrect",
+              "Because this kind of difference never actually affects model performance"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson notes this kind of subtle skew is notoriously hard to detect precisely because each implementation looks correct on its own — the mismatch only shows up in the discrepancy between the two, not within either one.",
+            "id": "q6"
+          },
+          {
+            "question": "Why would adopting a feature store for a simple model with one consistent computation path be a mistake?",
+            "options": [
+              "Because feature stores are always beneficial regardless of the system",
+              "Because it adds infrastructure complexity that the actual skew risk doesn't warrant, echoing the 'match the tool to the actual need' principle",
+              "Because feature stores can only be used with multiple models",
+              "Because a feature store would make that model's predictions less accurate"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Consistent with the curriculum's recurring principle of matching architectural investment to actual need, a feature store is unnecessary overhead when there's no real skew risk to guard against.",
+            "id": "q7"
+          },
+          {
+            "question": "Why doesn't adopting a feature store eliminate all training-serving consistency risk automatically?",
+            "options": [
+              "Because feature stores actually introduce more inconsistency than they prevent",
+              "Because the store only guarantees consistency for features actually defined through it — a feature computed outside the store reintroduces the same skew risk",
+              "Because feature stores can only handle numerical features",
+              "Because feature stores don't support offline feature retrieval"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The consistency guarantee only applies to features that actually go through the shared store definition — any feature computed elsewhere, outside that system, remains exposed to the original two-implementation problem.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ops_data_validation_and_schema_checks",
+      "title": "Data Validation and Schema Checks",
+      "description": "Catching a data problem before it trains a bad model is far cheaper than catching it after that model is already in production.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Describe the kinds of checks a data validation step should perform before data is used for training, and explain why catching problems early matters."
+          },
+          {
+            "title": "📋 Schema validation",
+            "content": "Checking that incoming data matches the expected structure — the right columns exist, with the right types, values fall within expected ranges, and required fields aren't missing — catches a whole class of upstream data problems (a source system's format changed, a field started allowing null values it never used to) **before** they silently corrupt a training run or, worse, get deployed in a model that was trained on subtly malformed data."
+          },
+          {
+            "title": "📊 Statistical validation",
+            "content": "Beyond structural correctness, checking that a dataset's **statistical properties** look reasonable compared to expectations — is the distribution of a key feature roughly what it's always been, are there an unusual number of missing values compared to historical norms, did the overall dataset size change dramatically compared to previous runs — catches problems that pass basic schema validation (the data is structurally valid) but are still meaningfully different from what a healthy dataset should look like."
+          },
+          {
+            "title": "🚨 Why catching this early matters so much",
+            "content": "A data problem caught **before** training just means fixing the data and re-running — cheap and fast. The same data problem, undetected, that trains a bad model which then gets deployed means the cost compounds: debugging why a deployed model is behaving strangely, tracing it back to a data issue that could have been caught immediately, and then still needing to fix the data and retrain anyway — plus whatever real-world cost the bad model caused while it was live. This mirrors the same \"catch it before deployment, not after\" principle from the evaluation lessons in the Fine-Tuning course, just applied to the data stage instead of the trained-model stage."
+          },
+          {
+            "title": "🔄 Validation as a gate in the pipeline, not an afterthought",
+            "content": "Data validation works best as an **automated, mandatory step** that happens before training proceeds — a pipeline that fails loudly and stops when validation checks don't pass, rather than a validation script someone might remember to run manually sometimes. Treating this as a required gate (similar in spirit to a CI/CD pipeline's test gate from standard software engineering practice) is what actually prevents bad data from silently reaching a training run."
+          },
+          {
+            "title": "💻 A validation gate that stops the pipeline",
+            "content": "```python\ndef validate_dataset(df, schema, historical_stats):\n    errors = []\n\n    # Schema validation\n    for col, expected_type in schema.items():\n        if col not in df.columns:\n            errors.append(f\"missing required column: {col}\")\n        elif df[col].dtype != expected_type:\n            errors.append(f\"{col} has wrong type: {df[col].dtype}\")\n\n    # Statistical validation\n    if abs(len(df) - historical_stats[\"avg_row_count\"]) > historical_stats[\"row_count_tolerance\"]:\n        errors.append(\"row count is far outside the historical norm\")\n    if df[\"amount\"].isnull().mean() > historical_stats[\"max_null_rate\"]:\n        errors.append(\"missing-value rate for 'amount' exceeds historical norm\")\n\n    if errors:\n        raise ValueError(f\"data validation failed, halting pipeline: {errors}\")\n    return df  # only reaches training if validation actually passed\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Running validation as an optional script instead of a pipeline gate.** A check that someone has to remember to run manually will eventually not get run at exactly the moment it matters most.\n\n**Checking schema but skipping statistical validation.** Data that's structurally valid can still be meaningfully broken — a silently doubled null rate or a distribution shift passes every schema check while quietly degrading the resulting model.\n\n**Discovering a data problem only after deployment.** By the time a bad-data-trained model is live, the cost has already compounded — the same problem is far cheaper to fix when validation catches it before training even starts."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ops_data_validation_and_schema_checks_quiz",
+        "questions": [
+          {
+            "question": "What does schema validation check for in an ML data pipeline?",
+            "options": [
+              "The model's final accuracy on a test set",
+              "That incoming data matches the expected structure — correct columns, types, value ranges, and no unexpectedly missing required fields",
+              "The programming language used to write the training code",
+              "Whether the model has been deployed to production yet"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Schema validation catches structural data problems (format changes, unexpected nulls) before they can silently corrupt a training run or the resulting model.",
+            "id": "q1"
+          },
+          {
+            "question": "What kind of problem does statistical validation catch that schema validation alone would miss?",
+            "options": [
+              "Problems where the data is structurally valid but its distribution or missing-value rate has shifted meaningfully from historical norms",
+              "Syntax errors in the training code",
+              "Whether the model registry is correctly configured",
+              "Problems with the deployment infrastructure itself"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Statistical validation looks beyond structural correctness to check whether the data's actual properties still look healthy compared to expectations, catching distributional issues schema checks wouldn't flag.",
+            "id": "q2"
+          },
+          {
+            "question": "Why should data validation function as a mandatory gate in the pipeline rather than an optional manual step?",
+            "options": [
+              "Manual validation is always more reliable than automation",
+              "A pipeline that automatically fails and stops on validation failure prevents bad data from silently reaching a training run, unlike a script someone might forget to run",
+              "Gates are unnecessary since data problems never actually occur in practice",
+              "Validation gates only matter for very small datasets"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Making validation an automated, mandatory gate (similar to a CI/CD test gate) is what reliably prevents bad data from proceeding to training, rather than depending on someone remembering to check manually.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, what happens if `df` passes schema validation but fails the row-count statistical check?",
+            "options": [
+              "The function silently ignores the failure and proceeds to training",
+              "The errors list still contains an entry, so `validate_dataset` raises a ValueError and halts the pipeline before training",
+              "The function automatically corrects the row count",
+              "Statistical validation failures are never actually raised as errors"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The function accumulates errors from both schema and statistical checks into one list, and raises if that list is non-empty — meaning a statistical-only failure still halts the pipeline just as a schema failure would.",
+            "id": "q4"
+          },
+          {
+            "question": "Why does `validate_dataset` check `df[\"amount\"].isnull().mean()` against `historical_stats[\"max_null_rate\"]` rather than just checking for zero nulls?",
+            "options": [
+              "Because null values are always acceptable in any amount",
+              "Because some baseline level of missing data may be normal, so the check is against a historical tolerance rather than requiring perfection",
+              "Because this line of code actually does nothing",
+              "Because null values can never be measured programmatically"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Comparing against a historical max null rate (rather than demanding zero nulls) reflects that some missingness may be normal — the goal is catching an unusual increase, not enforcing an unrealistic zero-null standard.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is running validation as an optional script instead of a pipeline gate identified as a mistake?",
+            "options": [
+              "Because optional scripts always run automatically anyway",
+              "Because a check that depends on someone remembering to run it manually will eventually not get run at exactly the moment it matters most",
+              "Because optional scripts are more thorough than automated gates",
+              "Because this has no real consequence for data quality"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson's core point is that validation's value depends on it running reliably every time — an optional, manually-run script defeats that purpose the moment someone forgets or skips it.",
+            "id": "q6"
+          },
+          {
+            "question": "Why can data that passes every schema check still be meaningfully broken?",
+            "options": [
+              "Because schema checks are more thorough than statistical checks",
+              "Because structural validity says nothing about whether the distribution or missing-value rate has shifted in a way that would degrade the resulting model",
+              "Because schema validation and statistical validation check the exact same thing",
+              "Because this scenario is impossible in practice"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Schema validation only confirms structure (columns, types, ranges) — a dataset can be structurally perfect while still having a shifted distribution or elevated null rate that statistical validation is specifically needed to catch.",
+            "id": "q7"
+          },
+          {
+            "question": "According to this lesson, why does catching a data problem before training cost less than catching it after deployment?",
+            "options": [
+              "Because data problems never actually affect a model's real-world performance",
+              "Because after deployment, the cost compounds: debugging a live model's odd behavior, tracing it to the data issue, fixing the data, retraining, plus the real-world cost the bad model caused while live",
+              "Because retraining is always free regardless of when a problem is caught",
+              "Because deployment automatically fixes any underlying data issues"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson explicitly walks through the compounding cost of a late catch versus an early one, mirroring the Fine-Tuning course's 'catch it before deployment' principle applied to the data stage.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ops_data_lineage",
+      "title": "Data Lineage: Tracing Where Data Actually Came From",
+      "description": "When something looks wrong three steps downstream, lineage is what lets you walk backward to find out where it actually went wrong.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain what data lineage tracks and why it matters for debugging and auditing ML systems specifically."
+          },
+          {
+            "title": "🔗 What lineage actually tracks",
+            "content": "The full chain of transformations and sources that produced a given piece of data — this raw source table, transformed by this pipeline step, joined with this other source, filtered by this logic, ultimately producing this feature that a specific model version was trained on. Lineage is essentially a recorded, queryable map of \"where did this come from and what happened to it along the way,\" extending the data-versioning lesson's \"what exact data was used\" with \"and how did that data come to look the way it does.\""
+          },
+          {
+            "title": "🔍 Why this matters for debugging",
+            "content": "When a model's behavior looks wrong, and a data validation check (from the previous lesson) or drift monitoring (from module 4) flags a specific feature as the likely culprit, lineage lets you **trace that feature backward** through every transformation to find exactly where the problem was introduced — a bug in a specific pipeline step, a change in an upstream source system — rather than having to guess or manually reconstruct the data's history from scratch, which becomes essentially impossible in a system with many interdependent pipeline stages."
+          },
+          {
+            "title": "📋 Why this matters for auditing and compliance",
+            "content": "Beyond debugging, being able to demonstrate exactly what data went into a given model — its **full provenance**, not just a name or a rough description — matters for regulatory and business contexts where a model's decisions need to be explainable and auditable after the fact, an increasingly common requirement as ML systems get used for higher-stakes decisions (lending, hiring, medical contexts) where \"we don't actually know what data trained this\" is not an acceptable answer to a legitimate audit question."
+          },
+          {
+            "title": "🎯 Lineage as connective tissue across this module",
+            "content": "**Data versioning** tells you what data existed. **Feature stores** tell you how features are computed consistently. **Data validation** catches problems as data flows through the pipeline. **Lineage** ties all of it together into a traceable, queryable record — the connective tissue that makes the other three practices in this module actually useful for debugging and auditing after the fact, rather than each existing as an isolated point-in-time record with no connection to the others."
+          },
+          {
+            "title": "💻 Walking a lineage graph backward from a flagged feature",
+            "content": "```python\nlineage_graph = {\n    \"model_v17_feature:avg_spend_30d\": [\"feature_store:avg_spend_30d\"],\n    \"feature_store:avg_spend_30d\": [\"pipeline_step:aggregate_transactions\"],\n    \"pipeline_step:aggregate_transactions\": [\"raw_table:transactions_2026_08\"],\n    \"raw_table:transactions_2026_08\": [\"source_system:payments_api\"],\n}\n\ndef trace_backward(node, graph):\n    chain = [node]\n    while node in graph:\n        node = graph[node][0]\n        chain.append(node)\n    return chain\n\n# When drift monitoring flags avg_spend_30d, this turns \"something is\n# wrong somewhere upstream\" into a concrete, walkable chain of exactly\n# four hops back to the original source system.\ntrace_backward(\"model_v17_feature:avg_spend_30d\", lineage_graph)\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Treating lineage as a nice-to-have rather than connective tissue.** Without it, versioning, feature stores, and validation each exist as isolated, point-in-time records with no way to trace a flagged problem back through the chain that produced it.\n\n**Only recording lineage for the 'interesting' parts of a pipeline.** A gap anywhere in the chain — an unrecorded transformation step, an untracked join — breaks the ability to trace backward past that point.\n\n**Treating provenance as unnecessary until an audit actually happens.** For high-stakes domains like lending, hiring, or medical contexts, 'we don't actually know what data trained this' is not an acceptable answer, and lineage can't be reconstructed retroactively after the fact if it was never recorded."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ops_data_lineage_quiz",
+        "questions": [
+          {
+            "question": "What does data lineage track?",
+            "options": [
+              "Only the final trained model's file size",
+              "The full chain of transformations and sources that produced a given piece of data, from raw source through every processing step",
+              "The programming language used for each pipeline stage",
+              "The physical location of the servers running the pipeline"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Lineage is a recorded map of where data came from and what transformations it went through, extending beyond just knowing what data version was used to knowing how that data came to look the way it does.",
+            "id": "q1"
+          },
+          {
+            "question": "How does lineage help when debugging a model behaving unexpectedly?",
+            "options": [
+              "It has no debugging use — lineage is purely for compliance purposes",
+              "It lets you trace a flagged feature backward through every transformation to find exactly where a problem was introduced, rather than guessing",
+              "It automatically retrains the model without further investigation",
+              "Lineage only tracks information about the model's final accuracy score"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Being able to walk backward through recorded transformations makes it possible to pinpoint exactly where a data problem originated, which becomes essential in a system with many interdependent pipeline stages.",
+            "id": "q2"
+          },
+          {
+            "question": "Why does data lineage matter for auditing and compliance in higher-stakes ML applications?",
+            "options": [
+              "Auditing is irrelevant to machine learning systems",
+              "Being able to demonstrate a model's full data provenance is often a regulatory or business requirement, especially for high-stakes decisions like lending or hiring",
+              "Lineage tracking is only useful for models with no production deployment",
+              "Compliance requirements never involve questions about training data"
+            ],
+            "correctAnswer": 1,
+            "explanation": "For decisions with real regulatory or business stakes, being able to show exactly what data trained a model (not just a rough description) is often a hard requirement, which lineage tracking directly supports.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, how many hops does `trace_backward` take to reach `source_system:payments_api` starting from `model_v17_feature:avg_spend_30d`?",
+            "options": [
+              "One hop",
+              "Two hops",
+              "Four hops",
+              "It never reaches the source system"
+            ],
+            "correctAnswer": 2,
+            "explanation": "The chain goes from the model feature, to the feature store entry, to the pipeline step, to the raw table, to the source system — four hops total, exactly the concrete walkable chain the lesson describes.",
+            "id": "q4"
+          },
+          {
+            "question": "What does `lineage_graph` in the code example represent structurally?",
+            "options": [
+              "A flat list with no relationships between entries",
+              "A mapping from each node to the node(s) that produced it, forming a traceable chain back to an original source",
+              "A record of the model's evaluation metrics",
+              "A configuration file for hyperparameters"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Each key maps to what produced it, so following the chain of values backward from any node reconstructs the full lineage back to the original source system.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is treating lineage as merely a 'nice-to-have' identified as a mistake in this lesson?",
+            "options": [
+              "Because lineage has no real connection to the other practices in this module",
+              "Because without it, versioning, feature stores, and validation each remain isolated, point-in-time records with no way to trace a flagged problem back through the chain that produced it",
+              "Because lineage tracking is always automatically included in any data pipeline by default",
+              "Because lineage is purely a legal formality with no technical value"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson frames lineage as the connective tissue tying the module's other three practices together — without it, each practice's records stay isolated rather than forming a traceable whole.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does an unrecorded transformation step anywhere in the pipeline undermine lineage's usefulness?",
+            "options": [
+              "Because unrecorded steps automatically get filled in retroactively",
+              "Because a gap in the chain breaks the ability to trace backward past that point, regardless of how well other steps are recorded",
+              "Because pipelines never actually have more than one transformation step",
+              "Because this has no effect on debugging or auditing capability"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Lineage's value depends on a complete, unbroken chain — a single unrecorded step creates a gap that prevents tracing backward past it, no matter how thoroughly the rest of the pipeline is tracked.",
+            "id": "q7"
+          },
+          {
+            "question": "Why can't lineage be reconstructed retroactively after an audit is already underway, per the 'common mistakes' section?",
+            "options": [
+              "Because lineage information is always stored permanently regardless of whether it was ever recorded",
+              "Because lineage depends on having actually recorded the chain of transformations as they happened — if it was never captured, there's nothing to reconstruct after the fact",
+              "Because audits never actually require any data provenance information",
+              "Because lineage only matters for models that have never been deployed"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since lineage is a record of what actually happened during processing, its value depends on being captured at the time — there's no way to recover that history later if it was never tracked in the first place.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

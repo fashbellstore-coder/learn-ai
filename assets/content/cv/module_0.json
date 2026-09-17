@@ -1,0 +1,545 @@
+{
+  "id": "module_0",
+  "title": "Image Fundamentals",
+  "description": "How computers represent and process images: pixels and channels, classic filters, preprocessing for deep learning, and vision-specific data augmentation.",
+  "icon": "🖼️",
+  "color": "#5C6BC0",
+  "order": 0,
+  "estimatedHours": 2,
+  "difficulty": "Beginner",
+  "prerequisites": [],
+  "lessons": [
+    {
+      "id": "cv_how_computers_see",
+      "title": "How Computers See Images",
+      "description": "Learn how an image actually becomes numbers a model can work with.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain how an image is represented numerically, including what pixels and channels are."
+          },
+          {
+            "title": "🖼️ An image is just a grid of numbers",
+            "content": "To a computer, an image is a grid of **pixels**, and each pixel is represented by one or more numbers describing its color. A grayscale image is a single 2D grid of numbers (usually 0-255, where 0 is black and 255 is white); a color image typically has three such grids stacked together — one each for red, green, and blue."
+          },
+          {
+            "title": "🎨 RGB and channels",
+            "content": "A color image is usually stored with three **channels** — Red, Green, and Blue — each its own grid the same height and width as the image. Combining the three values at each pixel position produces that pixel's actual color.\n\n```python\nimport numpy as np\n\n# A tiny 2x2 RGB image: height=2, width=2, channels=3\nimage = np.array([\n    [[255, 0, 0], [0, 255, 0]],   # red pixel, green pixel\n    [[0, 0, 255], [255, 255, 255]] # blue pixel, white pixel\n])\nprint(image.shape)  # (2, 2, 3) — height, width, channels\n```\n\nA typical photo might be 224×224×3 — 224 pixels tall, 224 pixels wide, 3 color channels — which is exactly the kind of tensor a CNN (from the deep learning course) is built to process."
+          },
+          {
+            "title": "🔢 From image to tensor",
+            "content": "In a deep learning pipeline, an image is loaded and converted into a **tensor** (a multi-dimensional array) of pixel values, typically scaled to a standard range (like 0-1, dividing raw pixel values by 255) before being fed into a model — this scaling connects directly back to the feature scaling covered in the data science course, just applied to pixel intensities instead of tabular features.\n\n```python\n# Conceptual: raw pixel values (0-255) → scaled tensor (0-1)\n# scaled_image = raw_image / 255.0\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Forgetting images have a channel dimension, not just height and width.** A color image tensor has 3 dimensions (height, width, channels), not 2 — an easy detail to overlook when reasoning about shapes.\n\n**Not scaling pixel values before feeding them into a model.** Raw 0-255 values can behave poorly with typical weight initializations and learning rates — scaling to a smaller range (like 0-1) is standard practice, mirroring feature scaling from earlier courses.\n\n**Confusing grayscale and color image shapes.** A grayscale image often has just 1 channel (or sometimes none at all, depending on the library) instead of RGB's 3 — code that assumes 3 channels can break on grayscale input."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "cv_how_computers_see_quiz",
+        "questions": [
+          {
+            "question": "What does a color image's shape (height, width, channels) with channels=3 represent?",
+            "options": [
+              "Three separate images stored together for backup",
+              "The three RGB color channels — Red, Green, and Blue — each contributing to every pixel's final color",
+              "The image was resized three times",
+              "Three different resolutions of the same image"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A standard color image stores three separate grids of values (one per Red, Green, Blue channel), all the same height and width — combining the three values at each position produces that pixel's full color.",
+            "id": "q1"
+          },
+          {
+            "question": "Why are raw pixel values (0-255) typically scaled before being fed into a deep learning model?",
+            "options": [
+              "Scaling has no real effect and is purely optional",
+              "Unscaled large raw values can behave poorly with typical weight initializations and learning rates — this mirrors feature scaling from the data science course",
+              "Pixel values cannot be represented as numbers otherwise",
+              "Only grayscale images need this scaling, not color images"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Just like scaling numeric features in a tabular dataset, scaling pixel values (commonly to a 0-1 range) helps training behave more predictably — this is the same underlying principle as feature scaling, applied to image data.",
+            "id": "q2"
+          },
+          {
+            "question": "What's the difference between a grayscale image and a color image in terms of representation?",
+            "options": [
+              "There is no real difference — both are represented identically",
+              "A grayscale image typically has a single channel of intensity values, while a color image typically has three channels (RGB)",
+              "Grayscale images cannot be represented numerically at all",
+              "Color images always have more pixels than grayscale images"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Grayscale images represent brightness with a single channel per pixel, while color images use three channels (Red, Green, Blue) combined to represent full color — a meaningful difference in the tensor shape a model needs to expect.",
+            "id": "q3"
+          },
+          {
+            "question": "What range are raw grayscale pixel values usually in?",
+            "options": [
+              "-1 to 1",
+              "0 to 255",
+              "0 to 1000000",
+              "Only 0 or 1"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Grayscale pixel values are typically represented on a 0-255 scale, where 0 is black and 255 is white.",
+            "id": "q4"
+          },
+          {
+            "question": "What does the shape (2, 2, 3) represent for the tiny image example in the lesson?",
+            "options": [
+              "2 images of width 2 and height 3",
+              "Height 2, width 2, and 3 color channels",
+              "3 images of height and width 2",
+              "A 1-dimensional array of 12 values"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The shape follows the (height, width, channels) convention, so (2, 2, 3) describes a 2x2 pixel image with 3 color channels (RGB).",
+            "id": "q5"
+          },
+          {
+            "question": "Why is 224x224x3 mentioned as a typical photo tensor size?",
+            "options": [
+              "It's an arbitrary number with no real significance",
+              "It matches the exact kind of tensor shape a CNN from the deep learning course is built to process",
+              "Every image must be exactly this size to be stored digitally",
+              "It only applies to grayscale images"
+            ],
+            "correctAnswer": 1,
+            "explanation": "224x224x3 is a common input size CNNs are designed around, connecting this lesson directly to the CNN architecture covered in the deep learning course.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does the lesson connect pixel value scaling to the data science course's feature scaling?",
+            "options": [
+              "Because pixel values and tabular features are conceptually unrelated",
+              "Because scaling pixel values to a smaller range (like 0-1) mirrors the same principle as feature scaling for tabular data",
+              "Because images cannot be scaled at all",
+              "Because feature scaling only applies to text data"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson explicitly draws this connection: scaling pixel intensities before feeding them into a model is the same underlying principle as scaling numeric features, just applied to images.",
+            "id": "q7"
+          },
+          {
+            "question": "What is a common consequence of code that assumes every image has 3 channels?",
+            "options": [
+              "It always works correctly, regardless of input",
+              "It can break when given a grayscale image with only 1 channel",
+              "It automatically converts any image to color",
+              "It has no effect on any type of image"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Code written assuming a 3-channel (RGB) input can fail or behave unexpectedly when given a grayscale image, which often has just 1 channel instead.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "cv_classic_image_processing",
+      "title": "Classic Image Processing Basics",
+      "description": "Learn the hand-crafted techniques that came before deep learning, and that still power real-world vision pipelines today.",
+      "duration": "9 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain what a convolution-based filter does in classic image processing and name a few common ones."
+          },
+          {
+            "title": "🔁 A familiar idea, applied by hand",
+            "content": "Recall convolutional filters from the deep learning course — a small grid of weights sliding across an image. Long before CNNs *learned* their filters from data, classic image processing used **hand-designed** filters for specific, well-understood effects. The underlying sliding-window computation is exactly the same idea; only where the filter's weights come from differs."
+          },
+          {
+            "title": "🌫️ Blurring and sharpening",
+            "content": "A **blur filter** averages each pixel with its neighbors, smoothing out noise and fine detail. A **sharpen filter** does roughly the opposite, amplifying differences between a pixel and its neighbors to make edges and details stand out more.\n\n```python\n# Conceptual blur filter (a 3x3 averaging kernel)\n# [[1/9, 1/9, 1/9],\n#  [1/9, 1/9, 1/9],\n#  [1/9, 1/9, 1/9]]\n```"
+          },
+          {
+            "title": "📐 Edge detection",
+            "content": "**Edge detection** filters (like the classic Sobel filter) are hand-designed to respond strongly wherever brightness changes sharply — exactly where an object's boundary typically is.\n\n```python\nimport cv2\n\nimage = cv2.imread(\"photo.jpg\", cv2.IMREAD_GRAYSCALE)\nedges = cv2.Canny(image, threshold1=100, threshold2=200)\n```\n\nThis connects directly back to the CNN lessons in deep learning — a CNN's early layers often end up *learning* filters that behave remarkably similarly to these classic, hand-designed edge detectors, purely from data, without anyone telling it to."
+          },
+          {
+            "title": "🎯 Why classic techniques still matter",
+            "content": "Even in a deep learning-dominated field, classic image processing remains genuinely useful: it's fast, doesn't require training data or a GPU, and is often used as a preprocessing step even in modern pipelines — resizing, denoising, or normalizing an image before it ever reaches a neural network. Libraries like **OpenCV** provide efficient, well-tested implementations of these classic techniques, and remain a staple tool in real-world computer vision pipelines."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming classic techniques were replaced entirely by deep learning.** They remain widely used, especially for fast preprocessing steps that don't need to be learned from data at all.\n\n**Confusing hand-designed filters with a CNN's learned filters.** The underlying sliding-window convolution operation is identical — the key difference is that classic filters are designed by a human, while a CNN's filters are learned automatically from training data.\n\n**Reaching for a full deep learning model when a simple classic technique would work.** For straightforward, well-understood tasks like basic edge detection or denoising, a classic filter is often faster, cheaper, and perfectly adequate."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "cv_classic_image_processing_quiz",
+        "questions": [
+          {
+            "question": "What is the key difference between a classic hand-designed image filter and a CNN's learned filter?",
+            "options": [
+              "They use a completely different mathematical operation",
+              "A classic filter's weights are designed by a human for a specific known effect; a CNN's filter weights are learned automatically from training data",
+              "Classic filters can only be applied to grayscale images",
+              "CNN filters cannot detect edges at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Both use the same underlying sliding-window convolution operation — the real difference is where the filter's weights come from: manually designed by a person for classic filters, versus learned through training for a CNN.",
+            "id": "q1"
+          },
+          {
+            "question": "What does an edge detection filter respond strongly to?",
+            "options": [
+              "Areas of completely uniform, unchanging brightness",
+              "Locations where brightness changes sharply, typically corresponding to object boundaries",
+              "The exact color of each pixel",
+              "Only the corners of an image"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Edge detectors are specifically designed to produce a strong response wherever there's a sharp change in brightness between neighboring pixels — exactly where an object's edge or boundary usually is in an image.",
+            "id": "q2"
+          },
+          {
+            "question": "Why do classic image processing techniques remain useful even in a deep-learning-dominated field?",
+            "options": [
+              "They are actually obsolete and never used anymore",
+              "They're fast, don't require training data or a GPU, and are often used for preprocessing steps even within modern deep learning pipelines",
+              "They can only be used on very old computers",
+              "Deep learning models cannot process images that have been preprocessed with classic filters"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Classic techniques remain genuinely practical for cheap, fast preprocessing (like resizing, denoising, or basic edge detection) — libraries like OpenCV provide efficient implementations that are still widely used as a preprocessing step ahead of modern deep learning models.",
+            "id": "q3"
+          },
+          {
+            "question": "What does a blur filter do to an image?",
+            "options": [
+              "It sharpens edges dramatically",
+              "It averages each pixel with its neighbors, smoothing out noise and fine detail",
+              "It converts the image to grayscale",
+              "It removes all color channels"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A blur filter smooths an image by averaging each pixel's value with its surrounding neighbors, reducing noise and fine detail.",
+            "id": "q4"
+          },
+          {
+            "question": "What is the Sobel filter an example of?",
+            "options": [
+              "A blurring filter",
+              "An edge detection filter",
+              "A resizing operation",
+              "A normalization technique"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The Sobel filter is a classic, hand-designed edge detection filter that responds strongly to sharp brightness changes, which typically correspond to object edges.",
+            "id": "q5"
+          },
+          {
+            "question": "What connection does the lesson draw between classic edge detectors and CNNs?",
+            "options": [
+              "CNNs never learn anything resembling classic edge detectors",
+              "A CNN's early layers often end up learning filters that behave remarkably similarly to classic hand-designed edge detectors, purely from data",
+              "Classic filters and CNN filters use entirely different mathematical operations",
+              "CNNs cannot detect edges under any circumstances"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson notes that CNNs, despite learning their filters automatically, often arrive at early-layer filters that resemble classic hand-designed edge detectors like Sobel.",
+            "id": "q6"
+          },
+          {
+            "question": "What library does the lesson highlight as providing efficient implementations of classic image processing techniques?",
+            "options": [
+              "PyTorch",
+              "OpenCV",
+              "TensorFlow",
+              "scikit-learn"
+            ],
+            "correctAnswer": 1,
+            "explanation": "OpenCV is specifically called out as the standard library providing efficient, well-tested implementations of classic image processing techniques.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does the lesson say classic image processing techniques remain useful even today?",
+            "options": [
+              "They have been completely replaced by deep learning with no remaining use",
+              "They're fast, require no training data or GPU, and are often used as preprocessing steps even in modern pipelines",
+              "They can only be used on grayscale images",
+              "They require more compute than deep learning models"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson emphasizes that classic techniques remain genuinely practical for fast, cheap preprocessing, even within otherwise deep-learning-based pipelines.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "cv_preprocessing_dl",
+      "title": "Image Preprocessing for Deep Learning",
+      "description": "Learn the practical preparation steps that turn raw images into model-ready input.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can list the standard preprocessing steps applied to images before they're fed into a deep learning model."
+          },
+          {
+            "title": "📏 Resizing to a fixed size",
+            "content": "Most CNN architectures expect a fixed input size (like 224×224), but real-world images come in all shapes and sizes. **Resizing** scales every image to the expected input dimensions before it reaches the model.\n\n```python\nimport cv2\n\nimage = cv2.imread(\"photo.jpg\")\nresized = cv2.resize(image, (224, 224))\n```\n\nA common concern: naive resizing can distort an image's proportions if the original and target aspect ratios differ — techniques like **letterboxing** (padding to preserve the original aspect ratio, rather than stretching) are often used to avoid this distortion."
+          },
+          {
+            "title": "🔢 Normalization",
+            "content": "Just like the feature scaling from the data science course, image pixel values are typically **normalized** — commonly scaled to 0-1, and often further standardized using a per-channel mean and standard deviation computed from a large reference dataset (like ImageNet).\n\n```python\n# Conceptual normalization matching common pretrained model expectations\n# normalized = (pixel_value / 255.0 - mean) / std\n```\n\nWhen using a pretrained model (recall transfer learning from the deep learning course), it's essential to normalize new images using the *same* statistics the original model was trained with — a mismatch here can quietly and significantly hurt performance."
+          },
+          {
+            "title": "🎨 Color space and channel order",
+            "content": "Different libraries store color images differently — OpenCV, for instance, defaults to BGR channel order rather than the more common RGB, which can cause a model's colors to look subtly (or badly) wrong if this ordering isn't accounted for.\n\n```python\nimport cv2\n\nimage_bgr = cv2.imread(\"photo.jpg\")  # OpenCV loads as BGR by default\nimage_rgb = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)  # convert to RGB\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Resizing without preserving aspect ratio when it matters for the task.** Naive stretching can distort objects in ways that hurt model performance, especially for tasks sensitive to exact shape.\n\n**Normalizing with the wrong statistics for a pretrained model.** Every pretrained model expects a specific normalization scheme — using different values than what it was trained with silently degrades its performance without an obvious error.\n\n**Mixing up BGR and RGB channel order.** This is a classic, easy-to-miss bug — colors can look subtly wrong to a model even though the image looks fine to a human eye when inspected directly."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "cv_preprocessing_dl_quiz",
+        "questions": [
+          {
+            "question": "Why is resizing typically needed before feeding an image into a CNN?",
+            "options": [
+              "Resizing has no actual purpose and is purely optional",
+              "Most CNN architectures expect a fixed input size, while real-world images come in many different original sizes",
+              "Resizing is required to convert an image into grayscale",
+              "CNNs can only process images smaller than 10x10 pixels"
+            ],
+            "correctAnswer": 1,
+            "explanation": "CNN architectures are typically built around a specific expected input shape (like 224x224), so images of varying original sizes need to be resized to that consistent shape before being processed by the model.",
+            "id": "q1"
+          },
+          {
+            "question": "Why is it important to normalize a new image using the same statistics a pretrained model was originally trained with?",
+            "options": [
+              "Normalization statistics have no actual effect on model performance",
+              "A pretrained model's learned weights implicitly assume a specific normalization scheme — mismatched normalization can silently and significantly hurt its performance",
+              "Pretrained models automatically detect and correct any normalization mismatch",
+              "Normalization is only relevant for models trained completely from scratch"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This mirrors the fine-tuning guidance from the deep learning course — a pretrained model expects input preprocessed the way its original training data was, and using different normalization values can quietly degrade performance without producing an obvious error.",
+            "id": "q2"
+          },
+          {
+            "question": "Why can mixing up BGR and RGB channel order cause problems?",
+            "options": [
+              "It has no actual effect on how a model interprets an image",
+              "Different libraries (like OpenCV) may store color channels in a different order, and feeding a model channels in the wrong order can make colors look subtly or badly wrong to it",
+              "BGR and RGB always represent identical channel orderings",
+              "This issue only affects grayscale images"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since a model has learned to interpret pixel values according to a specific channel order, accidentally swapping BGR and RGB (a common OpenCV pitfall) feeds it color information in the wrong order — a classic, easy-to-miss preprocessing bug.",
+            "id": "q3"
+          },
+          {
+            "question": "What technique does the lesson mention for resizing an image without distorting its proportions?",
+            "options": [
+              "Cropping to a random size",
+              "Letterboxing, which pads the image to preserve the original aspect ratio",
+              "Converting to grayscale first",
+              "Doubling the image resolution"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Letterboxing pads an image rather than stretching it, preserving the original aspect ratio while still matching the model's expected input dimensions.",
+            "id": "q4"
+          },
+          {
+            "question": "What statistics are commonly used for standardizing pixel values, beyond simple 0-1 scaling?",
+            "options": [
+              "The image's file size and format",
+              "A per-channel mean and standard deviation computed from a large reference dataset like ImageNet",
+              "The number of objects detected in the image",
+              "The camera's shutter speed"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Beyond basic 0-1 scaling, images are often further standardized using per-channel mean and standard deviation statistics computed from a large reference dataset such as ImageNet.",
+            "id": "q5"
+          },
+          {
+            "question": "What channel order does OpenCV use by default when loading images?",
+            "options": [
+              "RGB",
+              "BGR",
+              "Grayscale only",
+              "CMYK"
+            ],
+            "correctAnswer": 1,
+            "explanation": "OpenCV defaults to BGR (Blue-Green-Red) channel order rather than the more commonly expected RGB order, which can cause bugs if not accounted for.",
+            "id": "q6"
+          },
+          {
+            "question": "Why must new images be normalized using the same statistics as a pretrained model's original training data?",
+            "options": [
+              "Normalization statistics have no impact on model behavior",
+              "A pretrained model's learned weights implicitly assume a specific normalization scheme, and mismatches can quietly hurt performance",
+              "Every pretrained model automatically re-normalizes new input on its own",
+              "This only matters for models trained completely from scratch"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This mirrors the fine-tuning guidance from the deep learning course: mismatched normalization silently degrades a pretrained model's performance without producing an obvious error.",
+            "id": "q7"
+          },
+          {
+            "question": "What is a risk of naive resizing that stretches an image to a new aspect ratio?",
+            "options": [
+              "It always improves model accuracy",
+              "It can distort an image's proportions, which may hurt performance, especially for shape-sensitive tasks",
+              "It automatically applies letterboxing",
+              "It has no effect on the image at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Naive resizing that changes an image's aspect ratio can visually distort objects, which the lesson notes as a real concern letterboxing is designed to avoid.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "cv_augmentation",
+      "title": "Data Augmentation for Computer Vision",
+      "description": "Go deeper into the specific augmentation techniques most useful for image tasks.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can list common image augmentation techniques and explain how to choose ones appropriate for a given task."
+          },
+          {
+            "title": "🔁 A quick recap from deep learning",
+            "content": "Recall from the deep learning course: data augmentation artificially expands training data diversity by applying label-preserving transformations, directly helping fight overfitting. Computer vision is where augmentation is used most heavily and effectively, given how naturally images support these kinds of realistic transformations."
+          },
+          {
+            "title": "🖼️ Common image augmentations",
+            "content": "```python\n# Conceptual augmentation examples\n# flipped = flip_horizontal(image)\n# rotated = rotate(image, degrees=15)\n# cropped = random_crop(image, size=(200, 200))\n# brightened = adjust_brightness(image, factor=1.2)\n# noisy = add_random_noise(image)\n```\n\n• **Flips** — horizontal flips are common and usually safe; vertical flips make sense for some subjects (aerial photos) but not others (a flipped face or car looks unnatural)\n• **Rotations** — small rotations simulate camera angle variation\n• **Crops** — random crops simulate different framing and partial object visibility\n• **Color/brightness jitter** — simulates different lighting conditions\n• **Noise** — simulates sensor noise or lower image quality"
+          },
+          {
+            "title": "🎯 Choosing augmentations that make sense for the task",
+            "content": "Recall from the deep learning course: an augmentation must preserve the label's correctness. This is especially task-dependent in vision:\n\n• Flipping a photo of a cat horizontally is fine — it's still clearly a cat\n• Flipping a photo of text (for an OCR task) horizontally would make it unreadable and completely wrong\n• Rotating a photo of a stop sign by 180° would turn it upside down — not realistic for how stop signs actually appear in the real world\n\nThe right augmentations depend entirely on what realistic variation actually looks like for your specific task and domain."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Applying every possible augmentation without considering the task.** As the examples above show, some augmentations actively hurt certain tasks — always sanity-check whether a transformation is realistic and label-preserving for the specific problem.\n\n**Over-augmenting to the point of distorting realistic images too heavily.** If augmented images no longer resemble what the model will see in real deployment, training on them can actually hurt rather than help.\n\n**Applying augmentation to validation or test data.** Like other preprocessing choices, augmentation is a training-time technique — validation and test data should reflect real, unaltered examples so evaluation remains honest."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "cv_augmentation_quiz",
+        "questions": [
+          {
+            "question": "Why might a horizontal flip be a safe augmentation for a photo of a cat, but not for a photo of text?",
+            "options": [
+              "Flipping text is technically impossible to perform",
+              "A flipped cat photo still clearly shows a cat, but flipped text becomes unreadable and no longer represents valid text for an OCR task",
+              "Horizontal flips only work on animal photos",
+              "There's no actual difference in appropriateness between the two cases"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Whether an augmentation is appropriate depends on whether it preserves the label's correctness for the specific task — a flipped cat is still recognizably a cat, but flipped text is no longer valid, readable text, making that augmentation inappropriate for an OCR task.",
+            "id": "q1"
+          },
+          {
+            "question": "Why shouldn't data augmentation typically be applied to validation or test data?",
+            "options": [
+              "Augmentation is technically impossible to apply to validation data",
+              "Validation and test data should reflect real, unaltered examples so evaluation remains an honest measure of real-world performance",
+              "Applying augmentation to test data always improves the model's reported performance",
+              "There's no real reason — augmentation should be applied everywhere equally"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Augmentation is specifically a training-time technique for increasing training diversity — since validation and test sets exist to honestly measure how the model performs on real, representative data, augmenting them would distort that evaluation.",
+            "id": "q2"
+          },
+          {
+            "question": "What determines whether a given augmentation technique is appropriate for a specific vision task?",
+            "options": [
+              "Only how visually interesting the augmented image looks",
+              "Whether the transformation preserves the label's correctness and reflects realistic variation for that specific task and domain",
+              "Augmentations are always appropriate for every task without exception",
+              "The size of the original image file"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The key criterion, as with augmentation generally, is whether the transformed image remains a valid, label-preserving example that reflects realistic variation the model might actually encounter — this varies meaningfully across different vision tasks and domains.",
+            "id": "q3"
+          },
+          {
+            "question": "Why might a vertical flip make sense for aerial photos but not for a photo of a face?",
+            "options": [
+              "Vertical flips are never usable for any image type",
+              "Aerial photos have no fixed 'up' orientation the way a face does, so flipping vertically still looks realistic, while a flipped face looks unnatural",
+              "Faces cannot be flipped at all technically",
+              "Vertical flips only apply to grayscale images"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Aerial imagery often lacks a strong sense of orientation, so a vertical flip remains realistic, whereas a flipped face looks unnatural since faces have a clear typical orientation.",
+            "id": "q4"
+          },
+          {
+            "question": "What real-world variation does color/brightness jitter augmentation aim to simulate?",
+            "options": [
+              "Different camera resolutions",
+              "Different lighting conditions",
+              "Different object categories",
+              "Different image file formats"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Color and brightness jitter augmentations simulate the natural variation in lighting conditions that real images might be captured under.",
+            "id": "q5"
+          },
+          {
+            "question": "Why would rotating a photo of a stop sign by 180 degrees be a poor augmentation choice?",
+            "options": [
+              "Rotation is technically impossible to perform on digital images",
+              "An upside-down stop sign isn't realistic for how stop signs actually appear in the real world",
+              "Stop signs cannot be photographed at any angle",
+              "180-degree rotation always improves model accuracy"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since stop signs never realistically appear upside-down in the real world, this rotation would not reflect realistic variation and could actively hurt the model.",
+            "id": "q6"
+          },
+          {
+            "question": "What determines whether random cropping is an appropriate augmentation for a given task?",
+            "options": [
+              "Random cropping is always appropriate for every possible task",
+              "Whether it simulates realistic differences in framing and partial object visibility relevant to that task",
+              "The color of the image being cropped",
+              "The total file size of the training dataset"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Like other augmentations, random cropping's appropriateness depends on whether it produces realistic variation (different framing, partial visibility) relevant to the specific task at hand.",
+            "id": "q7"
+          },
+          {
+            "question": "According to the lesson, what happens if augmented images are distorted too heavily and no longer resemble real deployment images?",
+            "options": [
+              "Training on them always improves generalization regardless of distortion level",
+              "Training on over-distorted images can actually hurt rather than help performance",
+              "This has no effect on model performance either way",
+              "Over-distorted images automatically get filtered out by the model"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson warns that over-augmenting to the point where images no longer resemble what the model will see in real deployment can hurt performance rather than help it.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

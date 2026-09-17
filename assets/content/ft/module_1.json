@@ -1,0 +1,539 @@
+{
+  "id": "ft_peft",
+  "title": "Parameter-Efficient Fine-Tuning (PEFT)",
+  "description": "LoRA, QLoRA, and the broader family of methods that adapt a model by training a tiny fraction of its parameters.",
+  "icon": "🧩",
+  "color": "#FB8C00",
+  "order": 1,
+  "estimatedHours": 5,
+  "difficulty": "intermediate",
+  "prerequisites": [
+    "ft_fundamentals"
+  ],
+  "lessons": [
+    {
+      "id": "ft_lora_under_the_hood",
+      "title": "LoRA: Low-Rank Adaptation",
+      "description": "Instead of updating a huge weight matrix, LoRA trains two tiny matrices that approximate the update.",
+      "duration": "14 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain what LoRA actually trains, why it's so much cheaper than full fine-tuning, and what 'rank' controls."
+          },
+          {
+            "title": "🧠 The core trick",
+            "content": "A transformer's weight matrices (in attention projections and elsewhere) are huge — millions of parameters each. Full fine-tuning updates every one of those values directly. **LoRA** instead freezes the original weight matrix entirely and adds a separate, much smaller pair of matrices (called A and B) whose product approximates the update that fine-tuning would have made. If the original matrix is, say, 4096×4096, LoRA might train a 4096×8 matrix and an 8×4096 matrix instead — a tiny fraction of the parameters — and add their product to the frozen original at inference time.\n\nThis works because, empirically, the *change* needed to adapt a pretrained model to a new task tends to have low 'intrinsic rank' — it doesn't need to use the full expressive power of a giant matrix to represent the necessary shift in behavior.\n\n```python\n# Conceptually: W_new = W_frozen + (A @ B) * scale\nW_frozen = load_weight_matrix()      # 4096 x 4096, never updated\nA = init_trainable(4096, r=8)        # 4096 x 8\nB = init_trainable(8, 4096)          # 8 x 4096\noutput = x @ W_frozen + x @ (A @ B) * scale  # only A and B are trained\n```"
+          },
+          {
+            "title": "⚙️ Rank: the key knob",
+            "content": "The 'r' in LoRA is the rank of those small matrices — how much capacity the adapter has. **Low rank** (r=4 or r=8) means very few trainable parameters, fast training, small adapter files, but less capacity to represent complex shifts. **Higher rank** (r=32, r=64) has more capacity, better for harder tasks or bigger changes in behavior, but larger adapters and more risk of overfitting on a small dataset. In practice, teams usually start with a modest rank (8-16) and increase only if quality plateaus."
+          },
+          {
+            "title": "💰 Why this matters in practice",
+            "content": "Because you're training maybe 0.1-1% of the model's total parameters, LoRA fine-tuning needs a fraction of the GPU memory and time that full fine-tuning does — turning a job that needed a cluster into something that fits on a single consumer or prosumer GPU for many model sizes. It also means you can train and store many different LoRA adapters (one per task or customer) for the same base model, and swap between them cheaply, since each adapter might only be a few megabytes rather than the full model's gigabytes."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming LoRA changes the model's architecture.** It doesn't add layers or change the forward pass structure — it only adds a low-rank update that can be merged back into the existing frozen weights.\n\n**Picking a rank without evidence it's needed.** Higher rank isn't automatically better; it mainly adds parameters, training cost, and overfitting risk on a small dataset.\n\n**Forgetting that adapters are cheap to store precisely because they're small.** Storing a full fine-tuned checkpoint per task is what LoRA is specifically designed to avoid — treating an adapter like a full model checkpoint defeats the point."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ft_lora_under_the_hood_quiz",
+        "questions": [
+          {
+            "question": "What does LoRA train instead of the full weight matrix?",
+            "options": [
+              "A completely new transformer layer",
+              "A pair of small low-rank matrices whose product approximates the needed update",
+              "A separate small model trained from scratch",
+              "Nothing — LoRA only changes the learning rate"
+            ],
+            "correctAnswer": 1,
+            "explanation": "LoRA freezes the original weights and trains a small low-rank pair (A and B) whose product is added to approximate the fine-tuning update, using far fewer parameters.",
+            "id": "q1"
+          },
+          {
+            "question": "What does increasing the LoRA rank (r) generally trade off?",
+            "options": [
+              "More capacity to represent complex changes, at the cost of more trainable parameters and overfitting risk",
+              "Nothing — rank has no effect on training",
+              "Faster inference speed only",
+              "It only affects the tokenizer, not the model"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Higher rank gives the adapter more expressive capacity for harder tasks, but increases parameter count, training cost, and overfitting risk on small datasets.",
+            "id": "q2"
+          },
+          {
+            "question": "Why can teams store many different LoRA adapters for the same base model cheaply?",
+            "options": [
+              "Because LoRA adapters are typically a small fraction of the full model's size, unlike full fine-tuned checkpoints",
+              "Because LoRA deletes the base model after training",
+              "Because all LoRA adapters are identical regardless of task",
+              "Because LoRA doesn't require a base model at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Since only a tiny low-rank matrix pair is trained, each adapter can be megabytes rather than gigabytes, making many task-specific adapters affordable to store and swap.",
+            "id": "q3"
+          },
+          {
+            "question": "In this lesson's conceptual code example, what is added to x @ W_frozen to produce the final output?",
+            "options": [
+              "x @ (A @ B), scaled by a factor",
+              "A completely new weight matrix loaded from disk",
+              "The original input x, unchanged",
+              "Nothing; W_frozen alone determines the output"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example shows output = x @ W_frozen + x @ (A @ B) * scale, adding the scaled low-rank update on top of the frozen matrix's output.",
+            "id": "q4"
+          },
+          {
+            "question": "Why does LoRA work despite training far fewer parameters than the original weight matrix contains?",
+            "options": [
+              "Because the change needed to adapt a pretrained model to a new task tends to have low 'intrinsic rank'",
+              "Because LoRA secretly updates the full weight matrix behind the scenes",
+              "Because the original weight matrix is deleted and replaced entirely",
+              "Because fewer parameters always produce better results regardless of the task"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explains that adaptation updates empirically tend to have low intrinsic rank, meaning a small matrix pair can capture most of the needed behavior shift.",
+            "id": "q5"
+          },
+          {
+            "question": "According to this lesson, what starting rank do teams typically use before increasing it?",
+            "options": [
+              "A modest rank, around 8-16",
+              "The maximum possible rank the hardware allows",
+              "Rank 0, meaning no adapter at all",
+              "A different rank for every single layer, chosen randomly"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson recommends starting with a modest rank (8-16) and increasing only if quality plateaus, rather than starting at the highest possible rank.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson warn against assuming LoRA changes the model's underlying architecture?",
+            "options": [
+              "Because LoRA doesn't add new layers or change the forward pass structure — it only adds a low-rank update that merges into existing frozen weights",
+              "Because LoRA always redesigns the transformer's attention mechanism",
+              "Because LoRA requires retraining the model completely from scratch",
+              "Because LoRA and full fine-tuning are architecturally identical processes"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is assuming architectural change, when LoRA's update is structurally simple: a low-rank addition that can merge back into the existing weights.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson caution against treating a LoRA adapter like a full fine-tuned checkpoint?",
+            "options": [
+              "Because adapters are cheap to store precisely because they're small, and treating them like full checkpoints defeats that advantage",
+              "Because LoRA adapters are always exactly the same size as the full model",
+              "Because full fine-tuned checkpoints are always cheaper to store than LoRA adapters",
+              "Because adapters cannot actually be stored or reused at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is losing sight of why LoRA is valuable: its small storage footprint, which is undermined if adapters are handled like full model checkpoints.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ft_qlora_and_quantization",
+      "title": "QLoRA: Fine-Tuning on a Quantized Base",
+      "description": "Shrink the frozen base model's memory footprint with quantization, then train LoRA adapters on top.",
+      "duration": "13 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain what QLoRA adds on top of LoRA and why it makes fine-tuning large models feasible on limited hardware."
+          },
+          {
+            "title": "🧠 What quantization does",
+            "content": "**Quantization** reduces the numeric precision used to store model weights — for example, from 16-bit floating point down to 4-bit representations — which shrinks memory usage roughly proportionally, at some cost to numeric precision. A model that needs, say, 32GB in 16-bit precision might fit in around 8GB at 4-bit precision. This is normally a technique for making inference cheaper, but QLoRA applies it during training.\n\n```python\n# Conceptual memory comparison\nmodel_16bit_gb = num_params_billion * 2   # ~2 bytes per param\nmodel_4bit_gb  = num_params_billion * 0.5  # ~0.5 bytes per param\n# a 16B-parameter model: ~32GB at 16-bit vs. ~8GB at 4-bit\n```"
+          },
+          {
+            "title": "🔗 Combining quantization with LoRA",
+            "content": "**QLoRA** loads the frozen base model in 4-bit precision (dramatically cutting its memory footprint) and then trains LoRA adapters on top of it in higher precision, so the small amount of actual learning happens with enough numeric precision to be stable, while the large frozen base stays compressed. The result: fine-tuning models that would otherwise need enterprise-grade GPU memory becomes possible on a single high-end consumer GPU, because the expensive part (storing the frozen base plus its gradients and optimizer state) is what quantization shrinks, and LoRA already made the trainable part tiny."
+          },
+          {
+            "title": "⚖️ The trade-off",
+            "content": "Quantization isn't free — some quality can be lost from the reduced precision, though QLoRA's specific design (careful quantization scheme plus higher-precision adapter training) was built to minimize that loss, and in practice it often comes very close to full-precision LoRA fine-tuning quality. The trade-off is usually worth it when the alternative is 'can't fine-tune this model at all' due to hardware constraints."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming quantization is free.** Some precision loss is real, even if QLoRA's design minimizes it — it's worth validating output quality, not just assuming parity with full precision.\n\n**Quantizing the LoRA adapters themselves, not just the frozen base.** The adapters need enough precision to train stably; QLoRA specifically keeps them in higher precision while only the frozen base is compressed.\n\n**Reaching for QLoRA when standard LoRA already fits comfortably in available memory.** The extra complexity of quantization is worth it specifically when memory is the binding constraint, not as a default."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ft_qlora_and_quantization_quiz",
+        "questions": [
+          {
+            "question": "What does quantization reduce to shrink a model's memory footprint?",
+            "options": [
+              "The number of layers in the model",
+              "The numeric precision used to store weights (e.g., from 16-bit to 4-bit)",
+              "The vocabulary size of the tokenizer",
+              "The context window length"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Quantization stores weights with fewer bits per value, which directly and roughly proportionally reduces memory usage, at some cost to numeric precision.",
+            "id": "q1"
+          },
+          {
+            "question": "In QLoRA, what stays frozen and quantized while the LoRA adapters train?",
+            "options": [
+              "The optimizer only",
+              "The base model's weights",
+              "The training data",
+              "The tokenizer vocabulary"
+            ],
+            "correctAnswer": 1,
+            "explanation": "QLoRA quantizes the large frozen base model to 4-bit precision to save memory, while the small trainable LoRA adapters are trained in higher precision on top.",
+            "id": "q2"
+          },
+          {
+            "question": "Why does QLoRA make fine-tuning large models feasible on limited hardware?",
+            "options": [
+              "It shrinks the memory-hungry frozen base model via quantization while keeping the trainable part small via LoRA",
+              "It removes the need for any GPU at all",
+              "It reduces the dataset size required",
+              "It eliminates the need for a base model entirely"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The expensive part of fine-tuning is holding the base model plus gradients and optimizer state in memory; QLoRA shrinks the base via quantization and LoRA already minimizes the trainable part.",
+            "id": "q3"
+          },
+          {
+            "question": "In this lesson's conceptual code comparison, roughly how much memory does a 16-billion-parameter model need at 4-bit versus 16-bit precision?",
+            "options": [
+              "Roughly 8GB at 4-bit versus roughly 32GB at 16-bit",
+              "Exactly the same memory at both precisions",
+              "Roughly 32GB at 4-bit versus roughly 8GB at 16-bit",
+              "4-bit precision requires more memory than 16-bit precision"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code comment estimates a 16B-parameter model at roughly 32GB in 16-bit precision versus roughly 8GB in 4-bit precision, illustrating quantization's memory savings.",
+            "id": "q4"
+          },
+          {
+            "question": "Why does QLoRA keep the LoRA adapters in higher precision even though the base model is quantized to 4-bit?",
+            "options": [
+              "Because the small amount of actual learning needs enough numeric precision to be stable",
+              "Because higher precision adapters are required to make the base model quantizable at all",
+              "Because the adapters are actually larger than the base model in QLoRA",
+              "Because precision has no effect on training stability"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explains that while the frozen base is compressed for memory savings, the trainable adapters are kept at higher precision so the actual learning remains numerically stable.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does this lesson say quantization is 'normally a technique for making inference cheaper' before noting QLoRA's twist?",
+            "options": [
+              "Because QLoRA applies quantization during training, not just at inference time as is more typical",
+              "Because quantization can never actually be applied at training time under any circumstances",
+              "Because inference and training use completely unrelated quantization techniques",
+              "Because QLoRA removes quantization entirely once training begins"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson notes that quantization is usually used to cheapen inference, and highlights that QLoRA's distinguishing move is applying that same technique during training.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson warn against assuming quantization is entirely free in terms of quality?",
+            "options": [
+              "Because some precision loss is real, even though QLoRA's design minimizes it, so validating output quality is worthwhile",
+              "Because quantization always perfectly preserves every aspect of model quality with zero loss",
+              "Because QLoRA eliminates all possible precision loss by design, with no need for validation",
+              "Because quality loss from quantization can never actually be measured or observed"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is assuming quantization has zero cost, when some precision loss is real and worth checking against your specific use case.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson caution against reaching for QLoRA when standard LoRA already fits comfortably in available memory?",
+            "options": [
+              "Because the extra complexity of quantization is worth it specifically when memory is the binding constraint, not as a default choice",
+              "Because QLoRA is always strictly faster and simpler than standard LoRA regardless of memory availability",
+              "Because standard LoRA can never fit in any amount of available GPU memory",
+              "Because QLoRA and standard LoRA are functionally identical with no added complexity either way"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is reaching for QLoRA unnecessarily, when its added complexity is justified specifically by a genuine memory constraint, not used by default.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ft_other_peft_methods",
+      "title": "Beyond LoRA: Other PEFT Methods",
+      "description": "LoRA is the most popular parameter-efficient method, but it's not the only one — knowing the family helps you pick the right tool.",
+      "duration": "12 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can name at least two other parameter-efficient fine-tuning approaches besides LoRA and describe how they differ conceptually."
+          },
+          {
+            "title": "📌 Prefix and prompt tuning",
+            "content": "Instead of touching the model's weights at all, **prefix tuning** and **prompt tuning** prepend a set of trainable 'virtual tokens' to the input at every layer (or just the input layer), and only those virtual token embeddings are trained. The base model is entirely frozen. This is extremely parameter-efficient — often even smaller than a LoRA adapter — but generally has less capacity to shift behavior than LoRA, since it's only influencing what the model attends to, not any of its actual weight transformations."
+          },
+          {
+            "title": "🧩 Adapter layers",
+            "content": "The original 'adapters' approach (which predates LoRA) inserts small new trainable neural network layers between the existing frozen layers of the transformer, rather than modifying existing weights. These add a small amount of extra computation at inference time (since they're new layers in the forward pass), which is one reason LoRA — which merges back into existing weights with no extra inference-time layers — became more popular for many use cases.\n\n```python\n# Conceptual difference in the forward pass\n# Classic adapter: adds a NEW layer, extra compute at inference\nx = frozen_layer(x)\nx = adapter_layer(x)          # new, always-on extra computation\n\n# LoRA: merges into the EXISTING layer, no extra inference-time layer\nx = frozen_layer(x) + lora_update(x)  # can be pre-merged into frozen_layer's weights\n```"
+          },
+          {
+            "title": "🎛️ IA³ and other lightweight scaling methods",
+            "content": "Methods like **IA³** (Infused Adapter by Inhibiting and Amplifying Inner Activations) go even further, learning only a small set of per-channel scaling vectors that rescale activations at key points in the network, rather than adding matrices at all. This can be even more parameter-efficient than LoRA, at the cost of somewhat less flexibility for larger behavior shifts. The general pattern across all of these: freeze almost everything, train a small, cleverly-placed set of new parameters, and let the frozen network's existing knowledge do most of the work."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming all PEFT methods are interchangeable with identical trade-offs.** Prefix tuning, adapters, and IA³ each make different capacity-versus-efficiency trade-offs — the right choice depends on the task and hardware constraints, not a single default.\n\n**Overlooking that classic adapters add inference-time latency.** Unlike LoRA, which can be merged into existing weights, adapter layers stay in the forward pass permanently, which matters for latency-sensitive applications.\n\n**Reaching for an exotic PEFT method before trying LoRA.** LoRA's popularity reflects a strong, well-understood default — more specialized methods are worth it for specific constraints, not as a first try."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ft_other_peft_methods_quiz",
+        "questions": [
+          {
+            "question": "What do prefix tuning and prompt tuning train, while leaving the base model frozen?",
+            "options": [
+              "A full copy of the model's weights",
+              "A set of trainable 'virtual token' embeddings prepended to the input",
+              "The tokenizer's vocabulary",
+              "The attention mechanism's architecture"
+            ],
+            "correctAnswer": 1,
+            "explanation": "These methods only train virtual token embeddings that get prepended to inputs, influencing what the frozen model attends to, without touching any of its weights.",
+            "id": "q1"
+          },
+          {
+            "question": "How do classic adapter layers differ structurally from LoRA?",
+            "options": [
+              "Adapters insert new small layers into the forward pass, adding inference-time computation, while LoRA's update merges into existing weights with no extra layers",
+              "Adapters and LoRA are mathematically identical",
+              "Adapters only work on convolutional networks",
+              "Adapters require full fine-tuning first"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Classic adapters add new layers between existing ones (extra inference cost), whereas LoRA's low-rank update can be merged directly into existing weight matrices, adding no extra layers at inference.",
+            "id": "q2"
+          },
+          {
+            "question": "What is the general pattern shared by LoRA, prefix tuning, adapters, and IA³?",
+            "options": [
+              "They all fully retrain the model from random initialization",
+              "They freeze almost all of the base model and train only a small, cleverly-placed set of new parameters",
+              "They all require the model to be quantized first",
+              "They only work for computer vision models"
+            ],
+            "correctAnswer": 1,
+            "explanation": "All PEFT methods share the same core idea: keep the frozen base model's knowledge intact and only train a small number of new parameters to adapt behavior cheaply.",
+            "id": "q3"
+          },
+          {
+            "question": "In this lesson's conceptual code comparison, why can LoRA's update be 'pre-merged' into frozen_layer's weights while a classic adapter's cannot?",
+            "options": [
+              "Because LoRA's update is an additive low-rank term applied to the same computation, while an adapter is a separate new layer in the forward pass",
+              "Because classic adapters are always mathematically identical to LoRA updates",
+              "Because LoRA never actually produces any update that could be merged",
+              "Because adapters are applied before the frozen layer, not after it"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code comparison shows LoRA's update as x = frozen_layer(x) + lora_update(x), which can be pre-merged, versus the adapter's separate x = adapter_layer(x) step that always runs at inference.",
+            "id": "q4"
+          },
+          {
+            "question": "According to this lesson, what specific capability does IA³ learn instead of adding matrices?",
+            "options": [
+              "A small set of per-channel scaling vectors that rescale activations at key points in the network",
+              "An entirely new attention mechanism",
+              "A completely separate small transformer model",
+              "A new tokenizer vocabulary specific to the target task"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly describes IA³ as learning per-channel scaling vectors to rescale activations, rather than adding low-rank matrices like LoRA does.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does this lesson describe prefix and prompt tuning as having 'less capacity to shift behavior than LoRA'?",
+            "options": [
+              "Because they only influence what the model attends to via virtual tokens, without touching any of the model's actual weight transformations",
+              "Because prefix and prompt tuning always require more trainable parameters than LoRA",
+              "Because prefix and prompt tuning modify every weight matrix in the model directly",
+              "Because capacity to shift behavior has no relationship to what a method actually trains"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explains that since these methods only add virtual tokens rather than changing weight transformations, they generally have less capacity for large behavior shifts compared to LoRA.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson warn against assuming all PEFT methods are interchangeable with identical trade-offs?",
+            "options": [
+              "Because prefix tuning, adapters, and IA³ each make different capacity-versus-efficiency trade-offs suited to different tasks and constraints",
+              "Because every PEFT method produces mathematically identical results regardless of choice",
+              "Because only LoRA is ever a valid choice among all PEFT methods",
+              "Because capacity and efficiency trade-offs are identical across every PEFT approach"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is treating these methods as interchangeable, when each makes genuinely different trade-offs worth matching to the specific task and hardware situation.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson recommend trying LoRA before reaching for a more exotic PEFT method?",
+            "options": [
+              "Because LoRA's popularity reflects a strong, well-understood default, and more specialized methods are worth it for specific constraints rather than as a first try",
+              "Because exotic PEFT methods are always strictly better than LoRA in every situation",
+              "Because LoRA is the only PEFT method that has ever been implemented in practice",
+              "Because trying an exotic method first always produces faster results than starting with LoRA"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is reaching for a specialized method prematurely, when LoRA's well-understood, strong default behavior makes it the sensible starting point.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ft_choosing_rank_and_target_modules",
+      "title": "Choosing Rank and Target Modules",
+      "description": "Two practical LoRA decisions that matter more than most hyperparameters: which layers to adapt, and how big to make the adapter.",
+      "duration": "12 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can make a reasonable starting choice for LoRA rank and target modules given a task, and explain the intuition behind the choice."
+          },
+          {
+            "title": "🎯 Which layers to target",
+            "content": "LoRA can be applied to any weight matrix, but it's most commonly applied to the **attention projection matrices** (query, key, value, and output projections), since that's where a lot of the model's task-relevant behavior lives. Some configurations also target the feed-forward layers for tasks that need bigger shifts in behavior. Targeting more modules gives more capacity to adapt but increases trainable parameters and training cost — targeting just the query and value projections is a common lightweight starting point that captures much of LoRA's benefit.\n\n```python\n# A common lightweight starting configuration\nlora_config = {\n    \"r\": 8,\n    \"target_modules\": [\"q_proj\", \"v_proj\"],  # query and value only, to start\n    \"lora_alpha\": 16,\n}\n```"
+          },
+          {
+            "title": "📏 Picking a starting rank",
+            "content": "For lightweight style or format adaptation with a small, clean dataset, **rank 4-8** is often plenty. For moderate task adaptation (a new but related skill, more complex instruction-following), **rank 16-32** is a reasonable middle ground. For substantial behavior shifts or when working with a larger, more diverse dataset, **rank 64** or higher may be justified — though at that point it's worth comparing against whether full fine-tuning would actually be more efficient overall.\n\nA practical workflow: start low, run a real evaluation (not just training loss), and increase rank only if the model clearly lacks capacity to fit the task rather than assuming bigger is always better."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Cranking rank way up 'to be safe' without evidence it's needed.** This mostly just adds training cost and overfitting risk on small datasets.\n\n**Only targeting query/value projections when a task genuinely needs feed-forward adaptation too.** Blaming LoRA itself when results plateau, rather than reconsidering which modules are targeted.\n\n**Not comparing against a properly tuned baseline** (even a smaller rank or fewer target modules) before concluding a bigger configuration was necessary."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ft_choosing_rank_and_target_modules_quiz",
+        "questions": [
+          {
+            "question": "Which weight matrices are most commonly targeted by LoRA?",
+            "options": [
+              "Only the embedding layer",
+              "The attention projection matrices (query, key, value, output)",
+              "Only the final classification head",
+              "The tokenizer's merge rules"
+            ],
+            "correctAnswer": 1,
+            "explanation": "LoRA is most commonly applied to attention projections since a large share of task-relevant behavior lives there, though feed-forward layers can also be targeted for bigger shifts.",
+            "id": "q1"
+          },
+          {
+            "question": "What's a reasonable starting point for LoRA rank on a lightweight style/format adaptation task with a small, clean dataset?",
+            "options": [
+              "Rank 4-8",
+              "Rank 1024 or higher",
+              "Full fine-tuning of all parameters",
+              "No LoRA at all — quantize the whole model"
+            ],
+            "correctAnswer": 0,
+            "explanation": "For small, clean, lightweight adaptation tasks, a low rank (4-8) is often sufficient — going much higher adds cost and overfitting risk without clear benefit.",
+            "id": "q2"
+          },
+          {
+            "question": "What's a common mistake when choosing LoRA configuration described in this lesson?",
+            "options": [
+              "Starting with a low rank and increasing only if evaluation shows a capacity shortfall",
+              "Cranking rank way up 'to be safe' without evidence it's needed",
+              "Comparing against a tuned baseline before scaling up",
+              "Targeting query and value projections as a lightweight starting point"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Increasing rank without evidence mostly adds training cost and overfitting risk; the better practice is to start low and scale up only when evaluation shows the model genuinely lacks capacity.",
+            "id": "q3"
+          },
+          {
+            "question": "In this lesson's example lora_config, which modules are targeted as a lightweight starting configuration?",
+            "options": [
+              "q_proj and v_proj",
+              "Every single layer in the entire model",
+              "Only the feed-forward layers, with no attention modules",
+              "The tokenizer's embedding matrix"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's example configuration targets q_proj and v_proj (query and value projections) at rank 8 as a common lightweight starting point.",
+            "id": "q4"
+          },
+          {
+            "question": "According to this lesson, at what rank range is moderate task adaptation, like a new but related skill, typically reasonable?",
+            "options": [
+              "Rank 16-32",
+              "Rank 1-2",
+              "Rank 4096 or higher, always",
+              "Exactly rank 1 in every case"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson describes rank 16-32 as a reasonable middle ground for moderate task adaptation, between lightweight style adaptation and substantial behavior shifts.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does this lesson suggest comparing a high LoRA rank against whether full fine-tuning would be more efficient overall?",
+            "options": [
+              "Because at very high ranks, LoRA's efficiency advantage over full fine-tuning starts to narrow, so the comparison becomes worth making",
+              "Because full fine-tuning is always strictly cheaper than any LoRA configuration",
+              "Because rank has no relationship to how LoRA compares to full fine-tuning in cost",
+              "Because LoRA at any rank always outperforms full fine-tuning with no exceptions"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson notes that for substantial behavior shifts requiring very high rank, it becomes worth checking whether full fine-tuning might actually be the more efficient choice overall.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson warn against cranking LoRA rank up 'to be safe' without evidence it's needed?",
+            "options": [
+              "Because this mostly just adds training cost and overfitting risk on small datasets, without a demonstrated capacity benefit",
+              "Because higher rank always strictly improves results with no downside whatsoever",
+              "Because rank has no effect on training cost or overfitting risk at all",
+              "Because 'to be safe' reasoning always produces the mathematically optimal rank choice"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is increasing rank preemptively, which mainly raises cost and overfitting risk rather than reliably improving results.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson warn against blaming LoRA itself when results plateau, without first reconsidering which modules are targeted?",
+            "options": [
+              "Because a task might genuinely need feed-forward adaptation too, and the actual issue could be an insufficient set of target modules, not LoRA as a technique",
+              "Because LoRA can never actually be the cause of a training plateau under any circumstances",
+              "Because target module selection has no bearing on whether results plateau",
+              "Because plateauing results always mean the base model itself is fundamentally broken"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is attributing a plateau to LoRA generally, when the real fix might be expanding target modules (like adding feed-forward layers) rather than abandoning the technique.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

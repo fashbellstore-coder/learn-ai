@@ -1,0 +1,559 @@
+{
+  "id": "app_caching_and_performance",
+  "title": "Caching & Performance",
+  "description": "Caching LLM responses (exact and semantic), database/query optimization, and load testing an AI API.",
+  "icon": "⚡",
+  "color": "#E65100",
+  "order": 4,
+  "estimatedHours": 4,
+  "difficulty": "advanced",
+  "prerequisites": [
+    "app_background_jobs"
+  ],
+  "lessons": [
+    {
+      "id": "app_caching_llm_responses",
+      "title": "Caching LLM Responses",
+      "description": "The most direct way to cut both latency and cost for an AI API: don't call the model at all when you don't have to.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain what an LLM response cache stores and looks up, and what it trades away."
+          },
+          {
+            "title": "💾 Exact-match caching: the simple version",
+            "content": "If the exact same prompt (and relevant parameters like temperature) is submitted again, an exact-match cache can return the previously computed response instantly, skipping the LLM call entirely — a direct application of the memoization idea from the Software Engineering course's dynamic-programming lesson, applied to an API response instead of an algorithm's subproblem."
+          },
+          {
+            "title": "💰 Why this is worth doing for LLM APIs specifically",
+            "content": "Because LLM calls are comparatively slow and expensive per request, even a moderate cache hit rate meaningfully reduces both latency (for cached requests, response is near-instant) and cost (for cached requests, no LLM API charge) — directly extending the cost-per-token discipline from the LLMOps and Inference courses to the application layer."
+          },
+          {
+            "title": "⚠️ What exact-match caching misses",
+            "content": "Exact-match caching only helps when literally the same prompt recurs — 'What's the capital of France?' and 'what is the capital of france?' would miss each other despite being semantically identical, which is exactly the gap the next lesson's semantic caching addresses."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "Here's an exact-match cache, keyed on prompt and temperature together, showing exactly which requests hit and which don't.\n\n```python\ncall_count = 0\ncache = {}\n\ndef call_llm(prompt, temperature):\n    global call_count\n    call_count += 1\n    return f\"[response #{call_count} to {prompt!r} @ temp={temperature}]\"\n\ndef cached_call(prompt, temperature):\n    key = (prompt, temperature)  # must match on BOTH prompt and parameters\n    if key in cache:\n        return cache[key], \"HIT\"\n    result = call_llm(prompt, temperature)\n    cache[key] = result\n    return result, \"MISS\"\n\nrequests = [\n    (\"What's the capital of France?\", 0.7),\n    (\"What's the capital of France?\", 0.7),   # identical -- should HIT\n    (\"what is the capital of france?\", 0.7),   # semantically same, textually different -- MISS\n    (\"What's the capital of France?\", 0.9),    # same text, different temperature -- MISS\n]\n\nfor prompt, temp in requests:\n    result, outcome = cached_call(prompt, temp)\n    print(f\"{outcome}: {prompt!r} @ {temp} -> {result}\")\n\nprint(f\"total LLM calls made: {call_count} (out of {len(requests)} requests)\")\n```\n\nThe first request is a `MISS` (nothing cached yet) and calls the LLM. The second request has the exact same prompt and temperature, so its `(prompt, temperature)` key matches the cache and it's a `HIT` — no LLM call. The third request differs only in capitalization, which makes it a *different* string and therefore a different cache key, so it's a `MISS` despite meaning the same thing — exactly the limitation the lesson describes. The fourth request has the identical text but a different temperature, which also changes the key, so it's a `MISS` too: `call_count` ends at 3, not 4, reflecting the one real cache hit."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Caching the response without including all relevant parameters in the cache key.** If temperature, model version, or other parameters that affect output aren't part of the key, the cache can return a response generated under different settings than the current request actually asked for.\n\n**Caching responses that shouldn't be reused across requests, like ones containing user-specific or time-sensitive data.** A cached answer to \"what's my account balance\" or \"what's today's date\" returned to a different user, or hours later, is a correctness bug, not just an efficiency one.\n\n**Never expiring cache entries.** Even for content that's safe to cache, an unbounded cache with no eviction policy grows forever and can serve an answer that's technically still \"cached\" long after it's stopped being the best available response.\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "app_caching_llm_responses_quiz",
+        "questions": [
+          {
+            "question": "What does an exact-match LLM response cache do when it sees a previously-seen prompt again?",
+            "options": [
+              "Returns the previously computed response instantly, skipping the LLM call entirely",
+              "Always calls the LLM again to verify the cached response is still correct",
+              "Deletes the cached response and generates a new one",
+              "Ignores the cache and processes the request normally"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The core value of caching is returning the known result directly, entirely avoiding the cost and latency of a repeated LLM call.",
+            "id": "q1"
+          },
+          {
+            "question": "Why does caching provide an outsized benefit specifically for LLM API calls compared to typical web requests?",
+            "options": [
+              "Because LLM calls are comparatively slow and expensive per request, so avoiding repeated calls saves meaningfully more latency and cost",
+              "Because LLM APIs cannot be cached under any circumstances",
+              "Because typical web requests are always slower than LLM calls",
+              "Because caching has no effect on cost for any kind of API"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The high per-call cost and latency of LLM requests make even a moderate cache hit rate translate into meaningful savings, more so than for a typical cheap web request.",
+            "id": "q2"
+          },
+          {
+            "question": "What is the limitation of exact-match caching that motivates semantic caching?",
+            "options": [
+              "It misses semantically identical prompts that differ in exact wording, like capitalization or phrasing differences",
+              "It cannot store any response longer than one sentence",
+              "It requires the LLM to run twice for every cached request",
+              "It only works for prompts written in English"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Because exact-match caching keys strictly on identical text, prompts that mean the same thing but are worded differently won't hit the cache, which is exactly the gap semantic caching is built to close.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, why does the third request (`\"what is the capital of france?\"`) result in a MISS?",
+            "options": [
+              "Because it uses a different temperature than the first request",
+              "Because its cache key -- the exact prompt string -- differs from the first request's, even though the meaning is the same",
+              "Because the cache was cleared before the third request",
+              "Because call_llm always returns a MISS on odd-numbered calls"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The cache key is `(prompt, temperature)`, and since \"what is the capital of france?\" differs in capitalization from \"What's the capital of France?\", it's a different string and therefore a different key, causing a MISS despite meaning the same thing.",
+            "id": "q4"
+          },
+          {
+            "question": "What is `call_count` at the end of the code example, and why?",
+            "options": [
+              "4, since every request calls the LLM",
+              "3, since only one of the four requests (the second) is an actual cache HIT",
+              "1, since only the first request is processed",
+              "0, since the cache prevents all LLM calls"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Requests 1, 3, and 4 are all MISSes (each calling `call_llm` and incrementing `call_count`), while only request 2 is a HIT that skips the call — so `call_count` ends at 3 out of 4 total requests.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is caching a response without including all relevant parameters (like temperature) in the cache key a mistake?",
+            "options": [
+              "Because the cache can then return a response generated under different settings than the current request actually asked for",
+              "Because cache keys can only ever be strings",
+              "Because temperature has no effect on LLM output",
+              "Because including temperature in the key always causes a cache MISS"
+            ],
+            "correctAnswer": 0,
+            "explanation": "If parameters that affect the output (like temperature) aren't part of the key, two requests with the same prompt but different settings could incorrectly share a cached response that doesn't reflect the current request's actual parameters.",
+            "id": "q6"
+          },
+          {
+            "question": "Why is caching a response to \"what's my account balance\" across different users flagged as a serious mistake?",
+            "options": [
+              "Because it's a correctness bug, not just an efficiency one -- a cached answer meant for one user could be returned to a different user entirely",
+              "Because account balance queries are always too expensive to cache",
+              "Because caching is technically impossible for personalized queries",
+              "Because this only affects response latency, not correctness"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly distinguishes this from a performance issue: returning one user's cached, user-specific answer to a different user (or serving stale time-sensitive data) is a correctness failure, not just a missed optimization.",
+            "id": "q7"
+          },
+          {
+            "question": "Why is never expiring cache entries considered a problem, even for content that's safe to cache?",
+            "options": [
+              "Because an unbounded cache with no eviction policy grows forever and can serve a technically-cached answer long after it's stopped being the best available response",
+              "Because expiring cache entries is required by law",
+              "Because caches without expiration always return incorrect results immediately",
+              "Because cache entries automatically corrupt after 24 hours"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson notes that even safe-to-cache content benefits from eventual expiration, since an ever-growing cache with no eviction can keep serving outdated answers well past their useful lifetime.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "app_semantic_caching_vs_exact_match",
+      "title": "Semantic Caching vs. Exact-Match",
+      "description": "Using the embeddings you've studied all curriculum long to catch cache hits that exact string matching misses.",
+      "duration": 13,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain how semantic caching uses embeddings and vector search to catch cache hits exact matching would miss."
+          },
+          {
+            "title": "🧠 The idea: cache by meaning, not exact text",
+            "content": "Semantic caching embeds each incoming prompt and searches a small vector index (using exactly the techniques from the Vector Databases course) of previously-cached prompts for a close semantic match. If a sufficiently similar prompt is found — above some similarity threshold — its cached response is returned instead of calling the LLM again."
+          },
+          {
+            "title": "⚖️ The new trade-off: a similarity threshold decision",
+            "content": "Unlike exact-match caching, semantic caching introduces a judgment call: how similar is similar enough? Too loose a threshold returns a cached response for a prompt that actually needed a different answer — a real correctness risk unique to this approach. Too strict a threshold barely improves on exact matching at all. This threshold should be tuned with the same evaluation discipline used to choose recall/latency settings in the Vector Databases course."
+          },
+          {
+            "title": "🎯 When it's worth the added complexity",
+            "content": "Semantic caching is most valuable for applications with a lot of near-duplicate queries phrased differently — a customer support bot fielding the same handful of common questions worded many different ways — and less valuable for applications with highly varied, rarely-repeated prompts, where the added infrastructure cost of running an embedding model and vector search wouldn't pay for itself in cache hits."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "A tiny, deliberately crude \"embedding\" (word overlap) is enough to show the threshold trade-off concretely without needing a real embedding model.\n\n```python\ndef crude_similarity(a, b):\n    \"\"\"A toy stand-in for cosine similarity between real embeddings: fraction of shared words.\"\"\"\n    words_a, words_b = set(a.lower().split()), set(b.lower().split())\n    return len(words_a & words_b) / len(words_a | words_b)\n\ncached_prompts = {\n    \"how do I reset my password\": \"Go to Settings > Security > Reset Password.\",\n}\n\ndef semantic_lookup(prompt, threshold):\n    best_match, best_score = None, 0.0\n    for cached_prompt in cached_prompts:\n        score = crude_similarity(prompt, cached_prompt)\n        if score > best_score:\n            best_match, best_score = cached_prompt, score\n    if best_score >= threshold:\n        return cached_prompts[best_match], best_score, \"HIT\"\n    return None, best_score, \"MISS (calls the LLM)\"\n\nqueries = [\n    \"how do I reset my password\",       # near-identical\n    \"how can I reset my account password\",  # paraphrased, high overlap\n    \"what's the weather like today\",     # unrelated\n]\n\nfor threshold in [0.3, 0.7]:\n    print(f\"--- threshold={threshold} ---\")\n    for q in queries:\n        result, score, outcome = semantic_lookup(q, threshold)\n        print(f\"  {outcome} (score={score:.2f}): {q!r}\")\n```\n\nAt `threshold=0.3`, the paraphrased second query (which shares several words with the cached prompt) scores well above 0.3 and correctly `HIT`s — but this looser threshold is also exactly the setting that risks a false positive on a genuinely different query if it happens to share enough words. At `threshold=0.7`, that same paraphrased query's similarity score (based on partial word overlap) likely falls short of 0.7 and becomes a `MISS`, calling the LLM even though a good cached answer existed — illustrating exactly the too-strict-barely-helps side of the trade-off the lesson describes. The unrelated third query correctly stays a `MISS` at both thresholds."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Setting the similarity threshold once and never revisiting it.** The right threshold depends on the actual distribution of real queries an application receives, which can shift over time — a threshold tuned once during development can become miscalibrated as usage patterns change.\n\n**Applying semantic caching to prompts where a 'close enough' match is actually wrong.** A prompt asking about a specific date, a specific user's data, or a specific numeric value needs an exact answer — semantic similarity to a *different* specific request is not the same as being the same request.\n\n**Adopting semantic caching before confirming the traffic pattern actually has enough near-duplicate queries to benefit.** The added embedding and vector-search infrastructure has a real cost; it should be justified by measured query patterns, not adopted speculatively.\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "app_semantic_caching_vs_exact_match_quiz",
+        "questions": [
+          {
+            "question": "How does semantic caching decide whether an incoming prompt matches a previously cached one?",
+            "options": [
+              "It embeds the prompt and searches a vector index of cached prompts for one above a similarity threshold, using the same techniques as the Vector Databases course",
+              "It only compares the exact character-by-character text of the two prompts",
+              "It always returns the most recently cached response regardless of similarity",
+              "It requires the exact same prompt length in tokens"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Semantic caching's core mechanism is embedding-based similarity search, extending the vector search techniques covered earlier in this curriculum to a new use case.",
+            "id": "q1"
+          },
+          {
+            "question": "What new risk does semantic caching introduce that exact-match caching does not have?",
+            "options": [
+              "A similarity threshold set too loosely could return a cached response for a prompt that actually needed a different answer",
+              "It cannot ever return a cache hit under any configuration",
+              "It requires no embedding model at all",
+              "It is always slower than calling the LLM directly"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The judgment call of setting a similarity threshold is unique to semantic caching — get it wrong and you risk returning an incorrect cached response for a genuinely different query.",
+            "id": "q2"
+          },
+          {
+            "question": "When is semantic caching most likely to be worth its added infrastructure complexity?",
+            "options": [
+              "When an application receives a lot of near-duplicate queries phrased differently, like a support bot fielding common questions worded many ways",
+              "When every incoming prompt is completely unique and never repeats in any form",
+              "When the application never calls an LLM at all",
+              "When exact-match caching already achieves a 100% hit rate"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The value of semantic caching scales with how much near-duplicate, differently-worded traffic exists — for highly varied, rarely-repeated prompts, its added cost wouldn't pay off.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, what does `crude_similarity` measure between two prompts?",
+            "options": [
+              "The exact character-by-character match between the two strings",
+              "The fraction of words shared between the two prompts, out of all their combined unique words",
+              "The number of API calls made so far",
+              "Whether the two prompts have the exact same length"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`crude_similarity` computes `len(words_a & words_b) / len(words_a | words_b)` — the size of the word intersection divided by the size of the word union — a simple stand-in for real embedding-based similarity.",
+            "id": "q4"
+          },
+          {
+            "question": "Why does the paraphrased query ('how can I reset my account password') behave differently at threshold=0.3 versus threshold=0.7?",
+            "options": [
+              "Because its similarity score changes between the two runs",
+              "Because its similarity score stays the same, but only clears the lower 0.3 threshold, not the stricter 0.7 threshold, illustrating the too-strict-misses-real-matches side of the trade-off",
+              "Because the cached_prompts dictionary changes between runs",
+              "Because crude_similarity returns a random value each time"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The query's similarity score to the cached prompt is fixed by its word overlap and doesn't change between the two loop iterations; what changes is the threshold it's compared against, so it HITs at the looser 0.3 but likely MISSes at the stricter 0.7.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is setting the similarity threshold once and never revisiting it flagged as a mistake?",
+            "options": [
+              "Because the right threshold depends on the actual distribution of real queries, which can shift over time, so a threshold tuned once can become miscalibrated later",
+              "Because similarity thresholds cannot be changed after deployment",
+              "Because thresholds should always be set to exactly 0.5",
+              "Because revisiting a threshold always breaks the caching system"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson points out that query patterns can drift over time, so a threshold that was well-tuned during development may no longer be appropriate as real-world usage evolves.",
+            "id": "q6"
+          },
+          {
+            "question": "Why is applying semantic caching to a prompt asking about a specific user's data or a specific numeric value considered risky?",
+            "options": [
+              "Because such prompts need an exact answer, and semantic similarity to a different specific request is not the same as being that same request",
+              "Because numeric values cannot be embedded by any embedding model",
+              "Because semantic caching only works for prompts under 10 words",
+              "Because specific-data prompts always have a similarity score of exactly 1.0"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's common mistakes warn that a 'close enough' semantic match is inappropriate when the correct answer genuinely differs based on specifics — a cached answer for a similar-sounding but different specific request would be wrong.",
+            "id": "q7"
+          },
+          {
+            "question": "Why should semantic caching be adopted only after confirming the traffic pattern has enough near-duplicate queries?",
+            "options": [
+              "Because the added embedding and vector-search infrastructure has a real cost that should be justified by measured query patterns, not adopted speculatively",
+              "Because semantic caching is illegal without prior traffic analysis",
+              "Because embedding models cannot be used without a measured traffic pattern",
+              "Because near-duplicate queries are impossible to detect in practice"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson frames this as a cost-justification question: semantic caching's infrastructure overhead should be weighed against the actual, measured benefit it would provide for a given application's real traffic.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "app_database_and_query_optimization",
+      "title": "Database and Query Optimization",
+      "description": "An AI application's slowest part often turns out to be an ordinary, un-indexed database query.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Name common database performance problems in an AI application and how indexing addresses them."
+          },
+          {
+            "title": "🐌 The N+1 query problem",
+            "content": "A common performance bug: fetching a list of items, then running a separate query for each item's related data in a loop — turning what should be one or two queries into N+1 of them. This scales badly as data grows, and is a frequent cause of an AI application feeling slow for reasons that have nothing to do with the model itself."
+          },
+          {
+            "title": "📇 Indexing: the SQL course's payoff at the application layer",
+            "content": "An index lets the database find matching rows without scanning the whole table — directly extending the SQL course's indexing material into a concrete performance fix: a query filtering by user ID or conversation ID should almost always have an index on that column, or it degrades to a full table scan as the table grows."
+          },
+          {
+            "title": "🔍 Profile before optimizing",
+            "content": "The same 'measure, then optimize' discipline from the Software Engineering course's algorithmic-thinking lesson applies here: use your database's query analysis tools (like `EXPLAIN` in Postgres) to see which specific queries are actually slow, rather than guessing which part of the system needs attention."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "Here's the N+1 pattern and its fix side by side, with a query counter making the difference unmistakable.\n\n```python\nconversations = [{\"id\": i, \"user_id\": i % 3} for i in range(1, 7)]  # 6 conversations, 3 users\nmessages_by_conversation = {i: [f\"msg-{i}-a\", f\"msg-{i}-b\"] for i in range(1, 7)}\n\nquery_count = 0\n\ndef fetch_conversations():\n    global query_count\n    query_count += 1  # 1 query: SELECT * FROM conversations\n    return conversations\n\ndef fetch_messages_for(conversation_id):\n    global query_count\n    query_count += 1  # 1 query per call: SELECT * FROM messages WHERE conversation_id = ?\n    return messages_by_conversation[conversation_id]\n\ndef fetch_all_messages_batched(conversation_ids):\n    global query_count\n    query_count += 1  # 1 query total: SELECT * FROM messages WHERE conversation_id IN (...)\n    return {cid: messages_by_conversation[cid] for cid in conversation_ids}\n\n# --- N+1: one query per conversation, inside a loop ---\n\nquery_count = 0\nconvs = fetch_conversations()\nfor conv in convs:\n    fetch_messages_for(conv[\"id\"])\nprint(f\"N+1 approach: {query_count} queries for {len(convs)} conversations\")\n\n# --- Fixed: one query for conversations, one batched query for all their messages ---\n\nquery_count = 0\nconvs = fetch_conversations()\nall_messages = fetch_all_messages_batched([c[\"id\"] for c in convs])\nprint(f\"batched approach: {query_count} queries for {len(convs)} conversations\")\n```\n\nThe N+1 version calls `fetch_conversations` once (1 query) and then `fetch_messages_for` once per conversation in the loop — with 6 conversations, that's 1 + 6 = 7 total queries, exactly the \"N+1\" pattern the lesson names. The batched version instead calls `fetch_all_messages_batched` a single time with all conversation IDs at once, bringing the total down to just 1 + 1 = 2 queries regardless of how many conversations there are — the same total work, done in a number of queries that doesn't grow with the data."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Not noticing the N+1 pattern because each individual query is fast.** A single query taking 2ms feels harmless, but 500 of them inside a loop adds up to a full second of database time that a single batched query would have avoided entirely.\n\n**Adding an index to every column 'just in case.'** Indexes speed up reads but slow down writes (every insert or update has to maintain the index too) and consume storage — indexing should target columns that are actually filtered or joined on frequently, not applied blanket-wide.\n\n**Guessing which query is slow instead of profiling.** Without `EXPLAIN` or equivalent tooling, it's easy to optimize a query that was never actually the bottleneck while the real slow query goes unnoticed.\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "app_database_and_query_optimization_quiz",
+        "questions": [
+          {
+            "question": "What is the N+1 query problem?",
+            "options": [
+              "Fetching a list of items, then running a separate query for each item's related data in a loop, turning one query into many",
+              "Running exactly one query per application, with no exceptions",
+              "A database configuration error that prevents any queries from running",
+              "A caching strategy for reducing database load"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The N+1 pattern is a common inefficiency where a loop of individual queries replaces what could have been one or two well-designed queries.",
+            "id": "q1"
+          },
+          {
+            "question": "What problem does adding a database index to a frequently-filtered column solve?",
+            "options": [
+              "It lets the database find matching rows without scanning the entire table, avoiding a full table scan as the table grows",
+              "It permanently deletes rows that are rarely queried",
+              "It prevents the database from ever being queried again",
+              "It converts the database into a NoSQL store automatically"
+            ],
+            "correctAnswer": 0,
+            "explanation": "An index directly addresses the scaling problem of a full table scan by giving the database a faster way to locate matching rows.",
+            "id": "q2"
+          },
+          {
+            "question": "Why should you profile queries with a tool like `EXPLAIN` before optimizing a database?",
+            "options": [
+              "To identify which specific queries are actually slow, rather than guessing which part of the system needs attention",
+              "Because `EXPLAIN` automatically rewrites and fixes slow queries",
+              "Because profiling eliminates the need for any indexes",
+              "Because guessing is always more accurate than measurement for database performance"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The same measure-before-optimizing discipline applied elsewhere in this curriculum applies to database performance: real profiling data should drive where effort goes.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, how many total queries does the N+1 approach make for 6 conversations?",
+            "options": [
+              "1",
+              "6",
+              "7 (1 for fetch_conversations, plus 1 per conversation for fetch_messages_for)",
+              "12"
+            ],
+            "correctAnswer": 2,
+            "explanation": "`fetch_conversations()` accounts for 1 query, and the loop calls `fetch_messages_for` once for each of the 6 conversations, adding 6 more queries, for a total of 7.",
+            "id": "q4"
+          },
+          {
+            "question": "How many total queries does the batched approach make for the same 6 conversations, and why?",
+            "options": [
+              "7, the same as the N+1 approach",
+              "2 -- one for fetch_conversations and one for fetch_all_messages_batched, regardless of how many conversations there are",
+              "0, since batching skips querying entirely",
+              "6, one per conversation"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`fetch_conversations()` is 1 query, and `fetch_all_messages_batched` is called exactly once with all conversation IDs together, adding only 1 more query no matter how many conversations exist — 2 total.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is not noticing the N+1 pattern because each individual query is fast flagged as a mistake?",
+            "options": [
+              "Because a single fast query still adds up across many iterations -- 500 individually-fast queries in a loop can total a full second of database time a single batched query would have avoided",
+              "Because fast queries never contribute to overall latency",
+              "Because the N+1 pattern only matters when individual queries are slow",
+              "Because query speed has no relationship to the number of queries executed"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson points out that the cumulative cost of many individually-fast queries inside a loop can still be substantial, which is easy to overlook if you only look at any single query's speed in isolation.",
+            "id": "q6"
+          },
+          {
+            "question": "Why is adding an index to every column 'just in case' considered a mistake?",
+            "options": [
+              "Because indexes speed up reads but slow down writes and consume storage, so they should target columns actually filtered or joined on frequently, not be applied blanket-wide",
+              "Because databases can only support a maximum of one index total",
+              "Because indexes have no effect on write performance",
+              "Because indexing every column always makes reads slower"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explains the real trade-off: every index adds write overhead and storage cost, so indexing should be targeted at columns that genuinely benefit from it, not applied indiscriminately.",
+            "id": "q7"
+          },
+          {
+            "question": "Why is guessing which query is slow, instead of profiling, called out as a mistake?",
+            "options": [
+              "Because without tooling like EXPLAIN, it's easy to optimize a query that was never actually the bottleneck while the real slow query goes unnoticed",
+              "Because guessing always identifies the correct slow query by chance",
+              "Because EXPLAIN cannot be used on any real database system",
+              "Because profiling tools are only available for NoSQL databases"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's common mistakes reinforce the measure-before-optimizing principle: without actual profiling data, effort can easily go toward the wrong query while the genuine bottleneck remains unaddressed.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "app_load_testing_an_ai_api",
+      "title": "Load Testing an AI API",
+      "description": "Finding out how your API behaves under real traffic before your users find out for you.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Design a load test for an AI-backed API that accounts for its specific bottlenecks."
+          },
+          {
+            "title": "🎯 What a load test should simulate",
+            "content": "Realistic concurrent user counts and request patterns — including the mix of cached and uncached requests from this module's caching lessons, since a load test that only ever hits the cache will badly overestimate real-world capacity. It should also simulate realistic prompt lengths and streaming behavior, not just a uniform tiny test payload."
+          },
+          {
+            "title": "🔍 What to watch for that's specific to AI APIs",
+            "content": "Beyond typical web load-test metrics (requests per second, error rate), watch time-to-first-token and time-per-output-token under load (from the Inference course), queue depth in your background job system if applicable, and whether your rate limiter and idempotency handling behave correctly under realistic concurrent retry storms — a load test is also a good way to validate those failure-handling paths, not just raw throughput."
+          },
+          {
+            "title": "🎓 Closing this module's arc",
+            "content": "This module moved from caching (reducing the work done per request) to database optimization (making the work that remains faster) to load testing (verifying the whole system holds up under realistic combined load) — completing the performance side of this course before the final module turns to actually shipping the application."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "Here's a small simulation showing why an all-cache-hit load test badly overestimates real capacity, using the caching mechanics from earlier in this module.\n\n```python\nimport random\n\nCACHED_LATENCY_MS = 5      # a cache hit: near-instant\nUNCACHED_LATENCY_MS = 800  # an actual LLM call: much slower\n\ndef simulate_load_test(num_requests, cache_hit_rate, rng):\n    total_latency_ms = 0\n    for _ in range(num_requests):\n        is_hit = rng.random() < cache_hit_rate\n        total_latency_ms += CACHED_LATENCY_MS if is_hit else UNCACHED_LATENCY_MS\n    return total_latency_ms / num_requests\n\nrng = random.Random(0)\n\n# --- Unrealistic: a load test that only ever hits the cache ---\n\navg_latency_all_cached = simulate_load_test(1000, cache_hit_rate=1.0, rng=rng)\nprint(f\"load test with 100% cache hits: {avg_latency_all_cached:.1f}ms average latency\")\n\n# --- Realistic: a mix, matching this module's earlier caching discussion ---\n\navg_latency_realistic_mix = simulate_load_test(1000, cache_hit_rate=0.4, rng=rng)\nprint(f\"load test with a realistic 40% cache hit rate: {avg_latency_realistic_mix:.1f}ms average latency\")\n\nprint(f\"the all-cached test underestimates real latency by roughly \"\n      f\"{avg_latency_realistic_mix / avg_latency_all_cached:.0f}x\")\n```\n\nWith `cache_hit_rate=1.0`, every single simulated request takes the fast `CACHED_LATENCY_MS` (5ms), so the average latency comes out right around 5ms — an unrealistically rosy number. With a more realistic `cache_hit_rate=0.4`, 60% of requests instead pay the much slower `UNCACHED_LATENCY_MS` (800ms), pulling the average up dramatically, to roughly `0.4 * 5 + 0.6 * 800 ≈ 482ms` — nearly 100x higher than the all-cached number, which is exactly the overestimation risk the lesson warns about."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Load testing with a uniform, unrealistic cache hit rate.** As the code example shows, a 100%-cache assumption produces a wildly optimistic latency number that real traffic, with its realistic mix of hits and misses, will never actually achieve.\n\n**Only measuring requests-per-second and ignoring AI-specific latency breakdowns.** A system can look fine on raw throughput while time-to-first-token quietly degrades under load, which matters enormously for perceived responsiveness even if the aggregate request rate looks healthy.\n\n**Treating load testing as a one-time pre-launch checklist item.** Traffic patterns, cache hit rates, and prompt characteristics all drift as a product evolves — a load test run once before launch can go stale as the real system and its real usage change.\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "app_load_testing_an_ai_api_quiz",
+        "questions": [
+          {
+            "question": "Why would a load test that only ever hits the cache give a misleading picture of real-world capacity?",
+            "options": [
+              "Because it would badly overestimate capacity, since real traffic includes a realistic mix of cached and uncached (LLM-calling) requests",
+              "Because cached requests always take longer than uncached ones",
+              "Because caching has no effect on load test results at all",
+              "Because load tests cannot include any cached requests by design"
+            ],
+            "correctAnswer": 0,
+            "explanation": "A realistic load test needs to reflect the actual mix of cache hits and misses, since uncached requests hitting the LLM behave very differently under load than fast cache hits.",
+            "id": "q1"
+          },
+          {
+            "question": "Which metric specific to AI APIs, beyond typical web load-test metrics, should be watched under load?",
+            "options": [
+              "Time-to-first-token and time-per-output-token from the Inference course",
+              "Only the total number of lines of code in the API",
+              "Only the color scheme of the client application",
+              "Only the number of Git commits in the repository"
+            ],
+            "correctAnswer": 0,
+            "explanation": "AI-specific latency metrics from the Inference course are exactly the kind of signal a generic web load test wouldn't naturally capture but an AI API load test should.",
+            "id": "q2"
+          },
+          {
+            "question": "What does this lesson suggest a load test can validate beyond raw throughput?",
+            "options": [
+              "Whether rate limiting and idempotency handling behave correctly under realistic concurrent retry storms",
+              "Whether the application's source code compiles without errors",
+              "Whether the database schema matches its documentation",
+              "Whether the API's icon renders correctly on mobile devices"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Load testing under realistic concurrent conditions is also a practical way to exercise and validate the failure-handling paths built earlier in this course, not just measure raw speed.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, roughly what average latency does `simulate_load_test(1000, cache_hit_rate=1.0, rng=rng)` produce?",
+            "options": [
+              "Roughly 800ms, the uncached latency",
+              "Roughly 5ms, since every request is a cache hit at CACHED_LATENCY_MS",
+              "Roughly 400ms, an even split",
+              "Roughly 0ms"
+            ],
+            "correctAnswer": 1,
+            "explanation": "With `cache_hit_rate=1.0`, `rng.random() < 1.0` is true for every request, so every single one adds `CACHED_LATENCY_MS` (5) to the total, making the average latency essentially 5ms.",
+            "id": "q4"
+          },
+          {
+            "question": "Why does `simulate_load_test(1000, cache_hit_rate=0.4, rng=rng)` produce a much higher average latency?",
+            "options": [
+              "Because 60% of requests miss the cache and pay the much larger UNCACHED_LATENCY_MS (800ms) instead of the fast CACHED_LATENCY_MS (5ms)",
+              "Because a 0.4 hit rate means all requests are uncached",
+              "Because the function has a bug that always returns 800ms",
+              "Because random.Random(0) always produces the same latency regardless of hit rate"
+            ],
+            "correctAnswer": 0,
+            "explanation": "With `cache_hit_rate=0.4`, roughly 40% of requests get the fast 5ms cached latency, but the remaining ~60% incur the 800ms uncached latency, pulling the weighted average up dramatically compared to the all-cached run.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is load testing with a uniform, unrealistic (e.g. 100%) cache hit rate flagged as a mistake?",
+            "options": [
+              "Because it produces a wildly optimistic latency number that real traffic, with its realistic mix of hits and misses, will never actually achieve",
+              "Because 100% cache hit rates are technically impossible to simulate",
+              "Because uniform hit rates always underestimate real latency",
+              "Because cache hit rate has no bearing on load test accuracy"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The code example's roughly 100x latency gap between the all-cached and realistic-mix scenarios directly illustrates why an unrealistic hit rate assumption produces a badly misleading load test result.",
+            "id": "q6"
+          },
+          {
+            "question": "Why is only measuring requests-per-second, while ignoring AI-specific latency breakdowns, considered a mistake?",
+            "options": [
+              "Because a system can look fine on raw throughput while time-to-first-token quietly degrades under load, which matters for perceived responsiveness even if aggregate request rate looks healthy",
+              "Because requests-per-second is an invalid metric for any API",
+              "Because AI-specific latency breakdowns are impossible to measure under load",
+              "Because throughput and time-to-first-token always move in exactly the same direction"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson points out that aggregate throughput numbers can mask a real degradation in perceived responsiveness (like time-to-first-token), which is exactly the kind of AI-specific signal a generic load test summary might miss.",
+            "id": "q7"
+          },
+          {
+            "question": "Why is treating load testing as a one-time pre-launch checklist item a mistake?",
+            "options": [
+              "Because traffic patterns, cache hit rates, and prompt characteristics all drift as a product evolves, so a load test run once before launch can go stale",
+              "Because load tests can only ever be run once per application's lifetime",
+              "Because load testing tools stop working after the first run",
+              "Because pre-launch load tests are always more accurate than later ones"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's common mistakes note that real usage patterns change over time, so a single pre-launch load test doesn't stay representative of the system's actual, evolving load characteristics indefinitely.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

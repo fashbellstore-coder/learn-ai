@@ -1,0 +1,563 @@
+{
+  "id": "inf_batching_and_scheduling",
+  "title": "Batching & Scheduling",
+  "description": "Static vs. dynamic batching, continuous batching, scheduling/preemption, and speculative decoding.",
+  "icon": "📋",
+  "color": "#F9A825",
+  "order": 2,
+  "estimatedHours": 4,
+  "difficulty": "intermediate",
+  "prerequisites": [
+    "inf_kv_cache"
+  ],
+  "lessons": [
+    {
+      "id": "inf_static_vs_dynamic_batching",
+      "title": "Static vs. Dynamic Batching",
+      "description": "The simplest way to improve throughput, and why the simplest version of it doesn't work well for LLMs.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain static batching's limitation for LLM serving and what dynamic batching changes."
+          },
+          {
+            "title": "📦 Static batching: wait, then run together",
+            "content": "Static batching collects a fixed-size group of requests, waits until the batch is full (or a timeout hits), then runs them all through the model together. This works reasonably well for models with a single fixed-size forward pass, like a classifier, but fits awkwardly onto autoregressive generation."
+          },
+          {
+            "title": "😤 Why it's awkward for LLMs specifically",
+            "content": "In a static batch of generation requests, every request in the batch must finish before any of them can return, since the whole batch is processed step by step together — so a single long response holds up every short response batched alongside it, wasting GPU capacity on the shorter, already-finished requests that have nothing left to do but wait."
+          },
+          {
+            "title": "🔄 Dynamic batching: request-level flexibility",
+            "content": "Dynamic batching allows requests to join and leave a batch at different times rather than as one rigid group — new requests can be added as soon as a slot frees up, without waiting for the whole current batch to complete. This is the conceptual stepping stone to continuous batching, covered next, which takes this idea to its logical conclusion at the token level."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "A toy simulation comparing fixed-size static batches (which must wait for the whole group before any member returns) against independent, per-slot dynamic batching:\n\n```python\nNUM_SLOTS = 2\n\n# (name, arrival_tick, run_time) — run_time is how many ticks of generation\n# this request needs once it starts.\nrequests = [\n    (\"short_a\", 0, 2),\n    (\"long_b\", 1, 8),\n    (\"short_c\", 2, 1),\n    (\"short_d\", 9, 2),\n]\n\n\ndef static_batching(requests, batch_size):\n    \"\"\"Groups arrive-order requests into fixed-size batches. Every request\n    in a batch starts together (once the batch is full) and — because the\n    whole batch is processed step by step as one unit — none of them\n    RETURNS until every member, including the slowest, is done.\"\"\"\n    latencies = {}\n    for i in range(0, len(requests), batch_size):\n        group = requests[i:i + batch_size]\n        start_tick = max(arrival for _, arrival, _ in group)  # can't start until the group's last member has arrived\n        finish_tick = start_tick + max(run_time for _, _, run_time in group)\n        for name, arrival, _ in group:\n            latencies[name] = finish_tick - arrival\n    return latencies\n\n\ndef dynamic_batching(requests, num_slots):\n    \"\"\"Each of `num_slots` slots is independent: a request starts the\n    moment a slot is free (not necessarily aligned with anyone else) and\n    returns as soon as ITS OWN run_time elapses, regardless of what else\n    is still running in other slots.\"\"\"\n    slot_free_at = [0] * num_slots\n    latencies = {}\n    for name, arrival, run_time in sorted(requests, key=lambda r: r[1]):\n        slot = min(range(num_slots), key=lambda s: slot_free_at[s])\n        start_tick = max(arrival, slot_free_at[slot])\n        finish_tick = start_tick + run_time\n        slot_free_at[slot] = finish_tick\n        latencies[name] = finish_tick - arrival\n    return latencies\n\n\nstatic_latencies = static_batching(requests, batch_size=NUM_SLOTS)\ndynamic_latencies = dynamic_batching(requests, num_slots=NUM_SLOTS)\n\nprint(\"static: \", static_latencies)\nprint(\"dynamic:\", dynamic_latencies)\nprint(\"static avg latency: \", sum(static_latencies.values()) / len(static_latencies))\nprint(\"dynamic avg latency:\", sum(dynamic_latencies.values()) / len(dynamic_latencies))\n```\n\nNotice that `short_c`'s latency drops from 9 ticks under static batching (its batch can't start until `short_d` even arrives) to 1 tick under dynamic batching, while `long_b`'s latency stays at 8 in both — it's still bottlenecked by its own `run_time` either way, since neither scheme lets other work interleave inside an already-running request's slot."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Treating dynamic batching as if it already solves the \"long response holds up short ones\" problem.** Dynamic batching only adds flexibility about when a group starts and which requests are grouped together — once a group is formed and running, it still behaves like a static batch internally until continuous batching (next lesson) makes the batch reformable at every decode step.\n\n**Setting the static batch timeout too high while chasing bigger batches.** A generous timeout keeps early-arriving requests waiting longer purely to fill out the group, trading latency for a throughput gain that may not even materialize if traffic is bursty.\n\n**Assuming a short request is automatically safe just because dynamic batching is in use.** A short request grouped with a long one under either scheme is still held up by that group's slowest member for the duration of that run — dynamic batching changes *when and how groups form*, not what happens once a group is running.\n\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "inf_static_vs_dynamic_batching_quiz",
+        "questions": [
+          {
+            "question": "Why does static batching work poorly for LLM generation compared to a single fixed-size forward pass model?",
+            "options": [
+              "Because every request in the batch must wait for the longest response to finish, wasting capacity on already-completed shorter ones",
+              "Because static batching cannot process more than one request ever",
+              "Because LLMs cannot run in any kind of batch",
+              "Because static batching requires retraining the model"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Autoregressive generation produces responses of varying length, and static batching's rigid grouping means short responses sit idle waiting for the batch's longest response to complete.",
+            "id": "q1"
+          },
+          {
+            "question": "What does dynamic batching change compared to static batching?",
+            "options": [
+              "It allows requests to join and leave the batch at different times rather than as one fixed group",
+              "It removes the need for a GPU entirely",
+              "It processes only one request at a time, never in groups",
+              "It requires every request to have identical output length"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Dynamic batching adds flexibility at the request level, letting new work fill freed capacity without waiting for an entire batch to complete together.",
+            "id": "q2"
+          },
+          {
+            "question": "Dynamic batching is best understood as",
+            "options": [
+              "A conceptual stepping stone toward continuous batching, which extends the same flexibility to the token level",
+              "A completely unrelated technique to continuous batching",
+              "A method for compressing model weights",
+              "A way to increase KV cache precision"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Dynamic batching's request-level flexibility is the same idea continuous batching takes further, down to individual decode steps.",
+            "id": "q3"
+          },
+          {
+            "question": "Per the lesson, what kind of model does static batching work reasonably well for?",
+            "options": [
+              "A model with a single fixed-size forward pass, like a classifier",
+              "Only autoregressive language models",
+              "Only models that never process more than one input",
+              "Models that generate responses of unpredictable length"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson notes static batching fits models with a single fixed-size forward pass, such as a classifier, but sits awkwardly on autoregressive generation.",
+            "id": "q4"
+          },
+          {
+            "question": "Per the lesson, what two conditions cause a static batch to actually run?",
+            "options": [
+              "The batch becomes full, or a timeout hits",
+              "A user manually clicks a 'run' button",
+              "The GPU becomes completely idle",
+              "Every request in the batch has an identical priority"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson describes static batching as waiting until the batch is full (or a timeout hits) before running the group together.",
+            "id": "q5"
+          },
+          {
+            "question": "In the toy simulation, why does short_c's latency improve so dramatically under dynamic batching (from 9 down to 1) while long_b's latency stays at 8 either way?",
+            "options": [
+              "Dynamic batching frees short_c from waiting on an unrelated request's group formation, but long_b is bottlenecked by its own run_time in both schemes",
+              "long_b is not included in the dynamic_batching simulation at all",
+              "short_c's run_time changes between the two functions",
+              "The simulation assigns short_c to a slower slot in both cases"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Under static batching short_c's group can't start until short_d arrives at tick 9; dynamic batching starts short_c as soon as a slot is free. long_b's latency is unaffected because it's limited by its own run_time in either scheme.",
+            "id": "q6"
+          },
+          {
+            "question": "In the dynamic_batching function, how is a request assigned to a slot?",
+            "options": [
+              "It's assigned to whichever slot has the earliest free time (min slot_free_at)",
+              "It's assigned to a random slot each time",
+              "It's always assigned to slot 0",
+              "It's assigned based on alphabetical order of the request name"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The code picks `min(range(num_slots), key=lambda s: slot_free_at[s])`, i.e. the slot that becomes available soonest.",
+            "id": "q7"
+          },
+          {
+            "question": "Per 'Common mistakes', why is dynamic (request-level) batching alone not enough to fully solve the 'long response holds up short ones' problem?",
+            "options": [
+              "Because once a group is formed and running, it still behaves like a static batch internally until continuous batching makes the batch reformable at every decode step",
+              "Because dynamic batching cannot be implemented on GPUs",
+              "Because dynamic batching only works with exactly one request at a time",
+              "Because dynamic batching removes the need for a scheduler entirely"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The mistakes section explains dynamic batching changes when and how groups form, but a running group still holds its members together — continuous batching is what finally solves this at the token level.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "inf_continuous_batching",
+      "title": "Continuous Batching",
+      "description": "The technique that made modern high-throughput LLM serving possible.",
+      "duration": 13,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain how continuous batching operates at the token-generation-step level, and why that matters for throughput."
+          },
+          {
+            "title": "⏩ Batching at every decode step, not per-request",
+            "content": "Continuous batching (sometimes called in-flight batching) re-forms the batch at every single decode step: as soon as one request finishes generating, its slot is immediately filled by a new waiting request, rather than waiting for every request in the current batch to complete first."
+          },
+          {
+            "title": "📈 Why this dramatically improves throughput",
+            "content": "GPU capacity that would otherwise sit idle — waiting for a batch's slowest member — is instead immediately reused for new work, keeping the GPU consistently busy. This is the single most impactful serving optimization in the current generation of inference engines, and is a core feature of engines like vLLM covered in the next module."
+          },
+          {
+            "title": "⚙️ It requires the infrastructure from the last two lessons",
+            "content": "Continuous batching is only practical because of PagedAttention's flexible, non-contiguous memory allocation — without it, dynamically adding and removing requests from a batch mid-flight would require constant, expensive memory reshuffling. The KV cache and batching modules aren't separate concerns; continuous batching is where they meet."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "A toy scheduler loop that adds and removes sequences from the active batch mid-generation, the moment each one finishes:\n\n```python\nclass Sequence:\n    def __init__(self, name, remaining_tokens):\n        self.name = name\n        self.remaining_tokens = remaining_tokens\n\n\ndef continuous_batching_simulation(all_sequences, max_batch_size=3):\n    \"\"\"At every decode step, run one token for everything currently in the\n    active batch. The moment a sequence finishes, its slot is freed and\n    immediately backfilled from the waiting queue — no waiting for the rest\n    of the batch to finish first.\"\"\"\n    waiting = list(all_sequences)\n    active = []\n    step = 0\n    started_at = {}\n    finished_at = {}\n\n    while waiting or active:\n        # Backfill any open slots before running this step.\n        while waiting and len(active) < max_batch_size:\n            newcomer = waiting.pop(0)\n            active.append(newcomer)\n            started_at[newcomer.name] = step\n\n        step += 1\n        still_active = []\n        for seq in active:\n            seq.remaining_tokens -= 1  # one decode step for every active sequence\n            if seq.remaining_tokens <= 0:\n                finished_at[seq.name] = step\n            else:\n                still_active.append(seq)\n        active = still_active\n\n    return started_at, finished_at\n\n\nsequences = [\n    Sequence(\"short_a\", 2),\n    Sequence(\"long_b\", 8),\n    Sequence(\"short_c\", 3),\n    Sequence(\"medium_d\", 5),\n    Sequence(\"short_e\", 1),\n]\n\nstarted, finished = continuous_batching_simulation(sequences, max_batch_size=3)\nfor name in sorted(finished, key=finished.get):\n    print(f\"{name}: joined active batch at step {started[name]}, finished at step {finished[name]}\")\n```\n\nNotice that `medium_d` and `short_e` weren't part of the initial batch at all — `medium_d` backfills into the slot `short_a` frees up at step 2, and `short_e` backfills into the slot `short_c` frees up at step 3, exactly the \"new request fills a freed slot mid-flight\" behavior the lesson describes, instead of waiting for `long_b`'s whole original batch to finish."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming continuous batching works without flexible memory allocation.** Continuous batching depends on PagedAttention-style non-contiguous memory; without it, constantly adding and removing sequences from the active batch would force expensive memory reshuffling at every step.\n\n**Confusing \"continuous batching\" with simply \"having a bigger batch size.\"** Continuous batching is about re-forming the batch at every decode step, not about the batch being large — a big static batch still makes every member wait for the group's slowest request.\n\n**Raising max_batch_size without a capacity check.** Cramming more concurrent sequences into the active batch increases the compute done per decode step for everyone in it, so growing the batch size past what memory and compute can sustain trades away the low per-step latency that keeps the GPU responsive.\n\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "inf_continuous_batching_quiz",
+        "questions": [
+          {
+            "question": "What makes continuous batching different from simple dynamic batching?",
+            "options": [
+              "It re-forms the batch at every decode step, immediately filling a finished request's slot with new work",
+              "It only batches requests that share the exact same output length",
+              "It waits for the entire batch to finish before adding any new requests",
+              "It disables the KV cache entirely"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Continuous batching operates at the granularity of individual decode steps, immediately reusing freed capacity rather than waiting for a whole batch to complete.",
+            "id": "q1"
+          },
+          {
+            "question": "Why is continuous batching considered one of the most impactful serving optimizations available?",
+            "options": [
+              "Because it keeps the GPU consistently busy instead of idling while waiting for a batch's slowest member to finish",
+              "Because it eliminates the need for a KV cache",
+              "Because it removes the sequential nature of autoregressive decoding",
+              "Because it only works on CPUs, freeing up all GPU capacity"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Maximizing GPU utilization by never leaving it idle between requests is what drives the large throughput gains continuous batching provides.",
+            "id": "q2"
+          },
+          {
+            "question": "Why does continuous batching depend on PagedAttention-style memory management?",
+            "options": [
+              "Because dynamically adding/removing requests mid-flight requires flexible, non-contiguous memory allocation to avoid expensive reshuffling",
+              "Because PagedAttention is unrelated to batching and just happens to be used alongside it",
+              "Because continuous batching cannot use a KV cache at all",
+              "Because PagedAttention only works with static batching"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Without flexible memory allocation, constantly changing which requests are in the batch would require costly memory reorganization at every step.",
+            "id": "q3"
+          },
+          {
+            "question": "Per the lesson, what other name is sometimes used for continuous batching?",
+            "options": [
+              "In-flight batching",
+              "Static batching",
+              "Product quantization",
+              "Speculative batching"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson notes continuous batching is 'sometimes called in-flight batching.'",
+            "id": "q4"
+          },
+          {
+            "question": "Per the lesson, what does it mean that 'the KV cache and batching modules aren't separate concerns'?",
+            "options": [
+              "Continuous batching is where the KV cache infrastructure and batching techniques directly meet and depend on each other",
+              "The KV cache module has been merged into the batching module and no longer exists separately",
+              "Batching and the KV cache are unrelated topics that happen to be taught back to back",
+              "The KV cache is only used before batching begins and never during it"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly states continuous batching is the point where the KV cache and batching topics meet, since it relies on PagedAttention's memory flexibility.",
+            "id": "q5"
+          },
+          {
+            "question": "In the toy scheduler, which sequence backfills into the slot that short_a frees up at step 2?",
+            "options": [
+              "medium_d",
+              "short_e",
+              "long_b",
+              "short_c"
+            ],
+            "correctAnswer": 0,
+            "explanation": "short_a finishes at step 2, freeing a slot that the still-waiting medium_d immediately backfills into, per the code's trace.",
+            "id": "q6"
+          },
+          {
+            "question": "What does the started_at dictionary record in the code?",
+            "options": [
+              "The step at which each sequence was added to (backfilled into) the active batch",
+              "The total number of tokens each sequence generates",
+              "The order sequences were declared in the sequences list",
+              "The step at which each sequence finished"
+            ],
+            "correctAnswer": 0,
+            "explanation": "started_at[newcomer.name] = step is set exactly when a sequence is popped from waiting and appended to active, i.e. when it joins the batch.",
+            "id": "q7"
+          },
+          {
+            "question": "Per 'Common mistakes', why can raising max_batch_size hurt rather than help throughput?",
+            "options": [
+              "It increases the compute done per decode step for every sequence in the batch, and without a capacity check this can slow every step down",
+              "It has no real effect on performance either way",
+              "It always disables continuous batching entirely",
+              "It permanently increases GPU memory capacity"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The mistakes section warns that a larger active batch means more work per decode step, so growing it past what the hardware can sustain trades away low per-step latency.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "inf_request_scheduling_and_preemption",
+      "title": "Request Scheduling and Preemption",
+      "description": "When the GPU is full, something has to give — and how that decision gets made matters.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain what a serving scheduler decides and what preemption means in this context."
+          },
+          {
+            "title": "🚦 The scheduler's job",
+            "content": "When memory or compute capacity is constrained, the serving system's scheduler decides which requests to admit, which to prioritize, and — when necessary — which to pause or reject. This is analogous to an operating system's process scheduler, but working with GPU memory and compute instead of CPU time slices."
+          },
+          {
+            "title": "⏸️ Preemption: pausing work already in progress",
+            "content": "When a high-priority request arrives and there's no free capacity, some serving systems can preempt a lower-priority request already in progress — pausing it (potentially by evicting its KV cache pages) to make room, then resuming it later. This trades fairness for responsiveness on the requests that matter most."
+          },
+          {
+            "title": "⚖️ Fairness vs. priority",
+            "content": "A scheduler that always favors new requests over in-progress ones can starve long-running requests indefinitely; one that never preempts can leave a high-priority request waiting behind a queue of lower-priority long ones. Production schedulers typically implement some priority tiers plus fairness guarantees, similar in spirit to the request-prioritization decisions the Cloud course's load-balancing lesson touched on."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "A small priority-queue-based scheduler that preempts a lower-priority request when a higher-priority one arrives and no slot is free:\n\n```python\nimport heapq\n\n\nclass Request:\n    def __init__(self, name, priority, arrival, work):\n        self.name = name\n        self.priority = priority  # lower number = higher priority\n        self.arrival = arrival\n        self.remaining_work = work\n\n\ndef scheduler_with_preemption(requests, capacity=1):\n    \"\"\"A minimal priority scheduler: only `capacity` requests run at once.\n    When a higher-priority request arrives and there's no free slot, the\n    lowest-priority request currently running is preempted (paused and put\n    back on the queue) to make room.\"\"\"\n    events = sorted(requests, key=lambda r: r.arrival)\n    running = []  # requests currently occupying a slot\n    waiting = []  # heap of (priority, name, request) waiting for a slot\n    log = []\n    time_step = 0\n    idx = 0\n\n    while idx < len(events) or running or waiting:\n        # Admit newly arrived requests.\n        while idx < len(events) and events[idx].arrival <= time_step:\n            heapq.heappush(waiting, (events[idx].priority, events[idx].name, events[idx]))\n            idx += 1\n\n        # If there's a free slot, promote the best-waiting request.\n        while waiting and len(running) < capacity:\n            _, _, req = heapq.heappop(waiting)\n            running.append(req)\n            log.append(f\"t={time_step}: {req.name} starts running\")\n\n        # If a waiting request outranks something running, preempt it.\n        if waiting and running:\n            best_waiting_priority = waiting[0][0]\n            worst_running = max(running, key=lambda r: r.priority)\n            if best_waiting_priority < worst_running.priority:\n                running.remove(worst_running)\n                heapq.heappush(waiting, (worst_running.priority, worst_running.name, worst_running))\n                _, _, req = heapq.heappop(waiting)\n                running.append(req)\n                log.append(f\"t={time_step}: {req.name} preempts {worst_running.name}\")\n\n        # Do one unit of work on everything currently running.\n        still_running = []\n        for req in running:\n            req.remaining_work -= 1\n            if req.remaining_work <= 0:\n                log.append(f\"t={time_step}: {req.name} finishes\")\n            else:\n                still_running.append(req)\n        running = still_running\n\n        time_step += 1\n\n    return log\n\n\nrequests = [\n    Request(\"bulk_job\", priority=5, arrival=0, work=4),\n    Request(\"urgent_alert\", priority=1, arrival=2, work=1),\n]\n\nfor line in scheduler_with_preemption(requests, capacity=1):\n    print(line)\n```\n\nNotice that `bulk_job`'s `remaining_work` isn't reset when it's preempted at t=2 — it keeps the 2 units of work it had left, is pushed back onto the `waiting` heap, and resumes at t=3 exactly where it left off, which is what \"pausing it... then resuming it later\" looks like in code."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Preempting without a way to cheaply resume.** If a scheduler evicts a request's KV cache pages without any means of reconstructing its state, \"resuming later\" ends up re-paying the prefill cost from scratch rather than truly picking up where it left off.\n\n**Giving priority absolute precedence with no fairness guardrail.** A scheduler that always lets new high-priority requests jump ahead can starve long-running lower-priority requests indefinitely — exactly the failure mode the lesson warns a pure-priority scheduler falls into.\n\n**Treating a preempted request's delay as a bug rather than a deliberate tradeoff.** Preemption exists specifically to trade some fairness for responsiveness on the requests that matter most; the delay it introduces for the preempted request is the intended cost, not an accident to be \"fixed\" away.\n\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "inf_request_scheduling_and_preemption_quiz",
+        "questions": [
+          {
+            "question": "What does a serving scheduler primarily decide?",
+            "options": [
+              "Which requests to admit, prioritize, or pause/reject when compute or memory capacity is constrained",
+              "Which tokenizer to use for a given request",
+              "Which embedding model to load",
+              "How to quantize the model's weights"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The scheduler's role is managing contention for limited GPU resources across competing requests.",
+            "id": "q1"
+          },
+          {
+            "question": "What does preemption mean in the context of LLM serving?",
+            "options": [
+              "Pausing a lower-priority request already in progress, potentially evicting its KV cache, to make room for higher-priority work",
+              "Permanently terminating all requests in a batch",
+              "Running two models on the GPU simultaneously with no coordination",
+              "Skipping the prefill phase entirely"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Preemption pauses in-flight work to reallocate capacity, trading some fairness for responsiveness on higher-priority requests.",
+            "id": "q2"
+          },
+          {
+            "question": "Why do production schedulers typically implement both priority tiers and fairness guarantees?",
+            "options": [
+              "Because pure priority can starve long-running requests, while pure fairness can delay urgent ones — a balance is needed",
+              "Because fairness and priority are mathematically identical concepts",
+              "Because GPUs cannot process more than one priority level",
+              "Because schedulers are only needed when there is no capacity constraint at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Balancing these two concerns avoids both the starvation risk of pure priority and the responsiveness risk of pure fairness.",
+            "id": "q3"
+          },
+          {
+            "question": "Per the lesson, what analogy is used to describe a serving scheduler's job?",
+            "options": [
+              "An operating system's process scheduler, but working with GPU memory and compute instead of CPU time slices",
+              "A restaurant host seating customers in the order they arrive with no exceptions",
+              "A vending machine that dispenses one item at a time",
+              "A traffic light that cycles on a fixed timer"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly compares the serving scheduler's role to an OS process scheduler, but operating over GPU memory and compute rather than CPU time slices.",
+            "id": "q4"
+          },
+          {
+            "question": "Per the lesson, which other course/lesson is mentioned as touching on similar request-prioritization decisions?",
+            "options": [
+              "The Cloud course's load-balancing lesson",
+              "The RAG course's retrieval lesson",
+              "The Fine-Tuning course's evaluation lesson",
+              "The Vector Databases course's indexing lesson"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson draws a parallel to the request-prioritization decisions covered in the Cloud course's load-balancing lesson.",
+            "id": "q5"
+          },
+          {
+            "question": "In the toy scheduler, why does urgent_alert preempt bulk_job at t=2?",
+            "options": [
+              "urgent_alert has a lower (higher-priority) priority number than bulk_job, and no slot is free since capacity=1",
+              "bulk_job has already finished by t=2",
+              "urgent_alert arrived before bulk_job",
+              "The scheduler preempts every running request at every time step regardless of priority"
+            ],
+            "correctAnswer": 0,
+            "explanation": "With capacity=1, running is already full with bulk_job when urgent_alert (priority 1, lower than bulk_job's priority 5) arrives at t=2, triggering the preemption branch.",
+            "id": "q6"
+          },
+          {
+            "question": "In the code, what happens to bulk_job's remaining_work when it is preempted at t=2?",
+            "options": [
+              "It is preserved at its current value and the request is pushed back onto the waiting heap to resume later",
+              "It is reset back to its original starting value",
+              "It is set to zero, effectively canceling the request",
+              "It is discarded and bulk_job is removed from the simulation entirely"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The Request object's remaining_work attribute isn't touched during preemption — only running.remove and a re-push to waiting happen — so bulk_job resumes with whatever work it had left.",
+            "id": "q7"
+          },
+          {
+            "question": "Per 'Common mistakes', why does preempting a request without a way to cheaply resume it cause problems?",
+            "options": [
+              "Evicting its KV cache pages with no reconstruction plan can force re-paying the prefill cost from scratch instead of truly resuming",
+              "It makes the scheduler crash immediately",
+              "It has no real downside as long as priorities are set correctly",
+              "It causes every other request in the system to be preempted as well"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The mistakes section explains that resuming later is only cheap if there's a way to reconstruct the paused request's state; otherwise preemption effectively restarts it from prefill.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "inf_speculative_decoding",
+      "title": "Speculative Decoding",
+      "description": "Using a small, fast model to guess ahead for a big, slow one — and only paying full price when the guess is wrong.",
+      "duration": 13,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain the draft-then-verify pattern behind speculative decoding and why it can speed up generation without changing output quality."
+          },
+          {
+            "title": "🎲 The core idea: guess, then check",
+            "content": "A small, fast 'draft' model quickly proposes several candidate next tokens. The large target model then verifies all of those candidates in a single parallel forward pass — checking whether it would have produced the same tokens — and accepts the ones that match, discarding and correcting from the first mismatch onward."
+          },
+          {
+            "title": "✅ Why the output isn't degraded",
+            "content": "Because the large model has final say — verifying each proposed token against what it would have generated itself — the output distribution is mathematically identical to running the large model alone token-by-token. This is speed without a quality trade-off, which is unusual among the optimizations in this course; most others (quantization, MQA) do trade some quality for speed."
+          },
+          {
+            "title": "⚡ Why it's faster despite the extra work",
+            "content": "Verifying several draft tokens in one parallel forward pass is much cheaper than generating them one at a time sequentially with the large model, since a single forward pass over several tokens is nearly as fast as one over a single token thanks to how GPU compute parallelizes. When the draft model guesses well, multiple tokens get confirmed per large-model forward pass instead of just one."
+          },
+          {
+            "title": "🎯 When it helps most",
+            "content": "Speculative decoding helps most when the draft model's guesses are frequently correct — predictable text like code completion or repetitive formats — and helps less on highly unpredictable, creative generation where the draft model's guesses are wrong more often, since a rejected guess wastes the draft model's work."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "A toy draft-then-verify loop: a small \"draft model\" proposes tokens, a \"target model\" verifies them in one pass and accepts a matching prefix:\n\n```python\nimport random\n\nrandom.seed(2)\n\nTARGET_SEQUENCE = list(\"THEQUICKBROWNFOX\")  # what the \"target model\" would produce, greedily\nDRAFT_ACCURACY = 0.7  # how often the draft model guesses correctly\n\n\ndef draft_model(position, guesses_needed):\n    \"\"\"Propose `guesses_needed` tokens starting at `position`. Correct with\n    probability DRAFT_ACCURACY, otherwise proposes a plausible-looking wrong\n    token.\"\"\"\n    proposals = []\n    for offset in range(guesses_needed):\n        pos = position + offset\n        if pos >= len(TARGET_SEQUENCE):\n            break\n        if random.random() < DRAFT_ACCURACY:\n            proposals.append(TARGET_SEQUENCE[pos])\n        else:\n            proposals.append(\"?\")  # a wrong guess\n    return proposals\n\n\ndef target_verify(position, proposals):\n    \"\"\"The target model checks each proposed token in one parallel pass and\n    accepts a prefix of correct ones, stopping at the first mismatch.\"\"\"\n    accepted = []\n    for offset, token in enumerate(proposals):\n        pos = position + offset\n        if token == TARGET_SEQUENCE[pos]:\n            accepted.append(token)\n        else:\n            break\n    return accepted\n\n\ndef speculative_decode(draft_width=4):\n    generated = []\n    position = 0\n    forward_passes = 0\n\n    while position < len(TARGET_SEQUENCE):\n        proposals = draft_model(position, draft_width)\n        accepted = target_verify(position, proposals)\n        forward_passes += 1  # ONE verification pass, regardless of draft_width\n\n        generated.extend(accepted)\n        position += len(accepted)\n\n        if len(accepted) < len(proposals):\n            # First mismatch: the target model itself supplies the correct\n            # next token before drafting resumes.\n            generated.append(TARGET_SEQUENCE[position])\n            position += 1\n\n    return \"\".join(generated), forward_passes\n\n\ntext, passes = speculative_decode(draft_width=4)\nprint(text)\nprint(f\"forward passes: {passes} vs {len(TARGET_SEQUENCE)} for token-by-token generation\")\n```\n\nNotice that `forward_passes` counts only calls to `target_verify`, not individual tokens — with `draft_width=4` this toy run needs far fewer than the 16 target-model passes plain token-by-token generation would require, while `text` still comes out byte-for-byte identical to `TARGET_SEQUENCE`."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming speculative decoding necessarily lowers output quality because it uses a smaller model.** The draft model never has final say — the target model's verification step is what keeps the output distribution mathematically identical to generating with the target model alone.\n\n**Choosing a large draft_width without measuring the draft model's actual hit rate.** A wider proposal only pays off if the draft model is usually right; against a low-accuracy draft model, a wide proposal just means more rejected guesses and wasted draft-model compute per verification round.\n\n**Applying the same speculative decoding settings to every kind of generation.** Since it helps most on predictable text and least on highly unpredictable, creative generation, using identical settings everywhere ignores the workload-dependent payoff the lesson describes.\n\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "inf_speculative_decoding_quiz",
+        "questions": [
+          {
+            "question": "In speculative decoding, why doesn't using a smaller draft model degrade the final output quality?",
+            "options": [
+              "Because the large target model verifies every proposed token and only accepts ones it would have generated itself",
+              "Because the draft model always overrides the target model's decisions",
+              "Because output quality is not a concern in speculative decoding",
+              "Because the draft and target models are always identical"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The large model has final authority over every token, making the mathematical output distribution the same as if it generated tokens alone — just faster.",
+            "id": "q1"
+          },
+          {
+            "question": "Why is verifying several draft tokens in one pass faster than generating them sequentially with the large model?",
+            "options": [
+              "Because a single parallel forward pass over several tokens is nearly as fast as one over a single token, given how GPU compute parallelizes",
+              "Because verification requires no GPU computation at all",
+              "Because the draft model does all the actual computation",
+              "Because sequential generation is always faster than parallel verification"
+            ],
+            "correctAnswer": 0,
+            "explanation": "GPU forward passes parallelize well across tokens within one pass, so checking multiple candidates at once is nearly free compared to generating them one-by-one.",
+            "id": "q2"
+          },
+          {
+            "question": "Speculative decoding provides the most speedup when",
+            "options": [
+              "The draft model's guesses are frequently correct, such as for predictable text like code completion",
+              "The draft model's guesses are always wrong",
+              "The target model is smaller than the draft model",
+              "The output is highly unpredictable and creative"
+            ],
+            "correctAnswer": 0,
+            "explanation": "More accepted draft tokens per verification pass means more speedup; unpredictable text yields more rejections and less benefit.",
+            "id": "q3"
+          },
+          {
+            "question": "Per the lesson, what determines whether the target model accepts a proposed token?",
+            "options": [
+              "Whether the target model would have produced that same token itself",
+              "Whether the draft model is faster than the target model",
+              "Whether the token appears earlier in the sequence",
+              "Whether the user manually approves the token"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson describes the target model checking each candidate against what it would have generated on its own, accepting matches and rejecting from the first mismatch.",
+            "id": "q4"
+          },
+          {
+            "question": "Per the lesson, how does speculative decoding's speed/quality tradeoff compare to most other optimizations in the course, like quantization and MQA?",
+            "options": [
+              "Most other optimizations trade some quality for speed, while speculative decoding achieves speed without a quality tradeoff",
+              "All optimizations in the course, including speculative decoding, always reduce output quality",
+              "Speculative decoding is the only optimization in the course that reduces speed to improve quality",
+              "Quantization and MQA also achieve speed with zero quality tradeoff, just like speculative decoding"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson calls out speculative decoding as unusual because it's speed without a quality trade-off, unlike quantization or MQA which do trade some quality for speed.",
+            "id": "q5"
+          },
+          {
+            "question": "In the toy code, what does target_verify do as soon as it encounters the first mismatched proposed token?",
+            "options": [
+              "It stops accepting further tokens, discarding everything from that point onward in this round",
+              "It replaces the mismatched token with a random guess and continues",
+              "It restarts the entire generation from position 0",
+              "It doubles the draft_width for the next round"
+            ],
+            "correctAnswer": 0,
+            "explanation": "target_verify breaks out of its loop at the first token that doesn't match TARGET_SEQUENCE, so accepted only ever contains a prefix of correct tokens.",
+            "id": "q6"
+          },
+          {
+            "question": "In speculative_decode, what does the forward_passes counter actually measure?",
+            "options": [
+              "The number of target-model verification calls made, not the number of individual tokens generated",
+              "The number of characters in TARGET_SEQUENCE",
+              "The number of times the draft model guessed incorrectly",
+              "The total number of tokens accepted across the whole run"
+            ],
+            "correctAnswer": 0,
+            "explanation": "forward_passes is incremented exactly once per call to target_verify inside the while loop, regardless of how many tokens that call accepted.",
+            "id": "q7"
+          },
+          {
+            "question": "Per 'Common mistakes', why can choosing a large draft_width backfire against a low-accuracy draft model?",
+            "options": [
+              "A wider proposal from an inaccurate draft model just produces more rejected guesses, wasting draft-model compute per verification round",
+              "A large draft_width always causes the code to crash",
+              "It forces the target model to skip verification entirely",
+              "It makes the output no longer match TARGET_SEQUENCE even when accepted"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The mistakes section explains that draft_width only pays off when the draft model is usually right; a wide proposal against a weak draft model mostly yields wasted, rejected guesses.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

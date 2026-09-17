@@ -1,0 +1,525 @@
+{
+  "id": "module_2",
+  "title": "Vector Indexes & Search Algorithms",
+  "description": "Why brute-force search doesn't scale, the core idea behind approximate nearest neighbor search, HNSW's graph-based approach, and IVF with product quantization as a partition-based alternative.",
+  "icon": "🕸️",
+  "color": "#00695C",
+  "order": 2,
+  "estimatedHours": 3,
+  "difficulty": "Intermediate",
+  "prerequisites": [],
+  "lessons": [
+    {
+      "id": "emb_brute_force_search",
+      "title": "Brute-Force Search and Why It Doesn't Scale",
+      "description": "Understand the simplest possible vector search approach, and exactly where it breaks down.",
+      "duration": "7 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain how brute-force vector search works and why it becomes impractical at scale."
+          },
+          {
+            "title": "🔍 The simplest possible approach",
+            "content": "**Brute-force (exact) search** compares a query embedding against every single stored embedding, computes a similarity score for each, and returns the top matches. It's simple, and it's guaranteed to find the true best matches — there's no approximation involved at all.\n\n```python\n# Conceptual brute-force search\ndef brute_force_search(query_embedding, all_embeddings, k):\n    scores = [cosine_similarity(query_embedding, e) for e in all_embeddings]\n    return top_k_indices(scores, k)\n```"
+          },
+          {
+            "title": "📈 Why it doesn't scale",
+            "content": "This approach's cost grows linearly with the number of stored vectors — searching a collection of 100 million embeddings means 100 million similarity computations for every single query. At small scale (thousands of vectors) this is fast enough to not matter; at the scale many real applications operate (millions to billions of vectors), it becomes far too slow for interactive use, which is exactly the gap **approximate nearest neighbor** search (the next lesson) is built to close."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming brute-force search is always the wrong choice.** For genuinely small collections, brute force is simple, exact, and entirely sufficient — approximate methods add complexity that isn't justified below a certain scale.\n\n**Not measuring actual query latency at your real data scale before committing to an approach.** The point at which brute force becomes 'too slow' depends on your specific latency requirements and data size, not a fixed rule.\n\n**Forgetting brute force is still useful as a ground-truth baseline.** Even in a production system using an approximate index, brute force search on a sample is a useful way to measure how much accuracy an approximate method is actually giving up, covered further in the next lesson."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "emb_brute_force_search_quiz",
+        "questions": [
+          {
+            "question": "How does brute-force vector search find the top matches for a query?",
+            "options": [
+              "It randomly samples a subset of stored vectors and picks among those",
+              "It compares the query embedding against every single stored embedding, computing a similarity score for each, and returns the highest-scoring matches",
+              "It only compares against the 10 most recently added vectors",
+              "It skips similarity computation entirely and returns results alphabetically"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Brute-force search is exhaustive: every stored vector gets compared against the query, guaranteeing the true best matches are found since no shortcuts or approximations are taken.",
+            "id": "q1"
+          },
+          {
+            "question": "Why does brute-force search become impractical at large scale?",
+            "options": [
+              "Brute-force search's cost is constant regardless of how many vectors are stored",
+              "Its cost grows linearly with the number of stored vectors, so a collection of millions or billions of vectors requires a proportionally huge number of comparisons for every single query, becoming too slow for interactive use",
+              "Brute-force search only works for very large collections, not small ones",
+              "Scale has no effect on brute-force search's performance"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since every query requires comparing against every stored vector, the total work scales directly with collection size — fine for thousands of vectors, but far too slow at the millions-to-billions scale many real applications operate at.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is brute-force search still useful even in a production system that primarily uses an approximate index?",
+            "options": [
+              "Brute-force search has no remaining use once an approximate index is in place",
+              "It serves as a useful ground-truth baseline for measuring how much accuracy an approximate method is actually sacrificing for its speed gains",
+              "Brute-force search is always faster than any approximate method regardless of scale",
+              "Approximate methods and brute-force search always return identical results, making comparison unnecessary"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since approximate methods trade off some accuracy for speed, comparing their results against a brute-force ground truth (even on a sample) is a practical way to quantify exactly how much accuracy is being traded away.",
+            "id": "q3"
+          },
+          {
+            "question": "In the lesson's code example, what does brute_force_search compute for every stored embedding?",
+            "options": [
+              "A cosine similarity score against the query embedding",
+              "A random number unrelated to the query",
+              "Only the vector's dimensionality",
+              "The document's creation timestamp"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's brute_force_search function computes cosine_similarity between the query embedding and every entry in all_embeddings, then returns the top-scoring indices.",
+            "id": "q4"
+          },
+          {
+            "question": "According to this lesson, at what kind of scale does brute-force search remain fast enough to not matter?",
+            "options": [
+              "At small scale, such as collections of thousands of vectors",
+              "Only at the scale of billions of vectors",
+              "Brute-force search is never fast enough at any scale",
+              "Only when there are exactly zero stored vectors"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly states that at small scale (thousands of vectors), brute-force search is fast enough to not matter, in contrast to the millions-to-billions scale where it becomes impractical.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is brute-force search described as 'guaranteed to find the true best matches', per this lesson?",
+            "options": [
+              "Because there's no approximation involved at all; every vector is compared",
+              "Because it only compares against a small random sample of vectors",
+              "Because it uses a specialized graph structure to skip most comparisons",
+              "Because it never actually computes any similarity scores"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson emphasizes that brute-force search compares the query against every single stored vector with no shortcuts, guaranteeing it finds the true best matches.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson warn against assuming brute-force search is always the wrong choice?",
+            "options": [
+              "Because for genuinely small collections, brute force is simple, exact, and entirely sufficient",
+              "Because brute-force search is always slower than any approximate method regardless of scale",
+              "Because brute-force search can never be used in any real application",
+              "Because approximate methods are always required regardless of collection size"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is assuming brute force is always wrong — for small collections it remains a simple, exact, and sufficient approach.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson recommend measuring actual query latency at your real data scale before committing to an approach?",
+            "options": [
+              "Because the point at which brute force becomes 'too slow' depends on your specific latency requirements and data size, not a fixed rule",
+              "Because latency measurement is never actually useful for choosing a search approach",
+              "Because brute-force search always has identical latency regardless of scale",
+              "Because there is one universal data size threshold that applies to every application"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is not measuring actual latency, since the practical point where brute force becomes too slow varies by your own specific requirements and scale rather than a fixed number.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "emb_approximate_nearest_neighbor",
+      "title": "Approximate Nearest Neighbor Search: The Core Idea",
+      "description": "Trade a small amount of accuracy for a massive speed gain at scale.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain the fundamental idea behind approximate nearest neighbor search and what it trades away."
+          },
+          {
+            "title": "⚡ Trading exactness for speed",
+            "content": "**Approximate nearest neighbor (ANN)** search accepts that it might occasionally miss the absolute best match (or return matches in a slightly different order than a perfect brute-force search would) in exchange for search times that scale far better than linear brute-force comparison — often by orders of magnitude at large scale."
+          },
+          {
+            "title": "🗂️ The general strategy: organize, don't compare everything",
+            "content": "Rather than comparing a query against every stored vector, ANN algorithms pre-organize the vector space (at indexing time, before any queries arrive) into a structure that lets a query efficiently narrow down to a small, promising subset of candidates to actually compare against — the specific structures used for this (graph-based, like HNSW, or partition-based, like IVF) are covered in the next two lessons.\n\n```python\n# Conceptual difference:\n# brute force: compare query against ALL N vectors, every time\n# ANN: use a pre-built structure to quickly narrow down to\n#      a small candidate set, then compare against just those\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming 'approximate' means 'unreliable' or 'low quality'.** Well-tuned ANN methods typically achieve accuracy very close to exact search (often 95%+ recall relative to brute force) while being dramatically faster — the accuracy loss is usually a small, deliberate, well-understood tradeoff, not a major quality compromise.\n\n**Not tuning an ANN index's parameters for your actual accuracy/speed needs.** Most ANN methods expose parameters that shift the speed/accuracy tradeoff — the right setting depends on your specific latency and recall requirements.\n\n**Rebuilding the entire index from scratch for every small data change.** Depending on the specific ANN structure, some support efficient incremental updates and some don't — this affects how well a given method fits a frequently-changing dataset, a topic picked up again in the vector-databases-in-practice module."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "emb_approximate_nearest_neighbor_quiz",
+        "questions": [
+          {
+            "question": "What is the fundamental tradeoff that approximate nearest neighbor (ANN) search makes?",
+            "options": [
+              "ANN search guarantees perfect accuracy with no downside compared to brute force",
+              "ANN search accepts occasionally missing the absolute best match or slightly reordering results, in exchange for search times that scale far better than linear brute-force comparison",
+              "ANN search is always slower than brute-force search",
+              "ANN search only works for very small datasets"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The core tradeoff is speed for exactness: ANN methods give up a guarantee of finding the perfect top matches every time, in exchange for search performance that scales far better than brute force at large data volumes.",
+            "id": "q1"
+          },
+          {
+            "question": "What is the general strategy ANN algorithms use to avoid comparing a query against every stored vector?",
+            "options": [
+              "They randomly guess results with no underlying structure at all",
+              "They pre-organize the vector space at indexing time into a structure that lets a query efficiently narrow down to a small, promising candidate subset to actually compare against",
+              "They only ever compare against the single most recently indexed vector",
+              "They eliminate the need for any similarity computation whatsoever"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Rather than exhaustively comparing against everything, ANN methods build a structure ahead of time (at indexing time) that lets a query quickly narrow down to a small set of likely candidates, dramatically reducing the comparisons needed per query.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is it a mistake to assume 'approximate' means 'low quality' when it comes to ANN search?",
+            "options": [
+              "Approximate methods are always dramatically worse in quality than exact search",
+              "Well-tuned ANN methods typically achieve accuracy very close to exact search (often 95%+ recall relative to brute force) while being dramatically faster, making the tradeoff usually small and well-understood rather than a major quality compromise",
+              "ANN methods never actually make any tradeoff at all",
+              "Quality and speed are always completely unrelated for ANN methods"
+            ],
+            "correctAnswer": 1,
+            "explanation": "In practice, well-configured ANN methods sacrifice only a small, controllable amount of accuracy for a large speed benefit — 'approximate' describes a deliberate, tunable tradeoff, not an indication of generally poor results.",
+            "id": "q3"
+          },
+          {
+            "question": "According to this lesson, roughly what recall level do well-tuned ANN methods typically achieve relative to brute force?",
+            "options": [
+              "Often 95%+ recall relative to brute force",
+              "Typically less than 10% recall relative to brute force",
+              "Exactly 0% recall relative to brute force, by definition",
+              "ANN methods never achieve any measurable recall at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson specifically states that well-tuned ANN methods typically achieve accuracy very close to exact search, often citing 95%+ recall relative to brute force.",
+            "id": "q4"
+          },
+          {
+            "question": "According to this lesson, when does ANN's pre-organization of the vector space into a search structure happen?",
+            "options": [
+              "At indexing time, before any queries arrive",
+              "Only at the exact moment a query is submitted",
+              "After every single query has already been answered",
+              "ANN methods never pre-organize the vector space at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly states that ANN algorithms pre-organize the vector space at indexing time, before any queries arrive, so queries can efficiently narrow down candidates later.",
+            "id": "q5"
+          },
+          {
+            "question": "What two specific structures does this lesson name as the topics of the next two lessons?",
+            "options": [
+              "Graph-based (like HNSW) and partition-based (like IVF)",
+              "Only fixed-size chunking and semantic chunking",
+              "Only dot product and Euclidean distance",
+              "Only L2 normalization and cosine similarity"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly previews graph-based structures like HNSW and partition-based structures like IVF as the specific ANN approaches covered in the next two lessons.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson recommend tuning an ANN index's parameters rather than using defaults blindly?",
+            "options": [
+              "Because most ANN methods expose parameters that shift the speed/accuracy tradeoff, and the right setting depends on your specific latency and recall requirements",
+              "Because ANN index parameters have no effect on speed or accuracy",
+              "Because every ANN implementation uses identical, non-configurable parameters",
+              "Because tuning parameters always makes an ANN index slower with no benefit"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is not tuning parameters for your actual needs, since these parameters directly shift the tradeoff between speed and accuracy.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson caution against rebuilding an ANN index from scratch for every small data change?",
+            "options": [
+              "Because depending on the specific structure, some ANN methods support efficient incremental updates and some don't, affecting fit for frequently-changing data",
+              "Because ANN indexes can never be updated after being built",
+              "Because rebuilding from scratch is always the fastest possible update strategy",
+              "Because data changes never actually require any index update at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson notes that whether incremental updates are well-supported varies by ANN structure, which affects how well a given method fits a frequently-changing dataset — a topic revisited in the vector-databases module.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "emb_hnsw",
+      "title": "HNSW: Graph-Based Approximate Search",
+      "description": "See how one of the most widely-used ANN algorithms organizes vectors into a navigable graph.",
+      "duration": "9 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can describe, at a high level, how HNSW uses a layered graph structure to find approximate nearest neighbors quickly."
+          },
+          {
+            "title": "🕸️ A graph you can 'walk' toward the answer",
+            "content": "**HNSW** (Hierarchical Navigable Small World) builds a multi-layer graph where each stored vector is a node, and nodes are connected to other nodes that are (approximately) nearby in the vector space. Searching means starting at an entry point and repeatedly moving to a neighboring node that's closer to the query, converging toward the true nearest neighbors without ever needing to check most of the graph."
+          },
+          {
+            "title": "🏗️ Why layers help",
+            "content": "The 'hierarchical' part matters: HNSW builds several layers, with sparser, longer-range connections in higher layers (good for quickly jumping to roughly the right neighborhood) and denser, short-range connections in lower layers (good for precise local refinement once you're already close). A search starts at the top, sparse layer for a fast coarse approach, then descends to denser layers for fine-grained refinement — similar in spirit to a coarse-to-fine search pattern, rather than blind linear scanning.\n\n```python\n# Conceptual: HNSW search flow\n# 1. Start at entry point in the sparse top layer\n# 2. Greedily move to closer neighbors within that layer\n# 3. Drop down a layer, repeat with denser connections\n# 4. Continue until reaching the bottom, most detailed layer\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming HNSW's graph structure is static once built.** Many HNSW implementations support inserting new vectors into the existing graph, though at some cost to search performance if updates happen very frequently without periodic rebuilding.\n\n**Ignoring HNSW's build-time and memory cost.** Building and storing the graph structure itself has real memory overhead beyond just the raw vectors — a tradeoff for its strong query-time speed.\n\n**Assuming HNSW is the only viable ANN approach.** It's extremely popular and effective, but the next lesson covers a meaningfully different approach (IVF/quantization-based) with its own tradeoffs — the right choice depends on your specific constraints."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "emb_hnsw_quiz",
+        "questions": [
+          {
+            "question": "What is the basic structure HNSW uses to enable fast approximate search?",
+            "options": [
+              "A simple flat list of all vectors with no connections between them",
+              "A multi-layer graph where stored vectors are nodes connected to approximately nearby nodes, allowing search to 'walk' toward the nearest neighbors without checking most of the graph",
+              "A single sorted array of vectors ordered by magnitude",
+              "A random shuffling of all vectors with no underlying organization"
+            ],
+            "correctAnswer": 1,
+            "explanation": "HNSW's core idea is a navigable graph of connected nodes representing nearby vectors, letting a search efficiently move toward the true nearest neighbors by following connections rather than exhaustively checking everything.",
+            "id": "q1"
+          },
+          {
+            "question": "Why does HNSW use multiple layers with different connection densities?",
+            "options": [
+              "The layers serve no functional purpose and are purely a storage detail",
+              "Sparser, longer-range connections in higher layers allow fast coarse navigation to roughly the right neighborhood, while denser, short-range connections in lower layers enable precise local refinement once already close",
+              "All layers in HNSW have identical density and connections",
+              "Layers exist only to save memory, with no effect on search behavior"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The layered structure mirrors a coarse-to-fine search strategy: start with sparse long-range jumps to get roughly close quickly, then refine using denser local connections once in the right neighborhood — much more efficient than uniform search at every step.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is it important to know that HNSW's graph has real build-time and memory overhead?",
+            "options": [
+              "HNSW has no memory or build cost beyond storing the raw vectors",
+              "Building and storing the graph structure itself adds real memory overhead beyond just the raw vectors, which is a genuine cost tradeoff for its fast query-time performance",
+              "Memory cost is only relevant for brute-force search, never for HNSW",
+              "HNSW eliminates the need for any additional memory whatsoever"
+            ],
+            "correctAnswer": 1,
+            "explanation": "HNSW's speed advantage comes at the cost of maintaining an additional graph structure in memory alongside the raw vectors — a real resource tradeoff worth factoring into capacity planning, not a free performance gain.",
+            "id": "q3"
+          },
+          {
+            "question": "What does the acronym HNSW stand for, according to this lesson?",
+            "options": [
+              "Hierarchical Navigable Small World",
+              "High-density Nearest-neighbor Search Weighting",
+              "Hybrid Normalized Similarity Weighting",
+              "Hashed Nearest Search Window"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson spells out HNSW as Hierarchical Navigable Small World, the graph-based ANN algorithm covered in this lesson.",
+            "id": "q4"
+          },
+          {
+            "question": "In the lesson's described search flow, where does an HNSW search begin?",
+            "options": [
+              "At an entry point in the sparse top layer",
+              "At a randomly chosen node in the densest bottom layer",
+              "At every node in the graph simultaneously",
+              "Outside the graph entirely, using brute-force comparison first"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's conceptual search flow starts at the entry point in the sparse top layer, then greedily moves closer within that layer before descending to denser layers.",
+            "id": "q5"
+          },
+          {
+            "question": "According to this lesson, what kind of connections does HNSW use in its higher, sparser layers?",
+            "options": [
+              "Longer-range connections, good for quickly jumping to roughly the right neighborhood",
+              "Only self-loops that connect a node to itself",
+              "Connections that are always shorter than those in lower layers",
+              "No connections at all; higher layers are always empty"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson describes the higher layers as having sparser, longer-range connections, which are good for quickly jumping to roughly the correct neighborhood before refining further down.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson caution against assuming HNSW's graph structure is static once built?",
+            "options": [
+              "Because many HNSW implementations support inserting new vectors into the existing graph, though at some cost to search performance if done too frequently without rebuilding",
+              "Because HNSW graphs can never be modified once construction finishes",
+              "Because inserting new vectors always requires rebuilding the entire graph from scratch",
+              "Because HNSW is only ever used for read-only, unchanging datasets"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is assuming the graph is static, when many implementations actually support inserting new vectors, albeit with some potential performance cost without periodic rebuilding.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson warn against assuming HNSW is the only viable ANN approach?",
+            "options": [
+              "Because the next lesson covers a meaningfully different approach (IVF/quantization-based) with its own tradeoffs, and the right choice depends on specific constraints",
+              "Because HNSW is the only ANN algorithm that has ever been developed",
+              "Because all ANN approaches are functionally identical to HNSW",
+              "Because IVF and quantization-based methods were fully replaced by HNSW"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is treating HNSW as the only option, when the next lesson introduces IVF as a genuinely different approach with its own distinct tradeoffs.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "emb_ivf_quantization",
+      "title": "IVF and Product Quantization: Partition-Based Search",
+      "description": "See a different approach to approximate search: partitioning the space and compressing vectors.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can describe the IVF approach to ANN search and what product quantization adds on top of it."
+          },
+          {
+            "title": "🗂️ IVF: partition first, search within a subset",
+            "content": "**IVF (Inverted File Index)** takes a different approach from HNSW's graph: it first clusters all stored vectors into a number of partitions (using a clustering approach conceptually similar to the unsupervised clustering ideas from the machine learning course), then at query time, only searches within the partitions closest to the query — rather than the whole collection — dramatically narrowing the search space."
+          },
+          {
+            "title": "🗜️ Product quantization: compressing vectors themselves",
+            "content": "**Product quantization (PQ)** tackles a different part of the problem: instead of (or in addition to) reducing how many vectors get compared, it compresses each vector itself into a much smaller representation, trading some precision for a large reduction in memory footprint — directly analogous to the quantization concept from the Hugging Face and LLM engineering courses, just applied to embedding vectors instead of model weights.\n\n```python\n# Conceptual: IVF + PQ combined\n# 1. cluster all vectors into partitions (IVF)\n# 2. within each partition, compress vectors with PQ\n# 3. at query time: find nearest partitions, then search\n#    compressed vectors within just those partitions\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming IVF and HNSW are always interchangeable with identical tradeoffs.** They make different tradeoffs around memory, build time, and update flexibility — the right choice depends on your specific constraints, not a universal 'better' option.\n\n**Combining aggressive quantization with a task that needs high precision without validating the impact.** Just as with model weight quantization, compressing vectors trades some accuracy for memory savings — worth validating for your specific retrieval quality needs.\n\n**Choosing the number of IVF partitions arbitrarily.** Too few partitions means each one is still large (less speedup); too many can hurt recall if the query's true nearest neighbors end up split across partition boundaries."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "emb_ivf_quantization_quiz",
+        "questions": [
+          {
+            "question": "How does IVF's basic strategy differ from HNSW's graph-based approach?",
+            "options": [
+              "IVF and HNSW use the exact same underlying strategy",
+              "IVF first clusters vectors into partitions and searches only the partitions closest to the query at search time, rather than navigating a connected graph structure like HNSW",
+              "IVF never actually reduces the search space at all",
+              "IVF only works for vectors with exactly one dimension"
+            ],
+            "correctAnswer": 1,
+            "explanation": "IVF takes a partition-based approach — cluster first, then narrow the search to only the most relevant clusters — a fundamentally different strategy from HNSW's graph-navigation approach, though both aim to avoid comparing against every stored vector.",
+            "id": "q1"
+          },
+          {
+            "question": "What does product quantization (PQ) do, and how does it relate to a concept from earlier courses?",
+            "options": [
+              "PQ deletes vectors entirely rather than compressing them",
+              "PQ compresses each vector into a much smaller representation, trading some precision for reduced memory footprint — directly analogous to the weight quantization concept from the Hugging Face and LLM engineering courses, applied here to embedding vectors",
+              "PQ has no relationship to any quantization concept covered elsewhere",
+              "PQ increases the size of each vector for higher precision"
+            ],
+            "correctAnswer": 1,
+            "explanation": "PQ applies the same core quantization tradeoff (less precision for less memory) that appeared earlier for model weights, but applies it specifically to compressing embedding vectors for more memory-efficient storage and search.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is choosing the number of IVF partitions a real design decision rather than an arbitrary setting?",
+            "options": [
+              "The number of partitions has no effect on search speed or accuracy",
+              "Too few partitions means each remains large with less speedup, while too many can hurt recall if a query's true nearest neighbors end up split across partition boundaries",
+              "IVF always performs identically regardless of the number of partitions chosen",
+              "More partitions always strictly improve both speed and accuracy with no downside"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The partition count directly affects the speed/accuracy tradeoff: too coarse a partitioning limits the speedup, while too fine a partitioning risks missing true nearest neighbors that end up scattered across different partitions than the query.",
+            "id": "q3"
+          },
+          {
+            "question": "In the lesson's conceptual combined pipeline, what happens first: clustering or compression?",
+            "options": [
+              "Clustering all vectors into partitions (IVF) happens first, before compressing vectors with PQ within each partition",
+              "Compression with PQ always happens before any clustering step",
+              "Clustering and compression happen simultaneously with no defined order",
+              "Neither clustering nor compression is actually part of the combined pipeline"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's conceptual IVF+PQ pipeline explicitly clusters vectors into partitions first, then compresses vectors with PQ within each partition, before searching at query time.",
+            "id": "q4"
+          },
+          {
+            "question": "According to this lesson, what earlier course's concept does IVF's clustering step conceptually resemble?",
+            "options": [
+              "The unsupervised clustering ideas from the machine learning course",
+              "The tokenization lesson from the Hugging Face course",
+              "The classifier evaluation lesson from the machine learning course",
+              "The residual connections lesson from the transformers course"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly compares IVF's clustering approach to the unsupervised clustering ideas covered in the machine learning course.",
+            "id": "q5"
+          },
+          {
+            "question": "How does product quantization (PQ) relate to a concept from the Hugging Face and LLM engineering courses, per this lesson?",
+            "options": [
+              "It's directly analogous to the quantization concept covered there, just applied to embedding vectors instead of model weights",
+              "It has no relationship to anything covered in those courses",
+              "PQ is described as the exact opposite of the quantization idea from those courses",
+              "PQ only applies to model weights, never to embedding vectors"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly draws this parallel: PQ applies the same core idea of trading precision for reduced memory footprint, just to embedding vectors rather than model weights.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson caution against assuming IVF and HNSW are always interchangeable with identical tradeoffs?",
+            "options": [
+              "Because they make different tradeoffs around memory, build time, and update flexibility, so the right choice depends on specific constraints",
+              "Because IVF and HNSW always produce mathematically identical results",
+              "Because HNSW has been fully replaced by IVF in every real system",
+              "Because IVF cannot be used for any kind of vector search at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is treating IVF and HNSW as interchangeable, when in fact they differ meaningfully in their tradeoffs around memory, build time, and update flexibility.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does the lesson warn against combining aggressive quantization with a task that needs high precision, without validating the impact?",
+            "options": [
+              "Because compressing vectors trades some accuracy for memory savings, which is worth validating for your specific retrieval quality needs",
+              "Because quantization never actually affects retrieval accuracy in any way",
+              "Because aggressive quantization always improves precision regardless of the task",
+              "Because validating quantization's impact is unnecessary for any use case"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is applying aggressive quantization without validation, since the accuracy tradeoff genuinely needs to be checked against the specific precision needs of the task.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,551 @@
+{
+  "id": "module_2",
+  "title": "Encoder, Decoder, and Full Architecture",
+  "description": "How encoder and decoder stacks each work, why decoder self-attention needs masking, how cross-attention connects the two, and the three major Transformer architecture families.",
+  "icon": "🏛️",
+  "color": "#00BCD4",
+  "order": 2,
+  "estimatedHours": 2,
+  "difficulty": "Intermediate",
+  "prerequisites": [
+    "module_1"
+  ],
+  "lessons": [
+    {
+      "id": "tf_encoder_stack",
+      "title": "The Encoder Stack",
+      "description": "Learn how stacked Transformer blocks form an encoder that builds rich, bidirectional representations of an input sequence.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can describe what a Transformer encoder produces and what \"bidirectional\" means in this context."
+          },
+          {
+            "title": "🏗️ Stacking blocks into an encoder",
+            "content": "Recall from module 1: a full model stacks many identical Transformer blocks. An **encoder** is exactly this — a stack of Transformer blocks whose job is to read an entire input sequence and produce a rich, contextual representation for every position, taking into account the *entire* sequence at once."
+          },
+          {
+            "title": "👀 Bidirectional context: seeing the whole sequence at once",
+            "content": "In the encoder's self-attention, every position can attend to *every* other position in the sequence — including positions that come *after* it, not just before. This is called **bidirectional** attention: unlike an RNN (which processes strictly left to right) or the masked decoder self-attention covered in the next lesson, an encoder position can use both earlier and later context simultaneously to build its representation.\n\n```\n# For \"bank\" in \"I sat by the river bank\":\n# encoder self-attention can look at BOTH \"river\" (before) AND\n# whatever comes after \"bank\" in the sentence — full context, both directions\n```"
+          },
+          {
+            "title": "🎯 What an encoder is good for",
+            "content": "This full bidirectional context makes encoders especially well-suited to *understanding* tasks — building rich representations of existing text, rather than generating new text one token at a time. This directly connects back to the contextual embeddings preview from the NLP course: an encoder is exactly the kind of architecture that produces those context-dependent word representations, correctly distinguishing \"bank\" the riverbank from \"bank\" the financial institution based on full surrounding context."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming an encoder generates new text.** As the next few lessons clarify, encoders are primarily built for understanding and representing existing text — text generation is more naturally suited to the decoder architecture (next lesson).\n\n**Confusing bidirectional attention with looking at the sequence twice.** It genuinely means each position can incorporate context from both directions *simultaneously*, in a single attention computation — not two separate passes.\n\n**Forgetting this connects directly to the NLP course's contextual embeddings preview.** An encoder stack is precisely the mechanism that produces those context-dependent representations previewed there."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "tf_encoder_stack_quiz",
+        "questions": [
+          {
+            "question": "What does an encoder in a Transformer architecture produce?",
+            "options": [
+              "A single label summarizing the entire input",
+              "A rich, contextual representation for every position in the input sequence, taking the entire sequence into account",
+              "A translated version of the input in a different language",
+              "A compressed image representation"
+            ],
+            "correctAnswer": 1,
+            "explanation": "An encoder stack processes the full input sequence and produces a contextual representation for each position, incorporating information from across the entire sequence — this is the foundation for many understanding-focused NLP tasks.",
+            "id": "q1"
+          },
+          {
+            "question": "What does 'bidirectional' mean in the context of an encoder's self-attention?",
+            "options": [
+              "Attention can only look at the previous word in the sequence",
+              "Each position can attend to every other position in the sequence, including ones that come after it, using context from both directions simultaneously",
+              "The model processes the sequence twice, once forward and once backward, as two separate passes",
+              "Bidirectional refers to translating between two languages"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Unlike an RNN's strictly left-to-right processing, an encoder's self-attention lets every position incorporate information from both earlier and later positions in the sequence at once, within a single attention computation.",
+            "id": "q2"
+          },
+          {
+            "question": "How does an encoder's bidirectional attention connect to the contextual embeddings preview from the NLP course?",
+            "options": [
+              "It has no actual connection to that concept",
+              "An encoder stack is exactly the mechanism that produces context-dependent word representations, correctly distinguishing different meanings of the same word based on full surrounding context",
+              "Encoders can only produce static embeddings, identical to Word2Vec",
+              "Contextual embeddings require a completely different, unrelated architecture"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The NLP course previewed contextual embeddings as representations that differ based on context (unlike static Word2Vec-style embeddings) — an encoder's bidirectional self-attention is precisely the mechanism that makes this possible, using full context from both directions to disambiguate meaning.",
+            "id": "q3"
+          },
+          {
+            "question": "What is an encoder, as described in this lesson?",
+            "options": [
+              "A single, standalone attention head with no other components",
+              "A stack of Transformer blocks that reads an entire input sequence and produces a rich, contextual representation for every position",
+              "A component that only processes the very last token of a sequence",
+              "A mechanism exclusively used for generating brand new text"
+            ],
+            "correctAnswer": 1,
+            "explanation": "An encoder is a stack of Transformer blocks whose job is to read an entire input sequence and produce a rich, contextual representation for every position, using the whole sequence at once.",
+            "id": "q4"
+          },
+          {
+            "question": "In encoder self-attention, can a given position attend to positions that come after it in the sequence?",
+            "options": [
+              "No, only to positions strictly before it",
+              "Yes — every position can attend to every other position, including ones that come later",
+              "Only the very last position in the sequence can attend to anything",
+              "Encoders do not use self-attention at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Unlike masked decoder self-attention, an encoder's self-attention allows every position to attend to every other position, including later ones — this is exactly what makes it bidirectional.",
+            "id": "q5"
+          },
+          {
+            "question": "How does encoder bidirectional attention differ from how an RNN processes a sequence?",
+            "options": [
+              "They process sequences in an identical, strictly left-to-right manner",
+              "An RNN processes strictly left to right, while an encoder's bidirectional attention lets a position use both earlier and later context simultaneously",
+              "RNNs process sequences in reverse only, while encoders cannot use any past context",
+              "There is no meaningful difference between the two approaches"
+            ],
+            "correctAnswer": 1,
+            "explanation": "An RNN processes tokens strictly in sequential order, while an encoder's bidirectional self-attention allows each position to incorporate both earlier and later context at once, in a single attention computation.",
+            "id": "q6"
+          },
+          {
+            "question": "What kinds of tasks is an encoder's full bidirectional context especially well suited for?",
+            "options": [
+              "Open-ended text generation, one token at a time",
+              "Understanding tasks — building rich representations of existing text, rather than generating new text",
+              "Tasks that require no understanding of the input text at all",
+              "Only tasks involving image data"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Because it can use the full context of an input sequence at once, an encoder's bidirectional representations are especially well suited to understanding tasks rather than open-ended generation.",
+            "id": "q7"
+          },
+          {
+            "question": "How does an encoder's bidirectional self-attention connect to the contextual embeddings preview from the NLP course?",
+            "options": [
+              "It has no connection to that concept at all",
+              "An encoder is exactly the kind of architecture that produces those context-dependent representations, correctly distinguishing different word meanings based on full context",
+              "Encoders can only produce static embeddings identical to Word2Vec",
+              "Contextual embeddings require an entirely different, unrelated mechanism"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The NLP course previewed contextual embeddings as representations that vary with context — an encoder's bidirectional self-attention is precisely the mechanism that makes this possible, using full surrounding context to disambiguate meaning.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "tf_decoder_masking",
+      "title": "The Decoder Stack and Masked Self-Attention",
+      "description": "Learn how a decoder generates text one token at a time while still leveraging the power of self-attention.",
+      "duration": "9 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain why decoder self-attention needs to be masked and how this connects to language modeling."
+          },
+          {
+            "title": "✍️ A decoder's job: generating text, one token at a time",
+            "content": "Recall language modeling from the NLP course: predicting the next token given everything before it. A **decoder** is a stack of Transformer blocks built for exactly this generative task — producing output tokens one at a time, each conditioned on everything generated so far."
+          },
+          {
+            "title": "🙈 The problem: attention can \"see the future\"",
+            "content": "Here's the issue: a decoder's self-attention, exactly like an encoder's, would by default let every position attend to *every* other position — including positions *later* in the sequence than itself. But during actual text generation, the model shouldn't be allowed to \"peek\" at tokens it hasn't generated yet — that would be cheating, and wouldn't reflect how the model will actually need to operate at real inference time, generating one token after another with no future tokens available yet."
+          },
+          {
+            "title": "🚫 The fix: masked self-attention",
+            "content": "**Masked self-attention** (sometimes called causal attention) explicitly prevents each position from attending to any position after it — a token at position 5 can attend to positions 1 through 5, but never to position 6 or beyond.\n\n```python\n# Conceptual: masking future positions before the softmax step\n# scores = (queries @ keys.T) / sqrt(d_k)\n# scores[future_positions] = -infinity   # forces softmax weight to ~0\n# weights = softmax(scores, axis=-1)\n```\n\nSetting future positions' scores to negative infinity before softmax forces their attention weight to become essentially zero — effectively hiding them from the computation entirely, while still allowing full attention to every earlier (and the current) position."
+          },
+          {
+            "title": "🎯 Why this connects everything together",
+            "content": "This is precisely what makes decoder-only architectures like GPT (covered in a later module) natural fits for language modeling and text generation: masked self-attention structurally enforces the same left-to-right, \"only see what came before\" constraint that language modeling requires — but still gets all of self-attention's benefits (direct relationships between any two allowed positions, full parallelizability during training) rather than an RNN's strictly sequential processing."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Confusing masked (causal) self-attention with the encoder's bidirectional self-attention.** They use the exact same underlying mechanism — the only difference is masked attention explicitly blocks attending to future positions, while the encoder allows full bidirectional access.\n\n**Assuming masking makes training as slow as an RNN's sequential generation.** During *training*, the whole sequence (with correct answers already known) can still be processed in parallel, with masking simply controlling which positions can attend to which — it's only at actual *inference* generation time that tokens must be produced one at a time.\n\n**Forgetting why this masking is necessary in the first place.** Without it, the model could trivially \"cheat\" during training by looking ahead at the very token it's supposed to be predicting — masking enforces that predictions only ever depend on legitimately available past context."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "tf_decoder_masking_quiz",
+        "questions": [
+          {
+            "question": "Why does a decoder's self-attention need to be masked, unlike an encoder's?",
+            "options": [
+              "Masking makes the computation run faster on all hardware",
+              "A decoder generates text one token at a time, and shouldn't be allowed to attend to future positions it hasn't generated yet — masking enforces this left-to-right constraint",
+              "Encoders never actually use self-attention",
+              "Masking is purely a stylistic choice with no functional purpose"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since a decoder generates output sequentially, allowing it to attend to future positions during training would let it 'cheat' by looking ahead at what it's supposed to predict — masking explicitly prevents this, matching the real constraint the model faces during actual generation.",
+            "id": "q1"
+          },
+          {
+            "question": "How does masked self-attention technically prevent a position from attending to future positions?",
+            "options": [
+              "It physically deletes those positions from the input sequence",
+              "It sets the relevance scores for future positions to negative infinity before the softmax step, forcing their attention weight to become effectively zero",
+              "It runs a completely separate, unrelated attention mechanism for future positions",
+              "It requires training two entirely separate models"
+            ],
+            "correctAnswer": 1,
+            "explanation": "By setting future positions' scores to negative infinity before applying softmax, those positions receive essentially zero attention weight in the final output, effectively hiding them from the computation while leaving earlier positions fully accessible.",
+            "id": "q2"
+          },
+          {
+            "question": "Why can a decoder still be trained efficiently in parallel, despite needing to generate tokens sequentially at actual inference time?",
+            "options": [
+              "Training and inference always work in exactly the same way, with no difference",
+              "During training, the whole sequence (with known correct tokens) can be processed at once, with masking simply controlling which positions can attend to which — only at inference time must tokens be generated one at a time",
+              "Parallel training is impossible for decoder architectures",
+              "Masking eliminates the need for training entirely"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since the full training sequence is already known in advance, the whole thing can be processed in one parallel pass during training, with masking ensuring each position's attention only respects earlier context — the strictly sequential, one-token-at-a-time process only becomes necessary during actual text generation (inference).",
+            "id": "q3"
+          },
+          {
+            "question": "What is a decoder's core job, as introduced in this lesson?",
+            "options": [
+              "Producing a single classification label for an entire input",
+              "Generating output tokens one at a time, each conditioned on everything generated so far",
+              "Only compressing an input sequence into a shorter form",
+              "Translating text without needing any input sequence at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A decoder is a stack of Transformer blocks built for generative tasks — producing output tokens one at a time, with each token conditioned on everything generated before it.",
+            "id": "q4"
+          },
+          {
+            "question": "Why would unmasked self-attention be problematic for a decoder during training?",
+            "options": [
+              "Unmasked attention would make training run faster with no drawbacks",
+              "It would let the model 'peek' at future tokens it hasn't generated yet, which doesn't reflect the real constraint at actual inference time",
+              "Encoders never use self-attention, so this issue would not apply",
+              "Unmasked attention only affects the feed-forward sublayer, not attention"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Without masking, a decoder's self-attention would let each position attend to future positions as well, letting the model 'cheat' during training by seeing tokens it should be predicting — this doesn't match real generation, where future tokens aren't yet available.",
+            "id": "q5"
+          },
+          {
+            "question": "How does masked (causal) self-attention technically prevent attending to future positions?",
+            "options": [
+              "It physically removes future tokens from the input sequence entirely",
+              "It sets the relevance scores for future positions to negative infinity before the softmax step, forcing their weight toward zero",
+              "It requires training two completely separate models",
+              "It disables the Value vectors for all positions uniformly"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Masked self-attention sets future positions' scores to negative infinity before softmax, which forces their resulting attention weight to become essentially zero, hiding them from the computation while allowing full attention to earlier positions.",
+            "id": "q6"
+          },
+          {
+            "question": "Why can a decoder still be trained efficiently in parallel, despite generating tokens sequentially at inference time?",
+            "options": [
+              "Training and inference always proceed in exactly the same sequential way",
+              "During training, the whole sequence with known tokens can be processed in one parallel pass, with masking simply controlling which positions can attend to which",
+              "Parallel training is fundamentally impossible for any decoder-based architecture",
+              "Masking removes the need for training entirely"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since the full training sequence is already known, it can be processed in a single parallel pass, with masking ensuring each position's attention respects only earlier context — the strictly sequential process is only necessary at actual inference time.",
+            "id": "q7"
+          },
+          {
+            "question": "How does masked self-attention differ from the encoder's bidirectional self-attention, mechanically?",
+            "options": [
+              "They use completely different mathematical formulas from each other",
+              "They use the exact same underlying mechanism — masked attention simply blocks attending to future positions, while the encoder allows full bidirectional access",
+              "Masked self-attention does not use a softmax step at all",
+              "Bidirectional attention is only usable for single-word inputs"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Masked and bidirectional self-attention share the identical underlying scaled dot-product mechanism — the only difference is that masking explicitly blocks future positions, while the encoder's version allows access in both directions.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "tf_cross_attention",
+      "title": "Cross-Attention: Connecting Encoder and Decoder",
+      "description": "Learn how an encoder-decoder Transformer lets its decoder draw on the encoder's understanding of the input.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain how cross-attention connects an encoder's output to a decoder's generation process."
+          },
+          {
+            "title": "🔗 Bringing back cross-attention from the NLP course",
+            "content": "Recall the attention mechanism from the NLP course's seq2seq lesson: the decoder attended to the encoder's hidden states while generating each output token. In a full Transformer encoder-decoder architecture, this same idea reappears as **cross-attention** — but now built using the exact same Query/Key/Value mechanism from module 0, rather than the earlier, simpler attention scoring used in RNN-based seq2seq models."
+          },
+          {
+            "title": "🎯 Where cross-attention fits: a third sublayer",
+            "content": "A decoder block in a full encoder-decoder Transformer actually has *three* sublayers, not two: masked self-attention (previous lesson, attending to the decoder's own prior outputs), then **cross-attention** (attending to the encoder's output), and finally the feed-forward sublayer (module 1) — each still wrapped in its own residual connection and layer norm.\n\n```\n# Conceptual full decoder block\n# x = LayerNorm(x + MaskedSelfAttention(x))\n# x = LayerNorm(x + CrossAttention(query=x, key=encoder_output, value=encoder_output))\n# x = LayerNorm(x + FeedForward(x))\n```"
+          },
+          {
+            "title": "🔑 The key difference from self-attention: where Q, K, V come from",
+            "content": "In cross-attention, the **Query** comes from the decoder's own current representation, while the **Key** and **Value** both come from the *encoder's* output — this is exactly what lets the decoder \"ask\" (query) about relevant parts of the *input* sequence, using the encoder's rich understanding of it, while generating each output token. This is structurally the same core mechanism as self-attention (module 0) — it's specifically *which* sequences the Q, K, and V come from that makes it \"cross\" rather than \"self\" attention."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Confusing cross-attention with self-attention.** They use the identical underlying formula — the difference is entirely about the *source* of Q vs. K/V: self-attention draws all three from the same sequence; cross-attention draws Q from one sequence (the decoder) and K/V from a different one (the encoder).\n\n**Forgetting cross-attention is specific to encoder-decoder architectures.** As the next lesson covers, decoder-only models (like GPT) don't have a separate encoder to cross-attend to at all — they rely entirely on masked self-attention.\n\n**Assuming cross-attention appears in a random or arbitrary position within a decoder block.** It has a specific, standard place — after masked self-attention, before the feed-forward sublayer — allowing the decoder to first process its own prior generated context, then bring in encoder information, then further transform the result."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "tf_cross_attention_quiz",
+        "questions": [
+          {
+            "question": "In cross-attention, where do the Query, Key, and Value vectors come from?",
+            "options": [
+              "All three come from the encoder's output",
+              "The Query comes from the decoder's own current representation; the Key and Value both come from the encoder's output",
+              "All three come from the decoder's own output only",
+              "Query and Key come from the encoder; Value comes from a separate, third sequence"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Cross-attention's defining feature is drawing its Query from the decoder while drawing Key and Value from the encoder's output — this lets the decoder 'ask' about relevant parts of the input sequence using the encoder's representation of it.",
+            "id": "q1"
+          },
+          {
+            "question": "What is the structural difference between self-attention and cross-attention?",
+            "options": [
+              "They use completely different mathematical formulas",
+              "They use the identical underlying scaled dot-product attention formula — the difference is which sequence the Query comes from versus the Key and Value",
+              "Cross-attention doesn't use a softmax step, unlike self-attention",
+              "Self-attention can only be used in decoders, and cross-attention only in encoders"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Both mechanisms compute attention using the exact same scaled dot-product formula — what distinguishes them is simply where the Q, K, and V vectors originate: the same sequence for self-attention, versus two different sequences (decoder Query, encoder Key/Value) for cross-attention.",
+            "id": "q2"
+          },
+          {
+            "question": "Where does cross-attention typically appear within a full encoder-decoder Transformer's decoder block?",
+            "options": [
+              "Before the masked self-attention sublayer",
+              "After the masked self-attention sublayer and before the feed-forward sublayer",
+              "It replaces the feed-forward sublayer entirely",
+              "It only appears in the very last decoder block, not every block"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A standard encoder-decoder decoder block processes masked self-attention first (using the decoder's own prior context), then cross-attention (bringing in encoder information), and finally the feed-forward sublayer — this specific ordering appears in every decoder block, not just the last one.",
+            "id": "q3"
+          },
+          {
+            "question": "What earlier NLP course concept does cross-attention in Transformers directly build on?",
+            "options": [
+              "Bag of words",
+              "The attention mechanism from the seq2seq lesson, where a decoder attended to an encoder's hidden states",
+              "TF-IDF weighting",
+              "Named entity recognition"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Cross-attention reintroduces the same core idea from the NLP course's seq2seq attention lesson — a decoder attending to an encoder's hidden states — now implemented using the Query/Key/Value mechanism.",
+            "id": "q4"
+          },
+          {
+            "question": "How many sublayers does a decoder block have in a full encoder-decoder Transformer, including cross-attention?",
+            "options": [
+              "Two sublayers only",
+              "Three sublayers: masked self-attention, cross-attention, and feed-forward",
+              "A single combined sublayer that handles everything at once",
+              "Five separate sublayers"
+            ],
+            "correctAnswer": 1,
+            "explanation": "In a full encoder-decoder Transformer, a decoder block has three sublayers: masked self-attention, cross-attention, and the feed-forward sublayer, each wrapped in its own residual connection and layer norm.",
+            "id": "q5"
+          },
+          {
+            "question": "In cross-attention, where does the Query vector come from, and where do the Key and Value vectors come from?",
+            "options": [
+              "All three come from the encoder's output",
+              "The Query comes from the decoder's own current representation; the Key and Value come from the encoder's output",
+              "All three come from the decoder only",
+              "The Query and Value come from the encoder; only the Key comes from the decoder"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Cross-attention's defining feature is that its Query is drawn from the decoder while its Key and Value are drawn from the encoder's output, letting the decoder query relevant parts of the encoded input.",
+            "id": "q6"
+          },
+          {
+            "question": "Where does cross-attention sit within the ordering of sublayers in a decoder block?",
+            "options": [
+              "Before the masked self-attention sublayer",
+              "After masked self-attention and before the feed-forward sublayer",
+              "It completely replaces the feed-forward sublayer",
+              "It only appears in the very last decoder block in the stack"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Cross-attention has a specific standard position: after masked self-attention (processing the decoder's own prior context) and before the feed-forward sublayer, and this ordering appears in every decoder block.",
+            "id": "q7"
+          },
+          {
+            "question": "Do decoder-only architectures like GPT include cross-attention?",
+            "options": [
+              "Yes, cross-attention is present in every Transformer architecture",
+              "No — decoder-only models have no separate encoder to cross-attend to, so they rely entirely on masked self-attention",
+              "Cross-attention replaces masked self-attention entirely in decoder-only models",
+              "Only encoder-only models use cross-attention"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Cross-attention is specific to encoder-decoder architectures; decoder-only models like GPT lack a separate encoder output to cross-attend to, relying entirely on masked self-attention instead.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "tf_architecture_families",
+      "title": "Encoder-Only, Decoder-Only, and Encoder-Decoder Models",
+      "description": "Learn the three major Transformer architecture families and which tasks each is best suited for.",
+      "duration": "9 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can distinguish encoder-only, decoder-only, and encoder-decoder Transformer models and match each to appropriate tasks."
+          },
+          {
+            "title": "📖 Encoder-only: built for understanding",
+            "content": "**Encoder-only** models use just the bidirectional encoder stack (this module's first lesson) — no decoder at all. They're well suited to tasks that need a rich understanding of existing text, but don't need to generate new text: classification (sentiment analysis from the NLP course), named entity recognition, and producing embeddings for search or similarity comparison. **BERT** (covered in depth in module 3) is the most well-known encoder-only model."
+          },
+          {
+            "title": "✍️ Decoder-only: built for generation",
+            "content": "**Decoder-only** models use just the masked-self-attention decoder stack — no separate encoder, and no cross-attention (since there's no encoder output to cross-attend to). They're naturally suited to open-ended text generation, since masked self-attention already enforces the same left-to-right, autoregressive structure that generation requires. **GPT** (module 4) is the most well-known decoder-only model, and this architecture family underlies most modern large language models."
+          },
+          {
+            "title": "🔄 Encoder-decoder: built for transformation",
+            "content": "**Encoder-decoder** models use both stacks together, connected via cross-attention (previous lesson) — well suited to tasks that transform one sequence into a genuinely different one: translation, summarization, and other seq2seq-style tasks (recall the NLP course's seq2seq module) where the encoder builds understanding of the source, and the decoder generates a related but distinct target sequence, informed by that understanding."
+          },
+          {
+            "title": "🎯 Choosing the right family for a task",
+            "content": "```\nUnderstanding existing text (classify, embed, extract)  → encoder-only\nGenerating open-ended new text from a prompt             → decoder-only\nTransforming one sequence into a distinctly different one → encoder-decoder\n```\n\nIn practice, decoder-only models have become dominant for the general-purpose large language models covered in later courses — partly because a sufficiently capable decoder-only model can be prompted to also handle many understanding and transformation-style tasks, blurring these once-cleaner boundaries somewhat. Still, understanding this three-way distinction is essential for understanding why different models are built the way they are, and it remains the right way to think about task-specific model choices."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming one architecture family is unconditionally \"best.\"** Each was designed with different tasks in mind — the right choice genuinely depends on what the task actually requires (understanding, generation, or transformation).\n\n**Forgetting encoder-only models generally can't generate open-ended text.** Their bidirectional attention, while great for understanding, isn't structured for the left-to-right, autoregressive generation process that decoder-only or encoder-decoder models are built for.\n\n**Overlooking that decoder-only models have become dominant in practice, despite this three-way distinction.** The boundaries have blurred somewhat as decoder-only large language models have grown capable enough to handle understanding and transformation tasks too, through prompting — a theme picked up further in later courses on LLMs."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "tf_architecture_families_quiz",
+        "questions": [
+          {
+            "question": "Which architecture family is best suited for tasks like sentiment classification or producing embeddings for search, where generating new text isn't needed?",
+            "options": [
+              "Decoder-only",
+              "Encoder-only",
+              "Encoder-decoder",
+              "None of these architectures can handle these tasks"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Encoder-only models (like BERT) use bidirectional self-attention to build rich representations of existing text, making them well suited to understanding-focused tasks like classification and embeddings, without needing generation capability.",
+            "id": "q1"
+          },
+          {
+            "question": "Why is decoder-only architecture naturally well suited to open-ended text generation?",
+            "options": [
+              "Decoder-only models cannot process any input text at all",
+              "Masked self-attention already enforces the same left-to-right, autoregressive structure required for generating text one token at a time",
+              "Decoder-only models require a separate encoder to function",
+              "Generation is actually better suited to encoder-only architectures"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since masked self-attention structurally prevents attending to future positions — exactly the constraint text generation requires — decoder-only models are a natural architectural fit for autoregressive generation, without needing a separate encoder.",
+            "id": "q2"
+          },
+          {
+            "question": "What kind of task is encoder-decoder architecture specifically designed for?",
+            "options": [
+              "Only classifying a single sentence into one of two categories",
+              "Transforming one sequence into a distinctly different one, like translation or summarization, where an encoder builds understanding of the source and a decoder generates a related target",
+              "Only tasks that involve no text generation whatsoever",
+              "Tasks that require no understanding of the input at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Encoder-decoder models combine bidirectional understanding of a source sequence (via the encoder) with generation of a new, related target sequence (via the decoder, informed by cross-attention) — exactly matching seq2seq-style tasks like translation and summarization from the NLP course.",
+            "id": "q3"
+          },
+          {
+            "question": "Which architecture family uses only the bidirectional encoder stack, with no decoder at all?",
+            "options": [
+              "Decoder-only",
+              "Encoder-only",
+              "Encoder-decoder",
+              "None of the three families ever omit a decoder"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Encoder-only models use just the bidirectional encoder stack with no decoder component, making them well suited to understanding-focused tasks rather than generation.",
+            "id": "q4"
+          },
+          {
+            "question": "Why is decoder-only architecture naturally suited to open-ended text generation, according to this lesson?",
+            "options": [
+              "Decoder-only models cannot process any input text at all",
+              "Masked self-attention already enforces the left-to-right, autoregressive structure that generation requires",
+              "Decoder-only models require a separate encoder to generate any text",
+              "Generation is actually better handled by encoder-only architectures"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since masked self-attention already structurally enforces the left-to-right constraint needed for generation, decoder-only models are a natural architectural fit for open-ended text generation without needing a separate encoder.",
+            "id": "q5"
+          },
+          {
+            "question": "What kind of task is encoder-decoder architecture specifically well suited for?",
+            "options": [
+              "Only classifying a single sentence into a fixed category",
+              "Transforming one sequence into a distinctly different one, such as translation or summarization",
+              "Tasks requiring absolutely no understanding of the input",
+              "Tasks that involve no text generation whatsoever"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Encoder-decoder models combine an encoder's understanding of a source sequence with a decoder's generation of a related target sequence, connected via cross-attention — well matched to seq2seq-style tasks like translation and summarization.",
+            "id": "q6"
+          },
+          {
+            "question": "According to this lesson, has one architecture family become dominant in practice for general-purpose large language models?",
+            "options": [
+              "Encoder-only models have become completely dominant for all purposes",
+              "Decoder-only models have become dominant, partly because a capable one can be prompted to also handle understanding and transformation tasks",
+              "Encoder-decoder models have entirely replaced the other two families",
+              "No architecture family has ever become more common than the others"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson notes that decoder-only models have become dominant for general-purpose large language models, since a sufficiently capable one can be prompted to also handle many understanding and transformation-style tasks.",
+            "id": "q7"
+          },
+          {
+            "question": "What summary framework does this lesson give for choosing an architecture family based on the task?",
+            "options": [
+              "Always default to whichever architecture is newest, regardless of the task",
+              "Understanding existing text favors encoder-only; generating open-ended new text favors decoder-only; transforming one sequence into another favors encoder-decoder",
+              "The choice of architecture never actually depends on the task at hand",
+              "Only encoder-decoder architecture can handle any of these three task types"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson gives a clear task-to-architecture mapping: encoder-only for understanding existing text, decoder-only for generating open-ended new text, and encoder-decoder for transforming one sequence into a distinctly different one.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,563 @@
+{
+  "id": "ent_multi_tenancy",
+  "title": "Multi-Tenancy at Enterprise Scale",
+  "description": "Tenant isolation strategies, data residency and compliance, per-tenant customization, and billing/usage tracking.",
+  "icon": "🏢",
+  "color": "#4A148C",
+  "order": 2,
+  "estimatedHours": 4,
+  "difficulty": "advanced",
+  "prerequisites": [
+    "ent_identity_and_access"
+  ],
+  "lessons": [
+    {
+      "id": "ent_tenant_isolation_strategies",
+      "title": "Tenant Isolation Strategies",
+      "description": "Extending the Vector Databases course's tenant-isolation lesson to an entire enterprise AI platform, not just one index.",
+      "duration": 13,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Compare tenant isolation strategies across the levels of an enterprise AI system, not just the vector store.\n"
+          },
+          {
+            "title": "🏢 What 'tenant' means at this scale",
+            "content": "In an enterprise AI platform, a **tenant** might be a different business unit, a different customer of a B2B AI product, or a different regulatory jurisdiction requiring separate handling — and isolation now needs to be enforced consistently across every layer: the vector store (Vector Databases course), the application database, the model-serving layer, and the logging/audit trail from the previous module.\n"
+          },
+          {
+            "title": "🏗️ Isolation strategies, spanning the whole stack",
+            "content": "- **Silo model**: fully separate infrastructure per tenant — strongest isolation, highest operational cost, common for the most sensitive or highest-paying tenants.\n- **Pooled model**: shared infrastructure with logical separation enforced through the RBAC and tenant-scoped filtering from the previous module — lower cost, requires very careful implementation since a bug in the isolation logic is now a cross-tenant data breach, not just a minor defect.\n- **Bridge model**: a mix, often pooled for most tenants with a silo option for tenants whose contracts or regulations require it.\n"
+          },
+          {
+            "title": "🧪 Testing isolation has to happen at every layer, not just one",
+            "content": "The negative test discipline from the Vector Databases course's tenant-isolation lesson (query as tenant A, assert tenant B's data never appears) needs to be applied at every layer of a pooled or bridge system — a vector store that correctly isolates tenants but an application database that doesn't is still a full breach, just through a different door.\n"
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "Here's a simplified simulation of a pooled system with tenant-scoped filtering at two layers, showing how a bug in just one layer produces a full cross-tenant breach:\n\n```python\nvector_store = [\n    {\"tenant\": \"acme\", \"doc\": \"acme internal roadmap\"},\n    {\"tenant\": \"globex\", \"doc\": \"globex internal roadmap\"},\n]\napp_database = [\n    {\"tenant\": \"acme\", \"record\": \"acme customer list\"},\n    {\"tenant\": \"globex\", \"record\": \"globex customer list\"},\n]\n\ndef query_vector_store(tenant, store):\n    return [row[\"doc\"] for row in store if row[\"tenant\"] == tenant]  # correctly filtered\n\ndef query_app_database_buggy(tenant, db):\n    return [row[\"record\"] for row in db]  # bug: forgot to filter by tenant\n\nprint(\"acme vector query:\", query_vector_store(\"acme\", vector_store))\nprint(\"acme app-db query (buggy):\", query_app_database_buggy(\"acme\", app_database))\n```\n\n`query_vector_store(\"acme\", vector_store)` correctly filters with `row[\"tenant\"] == tenant`, returning only `[\"acme internal roadmap\"]` — Globex's document never appears. `query_app_database_buggy(\"acme\", app_database)`, however, has no tenant filter at all — it returns **both** `[\"acme customer list\", \"globex customer list\"]`, leaking Globex's customer data to an Acme request. The vector store's correct isolation provides zero protection here, because the breach happens through the completely separate application-database layer — exactly the \"different door\" the lesson describes.\n"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Verifying tenant isolation at only one layer and assuming the rest of the stack is equally safe.** As the code example shows, a correctly isolated vector store provides no protection against a bug in an entirely separate layer like the application database.\n\n**Choosing the pooled model for cost savings without budgeting real engineering rigor for the isolation logic.** A bug in shared-infrastructure isolation logic isn't a minor defect — it's a cross-tenant data breach, so the pooled model's lower infrastructure cost has to be paired with correspondingly careful implementation and testing.\n\n**Applying the same isolation model to every tenant regardless of their actual contractual or regulatory requirements.** Some tenants may require silo-level isolation by contract or regulation — defaulting everyone into the pooled model without checking can violate those specific commitments.\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ent_tenant_isolation_strategies_quiz",
+        "questions": [
+          {
+            "question": "How does 'tenant isolation' at the enterprise-platform level extend beyond what the Vector Databases course covered?",
+            "options": [
+              "It needs to be enforced consistently across every layer of the stack — vector store, application database, model serving, and audit logs — not just the vector index",
+              "It only applies to the vector database and no other system component",
+              "Enterprise tenant isolation is unrelated to the vector database concept covered earlier",
+              "It eliminates the need for any isolation at the vector-store layer specifically"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The same isolation principle from the Vector Databases course now needs to be consistently applied across the full enterprise platform stack, not confined to just the vector search layer.",
+            "id": "q1"
+          },
+          {
+            "question": "What is the core trade-off between the silo model and the pooled model for tenant isolation?",
+            "options": [
+              "Silo offers the strongest isolation at the highest operational cost; pooled is cheaper but requires very careful implementation since a bug becomes a cross-tenant breach",
+              "Silo and pooled models provide identical isolation guarantees with no trade-off",
+              "Pooled models always provide stronger isolation than silo models",
+              "Silo models require no infrastructure investment at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Silo trades cost for maximal isolation strength; pooled trades some of that isolation margin for lower operational cost, raising the stakes on getting the shared isolation logic exactly right.",
+            "id": "q2"
+          },
+          {
+            "question": "In the code example, why does `query_app_database_buggy(\"acme\", app_database)` return Globex's customer list too?",
+            "options": [
+              "Because it filters `db` by `row[\"tenant\"] == tenant` correctly, but the filter has a typo",
+              "Because it returns `[row[\"record\"] for row in db]` with no tenant filtering at all, unlike `query_vector_store`, so every tenant's record is included regardless of the requesting tenant",
+              "Because `app_database` only contains Globex's data",
+              "Because Acme and Globex share the same tenant identifier in this example"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`query_app_database_buggy` builds its list comprehension from every row in `db` with no `row[\"tenant\"] == tenant` condition, unlike `query_vector_store`, so it returns all tenants' records unconditionally.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, why does `query_vector_store(\"acme\", vector_store)` correctly return only Acme's document?",
+            "options": [
+              "Because it filters with `if row[\"tenant\"] == tenant`, including only rows whose tenant matches the requested tenant",
+              "Because `vector_store` only contains Acme's data",
+              "Because it has the same bug as `query_app_database_buggy`",
+              "Because it filters by document content rather than tenant"
+            ],
+            "correctAnswer": 0,
+            "explanation": "`query_vector_store` explicitly checks `row[\"tenant\"] == tenant` in its list comprehension, correctly excluding Globex's row from an Acme-scoped query.",
+            "id": "q4"
+          },
+          {
+            "question": "What does the contrast between the two query functions in the code example illustrate about layer-by-layer testing?",
+            "options": [
+              "That testing one layer's isolation guarantees the whole system is isolated",
+              "That a correctly isolated layer (the vector store) provides zero protection against a breach in a completely separate, incorrectly isolated layer (the application database) — isolation has to be verified everywhere",
+              "That vector stores and application databases always share the same isolation logic",
+              "That application databases never need any tenant filtering"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The vector store's correct filtering has no bearing on the application database's missing filter — each layer's isolation is independent and must be independently verified.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is testing tenant isolation only at the vector-store layer insufficient for a full enterprise platform?",
+            "options": [
+              "Because a vector store that correctly isolates tenants but an application database that doesn't is still a complete breach, just through a different layer",
+              "Because vector stores are the only layer where tenant data is ever present",
+              "Because testing at multiple layers is redundant once one layer is verified",
+              "Because application databases cannot leak cross-tenant data under any circumstances"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Isolation is only as strong as its weakest layer — verifying just one component while leaving others untested leaves a real breach path open elsewhere in the stack.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does the lesson warn against verifying tenant isolation at only one layer and assuming the rest of the stack is equally safe?",
+            "options": [
+              "Because, as the code example demonstrates, a correctly isolated vector store provides no protection against a bug in an entirely separate layer like the application database",
+              "Because verifying one layer is always sufficient to guarantee the whole system's isolation",
+              "Because application databases are technically incapable of storing tenant-specific data",
+              "Because vector stores and application databases always use identical isolation code"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The common mistakes section is a direct restatement of what the code example shows concretely — isolation correctness in one layer says nothing about correctness in another.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does the lesson warn against applying the same isolation model to every tenant regardless of their actual contractual or regulatory requirements?",
+            "options": [
+              "Because some tenants may require silo-level isolation by contract or regulation, and defaulting everyone into the pooled model without checking can violate those specific commitments",
+              "Because all tenants always have identical isolation requirements by law",
+              "Because the pooled model is always sufficient for every regulatory requirement",
+              "Because contractual requirements have no bearing on isolation strategy choice"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The common mistakes section flags this specific risk — uniform application of the cheaper pooled model without checking each tenant's actual requirements can breach contracts or regulations that demand stronger isolation.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ent_data_residency_and_compliance",
+      "title": "Data Residency and Compliance",
+      "description": "Sometimes the question isn't 'is this secure' but 'is this even allowed to be here at all.'",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain what data residency requirements mean concretely for an enterprise AI system's architecture.\n"
+          },
+          {
+            "title": "🌍 Data residency: where data is legally allowed to live",
+            "content": "Some regulations (and some customer contracts) require that certain data never leave a specific geographic or legal jurisdiction — not a security preference, but a **legal requirement** independent of how well-secured the data actually is, echoing the deployment-model lesson's point that some compliance requirements are categorical, not risk-tolerance judgment calls.\n"
+          },
+          {
+            "title": "🏗️ Architectural implications",
+            "content": "A data-residency requirement can mean:\n\n- Deploying entirely separate regional instances of a system (connecting to the deployment-models module's on-prem/cloud/hybrid decision, now made per-region)\n- Ensuring an LLM API call for that region's data only routes to a provider's infrastructure physically located in an approved jurisdiction\n- In some cases, avoiding a third-party hosted API entirely for that data because no compliant regional option exists\n"
+          },
+          {
+            "title": "📋 Compliance is a moving target, not a one-time checklist",
+            "content": "Regulations change, new jurisdictions add their own requirements, and a system compliant today can become non-compliant as either the regulatory landscape or the system's own data flows evolve — making compliance an ongoing verification practice (the governance module's subject) rather than a box checked once at launch and forgotten.\n"
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "Here's a simplified simulation of a routing function that enforces data residency by checking a region's approved jurisdiction list before allowing a request to route anywhere:\n\n```python\nAPPROVED_JURISDICTIONS = {\n    \"eu\": {\"eu-west-1\", \"eu-central-1\"},\n    \"us\": {\"us-east-1\", \"us-west-2\"},\n}\n\ndef route_request(data_region, target_infra_location):\n    approved = APPROVED_JURISDICTIONS.get(data_region, set())\n    if target_infra_location not in approved:\n        return f\"BLOCKED: {target_infra_location} not approved for {data_region} data\"\n    return f\"routed to {target_infra_location}\"\n\nprint(route_request(\"eu\", \"eu-west-1\"))\nprint(route_request(\"eu\", \"us-east-1\"))\nprint(route_request(\"us\", \"us-east-1\"))\n```\n\n`route_request(\"eu\", \"eu-west-1\")` looks up `APPROVED_JURISDICTIONS[\"eu\"]`, finds `\"eu-west-1\"` in that set, and returns the successful routing message. `route_request(\"eu\", \"us-east-1\")` looks up the same EU-approved set, but `\"us-east-1\"` is not in it — the function returns a `\"BLOCKED\"` message instead of routing, exactly enforcing the residency constraint regardless of whether `us-east-1` infrastructure is otherwise perfectly secure. `route_request(\"us\", \"us-east-1\")` checks against the separate US-approved set and succeeds, since `\"us-east-1\"` is approved for US data.\n"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Relying on infrastructure security alone to satisfy a data residency requirement.** As the code example shows, `us-east-1` being perfectly secure doesn't make it an approved destination for EU data — residency is a location constraint, not a security-quality judgment.\n\n**Treating a compliance check made at launch as permanently valid.** Because regulations and system data flows both evolve, a residency mapping that was correct at launch (like `APPROVED_JURISDICTIONS`) needs periodic re-verification against the current regulatory landscape, not a one-time setup.\n\n**Not tracing where data actually flows through third-party dependencies.** A residency check on the primary system doesn't help if a downstream dependency (a logging service, an analytics pipeline) routes that same data through infrastructure outside the approved jurisdiction — the constraint has to be traced through the full data flow, not just the entry point.\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ent_data_residency_and_compliance_quiz",
+        "questions": [
+          {
+            "question": "What makes a data residency requirement different from a general security best practice?",
+            "options": [
+              "It's often a legal or contractual requirement that data never leave a specific jurisdiction, independent of how well-secured that data actually is",
+              "Data residency and security best practices are identical concepts with no distinction",
+              "Data residency requirements only apply to unencrypted data",
+              "Data residency has no architectural implications for system design"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Residency requirements are categorical legal or contractual constraints on data location, not a risk-based judgment that strong security could satisfy instead.",
+            "id": "q1"
+          },
+          {
+            "question": "In the code example, why does `route_request(\"eu\", \"us-east-1\")` return a BLOCKED message?",
+            "options": [
+              "Because `\"us-east-1\"` is not in `APPROVED_JURISDICTIONS[\"eu\"]` (`{\"eu-west-1\", \"eu-central-1\"}`), so the `if target_infra_location not in approved` check triggers",
+              "Because `us-east-1` infrastructure is technically insecure",
+              "Because `data_region=\"eu\"` has no entry in `APPROVED_JURISDICTIONS`",
+              "Because the function always blocks the second call regardless of arguments"
+            ],
+            "correctAnswer": 0,
+            "explanation": "`route_request` looks up the EU-approved set and finds `\"us-east-1\"` absent from it, triggering the block regardless of that infrastructure's actual security quality.",
+            "id": "q2"
+          },
+          {
+            "question": "In the code example, what does `route_request(\"us\", \"us-east-1\")` return, and why?",
+            "options": [
+              "A BLOCKED message, since `us-east-1` was blocked for EU data in the previous call",
+              "\"routed to us-east-1\", because `\"us-east-1\"` is in `APPROVED_JURISDICTIONS[\"us\"]`, satisfying the approval check for US-region data",
+              "An error, because `us-east-1` cannot be used for both EU and US routing",
+              "The function returns `None`"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`APPROVED_JURISDICTIONS[\"us\"]` includes `\"us-east-1\"`, so for `data_region=\"us\"` the check passes and the function returns the successful routing string — the same infrastructure location that was blocked for EU data is approved here because the check is keyed by `data_region`.",
+            "id": "q3"
+          },
+          {
+            "question": "What does the code example demonstrate about the relationship between infrastructure location and data region?",
+            "options": [
+              "That the same physical infrastructure location can be approved for one data region's data and blocked for another's, purely based on jurisdiction rules — not on the infrastructure's own properties",
+              "That infrastructure location has no bearing on whether a request is routed",
+              "That `us-east-1` is blocked for every data region unconditionally",
+              "That `APPROVED_JURISDICTIONS` ignores the `data_region` parameter entirely"
+            ],
+            "correctAnswer": 0,
+            "explanation": "`us-east-1` is blocked for EU data but approved for US data in the exact same function — the decision hinges entirely on which `data_region` set is checked, not on any property of `us-east-1` itself.",
+            "id": "q4"
+          },
+          {
+            "question": "How might a data residency requirement change an enterprise AI system's architecture?",
+            "options": [
+              "It might require deploying entirely separate regional instances, or ensuring API calls for a region's data only route to infrastructure in an approved jurisdiction",
+              "It has no effect on system architecture whatsoever",
+              "It always requires abandoning cloud infrastructure entirely for every workload",
+              "It only affects the choice of programming language used"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Residency requirements can concretely shape deployment topology — where instances run and where API calls are permitted to route — connecting directly to the deployment-model decisions from earlier in this course.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is compliance described as an ongoing practice rather than a one-time checklist?",
+            "options": [
+              "Because regulations change and a system's own data flows can evolve, so a compliant system today can become non-compliant later without ongoing verification",
+              "Because compliance requirements never change once established",
+              "Because compliance only needs to be verified once, at a system's initial launch",
+              "Because ongoing compliance verification is optional for enterprise AI systems"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Both the regulatory landscape and the system itself change over time, making continuous verification necessary rather than a single point-in-time check.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does the lesson warn against relying on infrastructure security alone to satisfy a data residency requirement?",
+            "options": [
+              "Because, as the code example shows, a location can be perfectly secure and still be blocked for a given data region — residency is a location constraint, not a security-quality judgment",
+              "Because infrastructure security has no relationship to compliance at all",
+              "Because residency requirements only apply to insecure infrastructure",
+              "Because secure infrastructure is always automatically compliant with residency rules"
+            ],
+            "correctAnswer": 0,
+            "explanation": "This directly mirrors the code example: `us-east-1` being blocked for EU data has nothing to do with its security posture and everything to do with its physical/legal location relative to the requirement.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does the lesson warn against not tracing where data actually flows through third-party dependencies?",
+            "options": [
+              "Because a residency check on the primary system doesn't help if a downstream dependency routes that same data through infrastructure outside the approved jurisdiction — the constraint has to be traced through the full data flow",
+              "Because third-party dependencies never handle any data covered by residency requirements",
+              "Because tracing data flow through dependencies is technically impossible",
+              "Because residency requirements only apply to the primary system, never its dependencies"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The common mistakes section flags this gap specifically — a compliant primary system can still leak data outside the approved jurisdiction through an unchecked downstream dependency.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ent_per_tenant_customization",
+      "title": "Per-Tenant Customization",
+      "description": "Different tenants often need meaningfully different behavior from the same underlying platform.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Name common dimensions of per-tenant customization in an enterprise AI platform and the architectural approach each typically requires.\n"
+          },
+          {
+            "title": "🎨 What tenants often want to customize",
+            "content": "- Branding and terminology in the user-facing product.\n- Which specific model or model version powers their instance (a tenant on a stricter compliance track might be pinned to an older, more thoroughly-vetted model version rather than auto-upgraded).\n- Fine-tuned or prompt-customized behavior specific to their domain (Fine-Tuning course).\n- Their own knowledge base for RAG (RAG course) rather than sharing one global knowledge base across all tenants.\n"
+          },
+          {
+            "title": "🏗️ Where customization lives in the architecture",
+            "content": "Configuration-level customization (branding, feature flags) is typically cheap and doesn't require the silo model from the earlier isolation lesson. Model or fine-tuning customization is more involved — either training separate lightweight adapters per tenant (the PEFT techniques from the Fine-Tuning course scale well to this exact scenario, since a small adapter per tenant is far cheaper than a fully separate fine-tuned model per tenant) or maintaining separate RAG knowledge bases with the tenant-isolation guarantees from the previous lesson.\n"
+          },
+          {
+            "title": "⚖️ Customization complicates the update story",
+            "content": "The more each tenant's instance diverges, the harder it becomes to roll out a platform-wide update or security fix uniformly — a tenant pinned to an old model version for compliance reasons needs its own deliberate update and revalidation path, not just an automatic platform-wide upgrade, connecting to the governance module's change-management material later in this course.\n"
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "Here's a simplified simulation comparing the storage cost of per-tenant PEFT adapters against fully separate fine-tuned models:\n\n```python\nbase_model_size_gb = 14.0\nadapter_size_gb = 0.15  # a small PEFT adapter, per the Fine-Tuning course\n\ndef full_finetune_storage(num_tenants, base_size):\n    return num_tenants * base_size  # each tenant gets its own full copy\n\ndef peft_adapter_storage(num_tenants, base_size, adapter_size):\n    return base_size + (num_tenants * adapter_size)  # one shared base + small adapters\n\nfor num_tenants in [5, 50, 500]:\n    full = full_finetune_storage(num_tenants, base_model_size_gb)\n    peft = peft_adapter_storage(num_tenants, base_model_size_gb, adapter_size_gb)\n    print(f\"{num_tenants} tenants -> full fine-tune: {full:.1f} GB, PEFT adapters: {peft:.1f} GB\")\n```\n\nAt 5 tenants, `full = 5 * 14.0 = 70.0` GB versus `peft = 14.0 + (5 * 0.15) = 14.75` GB — PEFT is already dramatically smaller. At 500 tenants, `full = 500 * 14.0 = 7000.0` GB (7 terabytes just for per-tenant model copies), while `peft = 14.0 + (500 * 0.15) = 89.0` GB — the one shared base model plus 500 small adapters. The gap widens as tenant count grows, because `full_finetune_storage` scales linearly with the full base model size per tenant, while `peft_adapter_storage` pays the base model cost exactly once and scales only the much smaller adapter size per tenant — exactly why the lesson says PEFT scales well to this scenario.\n"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Choosing full per-tenant fine-tuning by default instead of PEFT adapters.** As the code example shows, the storage (and often training compute) cost difference grows dramatically with tenant count — a choice that seems reasonable at a handful of tenants can become untenable at hundreds.\n\n**Allowing tenant customization to accumulate without tracking how far each tenant has diverged from the platform baseline.** Without that tracking, a platform-wide security fix can silently miss tenants whose customized configuration or pinned model version needs its own separate update path.\n\n**Applying the silo isolation model to lightweight, low-risk customization like branding.** Not every customization dimension carries the same isolation stakes — using the most expensive isolation approach for a low-risk customization wastes resources without a corresponding security benefit.\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ent_per_tenant_customization_quiz",
+        "questions": [
+          {
+            "question": "Why might PEFT-style adapters from the Fine-Tuning course be well suited to per-tenant model customization?",
+            "options": [
+              "A small adapter per tenant is far cheaper to train and store than maintaining a fully separate fine-tuned model per tenant",
+              "PEFT adapters cannot be used for any multi-tenant scenario",
+              "Full fine-tuning per tenant is always cheaper than using adapters",
+              "Adapters eliminate the need for any tenant isolation at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "PEFT's lightweight, per-tenant-adaptable nature scales naturally to a multi-tenant platform where full separate models per tenant would be prohibitively expensive.",
+            "id": "q1"
+          },
+          {
+            "question": "In the code example, what is `full_finetune_storage(500, base_model_size_gb)`, and how is it computed?",
+            "options": [
+              "89.0 GB, the same as the PEFT total",
+              "7000.0 GB, computed as `500 * 14.0` — 500 tenants each requiring their own full 14 GB base model copy",
+              "14.0 GB, since only one base model exists",
+              "0.15 GB, the size of a single adapter"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`full_finetune_storage` multiplies `num_tenants` by `base_size` directly: `500 * 14.0 = 7000.0`, reflecting that each tenant needs its own complete copy under full fine-tuning.",
+            "id": "q2"
+          },
+          {
+            "question": "In the code example, what is `peft_adapter_storage(500, base_model_size_gb, adapter_size_gb)`, and how is it computed?",
+            "options": [
+              "7000.0 GB, the same as full fine-tuning",
+              "89.0 GB, computed as `14.0 + (500 * 0.15)` — one shared base model plus 500 small per-tenant adapters",
+              "75.0 GB",
+              "0.15 GB total for all 500 tenants"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`peft_adapter_storage` adds the base model size once (`14.0`) to the per-tenant adapter cost (`500 * 0.15 = 75.0`), totaling `14.0 + 75.0 = 89.0`.",
+            "id": "q3"
+          },
+          {
+            "question": "What does the code example demonstrate about how the storage gap between full fine-tuning and PEFT adapters changes as tenant count grows?",
+            "options": [
+              "The gap stays constant regardless of tenant count",
+              "The gap widens substantially, because full fine-tuning scales linearly with the full base model size per tenant, while PEFT pays the base model cost once and scales only the much smaller adapter size per tenant",
+              "The gap shrinks as tenant count grows",
+              "PEFT becomes more expensive than full fine-tuning at high tenant counts"
+            ],
+            "correctAnswer": 1,
+            "explanation": "At 5 tenants the difference is 70.0 vs 14.75 GB; at 500 tenants it's 7000.0 vs 89.0 GB — the ratio between the two grows dramatically because of how each function's cost scales with `num_tenants`.",
+            "id": "q4"
+          },
+          {
+            "question": "Why does configuration-level customization (branding, feature flags) typically not require the silo isolation model?",
+            "options": [
+              "Because it's a relatively low-risk customization that doesn't involve separating sensitive data or infrastructure the way deeper isolation concerns do",
+              "Because configuration-level customization is technically impossible without full silo isolation",
+              "Because silo isolation is required for every kind of customization regardless of sensitivity",
+              "Because branding has no relationship to tenant isolation at any level"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Not every kind of customization carries the same isolation stakes — lightweight configuration differences don't demand the strongest (and most expensive) isolation strategy the way data or model separation might.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does per-tenant customization complicate rolling out a platform-wide security update?",
+            "options": [
+              "The more tenants' instances diverge, the harder it becomes to apply an update uniformly — a tenant pinned to an old model version needs its own deliberate update path",
+              "Customization has no effect on how updates are rolled out",
+              "Platform-wide updates are always easier with more tenant customization, not harder",
+              "Security updates never need to be applied to tenant-specific instances"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Divergence between tenant configurations directly increases the complexity of applying changes consistently, since some tenants may need special handling that a single uniform update can't provide.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does the lesson warn against choosing full per-tenant fine-tuning by default instead of PEFT adapters?",
+            "options": [
+              "Because, as the code example shows, the storage cost difference grows dramatically with tenant count — a choice reasonable at a handful of tenants can become untenable at hundreds",
+              "Because full fine-tuning is technically impossible for more than one tenant",
+              "Because PEFT adapters always produce worse model quality than full fine-tuning",
+              "Because full fine-tuning has no storage cost at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The common mistakes section reinforces the code example's finding directly: what looks like a reasonable choice at low tenant counts becomes a major cost problem as the platform scales.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does the lesson warn against applying the silo isolation model to lightweight, low-risk customization like branding?",
+            "options": [
+              "Because not every customization dimension carries the same isolation stakes — using the most expensive isolation approach for a low-risk customization wastes resources without a corresponding security benefit",
+              "Because silo isolation is technically incompatible with branding customization",
+              "Because branding customization always requires stronger isolation than model customization",
+              "Because low-risk customizations should never be isolated at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The common mistakes section makes this proportionality point directly — matching isolation strength to actual risk avoids overspending on cases that don't need the strongest (and costliest) protection.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ent_billing_and_usage_tracking",
+      "title": "Billing and Usage Tracking",
+      "description": "Closing this module by turning per-tenant resource consumption into something that can actually be billed or budgeted.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain what a multi-tenant enterprise AI platform needs to track for accurate billing or internal chargeback.\n"
+          },
+          {
+            "title": "📊 What needs to be measured per tenant",
+            "content": "**Token usage** per tenant (directly building on the LLMOps course's cost-per-token discipline, now attributed per tenant rather than aggregated system-wide), **compute time** for any tenant-specific fine-tuning or dedicated inference capacity, and **storage** consumed by tenant-specific data and knowledge bases — each needing to be attributable specifically to the tenant that generated it.\n"
+          },
+          {
+            "title": "💰 External billing vs. internal chargeback",
+            "content": "For an external B2B product, this usage data feeds actual customer billing. For an internal enterprise platform serving multiple business units, the same usage data feeds an internal **chargeback** model — each business unit accountable for the cost its usage actually drives, the same cost-attribution discipline the Cloud course's tagging lesson applied to infrastructure spend generally, now specifically per-tenant within a shared AI platform.\n"
+          },
+          {
+            "title": "🎯 Why this needs to be built in from the start, not bolted on later",
+            "content": "Retrofitting per-tenant usage attribution onto a platform that wasn't designed to track it requires instrumenting every layer after the fact — far more work than designing the tracking in from the beginning, alongside the tenant-isolation architecture from earlier in this module, since the two concerns (isolation and attribution) touch much of the same code.\n"
+          },
+          {
+            "title": "🎓 Closing this module's arc",
+            "content": "This module moved from isolating tenant data (Lesson 1), to complying with where that data can legally live (Lesson 2), to letting tenants meaningfully customize their experience (Lesson 3), to finally attributing and billing for what each tenant actually consumes — the complete multi-tenancy story for an enterprise AI platform.\n"
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "Here's a simplified simulation of per-tenant usage attribution feeding both external billing and internal chargeback from the same underlying data:\n\n```python\nusage_events = [\n    {\"tenant\": \"acme\", \"tokens\": 120_000, \"compute_minutes\": 5},\n    {\"tenant\": \"globex\", \"tokens\": 300_000, \"compute_minutes\": 12},\n    {\"tenant\": \"acme\", \"tokens\": 80_000, \"compute_minutes\": 3},\n]\n\ndef aggregate_usage(events):\n    totals = {}\n    for e in events:\n        t = totals.setdefault(e[\"tenant\"], {\"tokens\": 0, \"compute_minutes\": 0})\n        t[\"tokens\"] += e[\"tokens\"]\n        t[\"compute_minutes\"] += e[\"compute_minutes\"]\n    return totals\n\ndef external_bill(tenant_usage, price_per_1k_tokens):\n    return round((tenant_usage[\"tokens\"] / 1000) * price_per_1k_tokens, 2)\n\ntotals = aggregate_usage(usage_events)\nprint(\"per-tenant totals:\", totals)\n\nfor tenant, usage in totals.items():\n    print(f\"{tenant} external bill:\", external_bill(usage, price_per_1k_tokens=0.02))\n```\n\n`aggregate_usage` accumulates two events under `\"acme\"` (`120_000 + 80_000 = 200_000` tokens, `5 + 3 = 8` compute minutes) and one under `\"globex\"` (`300_000` tokens, `12` compute minutes). Acme's external bill is `round((200_000/1000) * 0.02, 2) = round(4.0, 2) = 4.0`. Globex's is `round((300_000/1000) * 0.02, 2) = round(6.0, 2) = 6.0`. The exact same `totals` dict this billing calculation reads from is what an internal chargeback report for business units would also read from — one underlying attribution mechanism serving both purposes, exactly as the lesson describes.\n"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Aggregating usage data without a tenant field from the start, then trying to reconstruct attribution later.** As the lesson notes, retrofitting this onto an already-built platform requires instrumenting every layer after the fact — the `tenant` key in the code example's `usage_events` has to exist from day one to make `aggregate_usage` possible at all.\n\n**Only tracking token usage while ignoring compute time and storage.** A tenant running expensive dedicated fine-tuning or storing a large knowledge base can be under-billed or under-charged if only token counts are tracked, missing real cost drivers.\n\n**Building billing and tenant isolation as separate, uncoordinated efforts.** Since both concerns touch much of the same underlying code (which tenant does this request belong to), building them separately risks inconsistency between what's isolated and what's actually being attributed and billed.\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ent_billing_and_usage_tracking_quiz",
+        "questions": [
+          {
+            "question": "Why does per-tenant usage tracking need to be built into a platform's design from the start, rather than added later?",
+            "options": [
+              "Because retrofitting usage attribution onto an already-built platform requires instrumenting every layer after the fact, and it overlaps heavily with the tenant-isolation work",
+              "Because usage tracking is impossible to add to any system regardless of when it's implemented",
+              "Because billing is never actually needed for any multi-tenant AI platform",
+              "Because tenant isolation and usage tracking are entirely unrelated concerns with no overlap"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Because attribution and isolation touch much of the same underlying code, designing them together from the start is far more efficient than retrofitting tracking onto an already-built system.",
+            "id": "q1"
+          },
+          {
+            "question": "In the code example, what is `totals[\"acme\"]` after `aggregate_usage(usage_events)` runs?",
+            "options": [
+              "`{\"tokens\": 300000, \"compute_minutes\": 12}`, Globex's totals",
+              "`{\"tokens\": 200000, \"compute_minutes\": 8}`, the sum of Acme's two events: `120_000 + 80_000` tokens and `5 + 3` compute minutes",
+              "`{\"tokens\": 120000, \"compute_minutes\": 5}`, only the first Acme event",
+              "An empty dict, since Acme has no usage events"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Two events are tagged `\"acme\"`; `aggregate_usage` sums their `tokens` (`120_000 + 80_000 = 200_000`) and `compute_minutes` (`5 + 3 = 8`) into one accumulated entry.",
+            "id": "q2"
+          },
+          {
+            "question": "In the code example, what is Acme's external bill, and how is it computed?",
+            "options": [
+              "$6.00, the same as Globex",
+              "$4.00, computed as `round((200_000/1000) * 0.02, 2)` using Acme's aggregated token total of 200,000",
+              "$2.40, using only the first event's 120,000 tokens",
+              "$0.02, the price per 1,000 tokens itself"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`external_bill` computes `(tenant_usage[\"tokens\"] / 1000) * price_per_1k_tokens = (200_000/1000) * 0.02 = 200 * 0.02 = 4.0`, rounded to `4.0`.",
+            "id": "q3"
+          },
+          {
+            "question": "What does the code example illustrate about the relationship between `aggregate_usage`'s output and both external billing and internal chargeback?",
+            "options": [
+              "That external billing and internal chargeback require entirely separate aggregation logic",
+              "That the same `totals` dict produced by one aggregation mechanism can feed both an external customer bill and an internal chargeback report, since both just read per-tenant usage totals",
+              "That `aggregate_usage` only supports external billing, not internal chargeback",
+              "That internal chargeback ignores token usage entirely"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson's point that both billing use cases draw on the \"same usage data\" is made concrete by `totals` being a single shared data structure that either an external bill or an internal chargeback report could read from.",
+            "id": "q4"
+          },
+          {
+            "question": "How does per-tenant token usage tracking connect to the LLMOps course?",
+            "options": [
+              "It extends the LLMOps course's cost-per-token discipline, now attributed at the individual tenant level rather than aggregated system-wide",
+              "It has no relationship to any cost concept covered in the LLMOps course",
+              "It replaces the need for any cost tracking covered in LLMOps",
+              "Token usage tracking is only relevant for single-tenant systems, never multi-tenant ones"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The same underlying cost-per-token measurement from LLMOps is applied here with finer granularity — per tenant instead of system-wide — to support billing or chargeback.",
+            "id": "q5"
+          },
+          {
+            "question": "What is the difference between external billing and internal chargeback, both built on the same usage data?",
+            "options": [
+              "External billing charges actual customers; internal chargeback holds internal business units accountable for the cost their own usage drives, within the same organization",
+              "External billing and internal chargeback require completely separate, unrelated usage data",
+              "Internal chargeback always costs the organization more than external billing",
+              "External billing is only relevant for non-profit organizations"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Both use the same underlying per-tenant usage measurement, just applied to two different accountability contexts — paying customers externally, or internal cost allocation across business units.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does the lesson warn against aggregating usage data without a tenant field from the start?",
+            "options": [
+              "Because, as the code example shows, retrofitting attribution onto an already-built platform requires instrumenting every layer after the fact — the tenant key has to exist from day one",
+              "Because tenant fields are technically incompatible with usage aggregation",
+              "Because usage events never actually need to be attributed to a specific tenant",
+              "Because adding a tenant field later is always trivial and low-cost"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The common mistakes section restates the lesson's core point directly, tying it to the code example's `\"tenant\"` key that `aggregate_usage` depends on to group events correctly.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does the lesson warn against only tracking token usage while ignoring compute time and storage?",
+            "options": [
+              "Because a tenant running expensive dedicated fine-tuning or storing a large knowledge base can be under-billed or under-charged if only token counts are tracked, missing real cost drivers",
+              "Because compute time and storage never contribute meaningfully to actual cost",
+              "Because token usage is always a perfect proxy for total resource consumption",
+              "Because tracking multiple usage dimensions is technically impossible in one system"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly lists compute time and storage alongside tokens as things that need to be measured — omitting them risks missing significant, tenant-specific cost drivers.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

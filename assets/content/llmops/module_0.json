@@ -1,0 +1,589 @@
+{
+  "id": "llo_fundamentals",
+  "title": "LLMOps Fundamentals",
+  "description": "What's genuinely different about operating LLM systems versus classical ML, the LLM product lifecycle, why evaluation is a harder and ongoing challenge, and a roadmap for the rest of this course.",
+  "icon": "🎛️",
+  "color": "#6A1B9A",
+  "order": 0,
+  "estimatedHours": 5,
+  "difficulty": "beginner",
+  "prerequisites": [],
+  "lessons": [
+    {
+      "id": "llo_what_makes_llm_systems_different_to_operate",
+      "title": "What Makes Operating LLM Systems Genuinely Different",
+      "description": "Every MLOps discipline still applies — but LLM systems add a handful of concerns that classical ML's toolset was never designed around.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "List the concerns that carry over directly from MLOps and the ones that are genuinely new or different for LLM-based systems."
+          },
+          {
+            "title": "✅ What carries over directly from MLOps",
+            "content": "Versioning, a registry tracking what's deployed, monitoring for degradation, and a rollback plan — the entire core discipline from the MLOps course applies to LLM systems too. An LLM-based product still needs to know exactly what's running in production and be able to revert it quickly if something goes wrong, for all the same reasons a classical ML model does."
+          },
+          {
+            "title": "📝 What's new: prompts as a first-class versioned artifact",
+            "content": "A classical ML model's 'configuration' is mostly hyperparameters set once at training time. An LLM application's behavior is heavily shaped by its prompts — system prompts, few-shot examples, instructions — which change far more often than a model gets retrained, and which need their own versioning, testing, and rollback discipline (covered in depth in the next module), something the MLOps course's model-centric registry wasn't built around."
+          },
+          {
+            "title": "🎯 What's new: evaluation is fundamentally harder",
+            "content": "Classical ML evaluation metrics (from the ML course) are typically well-defined and automatically computable — accuracy, precision, recall against a known correct answer. Evaluating open-ended text generation has no single correct answer to compare against in the same way, which is exactly the evaluation challenge the Fine-Tuning course's evaluation lesson introduced and which this course's evaluation-gates module builds on directly."
+          },
+          {
+            "title": "🔗 What's new: multi-step systems with their own failure surface",
+            "content": "Many LLM applications aren't a single model call — they're RAG pipelines, agents, or LangGraph graphs, each with the specific operational concerns covered in their own courses (retrieval quality, tool-call reliability, agent trajectories) that a single-model classical ML system simply doesn't have. LLMOps has to account for observability and evaluation across these multi-step systems, not just a single model's input-output behavior."
+          },
+          {
+            "title": "💰 What's new: cost and latency are first-order operational concerns",
+            "content": "Classical ML inference is typically cheap and fast enough that cost and latency rarely drive architectural decisions. LLM inference cost and latency scale directly with usage and prompt/context size in a way that makes them genuine operational metrics worth tracking and budgeting for (covered in depth in this course's final module), not just an afterthought."
+          },
+          {
+            "title": "💻 Versioning prompts like operational artifacts",
+            "content": "A model registry from the MLOps course tracks one thing per deployment: which model is live. A prompt registry has to track something that changes far more often, so it needs its own history instead of a single overwritable slot:\n\n```python\nclass PromptRegistry:\n    \"\"\"Tracks every version of a prompt, the way MLOps tracks model versions --\n    but built for changes that happen far more often than a retrain.\"\"\"\n\n    def __init__(self):\n        self._history = {}  # prompt_name -> list of version dicts\n\n    def register(self, prompt_name: str, text: str, author: str) -> int:\n        versions = self._history.setdefault(prompt_name, [])\n        version_id = len(versions) + 1\n        versions.append({\"version\": version_id, \"text\": text, \"author\": author})\n        return version_id\n\n    def get_active(self, prompt_name: str) -> dict:\n        return self._history[prompt_name][-1]\n\n    def rollback(self, prompt_name: str, version_id: int) -> int:\n        target = next(v for v in self._history[prompt_name] if v[\"version\"] == version_id)\n        # Re-register rather than delete, so the full history stays intact\n        return self.register(prompt_name, target[\"text\"], author=\"rollback\")\n```\n\n`register()` never overwrites a slot the way a single \"current model\" pointer might — every call appends, so the registry can answer \"what did this prompt look like last Tuesday\" the same way a model registry answers \"what model was live last Tuesday.\" `rollback()` is deliberately implemented as another `register()` call: reverting is just shipping an old version again, which keeps the history linear and auditable instead of quietly deleting entries."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Reusing the classical ML model registry to track prompt changes.** Prompts change far more often than a model gets retrained, and a model-centric registry isn't structured to version something that granular or that frequent.\n\n**Treating LLM evaluation like a classical ML metric check.** Assuming accuracy-style automatic scoring will work the same way for open-ended generation ignores that there's no single correct answer to compare against, which is exactly the harder problem the evaluation-gates module addresses.\n\n**Ignoring cost and latency until they become a visible problem.** Because LLM inference cost and latency scale with usage and prompt size, waiting to track them until they spike means missing the budgeting and optimization work this course's final module treats as a first-order concern."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "llo_what_makes_llm_systems_different_to_operate_quiz",
+        "questions": [
+          {
+            "question": "Which core MLOps concern carries over directly and unchanged to LLM systems?",
+            "options": [
+              "Nothing from MLOps applies to LLM systems",
+              "Versioning, a registry of what's deployed, monitoring, and a rollback plan — the entire core operational discipline",
+              "Only data drift detection carries over, nothing else",
+              "Feature stores are the only MLOps concept that applies"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The fundamental operational discipline from MLOps — versioning, registries, monitoring, rollback — applies just as much to LLM-based systems as to classical ML.",
+            "id": "q1"
+          },
+          {
+            "question": "Why do prompts need their own versioning and rollback discipline distinct from a classical ML model registry?",
+            "options": [
+              "Prompts never actually change once written",
+              "Prompts change far more often than a model gets retrained and heavily shape LLM application behavior, which the model-centric MLOps registry wasn't built around",
+              "Classical ML models also have prompts that need identical treatment",
+              "Prompt versioning is technically impossible to implement"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since prompts are updated frequently and materially affect behavior, they need dedicated versioning and rollback treatment beyond what a classical model registry provides.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is evaluation fundamentally harder for LLM systems than for classical ML, per this lesson?",
+            "options": [
+              "LLM systems never need any evaluation at all",
+              "Open-ended text generation has no single correct answer to compare against automatically, unlike classical ML's typically well-defined metrics",
+              "Classical ML evaluation is actually harder than LLM evaluation",
+              "Evaluation difficulty has nothing to do with the type of output being evaluated"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This directly extends the evaluation challenge introduced in the Fine-Tuning course — open-ended generation lacks the straightforward correct-answer comparison that classical ML metrics rely on.",
+            "id": "q3"
+          },
+          {
+            "question": "Per this lesson, why does LLMOps need to account for observability and evaluation across multi-step systems like RAG pipelines and agents, rather than just a single model's input-output behavior?",
+            "options": [
+              "Multi-step systems are actually simpler to evaluate than a single model call",
+              "RAG pipelines, agents, and LangGraph graphs introduce their own failure surfaces (retrieval quality, tool-call reliability, agent trajectories) that a single-model classical ML system doesn't have",
+              "Multi-step systems never call a language model at all",
+              "Observability tools from the Agents and LangGraph courses are unrelated to LLMOps"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Because these architectures add hops with their own way to fail, LLMOps has to observe and evaluate the whole chain, not just treat it like one opaque model call.",
+            "id": "q4"
+          },
+          {
+            "question": "According to this lesson, why do cost and latency become first-order operational metrics for LLM systems rather than an afterthought, unlike in classical ML?",
+            "options": [
+              "Classical ML inference is typically more expensive than LLM inference",
+              "LLM inference cost and latency scale directly with usage and prompt/context size in a way classical ML inference generally doesn't",
+              "Cost and latency are only relevant during model training, never at inference",
+              "LLM systems never have any measurable cost or latency"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Because usage volume and prompt/context size directly drive LLM inference cost and latency, they become metrics worth budgeting and tracking rather than a background detail.",
+            "id": "q5"
+          },
+          {
+            "question": "In the PromptRegistry code, why does `register()` append a new entry to `versions` instead of overwriting the previous version's text?",
+            "options": [
+              "Appending is required by Python syntax and there is no alternative",
+              "Overwriting would destroy the version history, defeating the point of treating prompts as a versioned artifact the way the lesson describes",
+              "Appending makes the prompt text run faster at inference time",
+              "The dictionary would raise an error if the same key were written twice"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since prompts change frequently and need their own history, `register()` is written to always add a new version rather than mutate an existing one, mirroring the versioning discipline the lesson calls for.",
+            "id": "q6"
+          },
+          {
+            "question": "In the PromptRegistry code, why is `rollback()` implemented by calling `register()` again rather than deleting versions that came after the target?",
+            "options": [
+              "Deleting versions is not possible in Python dictionaries",
+              "Calling `register()` again keeps the history linear and auditable — reverting becomes just shipping an old version again instead of erasing records",
+              "It has no real effect and is purely decorative code",
+              "It makes the registry require less memory overall"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Implementing rollback as another registration avoids silently deleting history, so the registry can always answer what was live at any point in time — consistent with treating prompts as a fully versioned artifact.",
+            "id": "q7"
+          },
+          {
+            "question": "Why is reusing an existing classical ML model registry to track prompt changes considered a mistake in this lesson?",
+            "options": [
+              "Model registries are always more expensive to run than prompt registries",
+              "A model-centric registry isn't structured for changes as frequent and granular as prompt edits, which happen far more often than a model gets retrained",
+              "Model registries cannot store any text data at all",
+              "Prompts and models are stored in fundamentally incompatible file formats"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Because prompts are edited much more often than models are retrained, forcing them into a registry designed around retrain-cycle versioning loses the fine-grained history and rollback discipline prompts actually need.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "llo_the_llm_product_lifecycle",
+      "title": "The LLM Product Lifecycle",
+      "description": "Mirroring the ML lifecycle from MLOps, but with prompts, evals, and multi-step systems woven through every stage.",
+      "duration": 13,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Walk through the stages of the LLM product lifecycle and identify what's added at each stage compared to the classical ML lifecycle."
+          },
+          {
+            "title": "✍️ Prompt and system design",
+            "content": "Where the classical ML lifecycle starts with data collection, an LLM product's development typically starts with designing the prompt(s), the overall system architecture (a single call, a RAG pipeline per the RAG course, an agent per the Agents course), and what data or tools the system needs — this stage benefits from prompt versioning from the start (covered next module), not bolted on after the fact."
+          },
+          {
+            "title": "🧪 Evaluation and testing",
+            "content": "Building an evaluation harness (module 2 of this course) before or alongside development, not as an afterthought — given how hard open-ended evaluation is (per the previous lesson), having a way to measure whether a prompt or system change is actually an improvement is what makes iteration meaningful rather than guesswork."
+          },
+          {
+            "title": "🚀 Deployment",
+            "content": "Getting the prompt/system version into production — mirroring the MLOps course's deployment-strategies lesson directly: canary, shadow, or blue-green approaches apply just as well to rolling out a new prompt version or model version as they did to a classical ML model, since the underlying risk-management logic is identical."
+          },
+          {
+            "title": "📊 Monitoring and operations",
+            "content": "Tracing every request through the system (module 2), watching for the LLM-specific failure modes covered in module 3 (hallucination, retrieval degradation for RAG systems, agent trajectory problems), and tracking cost and latency (module 4) — extending the MLOps course's monitoring discipline with the LLM-specific signals classical ML monitoring never needed."
+          },
+          {
+            "title": "🔄 The cycle continues",
+            "content": "Exactly like the MLOps course's lifecycle, this is a cycle, not a one-way pipeline: monitoring findings drive prompt revisions, evaluation results gate whether those revisions actually ship, and the loop continues — the same 'closing the loop' pattern that's recurred across the Fine-Tuning, Agents, LangGraph, and MLOps courses, now for LLM products specifically."
+          },
+          {
+            "title": "💻 Canary-deploying a new prompt version",
+            "content": "The deployment stage says canary rollout logic transfers directly from classical ML to prompt versions. Here it is applied to a prompt change, wired straight into the monitoring-and-rollback loop the lifecycle describes:\n\n```python\ndef canary_deploy_prompt(registry, prompt_name, new_version, eval_fn,\n                          traffic_steps=(0.05, 0.25, 1.0)):\n    \"\"\"Mirrors MLOps canary deployment, but rolls out a prompt version\n    instead of a model, and closes the loop by rolling back on regression.\"\"\"\n    for fraction in traffic_steps:\n        metrics = eval_fn(prompt_name, new_version, traffic_fraction=fraction)\n        if metrics[\"quality\"] < metrics[\"baseline_quality\"]:\n            registry.rollback(prompt_name, metrics[\"previous_version\"])\n            raise RuntimeError(\n                f\"Canary halted at {fraction:.0%} traffic: quality regression\"\n            )\n        print(f\"{fraction:.0%} traffic on v{new_version} looks healthy\")\n    return new_version\n```\n\nEach step re-runs evaluation before increasing traffic, and a regression triggers an immediate rollback to the previous registered version — the exact \"monitoring drives revision, evaluation gates the ship\" cycle the lifecycle section describes, just automated."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Treating deployment as the last step instead of one turn of a cycle.** Shipping a new prompt version and moving on skips the monitoring and re-evaluation that are supposed to feed back into the next revision.\n\n**Skipping canary-style rollout for prompt changes because \"it's just text.\"** The lesson is explicit that the same risk-management logic behind canary, shadow, and blue-green deployment applies to prompt versions, not only to classical ML models.\n\n**Building the evaluation harness after the system is already in production.** Development should build evaluation alongside the prompt and system design stage so quality can be measured from the start, not bolted on once problems surface."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "llo_the_llm_product_lifecycle_quiz",
+        "questions": [
+          {
+            "question": "What does LLM product development typically start with, compared to the classical ML lifecycle's data-collection starting point?",
+            "options": [
+              "Exactly the same data collection process as classical ML, with no differences",
+              "Designing the prompt(s) and overall system architecture (single call, RAG, or agent), along with what data or tools are needed",
+              "Deploying directly to production with no design phase at all",
+              "Training a model completely from scratch every time"
+            ],
+            "correctAnswer": 1,
+            "explanation": "LLM products typically build on existing pretrained models, so the starting point shifts to prompt and system design rather than the data-collection-first classical ML lifecycle.",
+            "id": "q1"
+          },
+          {
+            "question": "How do the MLOps course's deployment strategies (canary, shadow, blue-green) apply to LLM products?",
+            "options": [
+              "They don't apply at all — LLM products need a completely different deployment approach",
+              "They apply directly and identically, since the underlying risk-management logic for rolling out a new prompt or model version is the same",
+              "Only shadow deployment applies to LLM systems, never canary or blue-green",
+              "These strategies only work for classical ML, never for LLM-based systems"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The risk-management logic behind gradual, monitored rollout transfers directly from classical ML deployment to rolling out new prompt or model versions in LLM products.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is the LLM product lifecycle described as a cycle rather than a one-way pipeline?",
+            "options": [
+              "Because LLM products never actually reach a deployment stage",
+              "Because monitoring findings drive prompt revisions and evaluation results gate whether those revisions ship, feeding back into the same closing-the-loop pattern from earlier courses",
+              "Because evaluation only happens once, before any deployment",
+              "Cycles and pipelines are identical concepts with no real distinction"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Just as the MLOps course's lifecycle loops back through monitoring-driven retraining, the LLM product lifecycle loops through monitoring-driven prompt revision and re-evaluation.",
+            "id": "q3"
+          },
+          {
+            "question": "Per this lesson, why should the evaluation harness be built before or alongside development instead of after deployment?",
+            "options": [
+              "Evaluation harnesses are required by law for any software product",
+              "Because open-ended evaluation is already hard, having a way to measure whether a change is actually an improvement is what makes iteration meaningful rather than guesswork",
+              "Building it early has no real benefit compared to building it later",
+              "Evaluation harnesses replace the need for any monitoring in production"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Given how hard evaluation is for open-ended generation, an early harness is what turns prompt or system changes into measured improvements instead of blind guesses.",
+            "id": "q4"
+          },
+          {
+            "question": "What LLM-specific signals does monitoring add on top of the MLOps course's existing monitoring discipline, per this lesson?",
+            "options": [
+              "Nothing — monitoring for LLM products is identical to classical ML monitoring in every respect",
+              "Hallucination, retrieval degradation for RAG systems, agent trajectory problems, plus cost and latency tracking",
+              "Only GPU temperature during training, nothing at inference time",
+              "Monitoring is described as entirely unnecessary for LLM products"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson names hallucination, retrieval degradation, agent trajectory issues, and cost/latency as the LLM-specific signals layered on top of classical monitoring.",
+            "id": "q5"
+          },
+          {
+            "question": "In the `canary_deploy_prompt` code, why does the function call `eval_fn` again at every step in `traffic_steps` instead of evaluating once before the loop begins?",
+            "options": [
+              "Calling it repeatedly is a mistake left in the code by accident",
+              "Because risk should be checked as traffic increases at each stage, so a regression can be caught and rolled back before it reaches full traffic",
+              "`eval_fn` only produces valid results when called more than once",
+              "The loop has nothing to do with evaluation at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Re-evaluating at each traffic fraction is what makes the rollout a genuine canary: it catches regressions incrementally rather than only after the change has already reached all users.",
+            "id": "q6"
+          },
+          {
+            "question": "In the `canary_deploy_prompt` code, what does calling `registry.rollback(...)` accomplish when a regression is detected?",
+            "options": [
+              "It permanently deletes the new prompt version from the registry",
+              "It re-registers the previous, known-good prompt version as the active one, closing the loop between monitoring and revision that the lifecycle describes",
+              "It pauses the entire evaluation harness for all prompts",
+              "It has no effect because `eval_fn` already stopped the deployment"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The rollback call restores the last healthy version, which is exactly the monitoring-drives-revision, evaluation-gates-the-ship loop the lifecycle section is describing in code form.",
+            "id": "q7"
+          },
+          {
+            "question": "Why is skipping canary-style rollout for a prompt change, on the reasoning that \"it's just text,\" considered a mistake?",
+            "options": [
+              "Because prompt changes can never actually affect system behavior",
+              "Because the lesson states the same risk-management logic behind canary, shadow, and blue-green deployment applies to prompt versions just as it does to classical ML models",
+              "Because canary deployment is only a theoretical concept with no practical use",
+              "Because text-based changes are always safer than any other kind of change"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Treating a prompt edit as too trivial for gradual, monitored rollout ignores that prompt versions carry the same deployment risk a model version does, which is why the same strategies apply.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "llo_the_evaluation_challenge_at_scale",
+      "title": "The Evaluation Challenge, at Operational Scale",
+      "description": "A single good evaluation run is nice. Knowing whether every single prompt or model change is actually safe to ship is a much harder, ongoing operational problem.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain why evaluation needs to become an ongoing operational practice for LLM systems, not a one-time development step."
+          },
+          {
+            "title": "🔁 From one-time evaluation to a continuous gate",
+            "content": "The Fine-Tuning course's evaluation lesson covered evaluating a model once, after training. In an LLMOps context, evaluation needs to run continuously and automatically — every prompt change, every model version swap, every system architecture tweak (a new retrieval strategy in a RAG pipeline, a new tool added to an agent) is a candidate to be evaluated before it ships, mirroring the MLOps course's CI/CD-gated model promotion, just applied to prompts and LLM system changes instead of retrained models."
+          },
+          {
+            "title": "📊 Multiple evaluation dimensions, simultaneously",
+            "content": "Building on the Fine-Tuning course's outcome/trajectory distinction and the Agents course's multi-dimensional agent evaluation: an LLM system change needs to be checked against quality (is the output actually better), safety (did the change introduce new failure modes, like a jailbreak vulnerability or a new hallucination pattern), cost (did the change make the system meaningfully more expensive), and latency (did it get slower) — a change that improves one dimension while quietly regressing another is a real risk that single-dimension evaluation would miss."
+          },
+          {
+            "title": "⚖️ The trade-off between evaluation thoroughness and iteration speed",
+            "content": "A very thorough evaluation suite (many test cases, multiple evaluation dimensions, possibly expensive LLM-as-judge calls per the next module) takes real time and money to run — running it on every tiny change can slow iteration to a crawl, while running it too infrequently or too shallowly risks shipping regressions that a more thorough eval would have caught. Calibrating evaluation thoroughness to the actual risk of a given change (a wording tweak versus a fundamental architecture change) is a genuine operational judgment call, not a fixed rule."
+          },
+          {
+            "title": "🎯 Why this module-spanning theme matters",
+            "content": "This tension — evaluation needs to be both continuous and thorough, but thoroughness costs time and money — is the throughline connecting this course's evaluation-gates module (module 3) to its cost-and-latency module (module 5): a mature LLMOps practice treats evaluation cost itself as a resource to budget and optimize, not an unlimited good to maximize regardless of cost."
+          },
+          {
+            "title": "💻 A multi-dimensional, risk-calibrated deployment gate",
+            "content": "A single pass/fail check would miss a change that trades one dimension for another. This gate checks all four dimensions the lesson names, and calibrates thoroughness to risk level instead of always running everything:\n\n```python\ndef evaluation_gate(change, quality_fn, safety_fn, cost_fn, latency_fn,\n                     thresholds, risk_level=\"low\"):\n    \"\"\"Continuous, multi-dimensional gate. `risk_level` calibrates thoroughness:\n    a wording tweak skips the expensive safety re-check a wording tweak wouldn't\n    plausibly break; an architecture change always runs every dimension.\"\"\"\n    dimensions = {\"quality\": quality_fn, \"cost\": cost_fn, \"latency\": latency_fn}\n    if risk_level != \"low\":\n        dimensions[\"safety\"] = safety_fn\n\n    scores = {name: fn(change) for name, fn in dimensions.items()}\n    failures = [name for name, score in scores.items() if score < thresholds[name]]\n    if failures:\n        raise ValueError(f\"Blocked: regressed on {', '.join(failures)}\")\n    return scores\n```\n\nRunning `safety_fn` only above `\"low\"` risk is the code version of the thoroughness/speed trade-off: a small wording change gets a cheap, fast gate, while an architecture change pays for the full, expensive check — treating evaluation cost as a budgeted resource rather than something to maximize unconditionally."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Evaluating a prompt or model change once, the way the Fine-Tuning course evaluates a freshly trained model, and never again.** LLMOps evaluation has to run continuously and automatically on every change, not just once after the initial build.\n\n**Checking only output quality and ignoring safety, cost, and latency.** A change can improve quality while quietly introducing a jailbreak vulnerability or a cost spike, which single-dimension evaluation like a quality-only check would completely miss.\n\n**Running the full, expensive evaluation suite on every trivial change regardless of risk.** Treating thoroughness as unconditionally good rather than a resource to budget slows iteration to a crawl on changes that never needed that level of scrutiny."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "llo_the_evaluation_challenge_at_scale_quiz",
+        "questions": [
+          {
+            "question": "How does the operational use of evaluation in LLMOps differ from the one-time evaluation covered in the Fine-Tuning course?",
+            "options": [
+              "They are identical — evaluation happens exactly once in both contexts",
+              "LLMOps evaluation needs to run continuously and automatically on every prompt or system change, gating deployment, rather than being a one-time post-training step",
+              "LLMOps requires no evaluation at all, unlike fine-tuning",
+              "Evaluation is less important in LLMOps than in fine-tuning"
+            ],
+            "correctAnswer": 1,
+            "explanation": "LLMOps extends evaluation into an ongoing, automated gating practice applied to every relevant change, mirroring the MLOps course's CI/CD-gated promotion pattern.",
+            "id": "q1"
+          },
+          {
+            "question": "Why does an LLM system change need to be evaluated across multiple dimensions (quality, safety, cost, latency) simultaneously?",
+            "options": [
+              "Only quality ever needs to be checked; the other dimensions are irrelevant",
+              "A change that improves one dimension could quietly regress another (like introducing a new failure mode or slowing the system down), which single-dimension evaluation would miss",
+              "Cost and latency can never actually change as a result of a prompt or system modification",
+              "Multi-dimensional evaluation is only relevant for classical ML systems, not LLMs"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Checking only one dimension risks missing real regressions in another — a quality improvement that quietly increases cost or introduces a safety issue is exactly the kind of trade-off multi-dimensional evaluation is meant to catch.",
+            "id": "q2"
+          },
+          {
+            "question": "What operational tension does this lesson identify between evaluation thoroughness and iteration speed?",
+            "options": [
+              "There is no real tension — thorough evaluation is always instant and free",
+              "Thorough evaluation takes real time and money, so running it on every tiny change can slow iteration, while shallow or infrequent evaluation risks shipping regressions",
+              "Evaluation should always be skipped entirely to maximize iteration speed",
+              "Iteration speed is irrelevant to any LLMOps practice"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Calibrating how much evaluation a given change warrants, based on its actual risk, is a genuine operational trade-off between catching regressions and maintaining reasonable iteration speed.",
+            "id": "q3"
+          },
+          {
+            "question": "What connects this lesson's evaluation-thoroughness tension to the course's cost-and-latency module (module 5), per the closing section?",
+            "options": [
+              "The two modules have no relationship to each other",
+              "A mature LLMOps practice treats evaluation cost itself as a resource to budget and optimize, rather than an unlimited good to maximize regardless of cost",
+              "Module 5 replaces the need for any evaluation described in this lesson",
+              "Cost and latency are only measured for the LLM system itself, never for the evaluation process"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson explicitly frames evaluation cost as something to budget like any other operational resource, which is exactly the mindset the cost-and-latency module develops further.",
+            "id": "q4"
+          },
+          {
+            "question": "What example does the lesson give of an LLM system architecture change that should be treated as a candidate for evaluation before shipping?",
+            "options": [
+              "Changing the color of a UI button in an unrelated part of the application",
+              "A new retrieval strategy in a RAG pipeline, or a new tool added to an agent",
+              "Restarting the production server with no code changes",
+              "Renaming an internal variable that isn't exposed anywhere"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson names a new retrieval strategy in a RAG pipeline and a new tool added to an agent as concrete examples of changes that warrant evaluation before they ship.",
+            "id": "q5"
+          },
+          {
+            "question": "In the `evaluation_gate` code, why is `safety_fn` only added to `dimensions` when `risk_level` is not `\"low\"`?",
+            "options": [
+              "Because `safety_fn` cannot be called more than once in a program",
+              "Because it calibrates evaluation thoroughness to the actual risk of the change, running the more expensive safety check only when the change is risky enough to plausibly warrant it",
+              "Because low-risk changes are actually more dangerous and need less checking",
+              "Because `safety_fn` always returns the same score regardless of input"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Skipping `safety_fn` for low-risk changes is how the code implements the lesson's point that thoroughness should scale with a change's actual risk rather than being run unconditionally.",
+            "id": "q6"
+          },
+          {
+            "question": "In the `evaluation_gate` code, why does the function raise a `ValueError` listing every entry in `failures` instead of stopping at the first dimension that fails a threshold?",
+            "options": [
+              "Python does not allow a function to check more than one condition",
+              "Reporting every regressed dimension at once reflects that a change can fail on multiple dimensions simultaneously, matching the lesson's point that regressions can hide across different metrics",
+              "The `failures` list is unused elsewhere in the code and has no purpose",
+              "Stopping at the first failure would cause an infinite loop"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Collecting all failing dimensions before raising gives a complete picture of where a change regressed, consistent with the lesson's emphasis on checking every dimension rather than just one.",
+            "id": "q7"
+          },
+          {
+            "question": "Why is running the full, expensive evaluation suite on every trivial change, regardless of its actual risk, considered a mistake in this lesson?",
+            "options": [
+              "Because expensive evaluation suites always produce incorrect results",
+              "Because treating thoroughness as unconditionally good rather than a budgeted resource slows iteration to a crawl on changes that never needed that level of scrutiny",
+              "Because evaluation suites are illegal to run more than once per day",
+              "Because trivial changes never need any evaluation whatsoever"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson frames evaluation thoroughness as a trade-off against iteration speed, so applying maximum thoroughness indiscriminately wastes time and money without a matching reduction in risk.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "llo_llmops_practice_areas_overview",
+      "title": "The Practice Areas This Course Covers",
+      "description": "A roadmap for the rest of this course, tying each upcoming module back to a specific gap classical MLOps tooling doesn't fill.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Map each of this course's remaining modules to the specific LLM-operational gap it addresses."
+          },
+          {
+            "title": "📝 Prompt management (module 1)",
+            "content": "Prompts need their own registry, versioning, and testing discipline distinct from a classical ML model registry, since they change far more often and independently of any model retraining — directly addressing the 'prompts as a first-class versioned artifact' gap identified in this module's first lesson."
+          },
+          {
+            "title": "🔍 Tracing and observability (module 2)",
+            "content": "Multi-step LLM systems (RAG pipelines, agents, LangGraph graphs) need visibility into every hop — what was retrieved, what tool was called, what the model actually saw at each step — extending the tracing concepts from the Agents and LangGraph courses into a dedicated operational practice with purpose-built tooling."
+          },
+          {
+            "title": "🧪 Evaluation gates (module 3)",
+            "content": "Building the actual harnesses and LLM-as-judge infrastructure that make the continuous, multi-dimensional evaluation from this module's third lesson operationally real, rather than an abstract goal."
+          },
+          {
+            "title": "🕸️ Operating RAG and agent systems (module 4)",
+            "content": "The specific operational concerns unique to RAG (index staleness, retrieval quality drift) and agents (trajectory monitoring, tool-call reliability) that a generic LLM-operations view doesn't capture on its own, building directly on the RAG and Agents courses' own content."
+          },
+          {
+            "title": "💰 Cost, latency, and reliability at scale (module 5)",
+            "content": "Making the cost and latency concerns from this module's first lesson concrete and actionable — token budgeting, caching, and rollback strategies specifically adapted for prompts and LLM system versions rather than classical model artifacts."
+          },
+          {
+            "title": "🎯 Why this structure",
+            "content": "Each module targets a specific, named gap between what classical MLOps tooling handles and what LLM-based systems actually need — by the end of this course, the goal is to have concrete, operational answers to each gap, not just an awareness that LLM systems are 'different' in some vague sense."
+          },
+          {
+            "title": "💻 One prompt change, moving through every module",
+            "content": "The roadmap only makes sense once you see the modules compose into a single pipeline. Here is one prompt change passing through each practice area, in order:\n\n```python\ndef ship_prompt_change(prompt_name, new_text, registry, tracer, gate, cost_tracker):\n    \"\"\"One pass through this course's modules, in order:\n    module 1 (registry) -> module 2 (tracing) -> module 3 (eval gate) -> module 5 (cost).\"\"\"\n    version = registry.register(prompt_name, new_text, author=\"llmops-course\")\n\n    with tracer.trace_span(f\"eval:{prompt_name}:v{version}\") as span:\n        scores = gate.evaluate(prompt_name, version)   # module 3's evaluation gate\n        span.set_attribute(\"scores\", scores)            # module 2's tracing\n\n    if scores[\"quality\"] < scores[\"baseline_quality\"]:\n        registry.rollback(prompt_name, version - 1)      # module 5's rollback strategy\n        raise RuntimeError(f\"v{version} regressed, rolled back\")\n\n    cost_tracker.record(prompt_name, version, scores[\"cost\"])  # module 5's cost tracking\n    return version\n```\n\nEach named gap from this lesson shows up as one call in the function: `registry` is module 1's versioning discipline, `tracer.trace_span` is module 2's per-hop visibility, `gate.evaluate` is module 3's evaluation infrastructure, and the rollback plus `cost_tracker.record` calls are module 5's reliability and cost concerns made concrete."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Treating each module's practice area as independent rather than as stages of one pipeline.** Prompt versioning, tracing, evaluation gates, and cost tracking are meant to compose end to end, the way `ship_prompt_change` chains them, not be adopted in isolation.\n\n**Assuming awareness that \"LLM systems are different\" is itself an operational answer.** The lesson is explicit that the goal is concrete, actionable tooling for each named gap, not just recognizing that a gap exists.\n\n**Skipping the RAG- and agent-specific operational concerns because a generic LLMOps view seems to cover everything.** Index staleness, retrieval quality drift, and agent trajectory monitoring are gaps a generic view doesn't capture on its own, per module 4's stated purpose."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "llo_llmops_practice_areas_overview_quiz",
+        "questions": [
+          {
+            "question": "What specific gap does the prompt-management module (module 1) address?",
+            "options": [
+              "The need for classical ML feature stores",
+              "The need for prompts to have their own registry, versioning, and testing discipline, since they change independently of and more often than model retraining",
+              "The need for GPU memory optimization during training",
+              "The need for data lineage tracking for training datasets"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Prompt management directly fills the gap identified earlier in this module: prompts need dedicated versioning treatment that a classical ML model registry wasn't designed to provide.",
+            "id": "q1"
+          },
+          {
+            "question": "What does the tracing and observability module extend from the Agents and LangGraph courses?",
+            "options": [
+              "It has no relationship to those earlier courses",
+              "The tracing concepts from those courses, turned into a dedicated operational practice with purpose-built tooling for multi-step LLM systems",
+              "It replaces the need for any tracing covered in the Agents or LangGraph courses",
+              "Tracing is only relevant for classical ML systems, not LLM-based ones"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This module builds directly on the observability foundations from the Agents and LangGraph courses, extending them into a dedicated operational discipline.",
+            "id": "q2"
+          },
+          {
+            "question": "What is the overall organizing principle behind this course's module structure, per this lesson?",
+            "options": [
+              "Modules are ordered randomly with no particular logic",
+              "Each module targets a specific, named gap between classical MLOps tooling and what LLM-based systems actually need operationally",
+              "All modules cover the exact same content from different angles",
+              "The modules have no connection to the MLOps course at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The course is structured so each module addresses a concrete, previously-identified operational gap, aiming for actionable answers rather than a vague sense that LLM systems are 'different.'",
+            "id": "q3"
+          },
+          {
+            "question": "According to this lesson, what operational concerns does module 4 cover that a generic LLM-operations view doesn't capture on its own?",
+            "options": [
+              "Index staleness and retrieval quality drift for RAG, and trajectory monitoring plus tool-call reliability for agents",
+              "General cost tracking that applies equally to every kind of LLM system",
+              "Prompt versioning discipline shared with module 1",
+              "Classical ML feature engineering practices"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Module 4 is described as covering the concerns unique to RAG and agent systems specifically, which a generic LLM-operations view doesn't capture on its own.",
+            "id": "q4"
+          },
+          {
+            "question": "How does module 5 make the cost and latency concerns from this module's first lesson 'concrete and actionable', per this lesson?",
+            "options": [
+              "By removing the need to track cost or latency at all",
+              "Through token budgeting, caching, and rollback strategies specifically adapted for prompts and LLM system versions rather than classical model artifacts",
+              "By reusing classical ML model artifacts unchanged, with no new tooling",
+              "By focusing exclusively on training-time GPU costs"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Module 5 is described as turning the earlier, more abstract cost-and-latency concern into specific tooling: token budgeting, caching, and prompt/system-version-aware rollback strategies.",
+            "id": "q5"
+          },
+          {
+            "question": "In the `ship_prompt_change` code, why is `gate.evaluate(...)` called inside the `with tracer.trace_span(...)` block instead of before or after it?",
+            "options": [
+              "So that module 2's tracing captures what happened during module 3's evaluation step, giving visibility into that hop rather than treating it as an invisible black box",
+              "Because Python requires all function calls to be inside a `with` block",
+              "Because `trace_span` is required to make `gate.evaluate` return a value at all",
+              "There is no reason; the placement is arbitrary and could be moved anywhere"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Placing the evaluation call inside the trace span is what gives the evaluation step observability, which is the whole point of module 2's tracing practice being applied to module 3's evaluation gate.",
+            "id": "q6"
+          },
+          {
+            "question": "In the `ship_prompt_change` code, why does the function call `registry.rollback(...)` before raising a `RuntimeError` when quality regresses?",
+            "options": [
+              "So that the system is restored to a known-good prompt version before surfacing the failure, rather than leaving a regressed version live",
+              "Because raising an exception in Python automatically deletes the current prompt version",
+              "Because `rollback` must always run immediately before any error, regardless of context",
+              "The rollback call has no functional purpose in the code"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Rolling back before raising ensures production keeps serving a known-good prompt version even while the failure is being reported, which is the reliability concern module 5's rollback strategies address.",
+            "id": "q7"
+          },
+          {
+            "question": "Why is treating each module's practice area (prompt management, tracing, evaluation, RAG/agent operations, cost) as independent, rather than as stages of one pipeline, considered a mistake?",
+            "options": [
+              "Because these practice areas are meant to compose end to end, the way a single change flows through registry, tracing, evaluation, and cost tracking together, not be adopted in isolation",
+              "Because only one of the five modules is ever actually necessary",
+              "Because independent adoption is always faster and has no downsides",
+              "Because the modules are unrelated topics with no shared purpose"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The roadmap lesson frames the modules as gaps that together form one coherent operational pipeline, so adopting them in isolation misses how they're meant to reinforce each other.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

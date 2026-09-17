@@ -1,0 +1,525 @@
+{
+  "id": "module_3",
+  "title": "Multimodal Generation",
+  "description": "How text prompts steer image diffusion through embeddings and cross-attention, how CLIP-style vision-language models build a shared image-text space, the basics of speech generation, and why fusing modalities is genuinely hard.",
+  "icon": "🎭",
+  "color": "#7E57C2",
+  "order": 3,
+  "estimatedHours": 2,
+  "difficulty": "Intermediate",
+  "prerequisites": [],
+  "lessons": [
+    {
+      "id": "gen_text_to_image_overview",
+      "title": "How Text-to-Image Models Connect Words and Pixels",
+      "description": "See how a text prompt actually steers an image-generating diffusion model.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can describe, at a high level, how a text prompt gets turned into guidance for an image diffusion model."
+          },
+          {
+            "title": "🔤 The prompt becomes an embedding, not just words",
+            "content": "A text-to-image model doesn't read your prompt as raw characters during generation — it first encodes the prompt into a text **embedding** (the same core idea from the embeddings lesson in the transformers/NLP material), a vector that captures the prompt's meaning in a form the image model can actually condition on."
+          },
+          {
+            "title": "🔗 That embedding steers every denoising step",
+            "content": "The text embedding is fed into the diffusion model's denoising network at each step (often via cross-attention, the same cross-attention mechanism the transformers course covered connecting encoder and decoder). This is what makes classifier-free guidance from the previous module possible — the model can compare 'denoising with this text embedding' against 'denoising without it'.\n\n```python\n# Conceptual pipeline:\n# prompt (\"a red bicycle\") -> text encoder -> embedding vector\n# embedding vector -> cross-attention into each denoising step\n# result: image generation is steered toward the prompt's meaning\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming the model 'reads' your prompt like a human would, word by word.** It's working from an encoded representation of the whole prompt's meaning, which is part of why prompt phrasing and word order can matter in non-obvious ways.\n\n**Ignoring that the text encoder itself has limits.** If the text encoder wasn't trained to represent a concept well (an unusual term, a very long or complex sentence), no amount of prompt tweaking fully compensates.\n\n**Forgetting this is the same embedding idea from language tasks, just applied cross-modally.** The novelty here is connecting two modalities (text and images) through a shared representation, not a wholly different concept from what you've already learned."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "gen_text_to_image_overview_quiz",
+        "questions": [
+          {
+            "question": "What is the first step in how a text-to-image model uses a prompt?",
+            "options": [
+              "It reads the prompt directly as raw pixel values",
+              "It encodes the prompt into a text embedding — a vector representing the prompt's meaning — using a text encoder",
+              "It ignores the prompt and generates a random image",
+              "It converts the prompt into an audio waveform first"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Just like other text-processing systems, a text-to-image model first turns the prompt into an embedding — a numeric representation of its meaning — rather than working with raw characters directly.",
+            "id": "q1"
+          },
+          {
+            "question": "How does the text embedding actually influence the image generation process?",
+            "options": [
+              "It has no influence; images are generated independently of the prompt",
+              "It's fed into the denoising network at each step, often via cross-attention, steering the generation toward the prompt's meaning",
+              "It replaces the need for any denoising process at all",
+              "It only affects the final resolution of the output image"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The text embedding is incorporated into each denoising step (commonly through cross-attention, the same mechanism from the transformers course), which is what lets the generation process be steered toward matching the prompt's meaning.",
+            "id": "q2"
+          },
+          {
+            "question": "Why can prompt phrasing and word order matter in sometimes non-obvious ways?",
+            "options": [
+              "Prompt phrasing has no effect on the resulting image whatsoever",
+              "The model works from an encoded representation of the prompt's overall meaning rather than reading word by word like a human, so how that meaning gets encoded can shift with phrasing",
+              "Word order only matters for very long prompts, never short ones",
+              "The text encoder ignores word order entirely in all cases"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since the model conditions on an encoded representation of the prompt rather than literal words, subtle changes in phrasing can shift that encoded meaning in ways that aren't always intuitive from a human reading of the text.",
+            "id": "q3"
+          },
+          {
+            "question": "What is the first step a text-to-image model performs with a text prompt, according to this lesson?",
+            "options": [
+              "It encodes the prompt into a text embedding using a text encoder",
+              "It directly converts each character into a pixel value",
+              "It generates a random image before reading the prompt",
+              "It translates the prompt into a different spoken language"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson states that the prompt is first encoded into a text embedding — a vector capturing its meaning — rather than being processed as raw characters.",
+            "id": "q4"
+          },
+          {
+            "question": "How is the text embedding delivered into the diffusion model's denoising steps, per this lesson?",
+            "options": [
+              "Often via cross-attention, feeding into the denoising network at each step",
+              "By replacing the noise schedule entirely",
+              "By converting it back into raw text before generation begins",
+              "It is not used during denoising at all, only afterward"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explains that the text embedding is fed into the denoising network at each step, often through cross-attention — the same mechanism connecting encoder and decoder in the transformers course.",
+            "id": "q5"
+          },
+          {
+            "question": "What capability does feeding the text embedding into every denoising step make possible, according to this lesson?",
+            "options": [
+              "Classifier-free guidance, by comparing denoising with and without the text embedding",
+              "Beam search across multiple images",
+              "Tokenization of the final generated image",
+              "Removing the need for a diffusion process altogether"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson connects this conditioning mechanism directly to classifier-free guidance, which relies on comparing denoising steps with and without the text embedding.",
+            "id": "q6"
+          },
+          {
+            "question": "Why can prompt phrasing and word order matter in non-obvious ways, according to this lesson?",
+            "options": [
+              "Because the model conditions on an encoded representation of the prompt's overall meaning, not literal words",
+              "Because the model reads and responds to prompts exactly like a human would",
+              "Because word order has zero effect on the resulting embedding",
+              "Because only prompts written in question form are ever encoded"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Since the model works from an encoded representation of meaning rather than literal word-by-word reading, subtle phrasing changes can shift that encoding in ways that aren't always intuitive.",
+            "id": "q7"
+          },
+          {
+            "question": "Why doesn't prompt tweaking always fully compensate for a poorly represented concept, per this lesson?",
+            "options": [
+              "Because the text encoder itself has limits on how well it represents unusual or complex concepts",
+              "Because prompt tweaking always fixes any encoding limitation",
+              "Because text encoders have unlimited capacity for every possible concept",
+              "Because concepts are never encoded by the text encoder at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson notes that if the text encoder wasn't trained to represent a concept well, no amount of prompt rewording fully makes up for that underlying limitation.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "gen_vision_language_models",
+      "title": "Vision-Language Models: Connecting Images and Text",
+      "description": "See how models like CLIP learn a shared space where images and their descriptions land close together.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain the core idea behind CLIP-style vision-language models: a shared embedding space for images and text."
+          },
+          {
+            "title": "🖼️➕🔤 One space for two modalities",
+            "content": "A vision-language model like CLIP trains an image encoder and a text encoder together so that an image and its correct caption land near each other in the same embedding space, while an image and an unrelated caption land far apart. This directly extends the embedding intuition from earlier — instead of only text-to-text similarity, it's now cross-modal similarity between images and text."
+          },
+          {
+            "title": "🎯 Contrastive training: pulling matches together, pushing mismatches apart",
+            "content": "This is trained **contrastively**: given a batch of image-caption pairs, the model is pushed to make each image's embedding close to its own caption's embedding and far from every other caption's embedding in the batch. The result is a model useful for zero-shot image classification (comparing an image's embedding to text embeddings of candidate labels) without ever being trained on those specific label names.\n\n```python\n# Conceptual: zero-shot classification with CLIP\n# image_embedding = clip.encode_image(photo)\n# candidates = [\"a photo of a cat\", \"a photo of a dog\", \"a photo of a car\"]\n# text_embeddings = [clip.encode_text(c) for c in candidates]\n# predicted_label = candidates[argmax(cosine_similarity(image_embedding, text_embeddings))]\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Confusing CLIP-style models with generative image models.** CLIP-style models measure similarity between images and text; they don't generate new images themselves — but they're often used as a component *inside* text-to-image systems (e.g. as the text encoder feeding the diffusion process).\n\n**Assuming zero-shot performance always matches a purpose-trained classifier.** It's often surprisingly strong, but a model fine-tuned specifically for your exact classes and data can still outperform a general zero-shot approach.\n\n**Forgetting the training data's biases carry into the shared embedding space.** Whatever associations existed in the training image-caption pairs (including unwanted ones) get encoded into the model's notion of similarity."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "gen_vision_language_models_quiz",
+        "questions": [
+          {
+            "question": "What is the core idea behind a CLIP-style vision-language model?",
+            "options": [
+              "It generates new images from text prompts",
+              "It trains an image encoder and text encoder together so that matching image-caption pairs land close together in a shared embedding space, while unrelated pairs land far apart",
+              "It only processes text and has no image capability",
+              "It replaces the need for tokenization entirely"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The defining feature of CLIP-style models is a shared embedding space where semantic similarity between an image and a caption is reflected as spatial closeness — trained so that true image-caption pairs are pulled together and mismatched pairs pushed apart.",
+            "id": "q1"
+          },
+          {
+            "question": "What does 'contrastive' training mean in this context?",
+            "options": [
+              "Training the model on only one image-caption pair at a time with no comparison",
+              "Training the model, given a batch of image-caption pairs, to pull each image's embedding close to its own caption while pushing it away from other captions in the batch",
+              "Training two separate, unrelated models with no shared objective",
+              "Training only the text encoder, never the image encoder"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Contrastive training explicitly contrasts correct pairs against incorrect ones within a batch, optimizing similarity for true matches and dissimilarity for mismatches — this is what shapes the shared embedding space.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is it a mistake to confuse a CLIP-style model with a generative image model?",
+            "options": [
+              "They are actually identical in function",
+              "A CLIP-style model measures similarity between images and text; it does not itself generate new images, though it's often used as a component inside generative pipelines",
+              "CLIP-style models can only generate text, never compare it to images",
+              "Generative models never use any embedding-based components at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "CLIP-style models are fundamentally about measuring and aligning similarity across modalities, not producing new pixels — their practical role in generative pipelines is often as the text-understanding component feeding a separate image-generating process.",
+            "id": "q3"
+          },
+          {
+            "question": "In a CLIP-style model, where do an image and its correct caption end up relative to each other?",
+            "options": [
+              "Close together in the shared embedding space",
+              "Far apart, at opposite ends of the embedding space",
+              "In a space with no relationship to captions at all",
+              "On different, entirely unconnected embedding spaces"
+            ],
+            "correctAnswer": 0,
+            "explanation": "CLIP-style models are trained so that an image and its correct caption land near each other in a shared embedding space, while unrelated pairs land far apart.",
+            "id": "q4"
+          },
+          {
+            "question": "In contrastive training, what happens to an image's embedding relative to captions from other examples in the batch?",
+            "options": [
+              "It is pushed away from those unrelated captions' embeddings",
+              "It is pulled toward every caption in the batch equally",
+              "It is deleted from the batch entirely",
+              "It is ignored, since only the correct caption matters"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Contrastive training pushes an image's embedding close to its own caption while explicitly pushing it away from every other caption's embedding in the same batch.",
+            "id": "q5"
+          },
+          {
+            "question": "How does CLIP enable zero-shot image classification, according to this lesson?",
+            "options": [
+              "By comparing an image's embedding to text embeddings of candidate labels, without training on those specific label names",
+              "By fine-tuning a new classifier head for each new label set",
+              "By generating a brand-new image for every candidate label",
+              "By requiring a labeled dataset for every possible class"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson describes zero-shot classification as comparing an image's embedding against text embeddings of candidate labels, achieved without the model ever being trained on those exact class names.",
+            "id": "q6"
+          },
+          {
+            "question": "Why is it a mistake to think CLIP-style models generate new images themselves, per this lesson?",
+            "options": [
+              "Because they measure similarity between images and text; they don't produce new pixels themselves",
+              "Because CLIP-style models can only process text, never images",
+              "Because CLIP-style models always outperform every generative model",
+              "Because similarity and generation are the exact same operation"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson is explicit that CLIP-style models are about measuring cross-modal similarity, not generating new images — though they're often used as a component inside generative pipelines.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does the lesson warn that a vision-language model's shared embedding space can encode unwanted biases?",
+            "options": [
+              "Because whatever associations existed in the training image-caption pairs, including unwanted ones, get encoded into the model's notion of similarity",
+              "Because bias is impossible in any embedding-based model",
+              "Because only generative models can exhibit bias, never similarity-based ones",
+              "Because contrastive training automatically removes all bias"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson notes that training data biases carry directly into the shared embedding space, since the model's notion of similarity is shaped entirely by the associations present in its training pairs.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "gen_audio_speech_generation",
+      "title": "Audio and Speech Generation Basics",
+      "description": "See how the same generative principles extend to speech synthesis and audio.",
+      "duration": "7 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can describe, at a high level, how text-to-speech generation works and name one challenge specific to audio generation."
+          },
+          {
+            "title": "🎙️ Text-to-speech: from tokens to waveforms",
+            "content": "Text-to-speech (TTS) systems generate audio waveforms conditioned on input text, using the same generative families you've already studied — some are autoregressive (generating audio samples or intermediate representations sequentially, similar in spirit to the autoregressive text generation from earlier in this course), and some use diffusion-style iterative refinement, analogous to the image diffusion covered in this module."
+          },
+          {
+            "title": "🌊 The challenge of continuous, high-rate signals",
+            "content": "Audio is a continuous waveform sampled at a very high rate (commonly tens of thousands of samples per second), unlike discrete text tokens. Generating raw audio directly at that rate is expensive, so many systems first generate a lower-rate intermediate representation (like a spectrogram, a visual-like representation of frequency content over time) and then convert that into the final waveform with a separate model — similar in spirit to how latent diffusion first compresses images before working with them."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming all TTS systems generate raw audio samples directly.** Many use an intermediate representation (like a spectrogram) specifically to avoid the cost of directly generating extremely high-rate raw audio.\n\n**Forgetting that voice cloning and speaker identity raise distinct ethical questions.** Generating a specific person's voice without consent is a real misuse risk covered more directly in the responsible-use module later.\n\n**Assuming speech generation and speech recognition are the same task.** Generation (text-to-speech) produces audio from text; recognition (speech-to-text) goes the other direction — different tasks, sometimes sharing related underlying representations but solving opposite problems."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "gen_audio_speech_generation_quiz",
+        "questions": [
+          {
+            "question": "What generative approaches do text-to-speech systems commonly borrow from the text/image generation families covered earlier?",
+            "options": [
+              "None — audio generation is completely unrelated to text or image generation",
+              "Some TTS systems are autoregressive (generating sequentially) and others use diffusion-style iterative refinement, mirroring the same two generative families covered for text and images",
+              "TTS systems only ever use classification, never generation",
+              "TTS always requires a completely separate, unrelated mathematical framework"
+            ],
+            "correctAnswer": 1,
+            "explanation": "TTS systems draw on the same broad generative approaches covered elsewhere in this course — some generate audio (or an intermediate representation) sequentially like autoregressive text models, others use iterative diffusion-style refinement like image generation.",
+            "id": "q1"
+          },
+          {
+            "question": "Why do many audio generation systems first produce an intermediate representation like a spectrogram rather than raw audio samples directly?",
+            "options": [
+              "Spectrograms have nothing to do with audio and are used for an unrelated purpose",
+              "Raw audio is a continuous, very high-sample-rate signal, so generating it directly is expensive — a lower-rate intermediate representation is cheaper to generate and then converted to a final waveform",
+              "Spectrograms are always the final output format for TTS systems",
+              "This step is purely decorative and has no computational motivation"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since raw audio is sampled at a very high rate, directly generating it is computationally expensive. Producing a more compact intermediate representation first (analogous to latent diffusion's compression step) and converting that to audio afterward is far more practical.",
+            "id": "q2"
+          },
+          {
+            "question": "How does text-to-speech (generation) differ from speech-to-text (recognition)?",
+            "options": [
+              "They are the exact same task, just described with different names",
+              "Text-to-speech produces audio from text, while speech-to-text produces text from audio — opposite directions solving different problems",
+              "Speech-to-text is a generative task while text-to-speech is a discriminative task",
+              "Neither task involves any use of models covered elsewhere in the curriculum"
+            ],
+            "correctAnswer": 1,
+            "explanation": "These are inverse tasks: TTS generates a new audio waveform from a text input, while speech recognition takes audio as input and produces text as output — different directions and different underlying challenges, even though related representations can sometimes be shared.",
+            "id": "q3"
+          },
+          {
+            "question": "What two broad generative approaches do text-to-speech systems draw on, according to this lesson?",
+            "options": [
+              "Autoregressive generation and diffusion-style iterative refinement",
+              "Only classification-based approaches",
+              "Only beam search decoding",
+              "Only contrastive training methods"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explains TTS systems mirror the two generative families covered elsewhere: some are autoregressive (sequential), and others use diffusion-style iterative refinement.",
+            "id": "q4"
+          },
+          {
+            "question": "Why do many audio generation systems produce an intermediate representation like a spectrogram before the final waveform?",
+            "options": [
+              "Because generating raw, high-sample-rate audio directly is computationally expensive",
+              "Because spectrograms are the only format audio can ever be stored in",
+              "Because spectrograms eliminate the need for any generative model",
+              "Because raw audio cannot be represented numerically at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explains that since raw audio is a very high-rate continuous signal, generating a more compact intermediate representation first (like a spectrogram) is cheaper, similar in spirit to latent diffusion's compression step.",
+            "id": "q5"
+          },
+          {
+            "question": "How does text-to-speech differ from speech-to-text, according to this lesson?",
+            "options": [
+              "Text-to-speech generates audio from text, while speech-to-text produces text from audio — opposite directions",
+              "They are identical tasks performed by the same exact model",
+              "Speech-to-text is the only one that is a generative task",
+              "Text-to-speech only works for languages with no written form"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson describes these as inverse tasks: TTS generates audio from text input, while speech recognition takes audio and produces text, solving opposite problems.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does the lesson flag voice cloning and speaker identity as raising distinct ethical questions?",
+            "options": [
+              "Because generating a specific person's voice without consent is a real misuse risk",
+              "Because voice cloning is technically impossible with current generative models",
+              "Because speaker identity has no connection to any ethical concern",
+              "Because TTS systems cannot represent individual voices at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly calls out that generating a real person's voice without consent is a genuine misuse risk, connecting to the responsible-use module covered later in the course.",
+            "id": "q7"
+          },
+          {
+            "question": "Why is audio described as more challenging to generate directly than discrete text tokens, per this lesson?",
+            "options": [
+              "Because audio is a continuous waveform sampled at a very high rate, unlike discrete text tokens",
+              "Because audio has no numerical representation whatsoever",
+              "Because text tokens are sampled at a higher rate than audio",
+              "Because audio generation requires no computational resources"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson contrasts audio's continuous, high-sample-rate nature directly against the discrete, sequential structure of text tokens, explaining why direct raw audio generation is comparatively expensive.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "gen_multimodal_fusion_challenges",
+      "title": "Why Combining Modalities Is Genuinely Hard",
+      "description": "Understand the core challenges in building models that reason across text, images, and audio together.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can name two specific challenges that arise when combining multiple modalities into one model."
+          },
+          {
+            "title": "⚖️ Different modalities, different structure and scale",
+            "content": "Text is discrete and sequential (tokens, one after another). Images are dense, spatial grids of continuous values. Audio is a high-rate continuous waveform. Fusing information across such structurally different data types — deciding how and where in a network to actually combine them — is a genuinely hard architectural problem, not a solved formality."
+          },
+          {
+            "title": "🕳️ Missing or misaligned modalities in real data",
+            "content": "Real-world multimodal data is often incomplete or misaligned: a video might have audio that doesn't match the visuals, an image might have no caption at all, a caption might describe something only loosely connected to what's actually in the frame. A robust multimodal system has to handle this messiness, not just the clean, perfectly-aligned examples used in a textbook demo."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming multimodal models automatically 'understand' the relationship between modalities the way a human intuitively would.** They learn statistical associations from training data — associations that can be superficial, biased, or simply not what you'd assume.\n\n**Treating multimodal fusion as a solved, plug-and-play step.** Where and how to combine representations from different modalities (early fusion, late fusion, cross-attention at various depths) remains an active area of architectural choices with real tradeoffs.\n\n**Ignoring that more modalities means more ways for things to fail.** Each additional modality is another opportunity for missing data, misalignment, or a weak encoder to degrade the whole system's output."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "gen_multimodal_fusion_challenges_quiz",
+        "questions": [
+          {
+            "question": "Why is combining information from text, images, and audio into one model a genuinely hard architectural problem?",
+            "options": [
+              "It's actually trivial and requires no special design consideration",
+              "These modalities have fundamentally different structure and scale (discrete sequential tokens vs. dense spatial grids vs. high-rate continuous waveforms), making it a real design challenge to combine them meaningfully",
+              "All modalities are represented identically once tokenized, so there's nothing to solve",
+              "Multimodal models never actually combine different modalities in practice"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Text, images, and audio have very different native structures and scales, so deciding how and where to fuse information from each into a shared representation is a nontrivial architectural challenge, not a simple bolt-on.",
+            "id": "q1"
+          },
+          {
+            "question": "Why does real-world multimodal data being incomplete or misaligned matter for building robust systems?",
+            "options": [
+              "Real-world data is always perfectly clean and aligned, so this isn't actually a concern",
+              "A model trained only on clean, perfectly-aligned examples may not handle the messiness of real data (missing captions, mismatched audio/video) robustly",
+              "Missing modalities have no effect on how a multimodal model performs",
+              "This issue only affects text-only models, never multimodal ones"
+            ],
+            "correctAnswer": 1,
+            "explanation": "If training and evaluation only reflect clean, ideal examples, a system may be poorly prepared for the messier reality of missing or misaligned data it will actually encounter, which is a real robustness concern for multimodal systems.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is it a mistake to assume a multimodal model 'understands' the relationship between modalities the way a human would?",
+            "options": [
+              "Multimodal models actually do have genuine human-like understanding",
+              "The model learns statistical associations from its training data, which can be superficial, biased, or different from the intuitive relationship a human would assume",
+              "Multimodal models never learn any associations between modalities at all",
+              "This is not a real concern for any trained model"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A model's cross-modal 'understanding' is really a set of learned statistical associations from its training data — which can diverge from genuine human-like comprehension and reflect biases or coincidental correlations present in that data.",
+            "id": "q3"
+          },
+          {
+            "question": "Why is fusing text, images, and audio into one model described as a genuinely hard architectural problem in this lesson?",
+            "options": [
+              "Because these modalities have fundamentally different structure and scale (discrete sequential tokens vs. dense spatial grids vs. high-rate continuous waveforms)",
+              "Because all modalities are represented identically once tokenized, with nothing left to solve",
+              "Because fusing modalities requires no architectural decisions at all",
+              "Because only text and images can ever be combined, never audio"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson emphasizes the structurally different nature of text, images, and audio as the source of real architectural difficulty in combining them meaningfully.",
+            "id": "q4"
+          },
+          {
+            "question": "What kind of real-world data problem does this lesson highlight as a challenge for multimodal systems?",
+            "options": [
+              "Missing or misaligned modalities, like a video whose audio doesn't match its visuals",
+              "Perfectly aligned, clean data in every real-world example",
+              "The complete absence of any images in modern datasets",
+              "Text data that is always perfectly labeled"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson describes real-world multimodal data as often incomplete or misaligned — mismatched audio and video, missing captions, or loosely related descriptions — which systems must handle robustly.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does the lesson warn against treating multimodal fusion as a solved, plug-and-play step?",
+            "options": [
+              "Because where and how to combine representations from different modalities remains an active area with real architectural tradeoffs",
+              "Because fusion techniques have been fully standardized with one universally correct approach",
+              "Because fusion is unnecessary for any multimodal task",
+              "Because early fusion is always strictly better than late fusion"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson notes that choices like early fusion, late fusion, or cross-attention at various depths remain active architectural tradeoffs, not a single settled, plug-and-play solution.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does adding more modalities to a system increase its risk of failure, according to this lesson?",
+            "options": [
+              "Because each additional modality is another opportunity for missing data, misalignment, or a weak encoder to degrade the whole system",
+              "Because more modalities always improve reliability with no downside",
+              "Because additional modalities eliminate the need for any encoders",
+              "Because only single-modality systems can ever fail"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson points out that each added modality introduces its own potential failure points, from missing data to alignment issues to a weak encoder, compounding the overall system's fragility.",
+            "id": "q7"
+          },
+          {
+            "question": "Why is it a mistake to assume a multimodal model 'understands' relationships between modalities the way a human would, per this lesson?",
+            "options": [
+              "Because the model learns statistical associations from training data, which can be superficial, biased, or different from genuine comprehension",
+              "Because multimodal models never learn any cross-modal associations",
+              "Because human understanding and model associations are mathematically identical",
+              "Because this is only a concern for single-modality models"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson stresses that a model's apparent cross-modal 'understanding' is really a set of learned statistical associations, which can diverge from genuine, human-like comprehension.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

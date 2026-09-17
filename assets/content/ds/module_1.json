@@ -1,0 +1,543 @@
+{
+  "id": "module_1",
+  "title": "Selecting, Filtering & Aggregating",
+  "description": "The everyday pandas moves: picking exactly the rows and columns you need, building new columns, and summarizing data by group.",
+  "icon": "🔍",
+  "color": "#00838F",
+  "order": 1,
+  "estimatedHours": 2,
+  "difficulty": "Beginner",
+  "prerequisites": [
+    "module_0"
+  ],
+  "lessons": [
+    {
+      "id": "ds_select_rows_cols",
+      "title": "Selecting Rows and Columns",
+      "description": "Learn the core ways to grab exactly the data you need out of a DataFrame.",
+      "duration": "9 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can select specific columns and rows from a DataFrame using label-based and position-based indexing."
+          },
+          {
+            "title": "📌 Selecting columns",
+            "content": "Select one column with square brackets and its name; select several with a list of names.\n\n```python\nimport pandas as pd\n\ndf = pd.DataFrame({\n    \"name\": [\"Ana\", \"Bo\", \"Chen\"],\n    \"age\": [25, 31, 42],\n    \"city\": [\"Lahore\", \"Karachi\", \"Lahore\"],\n})\n\nprint(df[\"age\"])              # single column → Series\nprint(df[[\"name\", \"age\"]])    # multiple columns → DataFrame\n```"
+          },
+          {
+            "title": "🏷️ .loc: selecting by label",
+            "content": "`.loc` selects rows and columns **by label** — the actual index value or column name.\n\n```python\nprint(df.loc[0])                 # the row with index label 0\nprint(df.loc[0, \"name\"])         # \"Ana\"\nprint(df.loc[0:1, [\"name\", \"age\"]])  # rows 0-1, two columns\n```"
+          },
+          {
+            "title": "🔢 .iloc: selecting by position",
+            "content": "`.iloc` selects **by integer position**, regardless of what the labels actually are — useful when you just want \"the first 3 rows\" or \"the second column.\"\n\n```python\nprint(df.iloc[0])          # first row, by position\nprint(df.iloc[0:2])        # first two rows\nprint(df.iloc[:, 1])       # second column, all rows\n```\n\n• `.loc` uses labels (what things are *called*)\n• `.iloc` uses positions (where things *are*)"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Mixing up `.loc` and `.iloc`.** `.loc[0:2]` (label-based) includes the endpoint; `.iloc[0:2]` (position-based) does not — a classic off-by-one trap.\n\n**Forgetting single-column selection returns a Series, not a DataFrame.** `df[\"age\"]` and `df[[\"age\"]]` look similar but return different types.\n\n**Assuming row labels are always 0, 1, 2...** After filtering or sorting, the index can have gaps — `.iloc` still works by position, but `.loc` won't find a label that's no longer there."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ds_select_rows_cols_quiz",
+        "questions": [
+          {
+            "question": "What's the key difference between `.loc` and `.iloc`?",
+            "options": [
+              "There is no difference — they're interchangeable",
+              "`.loc` selects by label, `.iloc` selects by integer position",
+              "`.loc` only works on columns, `.iloc` only on rows",
+              "`.iloc` is for CSV files only"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`.loc` looks up rows/columns by their actual label (index value or column name), while `.iloc` looks them up by numeric position, regardless of the label.",
+            "id": "q1"
+          },
+          {
+            "question": "What does `df[\"age\"]` return?",
+            "options": [
+              "A DataFrame",
+              "A Series",
+              "A Python list",
+              "A single number"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Selecting a single column with square brackets and its name returns a Series — a one-dimensional labeled array.",
+            "id": "q2"
+          },
+          {
+            "question": "Why might `.loc[0]` fail to find a row after filtering the DataFrame?",
+            "options": [
+              "`.loc` never works after filtering",
+              "Filtering can remove the row with index label 0, so that label no longer exists",
+              "`.loc` only works before any operations",
+              "It never fails"
+            ],
+            "correctAnswer": 1,
+            "explanation": "After filtering, the original index labels are preserved on the remaining rows — so a label like 0 might have been filtered out entirely, making `.loc[0]` raise an error.",
+            "id": "q3"
+          },
+          {
+            "question": "How do you select multiple specific columns from a DataFrame at once?",
+            "options": [
+              "df.column1, df.column2",
+              "df[['col1', 'col2']] — passing a list of column names",
+              "df.select(col1, col2)",
+              "df.loc(col1, col2)"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Passing a list of column names inside the square brackets, like df[['col1', 'col2']], selects multiple columns and returns a DataFrame.",
+            "id": "q4"
+          },
+          {
+            "question": "How does `.iloc[2:5]` behave when slicing rows?",
+            "options": [
+              "It selects rows labeled 2 through 5, inclusive",
+              "It selects rows at positions 2, 3, and 4 (position-based, end-exclusive, like standard Python slicing)",
+              "It selects exactly 5 rows starting from the top",
+              "It raises an error since iloc doesn't support slicing"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`.iloc` uses integer position, so `2:5` follows normal Python slice rules — it grabs positions 2, 3, and 4, excluding position 5.",
+            "id": "q5"
+          },
+          {
+            "question": "How would you select a single value at row label 3, column 'price' using `.loc`?",
+            "options": [
+              "df.loc[3]['price'] only",
+              "df.loc[3, 'price']",
+              "df['price'].loc()",
+              "df.iloc[3, 'price']"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`.loc` accepts a row label and column label together, like df.loc[3, 'price'], to pinpoint a single value.",
+            "id": "q6"
+          },
+          {
+            "question": "What is the key difference between `df['col']` and `df[['col']]` when selecting a column?",
+            "options": [
+              "They always return identical objects",
+              "`df['col']` returns a Series; `df[['col']]` returns a single-column DataFrame",
+              "`df[['col']]` is invalid",
+              "`df['col']` only works with numeric columns"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Single brackets with a plain column name give back a Series, while a list of column names (even one) gives back a DataFrame.",
+            "id": "q7"
+          },
+          {
+            "question": "How would you select columns 'name' through 'age' (inclusive) by their position order using `.loc`?",
+            "options": [
+              "df.loc[:, 'name':'age'] — label-based slicing includes both endpoints",
+              "df.iloc[:, 'name':'age']",
+              "df['name':'age']",
+              "This can't be done with .loc"
+            ],
+            "correctAnswer": 0,
+            "explanation": "`.loc` supports label-based slicing across columns, and unlike `.iloc`, the end label is included in the result.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ds_filtering",
+      "title": "Filtering Rows with Conditions",
+      "description": "Learn how to keep only the rows that match a condition — one of the most common operations in data work.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can filter a DataFrame down to rows matching one or more conditions."
+          },
+          {
+            "title": "✅ Boolean masks",
+            "content": "Writing a condition on a DataFrame produces a **boolean mask** — a Series of True/False values, one per row. Passing that mask back into the DataFrame keeps only the True rows.\n\n```python\nimport pandas as pd\n\ndf = pd.DataFrame({\n    \"name\": [\"Ana\", \"Bo\", \"Chen\"],\n    \"age\": [25, 31, 42],\n})\n\nmask = df[\"age\"] > 30\nprint(mask)          # [False, True, True]\nprint(df[mask])      # only Bo and Chen\nprint(df[df[\"age\"] > 30])  # same thing, written directly\n```"
+          },
+          {
+            "title": "🔗 Combining conditions",
+            "content": "Combine multiple conditions with `&` (and), `|` (or), and `~` (not) — each condition needs its own parentheses.\n\n```python\nolder_from_lahore = df[(df[\"age\"] > 30) & (df[\"city\"] == \"Lahore\")]\nnot_from_lahore = df[~(df[\"city\"] == \"Lahore\")]\n```\n\n• Use `&`, `|`, `~` — not Python's `and`, `or`, `not`, which don't work element-wise on a Series\n• Always parenthesize each individual condition"
+          },
+          {
+            "title": "🔎 Filtering with .isin() and string matching",
+            "content": "Two very common filtering patterns:\n\n```python\n# Match against a list of allowed values\ndf[df[\"city\"].isin([\"Lahore\", \"Karachi\"])]\n\n# Match rows where a text column contains a substring\ndf[df[\"name\"].str.contains(\"an\", case=False)]\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Using `and`/`or` instead of `&`/`|`.** Python's built-in boolean operators don't work element-wise across a Series and will raise an error.\n\n**Forgetting parentheses around each condition.** `df[df.age > 30 & df.city == \"Lahore\"]` breaks due to operator precedence — wrap each comparison in its own parentheses.\n\n**Filtering and forgetting the result is a new DataFrame.** `df[mask]` doesn't change `df` — assign the result to a new variable if you want to keep it."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ds_filtering_quiz",
+        "questions": [
+          {
+            "question": "What does `df[df[\"age\"] > 30]` return?",
+            "options": [
+              "A single True/False value",
+              "A new DataFrame containing only rows where age is greater than 30",
+              "An error",
+              "The original DataFrame unchanged"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The condition creates a boolean mask, and indexing the DataFrame with that mask returns only the rows where the condition was True.",
+            "id": "q1"
+          },
+          {
+            "question": "Why can't you use Python's `and` to combine two pandas conditions?",
+            "options": [
+              "`and` is not valid Python syntax",
+              "`and` doesn't work element-wise across a Series of True/False values — `&` is needed instead",
+              "`and` only works with numbers",
+              "There's no difference between `and` and `&`"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Python's `and`/`or` expect single boolean values, not element-wise arrays — pandas requires `&`, `|`, and `~` for combining conditions across a Series.",
+            "id": "q2"
+          },
+          {
+            "question": "What does `df[\"city\"].isin([\"Lahore\", \"Karachi\"])` check?",
+            "options": [
+              "Whether the city column exactly equals a single string",
+              "Whether each row's city value is one of the values in the given list",
+              "Whether the DataFrame contains a column called Lahore",
+              "Nothing — isin() is not a real method"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`.isin()` returns True for rows whose value in that column matches any value in the provided list — handy for filtering against multiple allowed values at once.",
+            "id": "q3"
+          },
+          {
+            "question": "How would you filter rows where age is over 30 OR city is 'Lahore'?",
+            "options": [
+              "df[(df['age'] > 30) and (df['city'] == 'Lahore')]",
+              "df[(df['age'] > 30) | (df['city'] == 'Lahore')]",
+              "df[df['age'] > 30 or df['city'] == 'Lahore']",
+              "df.filter(age > 30, city == 'Lahore')"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The `|` operator performs element-wise OR across boolean Series, matching rows where either condition holds.",
+            "id": "q4"
+          },
+          {
+            "question": "How do you select rows where a condition is NOT true, like excluding a particular city?",
+            "options": [
+              "Using the `not` keyword directly on the Series",
+              "Using the `~` operator to negate a boolean mask, like df[~(df['city'] == 'Lahore')]",
+              "This isn't possible in pandas",
+              "Using `!=` is never valid for this"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The `~` operator negates a boolean Series element-wise, letting you flip a condition to select everything that does NOT match.",
+            "id": "q5"
+          },
+          {
+            "question": "How would you filter rows where a text column contains a certain substring?",
+            "options": [
+              "df[df['col'].contains('text')]",
+              "df[df['col'].str.contains('text')]",
+              "df[df['col'] == 'text']",
+              "df.filter(col, 'text')"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`.str.contains()` checks each row's string for a substring match, letting you filter based on partial text rather than an exact match.",
+            "id": "q6"
+          },
+          {
+            "question": "Why might chaining several filter conditions together in one line need extra parentheses around each condition?",
+            "options": [
+              "Parentheses are purely stylistic and never required",
+              "Python's operator precedence can otherwise misinterpret where one comparison ends and the next combining operator begins",
+              "Pandas doesn't allow multiple conditions at all",
+              "Only two conditions can ever be combined"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Because comparison and bitwise operators have different precedence than expected, wrapping each condition in parentheses avoids Python misgrouping the expression.",
+            "id": "q7"
+          },
+          {
+            "question": "What's a common mistake when combining multiple filter conditions with `&`?",
+            "options": [
+              "Using `&` at all, since it's always wrong",
+              "Forgetting to wrap each individual condition in parentheses, which causes a precedence error",
+              "Using more than one condition",
+              "Using `&` with numeric columns"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Without parentheses around each comparison, Python's operator precedence rules can misinterpret the combined expression, so `(cond1) & (cond2)` is the safe pattern.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ds_new_columns",
+      "title": "Creating and Transforming Columns",
+      "description": "Learn how to add new columns computed from existing ones — the heart of feature building.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can create new columns from existing ones using direct math and the `.apply()` method."
+          },
+          {
+            "title": "➕ Creating columns with vectorized math",
+            "content": "Assigning to a new column name creates it. Operations on whole columns happen **element-wise** — no manual loop needed.\n\n```python\nimport pandas as pd\n\ndf = pd.DataFrame({\"price\": [10, 20, 30], \"quantity\": [2, 1, 5]})\n\ndf[\"total\"] = df[\"price\"] * df[\"quantity\"]\nprint(df)\n#    price  quantity  total\n# 0     10         2     20\n# 1     20         1     20\n# 2     30         5    150\n```\n\nThis vectorized style is both simpler to read and much faster than looping row by row in Python."
+          },
+          {
+            "title": "🧠 Custom logic with .apply()",
+            "content": "For logic too complex for simple math, `.apply()` runs a function on every value (or every row).\n\n```python\ndef price_tier(price):\n    if price < 15:\n        return \"low\"\n    elif price < 25:\n        return \"medium\"\n    return \"high\"\n\ndf[\"tier\"] = df[\"price\"].apply(price_tier)\n```\n\n`.apply()` is flexible but slower than vectorized math — reach for direct column operations first, and `.apply()` when the logic genuinely needs it."
+          },
+          {
+            "title": "🔁 A handy shortcut: np.where",
+            "content": "For simple if/else logic on a whole column, `numpy`'s `where` is a fast, readable alternative to `.apply()`.\n\n```python\nimport numpy as np\n\ndf[\"is_bulk\"] = np.where(df[\"quantity\"] >= 5, True, False)\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Looping over rows with a `for` loop instead of using vectorized operations.** It works, but it's dramatically slower on real-sized data and usually a sign there's a simpler pandas way.\n\n**Overusing `.apply()` for logic that vectorized math could handle.** If it's a comparison or arithmetic, direct column math is faster and clearer.\n\n**Forgetting new columns need to be assigned, not just computed.** `df[\"price\"] * df[\"quantity\"]` alone just prints a Series — it needs `df[\"total\"] = ...` to actually save it."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ds_new_columns_quiz",
+        "questions": [
+          {
+            "question": "What does `df[\"total\"] = df[\"price\"] * df[\"quantity\"]` do?",
+            "options": [
+              "Prints the multiplication result without saving it",
+              "Creates a new column called total holding the element-wise product of price and quantity",
+              "Raises an error since columns can't be multiplied",
+              "Deletes the price and quantity columns"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Assigning the result of an element-wise operation to a new column name both computes and stores it as a new column in the DataFrame.",
+            "id": "q1"
+          },
+          {
+            "question": "When should you prefer `.apply()` over direct vectorized math?",
+            "options": [
+              "Always — .apply() is faster",
+              "When the logic is too complex for simple arithmetic or comparisons",
+              "Never — .apply() should be avoided entirely",
+              "Only when working with text columns"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Vectorized math is faster and simpler for arithmetic/comparisons; `.apply()` earns its slower performance cost when the logic is genuinely more complex, like custom conditional branching.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is looping over DataFrame rows with a plain Python `for` loop usually discouraged?",
+            "options": [
+              "It's syntactically invalid",
+              "Vectorized operations achieve the same result and are typically much faster",
+              "Loops can't access column values",
+              "It only works on the first row"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Pandas is built around vectorized (whole-column) operations, which are implemented efficiently — row-by-row Python loops are much slower on real datasets.",
+            "id": "q3"
+          },
+          {
+            "question": "How would you create a column that's 'high' or 'low' based on whether price exceeds 100, without using `.apply()`?",
+            "options": [
+              "Only .apply() can do conditional column creation",
+              "np.where(df['price'] > 100, 'high', 'low')",
+              "df['price'].condition(100)",
+              "df.filter(price > 100)"
+            ],
+            "correctAnswer": 1,
+            "explanation": "np.where(condition, value_if_true, value_if_false) is a fast, vectorized way to create a conditional column without the overhead of .apply().",
+            "id": "q4"
+          },
+          {
+            "question": "How do you modify an existing column's values in place, like converting a text column to uppercase?",
+            "options": [
+              "df['col'] = df['col'].str.upper()",
+              "df['col'].upper()",
+              "df.upper('col')",
+              "This requires a for loop over every row"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Reassigning the transformed values back to the same column name, like df['col'] = df['col'].str.upper(), updates the column with the new values.",
+            "id": "q5"
+          },
+          {
+            "question": "How would you create a new column extracting the first word from a text column?",
+            "options": [
+              "df['col'].split(' ')[0] applied directly to the whole column",
+              "df['col'].str.split(' ').str[0]",
+              "df.split('col', ' ')",
+              "This isn't possible without a manual loop"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Using `.str.split()` to break each string into parts, then `.str[0]` to grab the first element, works element-wise across the whole column.",
+            "id": "q6"
+          },
+          {
+            "question": "Why do vectorized operations like `df['a'] * df['b']` avoid the need for an explicit Python loop?",
+            "options": [
+              "They secretly run a loop internally that's just hidden from you, with no speed benefit",
+              "They apply the operation to every row at once using optimized, compiled code under the hood, rather than looping in Python",
+              "Vectorized operations only work on a single row at a time",
+              "They only work on text columns"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Vectorized operations push the looping down into fast, compiled code rather than Python's slower interpreted loop, applying the operation to the whole column at once.",
+            "id": "q7"
+          },
+          {
+            "question": "When is using `.apply()` for a column overkill compared to plain vectorized math?",
+            "options": [
+              "When the transformation is a simple arithmetic operation, like adding two numeric columns together",
+              "When the logic genuinely requires row-by-row custom decisions that can't be expressed as simple arithmetic",
+              "Apply() is never overkill",
+              "Only when working with dates"
+            ],
+            "correctAnswer": 0,
+            "explanation": "If the goal is simple arithmetic like df['a'] + df['b'], reaching for .apply() with a custom function is unnecessary and slower than plain vectorized math.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ds_groupby",
+      "title": "GroupBy: Aggregating Data by Category",
+      "description": "Learn the split-apply-combine pattern that powers almost every summary table you'll ever build.",
+      "duration": "9 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can group data by a category and compute summary statistics per group."
+          },
+          {
+            "title": "✂️ Split-apply-combine",
+            "content": "`groupby` follows a three-step pattern:\n\n• **Split** the data into groups based on a column's values\n• **Apply** an aggregation function (like sum, mean, count) to each group\n• **Combine** the results back into a single table\n\nThis single pattern covers an enormous range of everyday questions: \"average order size per city\", \"total sales per month\", \"count of customers per plan type.\""
+          },
+          {
+            "title": "📊 A basic groupby",
+            "content": "```python\nimport pandas as pd\n\ndf = pd.DataFrame({\n    \"city\": [\"Lahore\", \"Karachi\", \"Lahore\", \"Karachi\"],\n    \"sales\": [100, 150, 200, 50],\n})\n\nresult = df.groupby(\"city\")[\"sales\"].sum()\nprint(result)\n# city\n# Karachi    200\n# Lahore     300\n# Name: sales, dtype: int64\n```\n\nThe result's index becomes the group labels."
+          },
+          {
+            "title": "🧮 Multiple aggregations at once",
+            "content": "Use `.agg()` to compute several statistics per group in one call.\n\n```python\nsummary = df.groupby(\"city\")[\"sales\"].agg([\"sum\", \"mean\", \"count\"])\nprint(summary)\n#          sum   mean  count\n# city\n# Karachi  200  100.0      2\n# Lahore   300  150.0      2\n```\n\nYou can also group by multiple columns at once by passing a list: `df.groupby([\"city\", \"month\"])`."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Forgetting to select a column before aggregating.** `df.groupby(\"city\").sum()` sums every numeric column — usually you want `df.groupby(\"city\")[\"sales\"].sum()` for just the one you care about.\n\n**Assuming groupby preserves original row order.** The result is organized by group label, not by the order rows appeared in the original data.\n\n**Grouping by a column with too many unique values.** Grouping by something like a raw customer ID often produces a group of size one per row — not a useful summary."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ds_groupby_quiz",
+        "questions": [
+          {
+            "question": "What are the three steps in the groupby pattern?",
+            "options": [
+              "Sort, filter, print",
+              "Split, apply, combine",
+              "Load, clean, model",
+              "Select, drop, rename"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Groupby splits data into groups by a key, applies an aggregation to each group, then combines the results into one summary table.",
+            "id": "q1"
+          },
+          {
+            "question": "What does `df.groupby(\"city\")[\"sales\"].sum()` compute?",
+            "options": [
+              "The total sales across the whole dataset, ignoring city",
+              "The total sales, summed separately for each unique city",
+              "The number of cities in the dataset",
+              "The average sale price per transaction"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This groups rows by the city column, then sums the sales column within each group — giving one total per city.",
+            "id": "q2"
+          },
+          {
+            "question": "What does `.agg([\"sum\", \"mean\", \"count\"])` let you do?",
+            "options": [
+              "Compute only the sum, ignoring the other names",
+              "Compute multiple summary statistics for each group in a single call",
+              "Rename the grouped column",
+              "Filter out groups with fewer than 3 rows"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`.agg()` accepts a list of aggregation functions and computes all of them per group, returning them as separate columns in the result.",
+            "id": "q3"
+          },
+          {
+            "question": "How would you group by both 'region' and 'category' at once?",
+            "options": [
+              "df.groupby('region', 'category')",
+              "df.groupby(['region', 'category'])",
+              "df.groupby('region').groupby('category')",
+              "This requires two separate groupby calls chained without a list"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Passing a list of column names to groupby(), like ['region', 'category'], groups by the unique combinations of both columns.",
+            "id": "q4"
+          },
+          {
+            "question": "What's the difference between `.size()` and `.count()` after a groupby?",
+            "options": [
+              "They always return identical results",
+              "`.size()` counts all rows per group including missing values; `.count()` counts only non-missing values per column per group",
+              "`.count()` is only for numeric columns",
+              "`.size()` only works on the whole DataFrame, not after groupby"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`.size()` gives the raw row count per group regardless of missing data, while `.count()` counts non-null values separately for each column.",
+            "id": "q5"
+          },
+          {
+            "question": "Why would you call `.reset_index()` after a groupby aggregation?",
+            "options": [
+              "It deletes the aggregated results",
+              "It converts the grouped column (which became the index) back into a regular column, useful for further processing or merging",
+              "It's required before groupby can run at all",
+              "It reverses the aggregation"
+            ],
+            "correctAnswer": 1,
+            "explanation": "After a groupby aggregation, the grouping column becomes the index; `.reset_index()` turns it back into an ordinary column, which is often more convenient.",
+            "id": "q6"
+          },
+          {
+            "question": "How would you compute the average sale amount per city?",
+            "options": [
+              "df.groupby('city')['sales'].mean()",
+              "df['sales'].groupby().mean('city')",
+              "df.mean('city', 'sales')",
+              "df['city'].mean()"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Grouping by 'city' and calling .mean() on the 'sales' column computes the average sales value separately within each city group.",
+            "id": "q7"
+          },
+          {
+            "question": "Why is `groupby` generally preferred over manually looping through each unique category value?",
+            "options": [
+              "Looping through unique values is actually faster",
+              "groupby handles the splitting, computing, and recombining internally using optimized code, avoiding slow, error-prone manual loops",
+              "groupby can only be used with numeric data",
+              "Manual loops are required for any aggregation"
+            ],
+            "correctAnswer": 1,
+            "explanation": "groupby implements the split-apply-combine pattern efficiently under the hood, sparing you from writing and debugging a manual loop over every unique category.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

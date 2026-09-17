@@ -1,0 +1,543 @@
+{
+  "id": "module_3",
+  "title": "Calculus for Optimization",
+  "description": "The gradient descent algorithm, choosing a learning rate, convex vs non-convex landscapes, and fitting a line from scratch",
+  "icon": "⛰️",
+  "color": "#FF5722",
+  "order": 3,
+  "estimatedHours": 2,
+  "difficulty": "Intermediate",
+  "prerequisites": [
+    "Calculus Foundations"
+  ],
+  "lessons": [
+    {
+      "id": "lesson_3_1",
+      "title": "Gradient Descent",
+      "description": "Put it all together: the algorithm that lets a model learn by repeatedly stepping downhill",
+      "duration": "13 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Write the gradient descent update rule, and explain each of its pieces."
+          },
+          {
+            "title": "🏔️ Repeatedly stepping downhill",
+            "content": "**Gradient descent** is beautifully simple: compute the gradient, take a small step in the opposite direction, and repeat — over and over, until the loss stops meaningfully decreasing.\n\n```text\nw_new = w_old - learning_rate * gradient\n```\n\nThat's genuinely the whole algorithm. Every piece of it was covered in this module already: the gradient (previous lesson), and negating + scaling a vector (Module 0). Training a neural network is this exact line, repeated millions of times."
+          },
+          {
+            "title": "🐍 A working example in plain Python",
+            "content": "Let's minimize `f(x) = (x - 3)²` — a simple bowl whose lowest point is at x = 3 — using gradient descent, starting from a bad guess:\n\n```python\ndef f(x):\n    return (x - 3) ** 2\n\ndef gradient(x):\n    return 2 * (x - 3)     # derivative of (x-3)^2, via chain rule\n\nx = 0.0                    # starting guess, far from the answer\nlearning_rate = 0.1\n\nfor step in range(20):\n    x = x - learning_rate * gradient(x)\n\nprint(x)   # very close to 3.0\n```\n\nStarting from a wildly wrong guess of 0, twenty small steps land almost exactly on the true minimum at 3 — with no one ever telling the algorithm where to look."
+          },
+          {
+            "title": "🧠 Why this scales to millions of parameters",
+            "content": "Nothing about this algorithm changes when `x` becomes a million-element weight vector instead of a single number — `w_new = w_old - learning_rate * gradient` works exactly the same way, element by element, because the gradient is itself a vector with one entry per weight (from the previous module). This is why gradient descent — invented for simple functions like the bowl above — scales seamlessly up to training massive neural networks."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "Adding the gradient instead of subtracting it — that climbs the loss instead of descending it. Expecting gradient descent to jump straight to the answer in one step; it's an iterative process that gradually converges over many small steps."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "quiz_lesson_3_1",
+        "questions": [
+          {
+            "question": "What is the core gradient descent update rule?",
+            "options": [
+              "w_new = w_old + gradient",
+              "w_new = w_old - learning_rate * gradient",
+              "w_new = gradient",
+              "w_new = w_old * learning_rate"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Gradient descent subtracts a scaled version of the gradient from the current weights, moving in the downhill direction by an amount controlled by the learning rate.",
+            "id": "q1"
+          },
+          {
+            "question": "Why does the update rule subtract the gradient rather than add it?",
+            "options": [
+              "Subtraction is computationally faster than addition",
+              "The gradient points uphill, so subtracting it moves toward lower loss — adding it would increase the loss instead",
+              "It's an arbitrary convention that could be reversed with no effect",
+              "Because weights must always decrease during training"
+            ],
+            "correctAnswer": 1,
+            "explanation": "As established in the previous lesson, the gradient points in the direction of steepest increase, so subtracting it (moving opposite the gradient) is what decreases the loss.",
+            "id": "q2"
+          },
+          {
+            "question": "Why does the same update rule work whether w is a single number or a million-element weight vector?",
+            "options": [
+              "It doesn't — a completely different algorithm is needed for vectors",
+              "The gradient is itself a vector with one entry per parameter, so subtracting learning_rate * gradient applies element-by-element regardless of size",
+              "Vectors are automatically converted to single numbers before the update",
+              "Gradient descent only works for exactly one parameter at a time"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since the gradient bundles one partial derivative per parameter into a vector, the exact same subtraction-based update applies uniformly whether there's 1 parameter or millions — which is precisely why gradient descent scales to deep learning.",
+            "id": "q3"
+          },
+          {
+            "question": "Is gradient descent typically a one-shot calculation or an iterative process?",
+            "options": [
+              "A single one-shot calculation that finds the answer immediately",
+              "An iterative process that takes many small repeated steps toward lower loss",
+              "It only ever takes exactly two steps",
+              "It doesn't use the gradient at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Gradient descent repeatedly recomputes the gradient and takes small steps, gradually approaching a minimum rather than solving for it in one step.",
+            "id": "q4"
+          },
+          {
+            "question": "What are common ways to decide when gradient descent should stop?",
+            "options": [
+              "It never stops once started",
+              "After a fixed number of iterations, or once the loss stops improving by more than a small threshold",
+              "As soon as the gradient becomes negative",
+              "Only when the loss reaches exactly zero"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Training is typically stopped after a set number of iterations or when improvements in the loss become smaller than some threshold, indicating convergence.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does the starting point (initial values) for weights matter in gradient descent?",
+            "options": [
+              "It has absolutely no effect on training",
+              "Different starting points can lead to different paths and, in non-convex problems, different final minima",
+              "Weights must always start at exactly 1",
+              "It only matters for convex functions"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since gradient descent follows the local slope from wherever it starts, different initial weights can lead down different paths, especially when the loss surface has multiple minima.",
+            "id": "q6"
+          },
+          {
+            "question": "What's the difference between computing the gradient using the full dataset versus a single example each step?",
+            "options": [
+              "There's no difference — the gradient is always identical either way",
+              "Using the full dataset (batch) gives a more accurate but slower gradient estimate, while using single examples is noisier but faster per step",
+              "Single examples always produce a more accurate gradient",
+              "Only single-example gradients are mathematically valid"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Computing the gradient over the whole dataset gives a precise average direction but is expensive per step, while using individual examples is cheaper per step but noisier — a tradeoff at the heart of stochastic gradient descent.",
+            "id": "q7"
+          },
+          {
+            "question": "What is gradient descent fundamentally trying to find?",
+            "options": [
+              "The exact maximum of the loss function",
+              "A point where the loss function is at a minimum (ideally the lowest possible value)",
+              "A point where the gradient is as large as possible",
+              "The average of all the weights"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Gradient descent searches for weight values that minimize the loss function, following the downhill direction indicated by the negative gradient.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "lesson_3_2",
+      "title": "Learning Rate & Convergence",
+      "description": "See what happens when the step size is too small, too large, or just right",
+      "duration": "12 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain the effect of a too-small or too-large learning rate, and recognize oscillation and slow convergence."
+          },
+          {
+            "title": "🐢 Too small: painfully slow",
+            "content": "A tiny learning rate means each step barely moves at all. The algorithm will eventually reach the minimum, but it might take an enormous number of steps to get there — wasting time and compute for no real benefit.\n\n```python\n# learning_rate = 0.001 on the (x - 3)^2 example\n# after 20 steps, x might only have moved from 0 to about 0.06\n# — nowhere close to the minimum at x = 3 yet\n```"
+          },
+          {
+            "title": "🏃 Too large: overshooting and oscillation",
+            "content": "A learning rate that's too large can jump right past the minimum, land on the other side, and overshoot back again — swinging back and forth instead of settling down. In the worst case, the loss can actually get *worse* with each step, spiraling away instead of converging.\n\n```python\n# learning_rate = 1.5 on the (x - 3)^2 example (too aggressive)\n# x might bounce: 0 -> 4.5 -> 1.5 -> 6.75 -> ... never settling\n```"
+          },
+          {
+            "title": "🎯 Finding a good learning rate",
+            "content": "There's no single perfect value — it depends on the specific problem — but a few practical guidelines help:\n\n• Start with a moderate value (commonly somewhere around 0.01–0.1 for many problems) and watch how the loss behaves\n• If the loss is decreasing very slowly, try increasing it\n• If the loss is jumping around wildly or increasing, decrease it\n• Many real training setups reduce the learning rate over time — big steps early, smaller and more careful steps as training approaches convergence\n\nIn practice, watching a plot of the loss over training steps is one of the fastest ways to diagnose whether the learning rate needs adjusting."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "Picking a learning rate once and never revisiting it, even when the loss curve clearly shows it's too large or too small. Assuming a bigger learning rate always means faster training — past a certain point, it means slower, unstable, or failed training instead."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "quiz_lesson_3_2",
+        "questions": [
+          {
+            "question": "What typically happens when the learning rate is far too small?",
+            "options": [
+              "The loss diverges immediately",
+              "Training converges correctly but takes an unnecessarily large number of steps",
+              "The gradient becomes undefined",
+              "The model instantly reaches the optimal weights"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A tiny learning rate still moves in the right direction, but each step is so small that reaching the minimum can take far more iterations than necessary.",
+            "id": "q1"
+          },
+          {
+            "question": "What can happen when the learning rate is far too large?",
+            "options": [
+              "Training always converges faster with no downsides",
+              "The updates can overshoot the minimum, oscillate, or even cause the loss to increase instead of decrease",
+              "The gradient stops being computed",
+              "It has no effect on convergence, only on final accuracy"
+            ],
+            "correctAnswer": 1,
+            "explanation": "An overly large learning rate can cause steps to jump past the minimum repeatedly, oscillating or even diverging (getting worse) instead of settling toward the lowest loss.",
+            "id": "q2"
+          },
+          {
+            "question": "What's a common practical strategy for choosing a learning rate during training?",
+            "options": [
+              "Pick the largest possible value to train as fast as possible",
+              "Start with a moderate value, watch the loss curve, and adjust — often decreasing it over the course of training",
+              "Always use exactly 1.0 regardless of the problem",
+              "Learning rate has no measurable effect on training"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A common, practical approach is to start with a reasonable value, observe how the loss behaves, adjust accordingly, and often decrease the learning rate as training progresses toward convergence.",
+            "id": "q3"
+          },
+          {
+            "question": "Is the learning rate learned automatically during training, or set beforehand?",
+            "options": [
+              "It's learned automatically by gradient descent itself, like a weight",
+              "It's a hyperparameter chosen by the practitioner before training begins",
+              "It's always fixed at exactly 1.0 by definition",
+              "It's computed from the dataset size only"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The learning rate is a hyperparameter — a setting chosen before training starts, not something gradient descent learns on its own like the model's weights.",
+            "id": "q4"
+          },
+          {
+            "question": "What is a learning rate schedule?",
+            "options": [
+              "A fixed learning rate used forever",
+              "A strategy for changing the learning rate over the course of training, often decreasing it as training progresses",
+              "A schedule for when to stop training entirely",
+              "A way to randomly select data batches"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A learning rate schedule adjusts the learning rate as training proceeds, commonly starting higher and decreasing it to fine-tune convergence later on.",
+            "id": "q5"
+          },
+          {
+            "question": "If the loss value increases over successive training steps instead of decreasing, what might that indicate?",
+            "options": [
+              "The learning rate is likely too low",
+              "The learning rate may be too high, causing the updates to overshoot and destabilize training",
+              "The model has already converged perfectly",
+              "The gradient has become exactly zero"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A rising loss during training often points to a learning rate that's too large, causing updates to overshoot the minimum instead of settling toward it.",
+            "id": "q6"
+          },
+          {
+            "question": "Why might a single fixed learning rate not be ideal for the entire training process?",
+            "options": [
+              "A fixed learning rate is always perfect no matter what",
+              "Early training might benefit from larger steps to move quickly, while later training often needs smaller steps to fine-tune near the minimum",
+              "Learning rate has no effect on how training unfolds over time",
+              "Fixed learning rates are required by all optimization algorithms"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The right step size can change as training proceeds — large early on to make fast progress, smaller later to avoid overshooting near the minimum — which is why schedules exist.",
+            "id": "q7"
+          },
+          {
+            "question": "All else being equal, how does a smaller learning rate typically affect the number of steps needed to converge?",
+            "options": [
+              "It always converges in fewer steps",
+              "It generally requires more steps to converge, since each step moves a smaller distance",
+              "It has no effect on the number of steps",
+              "It guarantees convergence in exactly one step"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Smaller learning rates take smaller steps each iteration, so more iterations are usually needed to reach a comparable point of convergence.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "lesson_3_3",
+      "title": "Convex vs Non-Convex Functions",
+      "description": "Understand why some loss landscapes have one clear bottom, and others have many",
+      "duration": "12 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Distinguish a convex function from a non-convex one, and explain why this matters for optimization."
+          },
+          {
+            "title": "🥣 Convex: one clean bowl",
+            "content": "A **convex** function looks like a single smooth bowl — anywhere you start, gradient descent will reliably roll all the way down to the same lowest point, the **global minimum**. Linear regression's loss function is a classic example: it's convex, which is exactly why it has one guaranteed best solution, no matter where you start optimizing from."
+          },
+          {
+            "title": "🏔️ Non-convex: many valleys",
+            "content": "A **non-convex** function has multiple dips and bumps — several **local minima**, plus (hopefully) one true **global minimum** among them. Deep neural network loss landscapes are famously non-convex: with millions of weights, the loss surface has an astronomical number of valleys, ridges, and flat plateaus.\n\nThe practical consequence: gradient descent on a non-convex function can get stuck in a local minimum — a valley that's the lowest point *nearby*, but not the lowest point overall."
+          },
+          {
+            "title": "💡 Why deep learning still works anyway",
+            "content": "Given that neural network training is famously non-convex, it might seem surprising it works at all. A few reasons this turns out fine in practice:\n\n• In very high-dimensional spaces (millions of weights), true local minima that trap the optimizer are rarer than intuition from 2D or 3D pictures suggests\n• Modern optimizers (like Adam, an upgrade on plain gradient descent) add momentum and adaptivity that help escape shallow traps\n• In practice, many different 'good enough' local minima perform nearly as well as any theoretical global minimum\n\nYou don't need to solve non-convexity — just know it's the reason training isn't always perfectly predictable, and why different random starting points can lead to slightly different trained models."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "Assuming every optimization problem has one unique best answer — that's only guaranteed for convex problems. Panicking at the first sign of a plateau in the loss curve — it might just be a flat region the optimizer is passing through, not a permanent trap."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "quiz_lesson_3_3",
+        "questions": [
+          {
+            "question": "What guarantee does a convex loss function give you about gradient descent?",
+            "options": [
+              "It guarantees the fastest possible training speed",
+              "It guarantees that, given enough steps, gradient descent will reach the single global minimum regardless of starting point",
+              "It guarantees the loss will always be exactly zero",
+              "It guarantees the function has no derivative"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Convexity means there's only one 'bowl' — no separate local minima to get trapped in — so gradient descent reliably converges to the one global minimum, wherever it starts from.",
+            "id": "q1"
+          },
+          {
+            "question": "Why are deep neural network loss landscapes typically described as non-convex?",
+            "options": [
+              "Because they only have one input variable",
+              "Because with millions of weights, the loss surface has many valleys, ridges, and plateaus rather than a single smooth bowl",
+              "Because neural networks never use gradient descent",
+              "Because non-convex is just another name for convex"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The huge number of parameters in a deep network creates an extremely complex loss surface with many local minima and other features, rather than the single clean bowl shape of a convex function.",
+            "id": "q2"
+          },
+          {
+            "question": "What's one reason deep learning training still works reasonably well despite non-convexity?",
+            "options": [
+              "Non-convex functions are actually easier to optimize than convex ones",
+              "In high-dimensional spaces, true trapping local minima are rarer than low-dimensional intuition suggests, and many 'good enough' minima perform nearly as well",
+              "Neural networks avoid using gradients entirely",
+              "Modern hardware eliminates non-convexity"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Research and practice both suggest that in very high-dimensional weight spaces, severely trapping local minima are less common than expected, and many different minima found during training tend to generalize similarly well.",
+            "id": "q3"
+          },
+          {
+            "question": "Informally, what makes a function 'convex'?",
+            "options": [
+              "It has many separate valleys",
+              "It's shaped like a single bowl, where a straight line between any two points on the curve stays above (or on) the curve itself",
+              "It always has a negative derivative everywhere",
+              "It has no minimum at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A convex function has a single bowl-like shape, and formally, any straight line connecting two points on its graph lies at or above the curve between them.",
+            "id": "q4"
+          },
+          {
+            "question": "What's the difference between a local minimum and the global minimum?",
+            "options": [
+              "They always refer to the exact same point",
+              "A local minimum is lower than all nearby points, but a global minimum is the lowest point across the entire function",
+              "A local minimum is always higher than the global minimum by definition, in every case",
+              "Convex functions can have many separate local minima"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A local minimum is only the lowest point in its immediate neighborhood, while the global minimum is the single lowest point over the whole function — in convex functions these coincide.",
+            "id": "q5"
+          },
+          {
+            "question": "What is a saddle point?",
+            "options": [
+              "A point where the function reaches its true global minimum",
+              "A point where the gradient is zero but the point is neither a minimum nor maximum — it curves up in some directions and down in others",
+              "Another name for a convex function",
+              "A point that only occurs in one-dimensional functions"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A saddle point has a zero gradient like a minimum or maximum, but the surface actually curves upward in some directions and downward in others, common in high-dimensional non-convex loss surfaces.",
+            "id": "q6"
+          },
+          {
+            "question": "Why is the loss function for basic linear regression (mean squared error) typically convex?",
+            "options": [
+              "It never actually is convex",
+              "Its mathematical form produces a single bowl-shaped surface with one global minimum, making optimization straightforward",
+              "Convexity only applies to classification problems",
+              "Because it uses only integers"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Mean squared error for linear regression has a quadratic, bowl-shaped form, which is a classic example of a convex function with a single global minimum.",
+            "id": "q7"
+          },
+          {
+            "question": "In general, why is optimizing a non-convex function considered harder than optimizing a convex one?",
+            "options": [
+              "Non-convex functions are always easier because they have more paths to explore",
+              "A non-convex function can have multiple local minima and saddle points, so there's no guarantee gradient descent finds the true global minimum",
+              "Convex functions cannot be optimized with gradient descent at all",
+              "There's no actual difference in difficulty"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Because non-convex functions can have many local minima and saddle points, gradient descent isn't guaranteed to land on the best possible (global) minimum, unlike with convex functions.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "lesson_3_4",
+      "title": "From Math to Code: A Tiny Gradient Descent",
+      "description": "Fit a simple line to data using nothing but the ideas from this module",
+      "duration": "14 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Write a small gradient descent loop from scratch that fits a line to a handful of data points."
+          },
+          {
+            "title": "🎯 The task: fit a line to points",
+            "content": "Given a small set of (x, y) points, find the slope `m` and intercept `b` of the line `y = m*x + b` that fits them best — this is linear regression, built entirely from this module's tools rather than a library."
+          },
+          {
+            "title": "📐 Setting up the loss and its gradient",
+            "content": "The loss measures how far off the line's predictions are — the average squared error:\n\n```python\nxs = [1, 2, 3, 4]\nys = [3, 5, 7, 9]     # true relationship: y = 2x + 1\n\ndef predict(m, b, x):\n    return m * x + b\n\ndef loss(m, b):\n    errors = [(predict(m, b, x) - y) ** 2 for x, y in zip(xs, ys)]\n    return sum(errors) / len(errors)\n```\n\nBy the power rule and chain rule from earlier in this module, the partial derivatives of this loss with respect to m and b work out to:\n\n```python\ndef gradient(m, b):\n    n = len(xs)\n    dm = sum(2 * (predict(m, b, x) - y) * x for x, y in zip(xs, ys)) / n\n    db = sum(2 * (predict(m, b, x) - y) for x, y in zip(xs, ys)) / n\n    return dm, db\n```"
+          },
+          {
+            "title": "🏋️ Training the line",
+            "content": "Now run the exact same gradient descent loop from Lesson 1 of this module — just with two parameters instead of one:\n\n```python\nm, b = 0.0, 0.0        # start with a bad guess\nlearning_rate = 0.05\n\nfor step in range(1000):\n    dm, db = gradient(m, b)\n    m -= learning_rate * dm\n    b -= learning_rate * db\n\nprint(m, b)   # very close to 2.0, 1.0 — the true relationship\n```\n\nStarting from complete guesses of 0 and 0, a thousand small downhill steps land almost exactly on the true line y = 2x + 1 — no library, no magic, just the derivative rules, the gradient, and repeated small steps in the downhill direction."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "Forgetting to divide by the number of data points when averaging the loss/gradient, which makes the learning rate behave inconsistently as the dataset size changes. Picking a learning rate so large the loss diverges instead of converging — the diagnosis skills from the previous lesson apply directly here."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "quiz_lesson_3_4",
+        "questions": [
+          {
+            "question": "In this lesson's example, what are gradient descent's two parameters being optimized?",
+            "options": [
+              "The x and y data points themselves",
+              "The slope m and intercept b of the fitted line",
+              "The learning rate and number of steps",
+              "The loss function itself"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The goal is to find the best-fitting line y = m*x + b, so m and b are exactly the parameters gradient descent adjusts on each step.",
+            "id": "q1"
+          },
+          {
+            "question": "Where do the formulas for dm and db in the gradient function come from?",
+            "options": [
+              "They're guessed by trial and error",
+              "They're derived using the power rule and chain rule applied to the squared-error loss function, exactly as covered earlier in this module",
+              "They're hardcoded constants unrelated to calculus",
+              "They come from a machine learning library, not from calculus"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The gradient formulas are the direct result of differentiating the average squared-error loss with respect to m and b — the same power rule and chain rule from this module's earlier lessons, just applied to this specific loss function.",
+            "id": "q2"
+          },
+          {
+            "question": "Why does starting from m = 0, b = 0 (a clearly wrong guess) still work?",
+            "options": [
+              "It doesn't — the algorithm requires a near-correct starting guess",
+              "Gradient descent doesn't need a good starting point; repeated small steps in the downhill direction gradually converge toward the true values regardless",
+              "The true values happen to also be 0, 0",
+              "It only works because the learning rate is exactly 1.0"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This is the core strength of gradient descent: it doesn't need to start near the answer. As long as the learning rate is reasonable, repeatedly stepping downhill gradually converges toward the true minimum from almost any starting point.",
+            "id": "q3"
+          },
+          {
+            "question": "What loss function is typically used to measure how well the line m*x + b fits the data in this example?",
+            "options": [
+              "Cross-entropy loss",
+              "Mean squared error between predicted and actual y values",
+              "The dot product of m and b",
+              "The determinant of the data matrix"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Mean squared error compares the predicted y values (from m*x + b) to the actual y values and squares the differences, which is what the gradients dm and db are derived from.",
+            "id": "q4"
+          },
+          {
+            "question": "What's the basic structure of the training loop in this tiny gradient descent example?",
+            "options": [
+              "Compute the answer once, with no repetition",
+              "Repeatedly: compute predictions, compute the gradient, update m and b, and repeat for many iterations",
+              "Randomly guess m and b once per run",
+              "Sort the data before every single computation"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The loop repeatedly predicts, computes gradients dm/db, and nudges m and b using those gradients — repeating this many times to gradually improve the fit.",
+            "id": "q5"
+          },
+          {
+            "question": "What typically happens if you run this tiny gradient descent example for too few iterations?",
+            "options": [
+              "The result becomes more accurate than running it longer",
+              "m and b may not have converged close enough to the true best-fit values yet",
+              "It always converges immediately regardless of iteration count",
+              "The loss becomes undefined"
+            ],
+            "correctAnswer": 1,
+            "explanation": "With too few iterations, gradient descent may not have taken enough steps to bring m and b close to the values that best fit the data.",
+            "id": "q6"
+          },
+          {
+            "question": "How can you verify that this gradient descent implementation is actually working correctly?",
+            "options": [
+              "There's no way to check",
+              "By tracking the loss value across iterations and confirming it generally decreases toward a small, stable value",
+              "By checking that m and b remain exactly 0 throughout",
+              "By ensuring the learning rate is exactly 1.0"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A standard sanity check is plotting or printing the loss over iterations — a correctly working gradient descent should show the loss steadily decreasing and leveling off.",
+            "id": "q7"
+          },
+          {
+            "question": "How does this toy two-parameter example connect to training a real neural network with millions of parameters?",
+            "options": [
+              "It doesn't connect at all — real training uses a completely different math",
+              "It uses the exact same core idea — compute a gradient, take a small step opposite to it, repeat — just scaled up to many more parameters",
+              "Real neural networks never use gradient descent",
+              "The toy example only applies to non-numeric data"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The same fundamental loop — compute gradients from the loss, then step against them — underlies training real neural networks, just applied across millions of parameters instead of two.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

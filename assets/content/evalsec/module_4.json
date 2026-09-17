@@ -1,0 +1,575 @@
+{
+  "id": "sec_privacy_and_data_security",
+  "title": "Privacy & Data Security",
+  "description": "PII leakage and model memorization, differential privacy's mathematical guarantee, securing sensitive data throughout the pipeline, and model extraction/IP risks.",
+  "icon": "🔒",
+  "color": "#C62828",
+  "order": 4,
+  "estimatedHours": 5,
+  "difficulty": "advanced",
+  "prerequisites": [
+    "sec_fairness_and_harms"
+  ],
+  "lessons": [
+    {
+      "id": "sec_pii_leakage_and_memorization",
+      "title": "PII Leakage and Memorization",
+      "description": "A large enough model trained on enough text can sometimes reproduce specific pieces of its training data verbatim — including data that should never have been reproducible at all.",
+      "duration": 13,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain what model memorization is, why it creates a PII leakage risk, and how this connects to the data-versioning and lineage practices from the MLOps course."
+          },
+          {
+            "title": "🧠 What memorization is",
+            "content": "Rather than only learning general patterns from training data, a model can sometimes memorize specific sequences verbatim, especially sequences that appeared multiple times or were otherwise unusual/distinctive in the training corpus — meaning that, under the right prompting conditions, a model can be induced to reproduce a specific piece of training data essentially word for word, rather than a generalized pattern learned from many examples."
+          },
+          {
+            "title": "⚠️ Why this is a privacy risk specifically",
+            "content": "If training data included personally identifiable information (PII) — names, addresses, phone numbers, or other sensitive personal data that happened to appear in the training corpus — memorization means that information could potentially be extracted from the deployed model by someone who didn't have legitimate access to the original data, turning a data-handling problem from the training stage into an ongoing exposure risk that persists for the entire deployed lifetime of the model, not just a one-time incident."
+          },
+          {
+            "title": "🔗 Connecting to the MLOps course's lineage and versioning practices",
+            "content": "This is exactly why the MLOps course's data-lineage lesson matters for privacy, not just for debugging: knowing precisely what data went into a model (and being able to audit it for PII before training, not after a leak is discovered) is the primary defense — you can't assess or mitigate a memorization-based privacy risk for data you can't even identify was used, which is exactly the traceability data lineage is meant to provide."
+          },
+          {
+            "title": "🛡️ Mitigations",
+            "content": "PII detection and removal from training data before training (an extension of the MLOps course's data-validation gate, specifically screening for PII patterns rather than only general data quality issues). Differential privacy techniques during training (covered in depth in the next lesson) that provide mathematical guarantees limiting how much any individual training example can influence the final model, directly reducing memorization risk. Output-side filtering that detects and blocks PII-looking content in generated output, functioning as a defense-in-depth layer even if some PII made it into training despite the earlier safeguards."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "Since one of the mitigations above is output-side filtering, here's a minimal illustration of what that layer might actually look like: a regex-based scanner that flags PII-looking patterns in a model's generated output before it's returned to a caller.\n\n```python\nimport re\n\nPII_PATTERNS = {\n    \"email\": re.compile(r\"\\b[\\w.+-]+@[\\w-]+\\.[\\w.-]+\\b\"),\n    \"phone\": re.compile(r\"\\b(?:\\+?1[-.\\s]?)?\\(?\\d{3}\\)?[-.\\s]?\\d{3}[-.\\s]?\\d{4}\\b\"),\n    \"ssn\": re.compile(r\"\\b\\d{3}-\\d{2}-\\d{4}\\b\"),\n}\n\ndef scan_for_pii(generated_text):\n    \"\"\"Scan model-generated output for PII-looking patterns.\n\n    Returns a dict mapping each PII category to the list of matches\n    found, omitting categories with no matches.\n    \"\"\"\n    findings = {}\n    for label, pattern in PII_PATTERNS.items():\n        matches = pattern.findall(generated_text)\n        if matches:\n            findings[label] = matches\n    return findings\n\noutput = \"Contact John at john.doe@example.com or 555-123-4567. SSN on file: 123-45-6789.\"\nreport = scan_for_pii(output)\n# report == {\"email\": [\"john.doe@example.com\"], \"phone\": [\"555-123-4567\"], \"ssn\": [\"123-45-6789\"]}\n```\n\nIf `scan_for_pii` returns a non-empty dict, the output can be blocked, redacted, or routed for human review before it ever reaches the caller — exactly the defense-in-depth layer described above, catching leaked PII even when earlier training-side safeguards failed."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Trusting output filters alone.** Treating output-side PII filtering as sufficient on its own, without also addressing training-data screening — regex-based filters only catch PII that matches a known pattern shape, not paraphrased or reformatted leaks, so this layer has to sit on top of the earlier mitigations, not replace them.\n\n**Assuming deduplication removes memorization risk.** Believing that removing exact duplicate documents from training data eliminates memorization risk. Near-duplicates and rare but distinctive sequences can still be memorized even without exact repetition, so deduplication reduces but doesn't eliminate the risk.\n\n**Treating memorization as a large-model-only problem.** Assuming memorization only affects huge frontier models trained on massive corpora — a smaller model fine-tuned on a limited, sensitive dataset can memorize just as readily, sometimes more so, because each example makes up a larger share of what the model sees."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "sec_pii_leakage_and_memorization_quiz",
+        "questions": [
+          {
+            "question": "What is model memorization?",
+            "options": [
+              "A model's inability to learn any patterns from its training data",
+              "A model reproducing specific training-data sequences essentially verbatim, especially ones that were repeated or distinctive in the corpus, rather than only learning generalized patterns",
+              "A technique for compressing a model's file size",
+              "A method for speeding up model inference"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Memorization means a model can, under certain prompting conditions, reproduce specific pieces of its training data word for word rather than only having learned generalized patterns.",
+            "id": "q1"
+          },
+          {
+            "question": "Why does memorization create an ongoing privacy risk rather than a one-time incident?",
+            "options": [
+              "Memorization has no actual connection to privacy risk",
+              "If PII was present in training data and gets memorized, it can be extracted from the deployed model for as long as that model remains in use, not just at the time of training",
+              "The risk disappears automatically once the model is deployed",
+              "Memorization only affects data that was never actually part of training"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since the memorized information persists in the model's weights, the exposure risk continues for the model's entire deployed lifetime, unlike a one-time data breach with a fixed incident scope.",
+            "id": "q2"
+          },
+          {
+            "question": "Why does the MLOps course's data-lineage practice matter specifically for privacy, per this lesson?",
+            "options": [
+              "Lineage tracking has no relevance to privacy concerns at all",
+              "Knowing precisely what data went into a model is the primary defense for assessing and mitigating memorization-based privacy risk — you can't screen for PII in data you can't even identify was used",
+              "Lineage tracking only matters for debugging production model failures, never for privacy",
+              "Data lineage automatically removes all PII from training data without any additional effort"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This extends the MLOps course's lineage lesson beyond debugging into a privacy defense: identifying exactly what data was used is a prerequisite for auditing it for PII and assessing memorization risk.",
+            "id": "q3"
+          },
+          {
+            "question": "Per the lesson's mitigations section, how does differential privacy (covered in the next lesson) reduce memorization risk?",
+            "options": [
+              "It deletes all training data immediately after use",
+              "It provides a mathematical guarantee limiting how much any individual training example can influence the final model, directly reducing memorization",
+              "It has no connection to memorization risk at all",
+              "It only works by removing PII patterns from output text"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson describes differential privacy as providing mathematical guarantees that limit any single training example's influence on the model, which directly reduces the chance that example gets memorized.",
+            "id": "q4"
+          },
+          {
+            "question": "What role does output-side PII filtering play according to the lesson, even if some PII made it into training despite earlier safeguards?",
+            "options": [
+              "It replaces the need for any training-data screening entirely",
+              "It functions as a defense-in-depth layer that can still catch and block PII-looking content in generated output",
+              "It guarantees no PII could have entered training in the first place",
+              "It is described as completely ineffective and not worth implementing"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson frames output-side filtering as a defense-in-depth layer — a backstop that can still catch leaked PII even when the earlier training-data mitigations weren't fully effective.",
+            "id": "q5"
+          },
+          {
+            "question": "In the `scan_for_pii` code example, what does the function return when the input text contains no matches for any configured pattern?",
+            "options": [
+              "It raises an exception",
+              "An empty dict, since only categories with matches are added to `findings`",
+              "The original input text unchanged",
+              "A dict with every category key mapped to `None`"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`findings` starts as an empty dict, and a category is only added to it inside the `if matches:` check, so text with no PII-pattern matches yields an empty dict.",
+            "id": "q6"
+          },
+          {
+            "question": "In the code example, what does the `report` dict represent after scanning the sample output text?",
+            "options": [
+              "A single boolean indicating whether any PII was found",
+              "A mapping from each PII category (email, phone, ssn) to the list of matching strings found in the text",
+              "A count of how many words were in the generated output",
+              "The redacted version of the original text with PII removed"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`scan_for_pii` returns a dict keyed by PII category, where each value is the list of matches `re.findall` found for that category's pattern — here, one email, one phone number, and one SSN-shaped string.",
+            "id": "q7"
+          },
+          {
+            "question": "Why is 'trusting output filters alone' considered a mistake per the lesson's common-mistakes section?",
+            "options": [
+              "Because output filters are always completely useless and should never be used",
+              "Because regex-based filters only catch PII matching a known pattern shape (like paraphrased or reformatted leaks slipping through), so this layer must supplement, not replace, training-side mitigations",
+              "Because output filtering is illegal in most jurisdictions",
+              "Because output filters always block legitimate, non-sensitive content"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The mistake is treating a pattern-matching output filter as sufficient on its own — it can miss PII that doesn't match a known shape, so it needs to work alongside training-data screening and differential privacy, not instead of them.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "sec_differential_privacy_basics",
+      "title": "Differential Privacy: A Mathematical Guarantee, Not Just a Best Effort",
+      "description": "Most privacy protections are 'we tried to remove sensitive data.' Differential privacy is a mathematical bound on how much any single data point can actually matter.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain the core idea behind differential privacy and its practical trade-off, at a conceptual level."
+          },
+          {
+            "title": "🎯 The core idea",
+            "content": "Differential privacy provides a mathematical guarantee that a model's output (or the model itself, if applied during training) is nearly indistinguishable whether or not any single individual's data was included in the training set — meaning an attacker, even one with sophisticated techniques, gains very limited ability to determine anything about a specific individual's data from observing the model's outputs, which is a fundamentally stronger and more precisely defined guarantee than 'we tried to remove obviously identifying information.'"
+          },
+          {
+            "title": "🔊 How it's typically achieved",
+            "content": "Carefully calibrated random noise is added during the training process (to gradient updates, in the common approach for training neural networks) in a mathematically principled way that provides the formal privacy guarantee while still allowing the model to learn genuine, useful patterns from the overall dataset — the noise is precisely calibrated, not arbitrary, since too little provides an insufficiently strong guarantee and too much destroys the model's ability to learn anything useful at all."
+          },
+          {
+            "title": "⚖️ The privacy-utility trade-off",
+            "content": "Stronger privacy guarantees (achieved with more added noise) generally come at the cost of reduced model accuracy or utility, since the added noise that provides the privacy guarantee also somewhat obscures the genuine signal the model is trying to learn from — this is a real, unavoidable trade-off (not an engineering limitation that better technique eliminates), meaning choosing a privacy budget is itself a genuine decision balancing privacy guarantee strength against acceptable utility loss, similar in spirit to the fairness-metric trade-offs from this course's earlier module."
+          },
+          {
+            "title": "🎯 When differential privacy is worth the utility cost",
+            "content": "For training data involving genuinely sensitive individual information (medical records, financial data, anything where memorization-based leakage per the previous lesson would be a serious individual harm), the formal guarantee differential privacy provides is often worth its utility cost. For less sensitive data, the accuracy trade-off may not be justified relative to simpler mitigations like PII filtering from the previous lesson — matching the strength of privacy protection to the actual sensitivity of the data, rather than applying maximum protection uniformly regardless of context."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "To make the noise-calibration idea concrete, here's a toy example of answering a count query with differential privacy by adding Laplace-distributed noise scaled by a privacy budget, epsilon.\n\n```python\nimport random\nimport math\n\ndef laplace_noise(scale):\n    \"\"\"Sample a value from a Laplace distribution with the given scale (b).\"\"\"\n    u = random.uniform(-0.5, 0.5)\n    return -scale * math.copysign(1, u) * math.log(1 - 2 * abs(u))\n\ndef private_count_query(true_count, sensitivity, epsilon):\n    \"\"\"Return a differentially private version of a count query.\n\n    epsilon is the privacy budget: a smaller epsilon means stronger\n    privacy (more noise, less accuracy); a larger epsilon means\n    weaker privacy but a more accurate answer.\n    \"\"\"\n    scale = sensitivity / epsilon\n    return true_count + laplace_noise(scale)\n\ntrue_answer = 842  # e.g. \"how many patients in this dataset have condition X\"\nfor epsilon in (0.1, 1.0, 10.0):\n    noisy = private_count_query(true_answer, sensitivity=1, epsilon=epsilon)\n    print(f\"epsilon={epsilon:>4}: noisy_count={noisy:.1f}\")\n```\n\nRunning this shows the trade-off directly: epsilon=0.1 produces a heavily noised, less useful answer (strong privacy), while epsilon=10.0 produces an answer very close to the true count 842 (weak privacy) — the same shape of trade-off described above, just made numeric."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Picking an epsilon without justification.** Choosing a privacy budget arbitrarily, or copying a value used on an unrelated project, instead of reasoning about the actual sensitivity of the data and the acceptable utility loss. Epsilon is a genuine policy decision, not a hyperparameter to tune purely for best accuracy.\n\n**Applying strong differential privacy uniformly regardless of data sensitivity.** Using the same low-epsilon (strong privacy, high noise) budget for every dataset, including ones with low actual sensitivity, needlessly destroys utility where a lighter mitigation like the PII filtering from the previous lesson would have been proportionate.\n\n**Confusing 'adding some randomness' with differential privacy.** Assuming that any addition of random noise counts as differential privacy. The formal guarantee requires noise calibrated specifically to the query's sensitivity and a defined epsilon — arbitrary or uncalibrated randomness doesn't provide the mathematical guarantee at all."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "sec_differential_privacy_basics_quiz",
+        "questions": [
+          {
+            "question": "What does differential privacy mathematically guarantee?",
+            "options": [
+              "That a model will always achieve perfect accuracy regardless of training data",
+              "That a model's output is nearly indistinguishable whether or not any single individual's data was included in training, limiting what an attacker can infer about that individual",
+              "That no model can ever be trained on any sensitive data",
+              "That training will always be faster than without differential privacy"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The core guarantee is about limiting the influence and inferability of any single individual's data, providing a formal, mathematically precise privacy bound rather than a best-effort removal of identifying information.",
+            "id": "q1"
+          },
+          {
+            "question": "How is differential privacy typically achieved during training?",
+            "options": [
+              "By deleting all training data after each epoch",
+              "By adding carefully calibrated random noise to the training process (such as gradient updates) in a mathematically principled way",
+              "By using only publicly available, non-sensitive data",
+              "By training an entirely separate model with no relationship to the original data"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Precisely calibrated noise is added during training to provide the formal privacy guarantee while still allowing the model to learn useful general patterns from the data.",
+            "id": "q2"
+          },
+          {
+            "question": "What is the fundamental trade-off involved in choosing a differential privacy budget?",
+            "options": [
+              "There is no trade-off — stronger privacy guarantees are always free",
+              "Stronger privacy guarantees (more noise) generally reduce model accuracy/utility, so choosing a privacy budget balances guarantee strength against acceptable utility loss, similar to the fairness-metric trade-offs covered earlier",
+              "Differential privacy always improves both privacy and accuracy simultaneously",
+              "The trade-off only applies to classical ML models, never to LLMs"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This is a genuine, unavoidable trade-off (not an engineering limitation) between privacy guarantee strength and model utility, echoing the values-based trade-off nature of the fairness metric choices from earlier in this course.",
+            "id": "q3"
+          },
+          {
+            "question": "Per the 'When differential privacy is worth the utility cost' section, how should the strength of privacy protection be chosen?",
+            "options": [
+              "Maximum protection should always be applied uniformly, regardless of the data's actual sensitivity",
+              "Protection strength should match the actual sensitivity of the data — strong guarantees for genuinely sensitive data like medical or financial records, lighter mitigations like PII filtering when data is less sensitive",
+              "Differential privacy should never be used for medical or financial data",
+              "The choice should be based solely on which option trains fastest"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson argues for matching protection strength to actual data sensitivity rather than applying the strongest (and most utility-costly) protection uniformly regardless of context.",
+            "id": "q4"
+          },
+          {
+            "question": "The lesson compares the differential-privacy budget trade-off to what other trade-off covered earlier in this course?",
+            "options": [
+              "The trade-off involved in choosing fairness metrics",
+              "The trade-off between model size and inference speed",
+              "The trade-off between cloud providers",
+              "There is no comparison made to any other course content"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly says choosing a privacy budget is 'similar in spirit to the fairness-metric trade-offs from this course's earlier module' — both are genuine, values-based decisions rather than pure engineering optimizations.",
+            "id": "q5"
+          },
+          {
+            "question": "In the `private_count_query` code example, what happens to the noisy result as `epsilon` increases from 0.1 to 10.0?",
+            "options": [
+              "The noise scale grows larger, since scale = sensitivity / epsilon increases with epsilon",
+              "The noise scale shrinks (since scale = sensitivity / epsilon), so the noisy answer gets closer to the true count — weaker privacy but higher accuracy",
+              "The true_count value itself changes",
+              "Nothing changes; epsilon has no effect on the noise scale in this code"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Because `scale = sensitivity / epsilon`, a larger epsilon produces a smaller noise scale, so `private_count_query` returns a value closer to the true count — illustrating weaker privacy but better utility as epsilon grows.",
+            "id": "q6"
+          },
+          {
+            "question": "What role does the `sensitivity` parameter play in the `private_count_query` function?",
+            "options": [
+              "It directly sets the true count value being queried",
+              "It is used together with epsilon to determine the noise scale (scale = sensitivity / epsilon) added to the true answer",
+              "It has no effect on the function's output",
+              "It determines how many times the query is run"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`sensitivity` (how much a single individual's data could change the true answer) is divided by epsilon to compute the Laplace noise scale — a core input to calibrating the added noise correctly.",
+            "id": "q7"
+          },
+          {
+            "question": "Why is picking an epsilon value without justification called out as a mistake in the lesson?",
+            "options": [
+              "Because epsilon has no real effect on either privacy or utility",
+              "Because epsilon is a genuine policy decision balancing privacy strength against acceptable utility loss for the specific data at hand, not a hyperparameter to tune purely for accuracy",
+              "Because epsilon must always be set to exactly 1.0 by convention",
+              "Because differential privacy doesn't actually use an epsilon parameter"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The mistake is treating epsilon like an ordinary tunable hyperparameter rather than what it actually is: a deliberate trade-off decision about how much privacy protection this specific data's sensitivity warrants.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "sec_secure_handling_of_sensitive_data",
+      "title": "Secure Handling of Sensitive Data Throughout the Pipeline",
+      "description": "Privacy risk isn't only about what a trained model might leak — it's also about every point along the way where sensitive data is actually stored, moved, or accessed.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Identify the points across an ML/LLM pipeline where sensitive data needs explicit security handling, extending the MLOps course's data-versioning practices."
+          },
+          {
+            "title": "🔐 Access control on sensitive data",
+            "content": "Extending the MLOps course's data-versioning and access practices with an explicit security dimension: not everyone who can access a versioned dataset in general should necessarily have access to its most sensitive fields — role-based access control, ensuring only people and systems with a genuine need can actually see raw sensitive data, rather than treating 'it's in the versioned data store' as equivalent to 'anyone on the team can view it.'"
+          },
+          {
+            "title": "🔒 Encryption at rest and in transit",
+            "content": "Sensitive data should be encrypted both when stored (at rest, in whatever data versioning or feature store system per the MLOps course holds it) and when moving between systems (in transit, as it flows through a training pipeline or between a serving system and a database) — standard security practice generally, applied specifically to the ML pipeline's own data stores and internal data flows, not just a system's external-facing API."
+          },
+          {
+            "title": "🗑️ Data minimization and retention limits",
+            "content": "Collecting and retaining only the sensitive data actually needed for the task at hand, and deleting it once it's no longer needed, rather than accumulating sensitive data indefinitely 'in case it's useful later' — less retained sensitive data directly means less potential exposure if a security incident does occur, and also reduces the memorization-based leakage risk from earlier in this module by simply reducing how much sensitive data ever enters a training pipeline in the first place."
+          },
+          {
+            "title": "📝 Auditing access to sensitive data",
+            "content": "Mirroring the MCP course's auditing lesson directly, applied to sensitive data access specifically: logging who accessed what sensitive data and when, so unusual access patterns (a system or person accessing far more sensitive data than their normal role would suggest) can be noticed and investigated, extending the same detect-unusual-patterns principle from that lesson to sensitive-data access instead of MCP server tool calls."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "Access control and auditing work together: a check decides whether access is allowed, and every attempt — allowed or denied — gets logged so unusual patterns can be reviewed later.\n\n```python\nfrom datetime import datetime, timezone\n\nROLE_PERMISSIONS = {\n    \"data_scientist\": {\"read_aggregate\"},\n    \"privacy_officer\": {\"read_aggregate\", \"read_raw_sensitive\"},\n    \"ml_engineer\": {\"read_aggregate\"},\n}\n\naccess_audit_log = []\n\ndef check_access(user, role, field, action=\"read_raw_sensitive\"):\n    \"\"\"Check whether a role may perform `action` on a sensitive field,\n    and append an entry to the audit log regardless of the outcome.\n    \"\"\"\n    allowed = action in ROLE_PERMISSIONS.get(role, set())\n    access_audit_log.append({\n        \"user\": user,\n        \"role\": role,\n        \"field\": field,\n        \"action\": action,\n        \"allowed\": allowed,\n        \"timestamp\": datetime.now(timezone.utc).isoformat(),\n    })\n    return allowed\n\nif not check_access(\"amy\", \"data_scientist\", \"patient_ssn\"):\n    raise PermissionError(\"amy's role does not permit raw sensitive-field access\")\n```\n\nBecause `access_audit_log` records every attempt, not just the denied one shown here, a later review can spot a role or account whose successful-access volume looks abnormal — the detect-unusual-patterns principle from the auditing section applied concretely."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Treating 'it's in the versioned data store' as equivalent to 'anyone can view it.'** Granting broad read access to an entire versioned dataset without separately restricting its most sensitive fields — general dataset access and raw-sensitive-field access need distinct, more granular permission checks, as the access-control section describes.\n\n**Logging only denied access attempts.** Auditing failed or denied access while skipping successful reads misses the whole point of the auditing section: unusual patterns (someone accessing far more sensitive data than their role would suggest) are only detectable if successful accesses are logged too, not just the ones that were blocked.\n\n**Encrypting one of 'at rest' or 'in transit' but not both.** Treating encryption as satisfied by covering just one of the two states leaves a real gap — sensitive data left unencrypted in a feature store or dataset at rest is just as exposed as unencrypted data moving across a network, so both need to be covered."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "sec_secure_handling_of_sensitive_data_quiz",
+        "questions": [
+          {
+            "question": "Why might access control on sensitive data need to be more granular than general dataset versioning access?",
+            "options": [
+              "General dataset access controls are always sufficient with no need for finer granularity",
+              "Not everyone who can access a versioned dataset in general should necessarily have access to its most sensitive fields — role-based access ensures only those with genuine need can view raw sensitive data",
+              "Access control is irrelevant once data is versioned",
+              "Sensitive fields should always be accessible to the entire team by default"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Extending the MLOps course's versioning practices with a security dimension means access to sensitive fields specifically needs finer-grained control than general dataset access.",
+            "id": "q1"
+          },
+          {
+            "question": "Why does data minimization (collecting and retaining only what's needed) reduce privacy risk?",
+            "options": [
+              "Data minimization has no actual effect on privacy risk",
+              "Less retained sensitive data directly means less potential exposure in a security incident, and also reduces memorization-based leakage risk by limiting how much sensitive data ever enters training",
+              "Minimization only matters for classical ML, never for LLM training",
+              "Retaining more sensitive data indefinitely is always the safer choice"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Reducing the amount of sensitive data collected and retained shrinks both the potential blast radius of a security incident and the memorization risk covered earlier in this module.",
+            "id": "q2"
+          },
+          {
+            "question": "How does auditing sensitive-data access mirror a practice from the MCP course?",
+            "options": [
+              "It has no relationship to any MCP course content",
+              "It mirrors the MCP course's auditing lesson, applying the same detect-unusual-access-patterns principle to sensitive data access instead of MCP server tool calls",
+              "Auditing is a completely new concept introduced for the first time in this lesson",
+              "The MCP course never covered any form of auditing or monitoring"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This directly extends the MCP course's auditing-for-unusual-patterns principle to a new context — sensitive data access — rather than introducing an unrelated new auditing concept.",
+            "id": "q3"
+          },
+          {
+            "question": "Per the encryption section, where specifically should encryption at rest and in transit be applied within an ML pipeline?",
+            "options": [
+              "Only to the system's external-facing API, since internal data flows are already implicitly safe",
+              "To the ML pipeline's own internal data stores (like the MLOps course's feature store) and internal data flows, not just the external-facing API",
+              "Encryption should never be applied to internal ML pipeline components",
+              "Only to data that will eventually be deleted under retention limits"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The section explicitly emphasizes applying encryption to the pipeline's own internal data stores and internal data flows, not treating it as something that only matters for a system's external-facing API.",
+            "id": "q4"
+          },
+          {
+            "question": "How does data minimization connect back to the memorization risk from the module's first lesson?",
+            "options": [
+              "It has no connection — memorization risk and data retention are entirely unrelated topics",
+              "Retaining less sensitive data reduces how much of it ever enters a training pipeline in the first place, which directly reduces memorization-based leakage risk",
+              "Data minimization increases memorization risk by forcing models to rely on fewer examples",
+              "Memorization risk only applies to data that is never deleted"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The section explicitly ties minimization back to the first lesson: less sensitive data retained means less sensitive data that could ever be memorized during training.",
+            "id": "q5"
+          },
+          {
+            "question": "In the `check_access` code example, what does the function do regardless of whether access is allowed or denied?",
+            "options": [
+              "It automatically grants access after three failed attempts",
+              "It appends an entry to `access_audit_log` recording the user, role, field, action, outcome, and timestamp",
+              "It deletes the sensitive field from the database",
+              "It sends an email notification to the privacy officer"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The function always appends a record to `access_audit_log` before returning, whether `allowed` ends up True or False — that's what makes both successful and denied attempts reviewable later.",
+            "id": "q6"
+          },
+          {
+            "question": "In the code example, what determines whether `check_access` returns True for a given `role`?",
+            "options": [
+              "Whether the `user` string is non-empty",
+              "Whether the requested `action` is present in that role's permission set within `ROLE_PERMISSIONS`",
+              "Whether the current time falls within business hours",
+              "The function always returns True regardless of role"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`allowed` is computed as `action in ROLE_PERMISSIONS.get(role, set())` — so access is granted only when the specific action (like `read_raw_sensitive`) is in that role's permitted set.",
+            "id": "q7"
+          },
+          {
+            "question": "Why is logging only denied access attempts (and skipping successful ones) called out as a mistake?",
+            "options": [
+              "Because denied attempts are never useful to log at all",
+              "Because unusual access patterns — like a role accessing far more sensitive data than normal — can only be detected if successful accesses are logged too, not just the blocked ones",
+              "Because logging successful access attempts is illegal",
+              "Because audit logs should only ever contain timestamps, not outcomes"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The whole point of the auditing practice is spotting abnormal patterns of legitimate-looking access, which requires logging successful reads, not just the attempts that were denied.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "sec_model_extraction_and_ip_risks",
+      "title": "Model Extraction and Intellectual Property Risks",
+      "description": "A deployed model is itself a valuable asset — and an attacker with enough query access can sometimes steal a close approximation of it without ever touching its weights directly.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain how model extraction attacks work and describe mitigations, connecting to the API-access and rate-limiting concepts from earlier courses."
+          },
+          {
+            "title": "🎯 What model extraction is",
+            "content": "An attacker systematically queries a deployed model's API with a large number of carefully chosen inputs, then uses the collected input-output pairs to train their own separate model that approximates the original model's behavior — effectively 'stealing' a functional copy of the model's learned behavior through nothing more than legitimate-looking API access, without ever gaining direct access to the actual weights or infrastructure."
+          },
+          {
+            "title": "💰 Why this is a genuine business and security risk",
+            "content": "A model can represent substantial investment (data curation, compute, fine-tuning expertise, per the Fine-Tuning course's entire coverage of what it takes to build one) — a successful extraction attack lets a competitor or bad actor obtain much of that value without the same investment, and can also serve as a stepping stone to other attacks (an extracted approximate copy can be probed for adversarial examples or jailbreak techniques offline, without triggering the target system's own monitoring, and then those discovered attacks applied against the real system)."
+          },
+          {
+            "title": "🛡️ Mitigations",
+            "content": "Rate limiting and query monitoring (per the LLMOps course's cost/latency monitoring infrastructure, repurposed here for a security purpose — detecting the unusually high query volume and systematic input patterns characteristic of an extraction attempt, rather than only using that infrastructure for cost tracking). Output perturbation or limiting output detail (providing less precise information than the model's full raw output would reveal, making it harder to extract precise behavior, though at some cost to legitimate use cases needing that detail). Legal and contractual protections (terms of service prohibiting this kind of systematic querying) as a complement to technical mitigations, since not every technical mitigation is airtight on its own."
+          },
+          {
+            "title": "🔗 Connecting to defense in depth",
+            "content": "Exactly like every other attack category in this course, no single mitigation against model extraction is complete — rate limiting alone can be circumvented with distributed querying from many sources, output perturbation alone still leaks some information over enough queries — the same defense-in-depth principle from this course's input-attacks module applies here: several imperfect layers, combined, provide meaningfully more protection than reliance on any one."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "One piece of the rate-limiting/monitoring mitigation is tracking query volume per API key over a sliding time window and flagging keys whose volume looks like a systematic extraction sweep rather than normal usage.\n\n```python\nimport time\nfrom collections import defaultdict\n\nquery_log = defaultdict(list)  # api_key -> list of query timestamps\nEXTRACTION_QUERY_THRESHOLD = 5000   # queries\nEXTRACTION_WINDOW_SECONDS = 3600    # per rolling hour\n\ndef record_query(api_key, timestamp=None):\n    \"\"\"Record a single API query and return True if this key now\n    looks like it is running a systematic extraction sweep.\n    \"\"\"\n    timestamp = timestamp if timestamp is not None else time.time()\n    query_log[api_key].append(timestamp)\n    window_start = timestamp - EXTRACTION_WINDOW_SECONDS\n    recent = [t for t in query_log[api_key] if t >= window_start]\n    query_log[api_key] = recent\n    return len(recent) > EXTRACTION_QUERY_THRESHOLD\n\n# Simulating a key hammering the API far beyond normal usage patterns\nnow = time.time()\nsuspicious = False\nfor i in range(6000):\n    suspicious = record_query(\"key_abc123\", timestamp=now + i * 0.5)\n\nif suspicious:\n    print(\"key_abc123 flagged for possible extraction sweep\")\n```\n\n`record_query` keeps only timestamps inside the rolling one-hour window and flags a key once its recent volume crosses the threshold — the kind of systematic, sustained volume that separates an extraction sweep from ordinary, bursty legitimate usage."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Relying on a single static, global rate limit.** Setting one rate limit that applies uniformly regardless of a key's own historical baseline usage lets a sophisticated extraction attempt stay just under that static ceiling while still being far above what's normal for that particular account — comparing against per-key historical baselines catches more than one fixed global number.\n\n**Ignoring distributed extraction attempts.** Monitoring only single-key query volume misses an attacker who spreads systematic querying across many API keys or accounts to stay under any one key's threshold — detection also needs to look for coordinated patterns across keys, not just per-key volume.\n\n**Treating legal and contractual terms as sufficient on their own.** Relying solely on terms-of-service prohibitions against systematic querying, without technical monitoring, leaves nothing that actually stops or detects an attack while it's happening — legal protections are a useful complement to technical mitigations, not a substitute for them."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "sec_model_extraction_and_ip_risks_quiz",
+        "questions": [
+          {
+            "question": "What does a model extraction attack involve?",
+            "options": [
+              "Directly hacking into a company's servers to steal model weight files",
+              "Systematically querying a deployed model's API with carefully chosen inputs, then using the input-output pairs to train an approximating copy of the model's behavior",
+              "Physically stealing a hard drive containing the model",
+              "Bribing an employee to leak the model's source code"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Extraction attacks work through legitimate-looking API access alone, using collected input-output pairs to train a separate model that approximates the original's behavior, without ever touching the actual weights.",
+            "id": "q1"
+          },
+          {
+            "question": "How can an extracted model copy serve as a stepping stone to other attacks?",
+            "options": [
+              "Extracted copies have no further use to an attacker beyond the extraction itself",
+              "An extracted approximate copy can be probed offline for adversarial examples or jailbreak techniques without triggering the target system's own monitoring, then those discovered attacks applied against the real system",
+              "Extracted copies are always immediately detected and cannot be used for anything",
+              "Extraction attacks are technically impossible against any modern model"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Having an offline approximate copy lets an attacker experiment freely (finding jailbreaks or adversarial examples) without alerting the real system's monitoring, then apply what was discovered against the actual target.",
+            "id": "q2"
+          },
+          {
+            "question": "How does defense against model extraction mirror the defense-in-depth principle from this course's input-attacks module?",
+            "options": [
+              "A single mitigation (like rate limiting alone) is always completely sufficient against extraction",
+              "No single mitigation is complete — rate limiting can be circumvented with distributed querying, output perturbation alone still leaks information over enough queries — so combining several imperfect layers provides meaningfully more protection",
+              "Defense against extraction has no relationship to the defense-in-depth concept at all",
+              "Legal protections alone are always sufficient with no technical mitigations needed"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Just as with prompt injection and adversarial examples, no single extraction mitigation is airtight, so layering several imperfect defenses together provides more meaningful protection than relying on any one.",
+            "id": "q3"
+          },
+          {
+            "question": "Per the 'business and security risk' section, what does a deployed model represent that makes extraction costly to the original builder?",
+            "options": [
+              "Nothing of real value — models are trivial and cheap to reproduce",
+              "Substantial investment in data curation, compute, and fine-tuning expertise, as covered in depth by the Fine-Tuning course",
+              "Only the cost of the server hardware it runs on",
+              "A one-time legal filing fee and nothing more"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson points to the Fine-Tuning course's coverage of what it takes to build a model — data curation, compute, and fine-tuning expertise — as the substantial investment an extraction attack lets someone else obtain without paying for.",
+            "id": "q4"
+          },
+          {
+            "question": "Per the mitigations section, what role do legal and contractual protections play against model extraction?",
+            "options": [
+              "They are described as completely sufficient on their own, making technical mitigations unnecessary",
+              "They serve as a complement to technical mitigations, since not every technical mitigation is airtight on its own",
+              "They have no relevance to model extraction at all",
+              "They are only relevant to differential privacy, not model extraction"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson explicitly frames legal/contractual terms as a complement to technical mitigations like rate limiting and output perturbation, not a replacement for them.",
+            "id": "q5"
+          },
+          {
+            "question": "In the `record_query` code example, what is the purpose of computing `window_start` and filtering `query_log[api_key]` down to `recent`?",
+            "options": [
+              "To delete the API key entirely from the system",
+              "To keep only timestamps within the rolling time window (EXTRACTION_WINDOW_SECONDS), so the flagging decision is based on recent query volume rather than all-time volume",
+              "To permanently ban the API key after a single query",
+              "To convert timestamps into a different time zone"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Filtering to `recent` implements a sliding window: only queries within the last `EXTRACTION_WINDOW_SECONDS` count toward the threshold check, so the function reflects current query rate rather than lifetime total.",
+            "id": "q6"
+          },
+          {
+            "question": "In the code example, what does it mean when `record_query` returns True for a given call?",
+            "options": [
+              "The API key has never made a query before",
+              "The number of queries from that API key within the current rolling window has exceeded EXTRACTION_QUERY_THRESHOLD, suggesting a possible systematic extraction sweep",
+              "The query timestamp was invalid",
+              "The API key has been automatically deleted from query_log"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`record_query` returns `len(recent) > EXTRACTION_QUERY_THRESHOLD` — True exactly when that key's query count within the rolling window has crossed the configured threshold, the signal used to flag a possible extraction sweep.",
+            "id": "q7"
+          },
+          {
+            "question": "Why is relying on a single static, global rate limit called out as a mistake in the lesson?",
+            "options": [
+              "Because rate limits are never useful for detecting extraction attempts",
+              "Because a sophisticated extraction attempt can stay just under one fixed global limit while still being far above what's normal for that specific account, so per-key historical baselines catch more than a single static number",
+              "Because rate limits always block 100% of legitimate traffic",
+              "Because global rate limits are illegal to implement"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The mistake is treating one fixed threshold as sufficient for every account — an attacker can tune their query volume to stay under a static global limit while still being anomalous relative to that particular key's own normal usage.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

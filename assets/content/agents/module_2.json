@@ -1,0 +1,559 @@
+{
+  "id": "agent_reasoning_patterns",
+  "title": "Reasoning Patterns",
+  "description": "The ReAct pattern, upfront planning and decomposition, reflection and self-correction, and how agentic reasoning relates to chain-of-thought.",
+  "icon": "🧭",
+  "color": "#E91E63",
+  "order": 2,
+  "estimatedHours": 5,
+  "difficulty": "intermediate",
+  "prerequisites": [
+    "agent_tool_use"
+  ],
+  "lessons": [
+    {
+      "id": "agent_react_pattern",
+      "title": "The ReAct Pattern",
+      "description": "Interleaving explicit reasoning with actions makes an agent's decisions both better and easier to debug.",
+      "duration": "13 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Describe the ReAct pattern's structure and explain why interleaving reasoning with actions helps over just taking actions directly."
+          },
+          {
+            "title": "🧠 What ReAct actually interleaves",
+            "content": "**ReAct** (Reasoning + Acting) has the model explicitly produce a short reasoning trace ('Thought: ...') before each action ('Action: ...'), then receives the result ('Observation: ...'), and repeats — reasoning, acting, observing, reasoning again, in a visible, structured cycle, rather than jumping straight from state to action with no explicit intermediate reasoning step."
+          },
+          {
+            "title": "🎯 Why the explicit reasoning step helps",
+            "content": "Making the model articulate its reasoning before acting tends to produce better-chosen actions, for the same reason chain-of-thought prompting improves plain reasoning tasks — working through the logic in text before committing to an answer gives the model a chance to catch its own inconsistencies. It also makes the agent's behavior far more debuggable: when something goes wrong, you can read the thought that led to the bad action, rather than only seeing an unexplained tool call."
+          },
+          {
+            "title": "📝 A worked example",
+            "content": "```\nThought: The user wants this quarter's revenue, but I don't know it yet — I should look it up.\nAction: query_database(metric='revenue', period='Q3')\nObservation: $4.2M\nThought: That answers the question, I can respond now.\nAction: respond('Q3 revenue was $4.2M.')\n```\n\nEach thought makes the reasoning behind the next action explicit and inspectable, rather than leaving you to guess why the model chose that particular tool call."
+          },
+          {
+            "title": "⚖️ The trade-off",
+            "content": "Generating explicit reasoning text costs extra tokens and adds latency per step, compared to jumping straight to an action. In practice this cost is usually worth paying, because the improvement in decision quality and the debuggability gain (being able to see *why* an agent did something, not just *what* it did) tend to matter more than the modest extra cost — especially in early development and whenever something needs debugging."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Discarding the thought traces once an agent seems to be working.** The debuggability benefit of ReAct is precisely that these traces exist when something later goes wrong — logging them is what makes that benefit real, not just theoretical.\n\n**Assuming a visible thought guarantees a correct action.** Articulating reasoning improves the odds of a good decision, but a flawed thought can still lead confidently to a flawed action — the trace helps you find the mistake, it doesn't prevent it.\n\n**Cutting the thought step to save tokens on every single call, including complex ones.** The trade-off in this lesson is a real one, but skipping reasoning uniformly loses the biggest benefit exactly where it matters most — on the harder decisions."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "agent_react_pattern_quiz",
+        "questions": [
+          {
+            "question": "What does the ReAct pattern interleave at each step?",
+            "options": [
+              "Only actions, with no reasoning",
+              "An explicit reasoning trace (thought), then an action, then an observation of its result",
+              "Two separate LLM calls with no shared context",
+              "Only observations, with no actions"
+            ],
+            "correctAnswer": 1,
+            "explanation": "ReAct's defining structure is thought → action → observation, repeated — reasoning is made explicit before each action is taken.",
+            "id": "q1"
+          },
+          {
+            "question": "Why does making the model articulate a 'thought' before acting tend to improve decision quality?",
+            "options": [
+              "It has no effect on decision quality, only on speed",
+              "Similar to chain-of-thought prompting, working through logic explicitly before committing to an action helps catch inconsistencies",
+              "It removes the need for any tools",
+              "It guarantees the action will always succeed"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Explicit reasoning before acting mirrors chain-of-thought's benefit for plain reasoning tasks — articulating the logic first tends to lead to better-chosen next steps.",
+            "id": "q2"
+          },
+          {
+            "question": "What is a practical benefit of ReAct's visible thought traces beyond decision quality?",
+            "options": [
+              "They make the agent run without needing a stopping condition",
+              "They make agent behavior far more debuggable, since you can read the reasoning that led to a given action",
+              "They eliminate the need for tool descriptions",
+              "They reduce token usage compared to acting directly"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Being able to see why an agent chose a particular action — not just what action it took — makes diagnosing unexpected or wrong behavior much easier, at the cost of some extra tokens and latency.",
+            "id": "q3"
+          },
+          {
+            "question": "In this lesson's worked example, what does the second Thought conclude, after receiving the Observation?",
+            "options": [
+              "That the answer ($4.2M) is sufficient and the agent can respond now",
+              "That the query needs to be run again with different arguments",
+              "That the database connection has failed",
+              "That another tool must be called before responding"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's worked example shows the second thought reasoning that the observation already answers the question, leading directly to the final respond() action.",
+            "id": "q4"
+          },
+          {
+            "question": "In this lesson's worked example, what specific arguments does the query_database action use?",
+            "options": [
+              "metric='revenue', period='Q3'",
+              "metric='profit', period='Q4'",
+              "No arguments are passed at all",
+              "metric='revenue' only, with no period specified"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's example explicitly shows query_database(metric='revenue', period='Q3') as the action taken in response to the first thought.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does this lesson say the extra cost of generating explicit reasoning is 'usually worth paying'?",
+            "options": [
+              "Because the improvement in decision quality and the debuggability gain tend to matter more than the modest extra tokens and latency",
+              "Because reasoning text never actually adds any tokens to a request",
+              "Because debuggability is irrelevant to whether an agent works correctly",
+              "Because the trade-off only applies to agents with no tools at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly weighs the token/latency cost against the decision-quality and debuggability benefits, concluding the trade-off usually favors keeping the explicit reasoning step.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson warn against discarding thought traces once an agent seems to be working?",
+            "options": [
+              "Because the debuggability benefit of ReAct is precisely that these traces exist when something later goes wrong",
+              "Because thought traces are only useful during the very first test run and never again",
+              "Because discarding traces always makes an agent run faster with no downside",
+              "Because thought traces have no relationship to diagnosing future failures"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is dropping the traces prematurely, when their real value is being available later, exactly when an unexpected failure needs diagnosing.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson caution against assuming a visible thought guarantees a correct action?",
+            "options": [
+              "Because a flawed thought can still lead confidently to a flawed action — the trace helps you find the mistake, it doesn't prevent it",
+              "Because thoughts and actions are always perfectly correlated with success",
+              "Because visible reasoning eliminates the possibility of the model making an error",
+              "Because thought traces are generated after the action, not before it"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is over-trusting visible reasoning as proof of correctness, when it's a diagnostic aid rather than a guarantee against bad decisions.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "agent_planning_and_decomposition",
+      "title": "Planning and Task Decomposition",
+      "description": "Some tasks are too big to figure out one step at a time — they need a plan first.",
+      "duration": "12 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain the difference between reactive step-by-step agents and planning-based agents, and when explicit planning helps."
+          },
+          {
+            "title": "🔄 Reactive vs. planning approaches",
+            "content": "A purely **reactive** agent (like the basic ReAct loop) decides only its very next step at each point, with no explicit representation of the overall plan. This works well for tasks where the right next step genuinely depends heavily on what just happened. But for tasks with a lot of structure known in advance, deciding one step at a time can miss opportunities to parallelize independent sub-steps or to notice a step is redundant given the overall goal."
+          },
+          {
+            "title": "📋 Explicit upfront planning",
+            "content": "A **planning-based** approach has the model produce a decomposition of the overall task into sub-tasks before executing any of them — 'to answer this, I need to: (1) find X, (2) find Y, (3) combine them and check for consistency' — and then executes (and can potentially parallelize) that plan, revising it if execution reveals the plan was wrong. This tends to work better for tasks with real internal structure that's knowable in advance, even if some adjustment is needed once execution starts.\n\n```python\nplan = llm.decompose(task)  # e.g. [\"find X\", \"find Y\", \"combine and check\"]\nresults = {}\nfor subtask in plan:\n    results[subtask] = execute_subtask(subtask, context=results)\nfinal = llm.synthesize(task, results)\n```"
+          },
+          {
+            "title": "🔀 Hybrid: plan, then react within it",
+            "content": "Many practical agents combine both: produce an initial high-level plan, then use a ReAct-style reasoning loop to actually execute each sub-task (since the exact steps needed for any one sub-task might still depend on what's discovered along the way). This gets the structural benefit of planning without pretending every low-level detail can be known before any action is taken."
+          },
+          {
+            "title": "🔧 When planning helps versus adds overhead",
+            "content": "Planning is worth the extra upfront step when a task has real decomposable structure and getting the decomposition right unlocks efficiency (parallel sub-tasks) or correctness (catching a redundant or missing step early). For simple, short tasks, the reactive approach is often sufficient and the extra planning step is pure overhead with little benefit."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Adding an upfront planning step to every agent by default.** For short, simple tasks this is pure overhead — the reactive approach in this lesson exists because not every task benefits from a plan.\n\n**Treating an initial plan as fixed once execution starts.** The whole point of the hybrid approach is that a sub-task's exact steps may only become clear once you're inside it — refusing to revise the plan when execution reveals it was wrong throws away that flexibility.\n\n**Decomposing a task into sub-tasks that aren't actually independent, then trying to parallelize them anyway.** Parallelization only pays off when sub-tasks genuinely don't depend on each other's results — forcing it onto dependent steps produces results built on stale or missing information."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "agent_planning_and_decomposition_quiz",
+        "questions": [
+          {
+            "question": "What is a limitation of a purely reactive agent that decides only its next step at each point?",
+            "options": [
+              "It cannot use any tools at all",
+              "It may miss opportunities to parallelize independent sub-steps or notice redundant steps, since it has no explicit overall plan",
+              "It always runs faster than a planning-based agent",
+              "It cannot produce a final answer"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Without an explicit representation of the whole task's structure, a purely reactive agent can't recognize opportunities like parallelizable sub-steps that a planning approach would catch.",
+            "id": "q1"
+          },
+          {
+            "question": "What does an explicit planning-based approach do before executing any actions?",
+            "options": [
+              "Nothing different from a reactive agent",
+              "Produces a decomposition of the overall task into sub-tasks upfront, which can then be executed and potentially revised",
+              "Skips reasoning entirely and acts randomly",
+              "Always uses fewer tokens than a reactive approach"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Planning-based agents articulate the sub-tasks needed for the overall goal before starting execution, allowing for parallelization or early detection of unnecessary steps.",
+            "id": "q2"
+          },
+          {
+            "question": "What does a hybrid 'plan, then react within it' approach combine?",
+            "options": [
+              "Two completely independent agents with no shared state",
+              "A high-level upfront plan with ReAct-style step-by-step execution within each sub-task",
+              "Only reactive behavior, ignoring planning entirely",
+              "Only planning, with no execution loop at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This hybrid gets the structural benefit of an upfront plan while still allowing flexible, observation-driven execution within each sub-task, since low-level details may not be fully knowable in advance.",
+            "id": "q3"
+          },
+          {
+            "question": "In this lesson's code example, what does llm.synthesize(task, results) do after the loop over the plan finishes?",
+            "options": [
+              "Combines the results of all executed sub-tasks into a final answer for the original task",
+              "Deletes all previously computed results",
+              "Re-runs the entire plan from the beginning",
+              "Requests a brand new decomposition of the task"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example calls llm.synthesize after all sub-tasks in the plan have been executed, combining their results into the final answer.",
+            "id": "q4"
+          },
+          {
+            "question": "In this lesson's code example, what is passed as context when executing each subtask?",
+            "options": [
+              "The results dictionary accumulated from previously executed sub-tasks",
+              "The original raw task string with no other information",
+              "A completely empty dictionary on every call",
+              "The full agent conversation history from a different, unrelated task"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example calls execute_subtask(subtask, context=results), passing along whatever has already been computed by prior sub-tasks in the plan.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does this lesson say planning is worth the extra upfront step specifically when a task has 'real decomposable structure'?",
+            "options": [
+              "Because getting the decomposition right in that case unlocks efficiency (parallel sub-tasks) or correctness (catching a redundant or missing step early)",
+              "Because every task has exactly the same amount of decomposable structure regardless of content",
+              "Because planning is always worth doing regardless of a task's structure",
+              "Because decomposable structure has no bearing on whether parallelization is possible"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson ties the value of planning directly to whether a task's structure can actually be exploited for efficiency or correctness gains, not to planning being universally beneficial.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson warn against adding an upfront planning step to every agent by default?",
+            "options": [
+              "Because for short, simple tasks this is pure overhead, since the reactive approach is often sufficient",
+              "Because planning always produces worse results than a purely reactive approach",
+              "Because planning is technically incompatible with any agent architecture",
+              "Because reactive agents can never handle any task correctly"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is defaulting to planning universally, when simple tasks often don't have enough structure to justify the extra step.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson caution against treating an initial plan as fixed once execution starts?",
+            "options": [
+              "Because a sub-task's exact steps may only become clear once you're inside it, and refusing to revise the plan throws away that flexibility",
+              "Because plans are always perfectly accurate on the first attempt with no need for revision",
+              "Because revising a plan during execution is technically impossible in most agent architectures",
+              "Because the hybrid plan-then-react approach never actually needs to adjust its plan"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is over-committing to the original decomposition, when the hybrid approach's value comes specifically from being able to revise it as execution reveals new information.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "agent_reflection_and_self_correction",
+      "title": "Reflection and Self-Correction",
+      "description": "Having an agent check its own work before finishing catches mistakes that pure forward execution misses.",
+      "duration": "12 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain what a reflection step adds to an agent's loop and where it's most worth the extra cost."
+          },
+          {
+            "title": "🪞 What reflection means here",
+            "content": "A **reflection** step has the agent (often via a separate, explicit prompt) evaluate its own progress or output against the original goal — 'did this actually answer the question? is anything missing or incorrect?' — before treating the task as done, rather than stopping the moment it produces something that looks like an answer.\n\n```python\ndraft = llm.attempt(task, state)\ncritique = llm.reflect(task, draft)  # \"is this complete and correct?\"\nif critique.has_issues:\n    state = incorporate(state, critique)\n    draft = llm.attempt(task, state)  # try again with the critique in view\n```"
+          },
+          {
+            "title": "🔁 Self-correction based on reflection",
+            "content": "When a reflection step identifies a problem (an incomplete answer, an inconsistency, an unmet requirement), the agent can loop back and take corrective action — try a different approach, gather more information, or revise the draft answer — rather than delivering a flawed result simply because it was the first thing produced. This is conceptually similar to a person reviewing their own work before submitting it, rather than turning in the first draft."
+          },
+          {
+            "title": "🎯 Where reflection earns its cost",
+            "content": "Reflection adds at least one more LLM call, so it's worth it most clearly for tasks where mistakes are costly (an action that's hard to undo, a customer-facing answer) or where the initial output is genuinely likely to be incomplete or wrong (complex multi-step tasks, tasks with strict correctness requirements like a specific output schema). For simple, low-stakes, low-error-rate tasks, the extra reflection step is often unnecessary overhead."
+          },
+          {
+            "title": "⚠️ Reflection isn't a cure-all",
+            "content": "A reflection step is still performed by the same underlying model with the same underlying limitations — it can miss the same kinds of errors it would have missed on the first pass, especially systematic blind spots rather than random mistakes. It reduces certain classes of error (an incomplete answer that a second look would obviously catch) more reliably than others (a subtly wrong fact the model was confidently wrong about the first time, and remains confidently wrong about on review)."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Adding a reflection step to every task regardless of stakes.** The extra LLM call is a real cost — this lesson is explicit that low-stakes, low-error-rate tasks usually don't need it.\n\n**Treating a passed reflection check as proof of correctness.** Reflection catches what the same model is capable of noticing on a second look — it has no special power over the model's systematic blind spots, so a clean critique isn't a guarantee.\n\n**Looping reflection and correction with no bound of its own.** A reflect-and-retry cycle is still a loop, and it deserves the same stopping-condition thinking as the outer agent loop — an agent that reflects, corrects, reflects, and corrects indefinitely has just moved the stuck-loop problem one level in."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "agent_reflection_and_self_correction_quiz",
+        "questions": [
+          {
+            "question": "What does a reflection step have the agent do before treating a task as complete?",
+            "options": [
+              "Immediately stop regardless of output quality",
+              "Evaluate its own progress or output against the original goal, checking for completeness or errors",
+              "Call every available tool one more time",
+              "Ignore the original goal entirely"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Reflection is an explicit self-check against the original goal, catching issues before the agent commits to a final answer rather than stopping at the first plausible-looking output.",
+            "id": "q1"
+          },
+          {
+            "question": "For which kind of task does reflection most clearly earn its extra cost?",
+            "options": [
+              "A trivial, low-stakes task with a very low error rate",
+              "A complex multi-step task, or one where mistakes are costly or hard to undo",
+              "Tasks that never involve any tools",
+              "Tasks with no correctness requirements at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The extra LLM call reflection requires is most worthwhile when errors are expensive or likely — for simple, low-stakes tasks it's often unnecessary overhead.",
+            "id": "q2"
+          },
+          {
+            "question": "Why isn't reflection a guaranteed cure for all agent errors?",
+            "options": [
+              "Reflection always doubles the agent's accuracy automatically",
+              "The reflection step uses the same underlying model with the same limitations, so it can miss the same systematic blind spots as the first pass",
+              "Reflection removes the need for a stopping condition",
+              "Reflection is only usable with tool-based agents, never with reasoning-only agents"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A model confidently wrong about something on its first attempt may remain just as confidently wrong when reviewing its own work, since the same underlying knowledge gaps or biases are still present.",
+            "id": "q3"
+          },
+          {
+            "question": "In this lesson's code example, what triggers a second call to llm.attempt?",
+            "options": [
+              "critique.has_issues evaluating to true after the reflection step",
+              "The draft always being regenerated exactly once regardless of the critique",
+              "The absence of any tools being available",
+              "A random number generator selecting whether to retry"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example only calls llm.attempt a second time inside the if critique.has_issues block, meaning correction only happens when reflection actually found a problem.",
+            "id": "q4"
+          },
+          {
+            "question": "In this lesson's code example, what is passed into the second call to llm.attempt that wasn't part of the first call's state?",
+            "options": [
+              "The incorporated critique from the reflection step",
+              "A completely different task description",
+              "The original draft answer with no other changes",
+              "Nothing — the second call is identical to the first"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example updates state via incorporate(state, critique) before the second llm.attempt call, feeding the critique's findings into the retry.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does this lesson compare reflection to a person reviewing their own work before submitting it?",
+            "options": [
+              "Because self-correction based on a critique mirrors revising a draft in light of a review, rather than submitting the first version produced",
+              "Because reflection requires a second, entirely separate person to be involved",
+              "Because the analogy implies reflection always catches every possible mistake",
+              "Because reviewing one's own work has no relationship to catching incomplete or unmet requirements"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson draws this comparison specifically to illustrate the self-correction process: catching issues in a first draft before treating it as final, just as a person might revise their own work before submitting it.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson warn against adding a reflection step to every task regardless of stakes?",
+            "options": [
+              "Because the extra LLM call is a real cost, and low-stakes, low-error-rate tasks usually don't need it",
+              "Because reflection steps are always free and add no cost whatsoever",
+              "Because reflection is only technically possible for tasks with tools involved",
+              "Because low-stakes tasks always produce worse initial outputs than high-stakes ones"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is applying reflection universally, when its extra cost is best justified by genuinely costly-to-get-wrong or error-prone tasks, not applied as a blanket default.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson caution against looping reflection and correction with no bound of its own?",
+            "options": [
+              "Because a reflect-and-retry cycle is still a loop, and an agent that reflects and corrects indefinitely has just moved the stuck-loop problem one level in",
+              "Because reflection loops are technically incapable of ever repeating more than once",
+              "Because bounding a reflection loop would eliminate its usefulness entirely",
+              "Because the outer agent's stopping condition automatically bounds any inner reflection loop with no extra work needed"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is treating reflection as immune to the stuck-loop problem, when an unbounded reflect-correct cycle recreates the same runaway risk the outer loop's stopping conditions were built to prevent.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "agent_cot_vs_agentic_reasoning",
+      "title": "Chain-of-Thought vs. Agentic Reasoning",
+      "description": "Both involve the model 'thinking before answering' — but only one of them can actually act on the world in between thoughts.",
+      "duration": "12 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Distinguish chain-of-thought reasoning from agentic reasoning and explain what capability the latter adds."
+          },
+          {
+            "title": "🧠 Chain-of-thought: reasoning within one generation",
+            "content": "**Chain-of-thought** prompting has the model produce intermediate reasoning steps within a single response, before its final answer — useful for math, logic, and multi-step problems where working through steps explicitly improves accuracy. Crucially, all of this reasoning happens in one shot: the model can't pause partway through to go look something up or take an action and then continue reasoning with new information; it's reasoning purely over what it already has."
+          },
+          {
+            "title": "🔀 Agentic reasoning: reasoning across multiple grounded steps",
+            "content": "**Agentic reasoning** (the ReAct-style loop covered earlier in this module) breaks that single-shot limitation: the model can reason, take an action, get a real result from the world, and then continue reasoning with that new, previously-unknown information incorporated — reasoning and reality-checking are interleaved rather than all happening in the model's head at once with no way to verify anything along the way.\n\n```python\n# Chain-of-thought: all reasoning happens in one generation, no new information\nanswer = llm.generate(f\"Think step by step: {problem}\")\n\n# Agentic reasoning: reasoning is interleaved with real, newly-observed information\nwhile not done:\n    thought_and_action = llm.decide(state)          # reason, then choose an action\n    observation = execute(thought_and_action.action)  # get NEW information from the world\n    state = update(state, thought_and_action, observation)\n```"
+          },
+          {
+            "title": "🎯 When each is the right tool",
+            "content": "Chain-of-thought is well-suited to problems that are genuinely solvable from what the model already knows or was given in the prompt — a self-contained math or logic problem, for instance. Agentic reasoning is needed when the task requires information the model doesn't have (needs to look something up) or requires taking real actions to make progress, not just producing better internal reasoning about existing information."
+          },
+          {
+            "title": "🔗 They compose, they don't compete",
+            "content": "In practice, within a single agent step, the model often uses chain-of-thought-style reasoning to decide what to do next (this is exactly what ReAct's 'Thought' step is) — the two aren't rival techniques, chain-of-thought is a reasoning style that happens inside each step of an agentic loop. Understanding both means recognizing that agentic reasoning is chain-of-thought reasoning plus the ability to act and observe in between reasoning steps."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Reaching for a full agentic loop on a problem that's genuinely self-contained.** If everything needed to solve it is already in the prompt, plain chain-of-thought gets the same reasoning benefit without the extra cost and complexity of a loop.\n\n**Treating chain-of-thought and agentic reasoning as competing techniques to choose between.** They compose — the 'Thought' inside every ReAct step is chain-of-thought reasoning, so the real question is whether the task also needs grounded actions, not whether to pick one style over the other.\n\n**Assuming agentic reasoning fixes a chain-of-thought model's factual errors just by adding a loop.** The loop only helps if the actions actually retrieve the missing or corrective information — wrapping a loop around a model with no relevant tools doesn't change what it does or doesn't know."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "agent_cot_vs_agentic_reasoning_quiz",
+        "questions": [
+          {
+            "question": "What is the key limitation of chain-of-thought reasoning within a single generation?",
+            "options": [
+              "It cannot be used for math problems",
+              "The model cannot pause to take a real action or gather new information partway through — it reasons only over what it already has",
+              "It always produces a wrong answer",
+              "It requires a separate model for each reasoning step"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Chain-of-thought happens entirely within one generation — there's no mechanism to act on the world and incorporate new results mid-reasoning, unlike an agentic loop.",
+            "id": "q1"
+          },
+          {
+            "question": "What capability does agentic reasoning add on top of plain chain-of-thought?",
+            "options": [
+              "Nothing — they are identical",
+              "The ability to take real actions and incorporate their results into continued reasoning across multiple steps",
+              "The ability to run without a stopping condition",
+              "The elimination of any need for tools"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Agentic reasoning interleaves reasoning with real actions and their observed results, letting the model incorporate genuinely new information as it goes — something single-shot chain-of-thought cannot do.",
+            "id": "q2"
+          },
+          {
+            "question": "How do chain-of-thought and agentic reasoning relate to each other in practice?",
+            "options": [
+              "They are competing, mutually exclusive techniques",
+              "Chain-of-thought-style reasoning is what happens inside each step (the 'Thought') of an agentic loop like ReAct — they compose rather than compete",
+              "Agentic reasoning is only used for image generation",
+              "Chain-of-thought can only be used outside of any agent system"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The 'Thought' step in ReAct is itself a form of chain-of-thought reasoning — agentic reasoning is best understood as chain-of-thought plus the ability to act and observe between steps.",
+            "id": "q3"
+          },
+          {
+            "question": "In this lesson's code example, what is the key difference between the chain-of-thought line and the agentic reasoning loop?",
+            "options": [
+              "The agentic loop calls execute() to get new information from the world between reasoning steps, while chain-of-thought never does",
+              "The chain-of-thought line uses more tokens than the entire agentic loop",
+              "The agentic loop never calls llm.decide more than once",
+              "Chain-of-thought always requires a tool registry, while agentic reasoning does not"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example highlights that the agentic loop's execute(thought_and_action.action) step retrieves genuinely new information, which the single chain-of-thought generate() call has no mechanism to do.",
+            "id": "q4"
+          },
+          {
+            "question": "In this lesson's code example, what does the agentic loop pass to update() at the end of each iteration?",
+            "options": [
+              "The state, the thought_and_action, and the observation",
+              "Only the original problem string, unchanged",
+              "Nothing — update() takes no arguments",
+              "Only the final answer, discarding everything else"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example shows state = update(state, thought_and_action, observation), folding the latest reasoning, action, and its result back into the state for the next iteration.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does this lesson say chain-of-thought is well-suited to a 'self-contained math or logic problem'?",
+            "options": [
+              "Because such problems are genuinely solvable from what the model already knows or was given in the prompt, without needing to look anything up",
+              "Because math and logic problems always require taking real-world actions to solve",
+              "Because chain-of-thought cannot be used for anything other than math problems",
+              "Because self-contained problems always require an agentic loop to solve correctly"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson ties chain-of-thought's suitability directly to whether a problem's solution is fully derivable from existing information, without needing new information from the world.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson warn against reaching for a full agentic loop on a problem that's genuinely self-contained?",
+            "options": [
+              "Because plain chain-of-thought gets the same reasoning benefit without the extra cost and complexity of a loop",
+              "Because agentic loops are technically incapable of solving self-contained problems at all",
+              "Because chain-of-thought is always slower than an agentic loop regardless of the problem",
+              "Because self-contained problems can only be solved by agentic reasoning, never by chain-of-thought"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is over-applying the agentic loop when a task doesn't actually need grounded actions, incurring extra cost and complexity for no real benefit over plain chain-of-thought.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson caution that wrapping a loop around a model doesn't automatically fix its factual errors?",
+            "options": [
+              "Because the loop only helps if the actions actually retrieve the missing or corrective information — a loop with no relevant tools doesn't change what the model does or doesn't know",
+              "Because agentic loops always eliminate every factual error a model could make",
+              "Because factual errors are impossible once any loop is introduced",
+              "Because chain-of-thought reasoning is immune to factual errors by design"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is assuming the loop structure itself fixes knowledge gaps, when the actual fix comes from the loop's actions retrieving genuinely new, corrective information.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

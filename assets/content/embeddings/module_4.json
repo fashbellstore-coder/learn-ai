@@ -1,0 +1,529 @@
+{
+  "id": "module_4",
+  "title": "Sparse & Hybrid Search",
+  "description": "BM25 and lexical search as a genuine strength, the structural difference between sparse and dense representations, combining both through hybrid search and re-ranking, and when lexical search still wins outright.",
+  "icon": "🔀",
+  "color": "#00796B",
+  "order": 4,
+  "estimatedHours": 2,
+  "difficulty": "Intermediate",
+  "prerequisites": [],
+  "lessons": [
+    {
+      "id": "emb_lexical_search_bm25",
+      "title": "Lexical Search and BM25: The Other Kind of Relevance",
+      "description": "Revisit keyword-based search and see why it's still a serious competitor to embeddings.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain how BM25 scores relevance and why it fundamentally differs from embedding-based similarity."
+          },
+          {
+            "title": "🔤 Matching words, not meaning",
+            "content": "**Lexical (keyword) search** ranks documents by how well their actual words match the query's words — the classical alternative to the semantic, meaning-based approach of embeddings. **BM25** is the most widely-used lexical scoring formula: it rewards documents containing the query's exact terms, weighted by how rare those terms are across the whole collection (a rare, specific term matching is a much stronger relevance signal than a common word matching) and adjusted for document length."
+          },
+          {
+            "title": "🎯 Exact terms matter here in a way embeddings don't guarantee",
+            "content": "BM25 directly rewards an exact term match — searching for a specific product code, an exact error message, or a person's name tends to work very reliably with BM25, precisely because it's checking for that literal string, not an approximated semantic neighborhood. This is a genuinely different strength than embedding-based search, not just an older, inferior version of the same idea.\n\n```python\n# Conceptual: BM25 rewards rare-term matches more than common-term matches\n# query: \"error code E4521\"\n# a document containing the exact rare string \"E4521\" scores very highly\n# even if an embedding model might not represent that rare code well at all\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming embeddings have made lexical search obsolete.** BM25 remains extremely strong for exact-match-sensitive queries (codes, names, specific technical terms) — this isn't a legacy technique kept around out of habit.\n\n**Assuming BM25 understands synonyms or paraphrasing.** It fundamentally operates on literal term matching (with some normalization like stemming) — 'car' and 'automobile' are different terms to it, unlike an embedding model that may represent them as similar in meaning.\n\n**Ignoring document length normalization's effect.** BM25 explicitly adjusts for document length so that longer documents don't win purely by containing more words overall — worth understanding when interpreting why one document outranks another."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "emb_lexical_search_bm25_quiz",
+        "questions": [
+          {
+            "question": "What does BM25 fundamentally reward when scoring a document's relevance to a query?",
+            "options": [
+              "How semantically similar the document's overall meaning is to the query's meaning",
+              "How well the document's actual words match the query's exact terms, weighted by how rare those terms are across the collection and adjusted for document length",
+              "How recently the document was created, regardless of its content",
+              "The total number of words in the document, regardless of relevance"
+            ],
+            "correctAnswer": 1,
+            "explanation": "BM25 is a literal term-matching approach — it scores documents based on exact term overlap with the query, giving more weight to rarer, more specific terms and correcting for document length, rather than judging semantic meaning.",
+            "id": "q1"
+          },
+          {
+            "question": "Why might BM25 outperform embedding-based search for a query like a specific error code or product ID?",
+            "options": [
+              "BM25 can never outperform embedding-based search on any type of query",
+              "BM25 directly rewards an exact literal match for a specific rare string, which is precisely what it's built to detect, whereas an embedding model may not represent an unusual code well as a meaningful semantic concept",
+              "Embedding-based search only works for numeric queries, never for text",
+              "BM25 and embedding-based search always produce identical rankings"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Exact codes and identifiers are exactly the kind of query BM25 excels at, since it's directly checking for literal term matches — an embedding model, focused on semantic meaning, may not represent an arbitrary rare code as a meaningful point in its learned space at all.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is it a mistake to assume BM25 understands synonyms or paraphrasing the way an embedding model might?",
+            "options": [
+              "BM25 actually understands synonyms perfectly, just like an embedding model",
+              "BM25 fundamentally operates on literal term matching, so a query and a document using different words for the same concept (like 'car' vs. 'automobile') are treated as unrelated terms, unlike an embedding model that could represent them as semantically similar",
+              "Synonyms and paraphrasing are not a real concern in search of any kind",
+              "Embedding models also fail to understand synonyms, just like BM25"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since BM25's scoring is based on literal term overlap, it has no inherent way to recognize that two different words share meaning — that's exactly the gap embedding-based semantic search is designed to close, and it's why hybrid approaches (this module's later lessons) combine the strengths of both.",
+            "id": "q3"
+          },
+          {
+            "question": "In the lesson's example, why does a document containing the exact string 'E4521' score very highly for that query?",
+            "options": [
+              "Because BM25 checks for the literal string match, even if an embedding model might not represent that rare code well at all",
+              "Because BM25 ignores exact term matches entirely and relies on semantic meaning",
+              "Because 'E4521' is a common word that appears in nearly every document",
+              "Because embedding-based search always outperforms BM25 on rare codes"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's example explicitly shows BM25 rewarding the literal, exact match of a rare string like 'E4521', which an embedding model might not represent meaningfully as a semantic concept at all.",
+            "id": "q4"
+          },
+          {
+            "question": "According to this lesson, what does BM25 adjust for so that longer documents don't win purely by word count?",
+            "options": [
+              "Document length normalization",
+              "The color scheme of the document",
+              "The number of images embedded within the document",
+              "The programming language the document is written in"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly states that BM25 adjusts for document length, so that longer documents don't automatically outrank shorter ones purely by containing more words overall.",
+            "id": "q5"
+          },
+          {
+            "question": "How does BM25 weight the value of a matching term, according to this lesson?",
+            "options": [
+              "A rare, specific term matching is treated as a much stronger relevance signal than a common word matching",
+              "Every matching term is weighted completely identically, regardless of how common it is",
+              "Only the very first matching term in a document counts toward the score at all",
+              "BM25 ignores term rarity entirely and only counts total matches"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explains that BM25 weights matches by how rare the term is across the whole collection, so a rare, specific term matching counts as a much stronger relevance signal than a common word.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson warn against assuming embeddings have made lexical search obsolete?",
+            "options": [
+              "Because BM25 remains extremely strong for exact-match-sensitive queries like codes, names, and specific technical terms",
+              "Because embeddings have completely replaced lexical search in every real system",
+              "Because lexical search is only ever used for historical or legacy reasons",
+              "Because BM25 cannot actually be used for any real search task today"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is assuming embeddings obsolete lexical search, when BM25 genuinely remains a strong, non-legacy choice for exact-match-sensitive queries.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson say BM25 doesn't understand synonyms like 'car' and 'automobile'?",
+            "options": [
+              "Because BM25 fundamentally operates on literal term matching (with some normalization like stemming), treating different words as unrelated terms",
+              "Because BM25 was specifically trained on a dictionary of synonyms",
+              "Because 'car' and 'automobile' are actually treated as the exact same term by BM25",
+              "Because synonym understanding is a core, built-in feature of every BM25 implementation"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explains that BM25's literal term-matching foundation means it has no inherent way to recognize that two different words like 'car' and 'automobile' share meaning.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "emb_sparse_vs_dense",
+      "title": "Sparse vs. Dense Representations",
+      "description": "Understand the structural difference between BM25-style sparse vectors and embedding-style dense vectors.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain the structural difference between sparse and dense vector representations, and why each has different strengths."
+          },
+          {
+            "title": "🕳️ Sparse: mostly zeros, indexed by vocabulary",
+            "content": "A **sparse** representation (like the term-frequency vectors underlying BM25, or the TF-IDF vectors from the NLP course) has one dimension per word in a huge vocabulary, and almost all of those dimensions are zero for any given document — only the words that actually appear in that document have nonzero values. This structure directly reflects literal word presence."
+          },
+          {
+            "title": "🌐 Dense: compact, every dimension has meaning",
+            "content": "A **dense** representation (a typical embedding) has far fewer dimensions (hundreds, not hundreds-of-thousands), and nearly every dimension has a meaningful, usually nonzero value — the meaning is distributed across the whole vector rather than tied to specific vocabulary positions, which is exactly what allows it to capture semantic relationships that go beyond literal word overlap.\n\n```python\n# Conceptual contrast:\n# sparse vector: [0, 0, 3, 0, 0, 0, 1, 0, ...] -- mostly zeros,\n#   nonzero only at specific vocabulary positions that appear in the text\n# dense vector:  [0.12, -0.05, 0.88, 0.34, ...] -- compact, nearly every\n#   dimension carries some information, no direct tie to specific words\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming sparse and dense vectors can be compared with the same similarity metric interchangeably.** They generally need different comparison and indexing approaches — mixing them naively doesn't produce meaningful results.\n\n**Thinking sparse representations are strictly 'worse' or outdated.** As the previous lesson covered, sparse methods like BM25 have genuine, distinct strengths for exact-match-sensitive queries.\n\n**Assuming dense embeddings always capture everything sparse representations do.** Dense embeddings can lose sensitivity to rare, specific terms that sparse methods handle precisely — this is exactly the gap hybrid search (next lesson) is designed to close."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "emb_sparse_vs_dense_quiz",
+        "questions": [
+          {
+            "question": "What structurally distinguishes a sparse vector representation from a dense one?",
+            "options": [
+              "There is no structural difference between the two; they're identical",
+              "A sparse vector has one dimension per vocabulary word with almost all values zero (nonzero only where specific words appear), while a dense vector has far fewer dimensions, nearly all carrying meaningful nonzero values distributed across the whole vector",
+              "Sparse vectors always have fewer dimensions than dense vectors",
+              "Dense vectors are always structured with one dimension per vocabulary word"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The structural distinction is core: sparse vectors are huge but mostly empty, tied directly to specific vocabulary positions, while dense vectors are compact with meaning distributed across nearly every dimension rather than tied to specific words.",
+            "id": "q1"
+          },
+          {
+            "question": "Why does a dense embedding's distributed representation help it capture semantic relationships that sparse vectors miss?",
+            "options": [
+              "Dense embeddings actually cannot capture any semantic relationships at all",
+              "Since meaning in a dense vector is distributed across the whole vector rather than tied to specific vocabulary positions, it can represent relationships between different words that mean similar things, which a position-tied sparse representation cannot directly express",
+              "Sparse vectors already capture semantic relationships just as well as dense vectors",
+              "Distribution of meaning across dimensions has no relationship to capturing semantic similarity"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Because a dense embedding's meaning isn't anchored to specific vocabulary slots, it can encode that two different words are semantically related — something a sparse, position-tied representation has no natural way to express.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is it a mistake to assume dense embeddings always capture everything a sparse representation does?",
+            "options": [
+              "Dense embeddings always capture strictly more information than any sparse representation",
+              "Dense embeddings can lose sensitivity to rare, specific terms that sparse methods handle precisely, which is exactly the gap that combining both approaches (hybrid search) is designed to address",
+              "Sparse and dense representations always capture exactly the same information",
+              "This is not actually a real concern in practice"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Dense embeddings' strength in semantic similarity comes with a real cost: precise sensitivity to rare or exact terms can get diluted, which is precisely the motivation for combining sparse and dense approaches together rather than relying on dense alone.",
+            "id": "q3"
+          },
+          {
+            "question": "In the lesson's conceptual contrast, what does the sparse vector example show about most of its values?",
+            "options": [
+              "Most values are zero, with nonzero values only at specific vocabulary positions that appear in the text",
+              "Every single value in the sparse vector is nonzero",
+              "The sparse vector has fewer dimensions than the dense vector in the example",
+              "Sparse vectors never actually contain any zero values at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's example sparse vector [0, 0, 3, 0, 0, 0, 1, 0, ...] shows mostly zeros, with nonzero values appearing only at specific vocabulary positions corresponding to words present in the text.",
+            "id": "q4"
+          },
+          {
+            "question": "According to this lesson, roughly how many dimensions does a typical dense embedding have compared to a sparse vector?",
+            "options": [
+              "Hundreds, not hundreds-of-thousands",
+              "Always exactly the same number of dimensions as a sparse vector",
+              "Millions of dimensions, far more than any sparse vector",
+              "Dense embeddings never have a fixed number of dimensions"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly contrasts dense embeddings' compact size (hundreds of dimensions) against sparse vectors' huge, mostly-zero vocabulary-sized dimensionality.",
+            "id": "q5"
+          },
+          {
+            "question": "What earlier course's concept does this lesson connect sparse, term-frequency-style vectors back to?",
+            "options": [
+              "The TF-IDF vectors from the NLP course",
+              "The convolutional filters from the computer vision course",
+              "The attention mechanism from the transformers course",
+              "The reinforcement learning rewards from an unrelated course"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly connects sparse representations like the ones underlying BM25 back to the TF-IDF vectors covered in the NLP course.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson warn against comparing sparse and dense vectors with the same similarity metric interchangeably?",
+            "options": [
+              "Because they generally need different comparison and indexing approaches, so mixing them naively doesn't produce meaningful results",
+              "Because sparse and dense vectors are always mathematically identical once computed",
+              "Because only sparse vectors can ever be compared using any similarity metric",
+              "Because dense vectors cannot be compared using cosine similarity at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is treating sparse and dense vectors as interchangeably comparable, when they generally require different comparison and indexing approaches to produce meaningful results.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson say dense embeddings can lose sensitivity to rare, specific terms that sparse methods handle precisely?",
+            "options": [
+              "Because this gap is exactly what hybrid search, covered in the next lesson, is designed to close",
+              "Because dense embeddings always capture rare terms more precisely than sparse methods",
+              "Because rare terms have no relevance to either sparse or dense representations",
+              "Because sparse methods are equally poor at handling rare, specific terms"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly frames this limitation of dense embeddings as the exact motivation for the hybrid search approach covered in the following lesson.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "emb_hybrid_search_reranking",
+      "title": "Hybrid Search and Re-Ranking",
+      "description": "Combine lexical and semantic search to get the strengths of both.",
+      "duration": "9 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can describe how hybrid search combines lexical and embedding-based results, and what re-ranking adds."
+          },
+          {
+            "title": "🤝 Best of both worlds, combined explicitly",
+            "content": "**Hybrid search** runs both a lexical search (BM25) and an embedding-based semantic search on the same query, then combines their results — catching both exact-term matches (BM25's strength) and semantically related content that doesn't share exact wording (embeddings' strength). Combining the two typically outperforms either approach alone on a broad mix of real-world queries."
+          },
+          {
+            "title": "🔗 Combining two different scoring scales",
+            "content": "A genuine challenge: BM25 scores and cosine similarity scores are on completely different scales and have different meanings, so combining them requires either a normalization step (rescaling both onto a comparable range) or a fusion algorithm like **Reciprocal Rank Fusion** (which combines results based on their *rank* in each individual result list, rather than trying to directly compare incompatible raw scores)."
+          },
+          {
+            "title": "🎯 Re-ranking: a second, more expensive pass",
+            "content": "A **re-ranker** is often applied after an initial hybrid (or single-method) retrieval step: it's typically a more powerful, more computationally expensive model that scores the smaller candidate set from the first pass more carefully — accepting higher per-item cost because it's only run on a small shortlist rather than the entire collection.\n\n```python\n# Conceptual hybrid search + re-ranking pipeline\nlexical_results = bm25_search(query, k=50)\nsemantic_results = embedding_search(query, k=50)\ncombined = reciprocal_rank_fusion(lexical_results, semantic_results)\nfinal_results = rerank(combined[:20], query)  # more expensive, smaller set\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Directly averaging raw BM25 and cosine similarity scores without any normalization or fusion method.** Since the two scores are on incomparable scales, naive averaging can produce misleading combined rankings.\n\n**Running an expensive re-ranker on the full collection instead of a shortlist.** Re-ranking is deliberately a two-stage strategy — a cheap first pass to narrow candidates, then an expensive second pass on just those — running the expensive model on everything defeats the purpose.\n\n**Assuming hybrid search is always strictly better with no added cost.** It genuinely requires running and combining two search systems instead of one, adding real complexity and latency — worth validating that the quality improvement justifies it for your specific use case."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "emb_hybrid_search_reranking_quiz",
+        "questions": [
+          {
+            "question": "What is the core idea behind hybrid search?",
+            "options": [
+              "Using only BM25 and ignoring embedding-based search entirely",
+              "Running both lexical (BM25) and embedding-based semantic search on the same query and combining their results, to catch both exact-term matches and semantically related content that lacks exact wording overlap",
+              "Using only embedding-based search and ignoring lexical search entirely",
+              "Hybrid search refers to combining two different embedding models, not lexical and semantic search"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Hybrid search deliberately runs both search paradigms and combines them, aiming to get BM25's precision on exact matches together with embeddings' ability to find semantically related content that doesn't share literal wording.",
+            "id": "q1"
+          },
+          {
+            "question": "Why can't BM25 scores and cosine similarity scores simply be averaged together directly?",
+            "options": [
+              "They can always be averaged directly with no issue",
+              "The two scores are on completely different scales with different meanings, so directly combining them without normalization or a rank-based fusion method can produce misleading results",
+              "BM25 and cosine similarity always produce identical numeric ranges",
+              "Averaging scores is never done in any real hybrid search system"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since BM25 and cosine similarity measure fundamentally different things on incompatible scales, naive averaging risks letting one score dominate arbitrarily — proper combination requires normalization or a fusion approach like Reciprocal Rank Fusion that works with ranks instead of raw scores.",
+            "id": "q2"
+          },
+          {
+            "question": "Why does re-ranking typically use a more expensive model only on a small shortlist rather than the entire collection?",
+            "options": [
+              "Re-ranking models are actually cheaper to run than the initial retrieval step",
+              "Re-ranking accepts a higher per-item computational cost in exchange for more careful scoring, which is only practical because it's applied to a small candidate set from an initial retrieval pass, not the whole collection",
+              "Re-ranking must always be applied to every single document in the collection",
+              "Re-ranking and initial retrieval always use the exact same model with no cost difference"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The two-stage design is deliberate: a cheap, fast first pass narrows down candidates, making it computationally feasible to then apply a more expensive, more accurate re-ranking model to just that smaller shortlist rather than the entire collection.",
+            "id": "q3"
+          },
+          {
+            "question": "In the lesson's conceptual pipeline, what happens to the combined results before the final rerank step?",
+            "options": [
+              "They're truncated to the top 20 combined results before the more expensive re-ranker is applied",
+              "The entire original collection is re-ranked from scratch",
+              "Only the lexical_results are ever passed into the re-ranker",
+              "No truncation happens; every combined result is re-ranked"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's example pipeline slices combined[:20] before passing it to rerank, illustrating that the expensive re-ranking step is applied only to a small shortlist, not the full combined set.",
+            "id": "q4"
+          },
+          {
+            "question": "What specific fusion method does this lesson name as an alternative to direct score normalization?",
+            "options": [
+              "Reciprocal Rank Fusion",
+              "Gradient Descent Fusion",
+              "Beam Search Fusion",
+              "Token Fusion"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson names Reciprocal Rank Fusion specifically as a method that combines results based on rank rather than trying to directly compare incompatible raw BM25 and cosine similarity scores.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does this lesson say combining BM25 and cosine similarity scores is a genuine challenge?",
+            "options": [
+              "Because the two scores are on completely different scales and have different meanings",
+              "Because BM25 and cosine similarity always produce numerically identical scores",
+              "Because only one of the two scores can ever be computed for a given query",
+              "Because combining scores from two systems is never actually attempted in practice"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly identifies the incompatible scales and meanings of BM25 and cosine similarity scores as the genuine challenge that requires normalization or a fusion method like Reciprocal Rank Fusion.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson warn against running an expensive re-ranker on the full collection instead of a shortlist?",
+            "options": [
+              "Because re-ranking is deliberately a two-stage strategy — a cheap first pass to narrow candidates, then an expensive pass on just those — so running it on everything defeats the purpose",
+              "Because re-rankers are always cheaper to run than the initial retrieval step",
+              "Because re-ranking the full collection always produces identical results to re-ranking a shortlist",
+              "Because re-ranking is never actually more expensive than the initial retrieval pass"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is applying the expensive re-ranker broadly rather than to a small shortlist, undermining the entire point of the two-stage design.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson caution against assuming hybrid search is always strictly better with no added cost?",
+            "options": [
+              "Because it genuinely requires running and combining two search systems instead of one, adding real complexity and latency worth validating",
+              "Because hybrid search is always free and adds no additional computation",
+              "Because hybrid search never actually improves retrieval quality in any case",
+              "Because combining two search systems always reduces total latency"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is assuming hybrid search is a free upgrade, when it genuinely adds real complexity and latency that should be validated against the actual quality improvement for your use case.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "emb_when_lexical_still_wins",
+      "title": "When Lexical Search Still Wins",
+      "description": "Identify the specific situations where embeddings aren't automatically the better choice.",
+      "duration": "7 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can name concrete scenarios where lexical search outperforms or is preferable to embedding-based search alone."
+          },
+          {
+            "title": "🎯 Precision-critical, exact-match scenarios",
+            "content": "Lexical search tends to win outright for: exact identifiers (order numbers, error codes, SKUs), rare proper nouns and specific names an embedding model may not represent distinctly, queries where a user knows precisely what phrase they're looking for (a specific legal clause, an exact quote), and situations demanding full explainability of why a result matched (a literal, inspectable term match is easier to explain to a user or auditor than 'the embeddings were 0.83 cosine similar')."
+          },
+          {
+            "title": "💡 It's a genuine choice, not a default fallback",
+            "content": "The point of this whole module isn't that lexical search is a legacy technique kept around for edge cases — it's that lexical and semantic search solve genuinely different problems well, and a mature retrieval system usually needs both (via hybrid search) rather than treating one as universally superior to the other.\n\n```python\n# A quick mental checklist for a given query type:\n# - exact code/ID/name lookup -> lexical (BM25) likely wins alone\n# - \"find documents about a similar topic/concept\" -> embeddings likely win alone\n# - a broad mix of real user queries -> hybrid search usually wins overall\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Defaulting to embeddings for everything because they're the newer technique.** Newer isn't automatically better for every specific query type — the right tool depends on what's actually being searched for.\n\n**Not testing both approaches against your own real query patterns.** The same empirical-evaluation principle from earlier in this course applies here: measure actual performance on your representative queries rather than assuming one approach's general reputation applies to your specific case.\n\n**Treating this as a permanent, one-time decision.** As your application's query patterns evolve, it's worth periodically re-checking whether your search approach (lexical-only, embeddings-only, or hybrid) still fits."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "emb_when_lexical_still_wins_quiz",
+        "questions": [
+          {
+            "question": "In what kind of scenario does lexical search tend to clearly outperform embedding-based search?",
+            "options": [
+              "When searching for broad conceptual similarity between documents on different topics",
+              "For exact-match scenarios like specific identifiers, rare proper nouns, or precise phrases a user already knows, where literal term matching is more reliable than semantic approximation",
+              "Lexical search never outperforms embedding-based search in any scenario",
+              "Only when the documents being searched contain no text at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Lexical search's strength is precise, literal matching — exact codes, specific names, and known phrases are exactly the kind of query where an embedding's semantic approximation offers no advantage and can even underperform.",
+            "id": "q1"
+          },
+          {
+            "question": "Why is explainability sometimes a reason to prefer lexical search results over embedding-based ones?",
+            "options": [
+              "Explainability is never a relevant factor in choosing a search approach",
+              "A literal, inspectable term match is easier to explain to a user or auditor than a cosine similarity score, which can matter in contexts requiring transparency about why a result matched",
+              "Embedding-based search results are always more explainable than lexical ones",
+              "Explainability only matters for image search, never text search"
+            ],
+            "correctAnswer": 1,
+            "explanation": "In contexts where you need to justify or audit why a particular result was returned, a literal term match ('this document contains the exact phrase you searched for') is far more transparent and inspectable than a numeric similarity score from an embedding comparison.",
+            "id": "q2"
+          },
+          {
+            "question": "What is the broader takeaway of this module regarding lexical vs. embedding-based search?",
+            "options": [
+              "Embedding-based search is a strictly superior newer technique that should always be used instead of lexical search",
+              "Lexical and semantic search solve genuinely different problems well, so a mature retrieval system usually benefits from combining both (hybrid search) rather than treating either one as universally superior",
+              "Lexical search is an obsolete legacy technique with no remaining practical use",
+              "The choice between lexical and semantic search never actually matters for real applications"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The module's core lesson is that these are complementary tools with different genuine strengths, not a hierarchy where one newer technique dominates — which is exactly why hybrid approaches combining both tend to perform best on a broad range of real queries.",
+            "id": "q3"
+          },
+          {
+            "question": "In the lesson's mental checklist, which approach is suggested for a broad mix of real user queries?",
+            "options": [
+              "Hybrid search usually wins overall",
+              "Lexical search alone always wins for every query type",
+              "Embedding search alone always wins for every query type",
+              "Neither lexical nor embedding search should be used for a broad mix of queries"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's checklist explicitly states that for a broad mix of real user queries, hybrid search usually wins overall, compared to either single approach alone.",
+            "id": "q4"
+          },
+          {
+            "question": "According to this lesson, what four specific scenarios does lexical search tend to win outright?",
+            "options": [
+              "Exact identifiers, rare proper nouns, precisely known phrases, and situations demanding full explainability",
+              "Only scenarios involving image search, never text search",
+              "Only scenarios where no query has ever been typed correctly",
+              "Only scenarios involving extremely long documents"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson lists exact identifiers (order numbers, codes), rare proper nouns, precisely known phrases, and explainability-demanding contexts as the specific scenarios where lexical search tends to win outright.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does this lesson say a literal term match is easier to explain to an auditor than a cosine similarity score?",
+            "options": [
+              "Because a literal, inspectable term match is more transparent than a numeric similarity score like '0.83 cosine similar'",
+              "Because auditors are incapable of understanding any numeric score whatsoever",
+              "Because cosine similarity scores are always more explainable than literal term matches",
+              "Because explainability has no relevance to any real search application"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly gives this exact comparison: an inspectable literal match is easier to explain and justify to a user or auditor than an abstract cosine similarity score.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson recommend testing both lexical and embedding approaches against your own real query patterns?",
+            "options": [
+              "Because the same empirical-evaluation principle from earlier in this course applies — measure actual performance on your representative queries rather than assuming based on general reputation",
+              "Because testing your own query patterns is never actually useful for choosing a search approach",
+              "Because embeddings always outperform lexical search regardless of query pattern",
+              "Because lexical search always outperforms embeddings regardless of query pattern"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is not testing against real query patterns, echoing the empirical-evaluation principle from earlier in the course rather than relying on general reputation alone.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson caution against treating the lexical-vs-embedding choice as a permanent, one-time decision?",
+            "options": [
+              "Because as an application's query patterns evolve, it's worth periodically re-checking whether the current search approach still fits",
+              "Because query patterns never actually change once an application launches",
+              "Because the choice of search approach can never be revisited once made",
+              "Because periodic re-checking always produces the exact same conclusion every time"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is treating this as a permanent decision, when evolving query patterns over time make periodic re-evaluation worthwhile.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,575 @@
+{
+  "id": "mcp_transports",
+  "title": "Transports & Connections",
+  "description": "The stdio transport for local processes, HTTP-based transport for remote and shared servers, choosing between them, and the connection lifecycle including capability negotiation.",
+  "icon": "🔗",
+  "color": "#673AB7",
+  "order": 2,
+  "estimatedHours": 5,
+  "difficulty": "intermediate",
+  "prerequisites": [
+    "mcp_building_servers"
+  ],
+  "lessons": [
+    {
+      "id": "mcp_stdio_transport",
+      "title": "The stdio Transport: Local Process Communication",
+      "description": "For a server running locally alongside the host application, standard input/output is a simple, effective way to exchange MCP messages.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain how the **stdio transport** works and identify when it's the right transport choice for an MCP server."
+          },
+          {
+            "title": "📥📤 How stdio transport works",
+            "content": "The host application launches the MCP server as a **local subprocess**, and the two communicate by writing JSON-RPC messages to the subprocess's standard input and reading responses from its standard output — no network involved at all, just the same input/output streams every command-line program already has."
+          },
+          {
+            "title": "✅ When stdio is the right choice",
+            "content": "The server runs on the **same machine** as the host application — a local filesystem tool, a local development tool, an integration that only makes sense running alongside the application itself. This is simple to set up (no network configuration, no ports to manage) and has minimal latency overhead, since it avoids any network stack entirely."
+          },
+          {
+            "title": "⚠️ Limitations of stdio",
+            "content": "The server must run as a local subprocess of the host, which doesn't work for a server that needs to run on a different machine, be shared across multiple separate host applications, or scale independently of any single host's lifecycle — the tight process coupling that makes stdio simple is exactly what limits its applicability to genuinely local, single-host scenarios."
+          },
+          {
+            "title": "🔧 Practical considerations",
+            "content": "Since the host is responsible for launching and managing the subprocess's lifecycle, error handling needs to account for the subprocess **crashing or failing to start**, not just for protocol-level errors within an established connection. Because stdio is exclusively used for the JSON-RPC messages themselves, a server shouldn't write unrelated output (debug logging, print statements) directly to the same standard output stream the protocol is using, or it will corrupt the message stream — logging needs to go somewhere else (standard error, a log file) instead."
+          },
+          {
+            "title": "💻 Launching and talking to a stdio server",
+            "content": "```python\nimport subprocess, json\n\nproc = subprocess.Popen(\n    [\"python3\", \"my_mcp_server.py\"],\n    stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,\n)\n\nrequest = {\"jsonrpc\": \"2.0\", \"id\": 1, \"method\": \"tools/list\", \"params\": {}}\nproc.stdin.write((json.dumps(request) + \"\\n\").encode())\nproc.stdin.flush()\nresponse = json.loads(proc.stdout.readline())\n\n# WRONG on the server side -- would corrupt the protocol stream:\n#   print(\"debug: got a request\")   # goes to stdout, breaks JSON-RPC parsing\n# RIGHT: log to stderr instead\n#   import sys; print(\"debug: got a request\", file=sys.stderr)\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Writing debug output to stdout on the server side.** Since stdout is the protocol channel, any stray `print()` corrupts the JSON-RPC message stream — always log to stderr or a file instead.\n\n**Not handling subprocess crashes or failed startup.** Because the host owns the subprocess's lifecycle, it needs explicit handling for the process dying or never starting, not just for in-protocol errors.\n\n**Reaching for stdio when a server needs to be shared across machines or applications.** stdio's tight process coupling makes it a poor fit the moment a server needs to run remotely or serve more than one host."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "mcp_stdio_transport_quiz",
+        "questions": [
+          {
+            "question": "How does the stdio transport enable MCP communication?",
+            "options": [
+              "Through a dedicated network socket over the internet",
+              "By having the host launch the server as a local subprocess and exchange JSON-RPC messages via standard input/output",
+              "Via a shared database both processes poll continuously",
+              "Through a Bluetooth connection between devices"
+            ],
+            "correctAnswer": 1,
+            "explanation": "stdio transport uses ordinary standard input/output streams of a locally-launched subprocess to exchange messages, with no network involved.",
+            "id": "q1"
+          },
+          {
+            "question": "When is stdio transport the appropriate choice for an MCP server?",
+            "options": [
+              "When the server needs to be shared across multiple separate host applications on different machines",
+              "When the server runs on the same machine as the host application, such as a local filesystem or development tool",
+              "Only when the server needs to scale independently of any host",
+              "stdio is never actually a valid transport choice"
+            ],
+            "correctAnswer": 1,
+            "explanation": "stdio's simplicity and low overhead fit genuinely local scenarios where the server runs as a subprocess of the host on the same machine — it doesn't suit servers needing independent operation or remote/shared access.",
+            "id": "q2"
+          },
+          {
+            "question": "Why must an MCP server using stdio transport avoid writing unrelated debug output directly to standard output?",
+            "options": [
+              "Debug output is required to appear in standard output for MCP to function",
+              "Standard output is exclusively used for JSON-RPC protocol messages in this transport, so other output would corrupt the message stream",
+              "Standard output has no relationship to the MCP protocol",
+              "This restriction only applies to MCP clients, never servers"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since stdio transport uses standard output solely for protocol messages, mixing in unrelated debug text would break message parsing — logging needs a separate channel like standard error.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, what launches the MCP server process, and what streams does the host use to talk to it?",
+            "options": [
+              "A network socket connection; the host uses HTTP requests",
+              "subprocess.Popen launches it as a local subprocess; the host writes to its stdin and reads from its stdout",
+              "A database connection; the host writes rows to a table",
+              "The server launches the host, not the other way around"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The example shows subprocess.Popen starting the server locally, with the host writing JSON-RPC requests to stdin and reading responses from stdout — exactly the stdio transport mechanism.",
+            "id": "q4"
+          },
+          {
+            "question": "Why does the commented-out `print(\"debug: got a request\")` line in the example specifically break the protocol?",
+            "options": [
+              "Because print() statements are always syntax errors in Python",
+              "Because it writes to stdout, the same channel the JSON-RPC messages use, corrupting the message stream the client is trying to parse",
+              "Because it would only affect the client, not the server",
+              "Because debug messages must always be exactly one line long"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Any unrelated text written to stdout mixes into the JSON-RPC message stream, since stdout is the exclusive channel for protocol messages in this transport.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does the host application need to account for the subprocess crashing or failing to start, beyond ordinary protocol-level error handling?",
+            "options": [
+              "Because subprocesses can never fail once launched",
+              "Because the host is responsible for launching and managing the subprocess's lifecycle, so process-level failures are a distinct category of error from in-protocol errors",
+              "Because protocol-level errors and process crashes are exactly the same thing",
+              "Because stdio transport makes crash handling unnecessary"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since the host owns the subprocess lifecycle under stdio, it must handle the process dying or never starting as its own error case, separate from errors within an already-established connection.",
+            "id": "q6"
+          },
+          {
+            "question": "What specifically limits stdio's applicability to genuinely local, single-host scenarios?",
+            "options": [
+              "Its use of JSON-RPC as the underlying message format",
+              "The tight process coupling — the server must run as a subprocess of the host, which breaks down for remote, shared, or independently-scaled use cases",
+              "The fact that stdio cannot be used with any SDK",
+              "The requirement that servers be written in Python specifically"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The same tight coupling that gives stdio its simplicity (a locally-launched subprocess) is exactly what prevents it from supporting remote, multi-host, or independently-scaled scenarios.",
+            "id": "q7"
+          },
+          {
+            "question": "Where should an MCP server using stdio transport send its debug or logging output instead of stdout?",
+            "options": [
+              "Nowhere — logging is entirely disallowed under stdio transport",
+              "Standard error or a separate log file, keeping stdout reserved exclusively for JSON-RPC protocol messages",
+              "It should still use stdout, just formatted differently",
+              "It should be sent back to the client as a JSON-RPC error"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Standard error or a dedicated log file keeps debug output out of the protocol channel, avoiding corruption of the JSON-RPC message stream on stdout.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "mcp_http_transport",
+      "title": "The HTTP/Streaming Transport: Remote and Shared Servers",
+      "description": "When a server needs to run remotely or serve multiple clients, an HTTP-based transport takes over from stdio's local-process model.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain how an HTTP-based MCP transport differs from stdio and identify scenarios where it's the necessary choice."
+          },
+          {
+            "title": "🌐 How HTTP-based transport works",
+            "content": "Rather than a subprocess's standard input/output, the client and server communicate over **HTTP requests**, with a **streaming** mechanism (so a server can send a sequence of messages, not just a single request-response pair) layered on top to support the same kind of ongoing exchange that MCP's protocol needs — similar in spirit to how streaming responses work for LLM API calls, but applied to the MCP message exchange itself."
+          },
+          {
+            "title": "✅ When HTTP-based transport is necessary",
+            "content": "- The server needs to run on a **different machine** than the host application — a centrally-hosted integration serving many different users or applications.\n- **Multiple, separate host applications** need to connect to the same running server instance, rather than each host launching and owning its own subprocess copy.\n- The server needs to **scale independently** (multiple instances behind a load balancer, for instance) rather than being tied to any single host's process lifecycle."
+          },
+          {
+            "title": "🔐 Additional considerations that come with going over a network",
+            "content": "Unlike stdio's implicit trust (the host launched this exact subprocess itself), a network-based connection needs **authentication and authorization** — the server needs some way to know which client is connecting and what that client is allowed to do, which becomes especially important once the security considerations covered in the security module of this course are in play. **Network reliability** concerns (timeouts, retries, connection drops) also become relevant in a way they simply aren't for a local subprocess connection."
+          },
+          {
+            "title": "⚖️ Choosing between stdio and HTTP-based transport",
+            "content": "The deciding factor is almost always about **deployment topology** rather than any difference in what the server can actually do: local, single-host, single-user scenarios favor stdio for its simplicity; remote, shared, or independently-scaled scenarios need an HTTP-based transport, accepting the added complexity of authentication and network reliability handling that comes with it."
+          },
+          {
+            "title": "💻 A streaming HTTP exchange, roughly",
+            "content": "```python\nimport requests\n\n# Client sends a JSON-RPC request over HTTP, with an auth header --\n# something stdio's implicit subprocess trust never needed.\nresp = requests.post(\n    \"https://tools.example.com/mcp\",\n    json={\"jsonrpc\": \"2.0\", \"id\": 1, \"method\": \"tools/call\",\n          \"params\": {\"name\": \"search_docs\", \"arguments\": {\"query\": \"refunds\"}}},\n    headers={\"Authorization\": \"Bearer <token>\"},\n    stream=True,   # streamed response, not a single blocking reply\n    timeout=10,    # network timeouts matter here, unlike a local subprocess\n)\nfor chunk in resp.iter_lines():\n    handle_streamed_message(chunk)\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Skipping authentication because 'it's just internal.'** A network connection has no implicit trust the way a locally-launched subprocess does — omitting auth leaves the server open to any client that can reach the endpoint.\n\n**Not handling timeouts, retries, or dropped connections.** Network reliability issues that simply don't exist for a local subprocess become a real operational concern the moment a server moves to HTTP.\n\n**Choosing HTTP transport purely out of habit, even for a single local host.** This takes on authentication and network-reliability complexity a genuinely local use case doesn't need — see the next lesson's decision framework."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "mcp_http_transport_quiz",
+        "questions": [
+          {
+            "question": "What mechanism does an HTTP-based MCP transport typically layer on top of ordinary HTTP requests?",
+            "options": [
+              "A requirement that only one message can ever be sent, then the connection closes",
+              "A streaming mechanism supporting an ongoing exchange of messages, similar in spirit to streaming LLM responses",
+              "A conversion of all messages into binary formats incompatible with JSON-RPC",
+              "Nothing — plain single-request HTTP handles all MCP needs identically to stdio"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Streaming support lets the server send a sequence of messages over time rather than being limited to one request-response pair, matching MCP's need for an ongoing message exchange.",
+            "id": "q1"
+          },
+          {
+            "question": "In which scenario is an HTTP-based transport necessary rather than stdio?",
+            "options": [
+              "When the server runs as a subprocess on the same machine as a single host application",
+              "When the server needs to run on a different machine, or be shared across multiple separate host applications",
+              "When simplicity is the only requirement and no sharing is needed",
+              "HTTP-based transport is never actually necessary for any scenario"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Remote hosting, sharing across multiple hosts, and independent scaling are exactly the scenarios stdio's tight local-subprocess coupling can't support, requiring an HTTP-based transport instead.",
+            "id": "q2"
+          },
+          {
+            "question": "What additional concern does an HTTP-based transport introduce that stdio doesn't have?",
+            "options": [
+              "The need for authentication/authorization, since the server can't implicitly trust a network connection the way it trusts a subprocess it launched itself",
+              "The need for a parameter schema, which stdio transport doesn't require",
+              "The need for JSON-RPC message formatting, which stdio doesn't use",
+              "There are no meaningful additional concerns introduced by HTTP transport"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Because a network connection lacks the implicit trust of a locally-launched subprocess, authentication and authorization (plus general network reliability handling) become necessary considerations that stdio simply doesn't face.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, why does the HTTP request include an Authorization header, unlike the stdio example from the previous lesson?",
+            "options": [
+              "Because JSON-RPC requires an Authorization header on every transport",
+              "Because a network connection has no implicit trust the way a locally-launched subprocess does, so authentication is needed to establish who's connecting",
+              "Because Authorization headers are required only for tool calls, never for other methods",
+              "Because HTTP requests cannot be sent without one for technical reasons unrelated to trust"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The example deliberately includes an auth header to illustrate exactly the trust gap this lesson describes between an implicitly-trusted local subprocess and an explicitly-authenticated network client.",
+            "id": "q4"
+          },
+          {
+            "question": "Why does the code example set a timeout on the HTTP request, when the stdio example did not need one?",
+            "options": [
+              "Timeouts are purely stylistic and have no functional purpose",
+              "Network reliability concerns like timeouts, retries, and dropped connections are relevant for a network connection in a way they simply aren't for a local subprocess",
+              "stdio transport cannot support any kind of timeout",
+              "HTTP requests are always instantaneous, so timeouts are never actually triggered"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Network calls can hang or fail in ways a local subprocess pipe generally doesn't, making explicit timeout handling a necessary practical consideration under HTTP-based transport.",
+            "id": "q5"
+          },
+          {
+            "question": "What is the deciding factor in choosing HTTP-based transport over stdio, per this lesson?",
+            "options": [
+              "Which programming language the server is implemented in",
+              "Whether the server needs to run remotely, be shared by multiple hosts, or scale independently — a deployment topology question, not a capability difference",
+              "How many tools the server exposes in total",
+              "Whether the server uses JSON-RPC as its underlying format"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson frames the choice as almost entirely about deployment topology rather than any difference in what the server itself is capable of doing.",
+            "id": "q6"
+          },
+          {
+            "question": "Why is skipping authentication because a server 'feels internal' a mistake under HTTP-based transport?",
+            "options": [
+              "Because internal servers are automatically authenticated by the network",
+              "Because a network connection has no implicit trust, so omitting auth leaves the server reachable and usable by any client that can reach the endpoint",
+              "Because authentication is only relevant for stdio transport, not HTTP",
+              "Because MCP technically forbids any server from using authentication"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Without authentication, any client able to reach the network endpoint could invoke the server's tools — the implicit trust that protects a stdio subprocess simply doesn't carry over to a network connection.",
+            "id": "q7"
+          },
+          {
+            "question": "Why would choosing HTTP-based transport purely out of habit for a genuinely single-host local server be a poor decision?",
+            "options": [
+              "Because HTTP-based transport is always technically impossible to set up locally",
+              "Because it takes on unnecessary authentication and network-reliability complexity that a purely local use case doesn't actually need",
+              "Because local servers are incapable of using JSON-RPC",
+              "Because stdio transport has been deprecated in favor of HTTP"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Adopting HTTP's added complexity without an actual need for remote access, sharing, or independent scaling means paying costs (auth, network reliability handling) for no corresponding benefit.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "mcp_choosing_a_transport",
+      "title": "Choosing a Transport for Your Use Case",
+      "description": "The transport choice is a deployment decision, and getting it wrong early can mean an awkward migration later.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Given a description of an MCP server's intended use case, recommend an appropriate transport and justify the choice."
+          },
+          {
+            "title": "🧭 A practical decision framework",
+            "content": "Will this server only ever be used by one host application running on the same machine? If yes, **stdio's simplicity** is hard to beat. Will this server need to be reached by multiple different applications, potentially on different machines, or does it need to scale or be managed independently of any one host's process? If yes, an **HTTP-based transport** is necessary, and the added authentication and network-reliability considerations from the previous lesson need to be planned for from the start."
+          },
+          {
+            "title": "🔄 The transport is (mostly) invisible above this layer",
+            "content": "Because MCP's specification separates the **protocol semantics** (tools, resources, prompts, and their JSON-RPC message shapes) from the **transport** that carries those messages, a well-built MCP server's actual tool/resource/prompt logic doesn't need to change based on which transport is used — the transport choice is largely a deployment-layer decision, not something that should leak into how you design the server's actual capabilities."
+          },
+          {
+            "title": "🔀 Migrating between transports later",
+            "content": "Because of that separation, moving a server that started on stdio (perhaps built for a single local use case) to also support an HTTP-based transport (once it needs to serve multiple applications) is primarily an **infrastructure and deployment** change, not a rewrite of the tool/resource/prompt definitions themselves — though it does mean confronting the authentication and network-reliability considerations that weren't relevant under stdio, which is genuinely new work, not just a configuration flag."
+          },
+          {
+            "title": "🎯 A common early mistake",
+            "content": "Building a server with an HTTP-based transport 'just in case it needs to scale later' when the actual near-term use case is a single local host application — this takes on authentication and network-reliability complexity that a purely local use case doesn't need yet, echoing the general engineering principle (also seen in the Agents course's when-to-use-an-agent lesson) of not reaching for more complexity than the current, actual requirement calls for."
+          },
+          {
+            "title": "💻 The same tool logic, either transport",
+            "content": "```python\n# Tool/resource/prompt logic is defined once, independent of transport\n@server.tool()\ndef search_docs(query: str) -> list:\n    return db.search(query)\n\n# Which transport carries the JSON-RPC messages is a deployment choice,\n# made at startup -- the tool definition above doesn't change either way.\nif deployment == \"local_single_host\":\n    server.run(transport=\"stdio\")\nelse:\n    server.run(transport=\"http\", host=\"0.0.0.0\", port=8080, auth=require_auth)\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Building HTTP transport support 'just in case,' before it's actually needed.** This front-loads authentication and network-reliability work for a requirement that may never materialize.\n\n**Assuming a stdio-to-HTTP migration means rewriting the server's tool logic.** Because transport and protocol semantics are separated, the tool/resource/prompt definitions themselves generally don't need to change — the real new work is infrastructure, auth, and reliability handling.\n\n**Letting transport concerns leak into tool/resource/prompt design.** A well-built server's actual capability logic should stay transport-agnostic; if it doesn't, that's a sign the separation of concerns has broken down somewhere."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "mcp_choosing_a_transport_quiz",
+        "questions": [
+          {
+            "question": "What is the deciding factor for choosing between stdio and an HTTP-based transport, per this lesson?",
+            "options": [
+              "Which programming language the server is written in",
+              "Whether the server will be used by a single local host application versus needing to be reached by multiple applications, possibly remotely, or scaled independently",
+              "The number of tools the server exposes",
+              "Whether the server uses JSON-RPC at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The choice is fundamentally about deployment topology — single local host favors stdio's simplicity, while remote/shared/independently-scaled needs require an HTTP-based transport.",
+            "id": "q1"
+          },
+          {
+            "question": "Why does the transport choice largely not affect how a server's tool/resource/prompt logic is designed?",
+            "options": [
+              "Because MCP has no actual separation between protocol semantics and transport",
+              "Because MCP's specification separates protocol semantics from the transport carrying the messages, so the underlying logic doesn't need to change based on transport",
+              "Because only one transport is ever supported by any given MCP server",
+              "Because tool logic is defined by the transport layer itself"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This separation of concerns means the actual capability logic stays largely transport-agnostic, with transport being primarily a deployment-layer decision.",
+            "id": "q2"
+          },
+          {
+            "question": "What is a common early mistake this lesson warns against regarding transport choice?",
+            "options": [
+              "Always using stdio regardless of the use case",
+              "Building with an HTTP-based transport 'just in case it needs to scale later' when the current use case is purely local, taking on unnecessary complexity early",
+              "Never considering authentication when using HTTP-based transport",
+              "Avoiding JSON-RPC entirely in favor of a custom format"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Adopting HTTP-based transport's added authentication and network-reliability complexity before it's actually needed echoes the same anti-over-engineering principle covered in the Agents course's when-to-use-an-agent lesson.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, what stays identical regardless of which transport branch (stdio or http) is chosen at startup?",
+            "options": [
+              "The authentication configuration",
+              "The search_docs tool's definition and logic, defined once above the deployment branch",
+              "The port number the server listens on",
+              "Nothing stays the same between the two branches"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The example deliberately defines the tool once, above the if/else that picks a transport, illustrating that tool logic doesn't need duplication or modification based on transport choice.",
+            "id": "q4"
+          },
+          {
+            "question": "According to this lesson, is migrating a server from stdio to also support HTTP-based transport primarily a rewrite of its tool definitions?",
+            "options": [
+              "Yes, every tool, resource, and prompt definition typically needs to be rewritten from scratch",
+              "No, it's primarily an infrastructure and deployment change, though it does require genuinely new authentication and network-reliability work",
+              "No changes of any kind are needed when migrating transports",
+              "Yes, but only the parameter schemas need to change, not the handler logic"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Because protocol semantics and transport are separated, the core tool/resource/prompt definitions generally carry over — the real new work is infrastructure-level: auth and reliability handling that stdio never required.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is planning for authentication and network-reliability 'from the start' recommended when a server is expected to eventually need HTTP-based transport?",
+            "options": [
+              "Because these considerations are optional and can always be skipped entirely",
+              "Because these are genuinely new requirements that HTTP-based transport introduces, so anticipating them avoids being caught off guard during a later migration",
+              "Because stdio transport also requires these same considerations",
+              "Because authentication is only relevant for servers with more than ten tools"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since auth and network-reliability handling aren't needed under stdio but become necessary under HTTP, planning for them ahead of an anticipated transport change avoids a scramble later.",
+            "id": "q6"
+          },
+          {
+            "question": "What does it mean for transport concerns to 'leak into' a server's tool/resource/prompt design, and why is this considered a problem?",
+            "options": [
+              "It means the server runs faster, which is actually desirable",
+              "It means the capability logic starts depending on which transport is used, breaking the separation of concerns that keeps tool logic transport-agnostic",
+              "It means the server can no longer use JSON-RPC",
+              "It means the server has too many tools defined"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A well-built server's core logic should not need to know or care which transport is carrying its messages — if it does, the intended separation between protocol semantics and transport has broken down.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does the lesson connect building HTTP transport support 'just in case' to the Agents course's when-to-use-an-agent lesson?",
+            "options": [
+              "Because both lessons are about choosing the fastest possible transport",
+              "Because both illustrate the same general engineering principle of not reaching for more complexity than the current, actual requirement calls for",
+              "Because agents always require HTTP-based transport by definition",
+              "Because the when-to-use-an-agent lesson is actually about JSON-RPC"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Both lessons warn against adopting complexity (an agent architecture, or an HTTP transport) ahead of an actual present need, rather than a merely anticipated future one.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "mcp_connection_lifecycle",
+      "title": "Connection Lifecycle and Capability Negotiation",
+      "description": "Before a client can actually use a server, both sides need to agree on what's supported — this happens once, right at connection time.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Describe the stages of an MCP connection's lifecycle and what capability negotiation accomplishes."
+          },
+          {
+            "title": "🤝 Initial handshake",
+            "content": "When a client first connects to a server (regardless of which transport is being used), an initial exchange establishes the connection and lets both sides identify themselves — **protocol version**, and other basic identifying information — before any actual tool, resource, or prompt operations happen. This is analogous to any protocol's initial handshake: agree on the basics before doing real work."
+          },
+          {
+            "title": "📋 Capability negotiation",
+            "content": "As part of this initial exchange, the client and server communicate what **capabilities** each supports — which parts of the MCP specification (which primitive types, which optional features) this particular server or client actually implements, since not every implementation necessarily supports every part of the specification. This lets a client gracefully handle connecting to a server that, for instance, only supports tools and not resources, rather than assuming every server supports everything."
+          },
+          {
+            "title": "🔍 Discovery after negotiation",
+            "content": "Once capabilities are established, the client can query the server for its actual available tools, resources, and prompts (the specific discovery mechanisms covered in depth in the next module) — capability negotiation establishes **what categories of things are even possible to ask about**, and discovery is the subsequent step of actually finding out what's concretely available within those categories."
+          },
+          {
+            "title": "🔌 Connection teardown",
+            "content": "Just as a connection needs an establishment phase, it needs a graceful **teardown** — the host application closing a connection to a server it no longer needs, whether because the user closed the application, disconnected an integration, or the server process ended. Handling this gracefully (rather than leaving dangling resources or unclear state about whether a server is still available) matters especially for the persistent connections that an HTTP-based transport implies, where a broken or unexpectedly closed connection needs to be detected and handled rather than assumed away."
+          },
+          {
+            "title": "💻 The lifecycle stages in order",
+            "content": "```python\nconn = mcp_client.connect(server_url)\n\n# 1. Handshake: exchange protocol version and identity\nconn.initialize(protocol_version=\"2025-06\", client_info={\"name\": \"my-app\"})\n\n# 2. Capability negotiation: what does this server actually support?\ncaps = conn.capabilities  # e.g. {\"tools\": True, \"resources\": False, \"prompts\": True}\nif caps[\"resources\"]:\n    resources = conn.list_resources()\n\n# 3. Discovery: what's concretely available within supported categories?\ntools = conn.list_tools()\n\n# 4. Teardown: close gracefully when no longer needed\nconn.close()\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming every server supports every MCP feature.** Skipping capability negotiation and calling `list_resources()` on a tools-only server produces a confusing failure instead of a graceful, expected outcome.\n\n**Skipping graceful teardown, especially over HTTP.** Persistent network connections can break unexpectedly; failing to detect and handle a closed or dropped connection leaves the application in an unclear state about whether a server is still available.\n\n**Conflating capability negotiation with discovery.** Negotiation establishes which categories of things are even possible to ask about; discovery is the separate, subsequent step of finding out what's concretely available — treating them as the same step causes a client to query for things a server never claimed to support."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "mcp_connection_lifecycle_quiz",
+        "questions": [
+          {
+            "question": "What happens during the initial handshake when an MCP client connects to a server?",
+            "options": [
+              "The client immediately starts calling tools with no prior setup",
+              "Both sides identify themselves and establish basics like protocol version before any actual tool/resource/prompt operations happen",
+              "The server sends its entire dataset to the client immediately",
+              "Nothing — MCP connections require no initial setup at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Like many protocols, MCP begins with a handshake establishing the connection's basics before real operations proceed.",
+            "id": "q1"
+          },
+          {
+            "question": "What does capability negotiation accomplish?",
+            "options": [
+              "It guarantees every server supports every part of the MCP specification",
+              "It lets both sides communicate which parts of the specification (primitive types, optional features) they actually support, so a client can handle a server that doesn't implement everything",
+              "It replaces the need for any discovery step afterward",
+              "It only applies to servers using the stdio transport"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since not every implementation supports every part of MCP, negotiating capabilities upfront lets a client gracefully adapt to what a specific server actually offers, rather than assuming full support.",
+            "id": "q2"
+          },
+          {
+            "question": "Why does connection teardown deserve explicit handling, especially for HTTP-based transport?",
+            "options": [
+              "Connections never need to be closed once established",
+              "A persistent HTTP-based connection could break or close unexpectedly, and this needs to be detected and handled rather than assumed away",
+              "Teardown is only relevant for stdio transport, never HTTP-based transport",
+              "Graceful teardown is impossible to implement in MCP"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Persistent network connections can fail unexpectedly, so detecting and handling disconnection gracefully matters more than it might for a simpler, tightly-coupled stdio subprocess connection.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, what does the client check before calling conn.list_resources()?",
+            "options": [
+              "Whether the server's IP address is valid",
+              "Whether caps[\"resources\"] is True, based on the capability negotiation performed during connect/initialize",
+              "Whether the server supports the stdio transport",
+              "Nothing is checked — list_resources() is always called unconditionally"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The example explicitly gates the resources call behind the negotiated capabilities, illustrating how a client avoids assuming a server supports a feature it never claimed to.",
+            "id": "q4"
+          },
+          {
+            "question": "What is the correct order of the four lifecycle stages shown in the code example?",
+            "options": [
+              "Discovery, teardown, handshake, capability negotiation",
+              "Handshake (initialize), capability negotiation, discovery, teardown",
+              "Teardown, handshake, discovery, capability negotiation",
+              "Capability negotiation, teardown, handshake, discovery"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The example proceeds in exactly this order: establish the connection and identities, negotiate what's supported, discover what's concretely available, then eventually close the connection gracefully.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is calling list_resources() on a server that never claimed to support resources (per capability negotiation) a mistake?",
+            "options": [
+              "It isn't a mistake — all servers are required to support resources",
+              "It skips the point of capability negotiation and produces a confusing failure instead of the graceful, expected handling that checking capabilities first would provide",
+              "It would cause the client's protocol version to change unexpectedly",
+              "It has no negative consequence of any kind"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Capability negotiation exists precisely so a client can avoid querying for things a server doesn't support — skipping that check defeats its purpose and produces avoidable confusion.",
+            "id": "q6"
+          },
+          {
+            "question": "How does discovery differ from capability negotiation, according to this lesson?",
+            "options": [
+              "They are exactly the same step with two different names",
+              "Capability negotiation establishes what categories of things are even possible to ask about; discovery is the subsequent step of finding out what's concretely available within those categories",
+              "Discovery happens before capability negotiation, not after",
+              "Capability negotiation only applies to prompts, while discovery only applies to tools"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Negotiation sets the boundaries of what's supported at all; discovery then fills in the specifics of what's actually available within those supported categories.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does an unexpectedly dropped HTTP-based connection pose a risk if teardown isn't handled explicitly?",
+            "options": [
+              "Because dropped connections automatically resolve themselves with no side effects",
+              "Because it can leave the application in an unclear state about whether the server is still available, or leave dangling resources unhandled",
+              "Because dropped connections only ever occur with stdio transport",
+              "Because MCP servers cannot use HTTP-based transport at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Without explicit handling, an application has no reliable way to know a connection has actually gone away, risking dangling state or continued attempts to use an unavailable server.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

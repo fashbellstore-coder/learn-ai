@@ -1,0 +1,543 @@
+{
+  "id": "module_5",
+  "title": "Generative Models & Bringing It Together",
+  "description": "Autoencoders and GANs for generating and compressing data, practical fine-tuning tips, and a full workflow tying every concept in this course together.",
+  "icon": "🎨",
+  "color": "#9C27B0",
+  "order": 5,
+  "estimatedHours": 2,
+  "difficulty": "Advanced",
+  "prerequisites": [
+    "module_4"
+  ],
+  "lessons": [
+    {
+      "id": "dl_autoencoders",
+      "title": "Autoencoders",
+      "description": "Learn how a network can learn useful compressed representations of data without any labels at all.",
+      "duration": "9 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain how an autoencoder is trained and what its compressed representation is useful for."
+          },
+          {
+            "title": "🗜️ The core idea: compress, then reconstruct",
+            "content": "An **autoencoder** is trained to reproduce its own input as its output, but with a twist — the network is forced through a narrow \"bottleneck\" layer in the middle, with far fewer dimensions than the original input. To reconstruct the input successfully through that bottleneck, the network has to learn a compact, information-dense representation of the data's most important structure.\n\n```\nInput → Encoder (compresses) → Bottleneck (compact representation) → Decoder (reconstructs) → Output\n```\n\nThe training target is simply the input itself — no separate labels are needed, which makes autoencoders a form of **self-supervised** learning (also sometimes called unsupervised, since there's no external label)."
+          },
+          {
+            "title": "🛠️ Encoder and decoder",
+            "content": "```python\n# Conceptual PyTorch-style structure\n# encoder: input_dim (784) → 256 → 64 → bottleneck (16)\n# decoder: bottleneck (16) → 64 → 256 → output_dim (784)\n#\n# loss = reconstruction_loss(decoder(encoder(input)), input)\n```\n\n• The **encoder** compresses the input down to the bottleneck\n• The **decoder** reconstructs the original input from that compressed representation\n• The reconstruction loss (often MSE) measures how close the output is to the original input"
+          },
+          {
+            "title": "🎯 What autoencoders are actually used for",
+            "content": "• **Dimensionality reduction** — similar goal to PCA, but capable of capturing non-linear structure that PCA (a purely linear technique) cannot\n• **Anomaly detection** — a model trained on \"normal\" data reconstructs normal examples well but poorly reconstructs unusual, out-of-pattern ones — a large reconstruction error can flag something as an outlier worth investigating\n• **Denoising** — training on noisy inputs with clean targets teaches a network to remove noise\n• **A foundation for generative models** — a close variant, the variational autoencoder (VAE), can generate entirely new, plausible examples, not just reconstruct existing ones"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Making the bottleneck too large.** If it's not meaningfully smaller than the input, the network can just learn to copy data through with little real compression, defeating the whole purpose.\n\n**Confusing an autoencoder's use case with a classifier's.** An autoencoder isn't predicting a label — it's learning a compact, useful representation of the data itself, which can support other tasks (or be used directly for anomaly detection).\n\n**Expecting perfect reconstruction from a very narrow bottleneck.** Some information loss is inherent and often intentional — the whole point is forcing the network to keep only what's most essential."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "dl_autoencoders_quiz",
+        "questions": [
+          {
+            "question": "What is an autoencoder trained to do?",
+            "options": [
+              "Predict a separate label for each input",
+              "Reconstruct its own input, after passing it through a narrow bottleneck layer that forces compact representation",
+              "Classify images into predefined categories",
+              "Generate random noise"
+            ],
+            "correctAnswer": 1,
+            "explanation": "An autoencoder's training target is simply its own input — but because the data must pass through a much smaller bottleneck layer, the network is forced to learn a compact, information-dense summary of the data in order to reconstruct it well.",
+            "id": "q1"
+          },
+          {
+            "question": "Why don't autoencoders require labeled training data?",
+            "options": [
+              "They require even more labels than supervised learning",
+              "The training target is the input itself, so no external label is needed — this makes them self-supervised",
+              "Autoencoders don't actually use a loss function",
+              "They only work with already-labeled datasets"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since the network is trained to reconstruct its own input, the input doubles as its own training target — no separate, manually-provided label is required, which is what makes autoencoders self-supervised rather than traditionally supervised.",
+            "id": "q2"
+          },
+          {
+            "question": "How can autoencoders be used for anomaly detection?",
+            "options": [
+              "By checking whether the input is missing any values",
+              "A model trained on normal data reconstructs normal examples well but poorly reconstructs unusual ones — a high reconstruction error can flag an example as anomalous",
+              "By counting how many layers the network has",
+              "Autoencoders cannot be used for anomaly detection"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Because the network has learned to compress and reconstruct patterns typical of its training data, an input that doesn't fit those learned patterns tends to reconstruct poorly — a large gap between input and reconstruction is a useful signal that the example is unusual.",
+            "id": "q3"
+          },
+          {
+            "question": "What is the purpose of the 'bottleneck' layer in an autoencoder?",
+            "options": [
+              "To increase the size of the representation beyond the input",
+              "To force the network to learn a compact, information-dense representation of the input",
+              "To apply dropout to every neuron",
+              "To store the raw training labels"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The narrow bottleneck forces the network to compress the input into a compact representation in order to reconstruct it successfully, capturing its most important structure.",
+            "id": "q4"
+          },
+          {
+            "question": "Why are autoencoders considered a form of self-supervised learning?",
+            "options": [
+              "Because they require manually labeled data for every example",
+              "Because the training target is the input itself, so no external label is needed",
+              "Because they cannot be trained at all",
+              "Because they only work with reinforcement learning signals"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since an autoencoder's target output is simply its own input, there's no need for separately provided labels — this is what makes it self-supervised.",
+            "id": "q5"
+          },
+          {
+            "question": "How does an autoencoder compare to PCA for dimensionality reduction?",
+            "options": [
+              "They are mathematically identical in every way",
+              "An autoencoder can capture non-linear structure that PCA, a purely linear technique, cannot",
+              "PCA can capture non-linear structure but autoencoders cannot",
+              "Neither method is used for dimensionality reduction"
+            ],
+            "correctAnswer": 1,
+            "explanation": "While both reduce dimensionality, autoencoders can model non-linear relationships in the data, unlike PCA which is limited to linear transformations.",
+            "id": "q6"
+          },
+          {
+            "question": "What is a variational autoencoder (VAE) capable of that a standard autoencoder is not emphasized for?",
+            "options": [
+              "Compressing images to a smaller size only",
+              "Generating entirely new, plausible examples, not just reconstructing existing ones",
+              "Removing the need for an encoder",
+              "Working without any bottleneck layer"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A VAE, a close variant of the standard autoencoder, can generate new synthetic examples from its learned representation, going beyond simple reconstruction.",
+            "id": "q7"
+          },
+          {
+            "question": "What happens if an autoencoder's bottleneck is made too large relative to the input?",
+            "options": [
+              "The network fails to run at all",
+              "The network can just learn to copy data through with little real compression, defeating the purpose",
+              "The network becomes immune to overfitting",
+              "It automatically becomes a GAN"
+            ],
+            "correctAnswer": 1,
+            "explanation": "If the bottleneck isn't meaningfully smaller than the input, the autoencoder can trivially pass data through without learning a genuinely compact, useful representation.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "dl_gans",
+      "title": "GANs: Generative Adversarial Networks",
+      "description": "Learn how two networks competing against each other can learn to generate remarkably realistic new data.",
+      "duration": "9 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain the adversarial training setup behind GANs and what each network's role is."
+          },
+          {
+            "title": "🥊 Two networks, competing",
+            "content": "A **GAN (Generative Adversarial Network)** pits two networks against each other in a training process:\n\n• The **generator** tries to create fake data (like images) realistic enough to fool the discriminator\n• The **discriminator** tries to correctly tell real training examples apart from the generator's fakes\n\nBoth networks train simultaneously, each getting better in response to the other — the generator learns to produce increasingly convincing fakes as the discriminator gets better at spotting flaws, and the discriminator has to keep improving as the generator's fakes get more convincing."
+          },
+          {
+            "title": "🔄 How training proceeds",
+            "content": "```\nRepeat many times:\n  1. Generator creates a batch of fake examples from random noise\n  2. Discriminator is shown a mix of real and fake examples,\n     and is trained to correctly classify each as real or fake\n  3. Generator is updated to produce examples that fool the\n     discriminator more effectively next time\n```\n\nOver many rounds of this adversarial back-and-forth, the generator ideally learns to produce examples so realistic that the discriminator can no longer reliably tell them apart from genuine training data."
+          },
+          {
+            "title": "🎨 What GANs are used for",
+            "content": "GANs became famous for generating highly realistic synthetic images — human faces that don't belong to any real person, artwork, and more. They're also used for image-to-image translation (like turning a sketch into a photorealistic image), data augmentation (generating additional realistic training examples), and super-resolution (upscaling low-resolution images plausibly)."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming GAN training is as stable and predictable as standard supervised training.** The adversarial dynamic between two competing networks is notoriously difficult to balance — training can be unstable, and a wide range of specialized techniques exist just to help stabilize it.\n\n**Confusing the generator's random noise input with real data.** The generator starts from random noise and learns to transform it into realistic-looking output — it never directly copies training examples.\n\n**Assuming a well-trained discriminator is the end goal.** In most GAN applications, the discriminator is a training tool that's typically discarded after training — the generator (which produces the actual synthetic content) is usually what you deploy and use."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "dl_gans_quiz",
+        "questions": [
+          {
+            "question": "What are the two networks in a GAN, and what does each try to do?",
+            "options": [
+              "Both networks try to classify real images into categories",
+              "A generator tries to create realistic fake data; a discriminator tries to distinguish real data from the generator's fakes",
+              "One network compresses data; the other reconstructs it",
+              "Both networks are identical copies trained on the same task"
+            ],
+            "correctAnswer": 1,
+            "explanation": "GANs pit a generator (which creates fake examples) against a discriminator (which tries to tell real examples from generated fakes) — this adversarial competition is the core training mechanism.",
+            "id": "q1"
+          },
+          {
+            "question": "What is the generator's input typically made from?",
+            "options": [
+              "Labeled examples from the training set",
+              "Random noise, which it learns to transform into realistic-looking output",
+              "The discriminator's internal weights",
+              "A pretrained CNN's feature maps"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The generator starts with random noise as its input and learns, through adversarial training, to transform that noise into increasingly realistic synthetic examples — it never directly copies real training data.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is GAN training often considered more challenging than standard supervised training?",
+            "options": [
+              "GANs don't actually use gradient-based training",
+              "The adversarial dynamic between two simultaneously-training, competing networks is notoriously difficult to balance and can become unstable",
+              "GANs require no data at all to train",
+              "GAN training always converges faster than supervised training"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Because the generator and discriminator are both changing during training in response to each other, finding a stable balance between them is genuinely difficult — GAN training is well known for requiring careful tuning and specialized stabilization techniques.",
+            "id": "q3"
+          },
+          {
+            "question": "What is the generator's goal in a GAN?",
+            "options": [
+              "To classify real images into categories",
+              "To create fake data realistic enough to fool the discriminator",
+              "To compress the discriminator's weights",
+              "To label training data manually"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The generator's objective is to produce synthetic examples convincing enough that the discriminator mistakes them for real data.",
+            "id": "q4"
+          },
+          {
+            "question": "What is the discriminator's goal in a GAN?",
+            "options": [
+              "To generate new fake examples",
+              "To correctly distinguish real training examples from the generator's fakes",
+              "To reduce the dimensionality of the input data",
+              "To compute the loss function for a CNN"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The discriminator's job is to classify inputs as either real (from the training set) or fake (produced by the generator).",
+            "id": "q5"
+          },
+          {
+            "question": "What does the generator's input typically consist of?",
+            "options": [
+              "Labeled real images",
+              "Random noise, which it learns to transform into realistic output",
+              "The discriminator's predictions",
+              "A pretrained CNN's exact feature maps"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The generator starts from random noise and learns, through adversarial training, to transform it into increasingly realistic synthetic examples.",
+            "id": "q6"
+          },
+          {
+            "question": "What is typically discarded after a GAN finishes training, with the other network deployed for use?",
+            "options": [
+              "The generator",
+              "The discriminator",
+              "Both networks are always deployed together",
+              "Neither network is discarded"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The discriminator is usually a training tool that gets discarded once training finishes — the generator, which produces the actual synthetic content, is what's typically deployed.",
+            "id": "q7"
+          },
+          {
+            "question": "Why is GAN training often considered unstable compared to standard supervised training?",
+            "options": [
+              "GANs don't use gradients at all",
+              "Two competing networks are training simultaneously, making the adversarial dynamic difficult to balance",
+              "GAN training requires no data whatsoever",
+              "GANs always converge faster than any other model"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Because the generator and discriminator are both changing in response to each other during training, achieving a stable balance is notoriously difficult, requiring specialized stabilization techniques.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "dl_finetuning_practical",
+      "title": "Fine-Tuning in Practice: Practical Tips",
+      "description": "Go beyond the theory with concrete, practical guidance for fine-tuning pretrained models effectively.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can list concrete, practical strategies for fine-tuning a pretrained model successfully."
+          },
+          {
+            "title": "📊 Start by matching strategy to your data size",
+            "content": "• **Very little task-specific data** (a few hundred examples) — favor feature extraction: freeze most or all of the pretrained layers, train only a new final layer\n• **Moderate data** (a few thousand examples) — consider unfreezing and fine-tuning just the later layers, which tend to hold more task-specific features, while keeping earlier general-purpose layers frozen\n• **Large task-specific data** (many thousands+) — fine-tuning more or all of the network becomes more reasonable, since there's less overfitting risk"
+          },
+          {
+            "title": "🎚️ Use a smaller learning rate — and consider different rates per layer",
+            "content": "As covered earlier: fine-tuning generally needs a smaller learning rate than training from scratch, to avoid destroying valuable pretrained knowledge. A common refinement is using an even smaller learning rate for earlier, more general layers, and a somewhat larger one for later, more task-specific layers being adapted more aggressively.\n\n```python\n# Conceptual: different learning rates for different parts of the network\n# optimizer = torch.optim.Adam([\n#     {\"params\": model.early_layers.parameters(), \"lr\": 1e-5},\n#     {\"params\": model.later_layers.parameters(), \"lr\": 1e-4},\n# ])\n```"
+          },
+          {
+            "title": "📈 Watch validation performance closely — and be ready to freeze more",
+            "content": "Fine-tuning with a small dataset overfits easily, since it's essentially training a large-capacity model further on relatively few new examples. Monitor validation loss carefully (from the early stopping lesson), and if overfitting shows up quickly, consider freezing more layers, using stronger regularization, or applying more aggressive data augmentation."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Applying the exact same fine-tuning recipe regardless of dataset size.** The right amount of the network to unfreeze and adapt should scale with how much task-specific data is actually available.\n\n**Forgetting to normalize new data the same way the original pretrained model expects.** Pretrained models are typically trained with specific input preprocessing (like particular normalization values) — mismatching this can quietly hurt performance without an obvious error.\n\n**Giving up on transfer learning too early because initial results seem underwhelming.** Small adjustments — learning rate, which layers are frozen, how much regularization is applied — often meaningfully improve results without needing a completely different approach."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "dl_finetuning_practical_quiz",
+        "questions": [
+          {
+            "question": "With only a few hundred task-specific training examples, what fine-tuning strategy is generally safer?",
+            "options": [
+              "Fine-tuning the entire network from the very first layer",
+              "Feature extraction — freezing most or all pretrained layers and training only a new final layer",
+              "Training a completely new network from scratch",
+              "Using an unusually high learning rate on every layer"
+            ],
+            "correctAnswer": 1,
+            "explanation": "With very limited task-specific data, unfreezing and retraining a large portion of the network risks severe overfitting — freezing most of the pretrained layers and training only a small new final layer is the safer, more data-efficient approach.",
+            "id": "q1"
+          },
+          {
+            "question": "Why might different learning rates be used for different layers during fine-tuning?",
+            "options": [
+              "It has no real effect and is purely stylistic",
+              "Earlier, more general-purpose layers often benefit from smaller updates, while later, more task-specific layers can be adapted somewhat more aggressively",
+              "Every layer must always use the exact same learning rate by definition",
+              "Different learning rates are only relevant for convolutional layers"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since earlier layers hold more broadly useful, general-purpose features, using a smaller learning rate there helps preserve that valuable knowledge, while later layers — which need more task-specific adaptation — can reasonably use a somewhat larger rate.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is it important to normalize new data the same way a pretrained model's original training data was normalized?",
+            "options": [
+              "Normalization has no effect on a pretrained model's performance",
+              "A pretrained model expects inputs in a specific range/format it was trained on — mismatched preprocessing can quietly hurt performance without producing an obvious error",
+              "Pretrained models automatically detect and correct any preprocessing mismatch",
+              "Normalization is only relevant when training completely from scratch"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A pretrained model's learned weights implicitly assume input data will be preprocessed the same way its original training data was — feeding it differently-normalized data can silently degrade performance, since nothing about it produces an outright error.",
+            "id": "q3"
+          },
+          {
+            "question": "With a large amount of task-specific data, why does fine-tuning more (or all) of the network become more reasonable?",
+            "options": [
+              "Because more data always causes worse performance",
+              "Because there's less overfitting risk when there's abundant task-specific data",
+              "Because large datasets require freezing every layer",
+              "Because fine-tuning is impossible with large datasets"
+            ],
+            "correctAnswer": 1,
+            "explanation": "With plenty of task-specific data available, the risk of overfitting from unfreezing and retraining more of the network is much lower.",
+            "id": "q4"
+          },
+          {
+            "question": "Why might earlier layers use a smaller learning rate than later layers during fine-tuning?",
+            "options": [
+              "Earlier layers have no learnable weights",
+              "Earlier, more general-purpose layers benefit from smaller updates to preserve valuable pretrained knowledge",
+              "Later layers should never be updated at all",
+              "Learning rate has no relationship to which layer it's applied to"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since earlier layers hold broadly useful features, a smaller learning rate helps preserve that knowledge, while later, more task-specific layers can be adapted more aggressively with a larger rate.",
+            "id": "q5"
+          },
+          {
+            "question": "What should you watch closely when fine-tuning with a small dataset?",
+            "options": [
+              "Only the training loss, since validation isn't relevant",
+              "Validation performance, since fine-tuning with limited data overfits easily",
+              "The number of GPUs available",
+              "The color scheme of the training logs"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Fine-tuning a large-capacity model on relatively few new examples overfits easily, so closely monitoring validation loss is important for catching this early.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does mismatched input preprocessing hurt a fine-tuned pretrained model?",
+            "options": [
+              "Preprocessing has no effect on pretrained models",
+              "The pretrained model implicitly expects data in a specific format/range, and mismatches can silently hurt performance",
+              "It always causes an obvious runtime error",
+              "Preprocessing only matters for training from scratch"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A pretrained model's weights implicitly assume a specific input preprocessing scheme; feeding it differently-processed data can silently degrade performance without an outright error.",
+            "id": "q7"
+          },
+          {
+            "question": "What does the lesson suggest doing before giving up on transfer learning after underwhelming initial results?",
+            "options": [
+              "Immediately switch to training from scratch",
+              "Try small adjustments — learning rate, which layers are frozen, or regularization strength",
+              "Increase the dataset size to billions of examples",
+              "Remove the pretrained weights entirely"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson recommends trying small adjustments to learning rate, frozen layers, or regularization before abandoning transfer learning, since these often meaningfully improve results.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "dl_putting_together",
+      "title": "Putting It All Together: A Deep Learning Project Workflow",
+      "description": "Bring every concept in this course together into one coherent, practical project checklist.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can outline the key stages and decision points of a typical deep learning project."
+          },
+          {
+            "title": "🗺️ The typical stages",
+            "content": "1. **Define the task and gather data** — classification, regression, generation? What data is available, and how much?\n2. **Choose an architecture** — a fully-connected network for simple tabular data, a CNN for images, an RNN/LSTM/GRU (or, as later courses cover, a Transformer) for sequences — or consider transfer learning from a pretrained model if a suitable one exists\n3. **Pick a loss function** — matched to the task (cross-entropy for classification, MSE for regression, a specialized reconstruction loss for an autoencoder, and so on)\n4. **Choose an optimizer and training settings** — Adam is a strong default; tune learning rate, batch size, and number of epochs\n5. **Add regularization as needed** — dropout, weight decay, data augmentation, batch normalization, early stopping\n6. **Train and monitor** — track training and validation loss together, watching specifically for the overfitting signature covered earlier\n7. **Evaluate honestly** — on a held-out test set, using metrics appropriate to the task (recall the ML course's guidance on choosing the right metric)"
+          },
+          {
+            "title": "🎯 A few cross-cutting principles worth restating",
+            "content": "• **Start simple, then add complexity as needed.** A smaller network or a simpler baseline often reveals problems (data issues, bugs) faster and more cheaply than jumping straight to a huge architecture\n• **Overfitting is the recurring theme.** Nearly every technique in modules 2 and 5 — dropout, weight decay, batch norm, early stopping, augmentation, transfer learning — exists to help a high-capacity model generalize well despite its size\n• **Everything from the math, data science, and machine learning courses still applies.** Gradients, loss functions, train/validation/test splits, evaluation metrics, and avoiding data leakage are exactly as relevant here as they were for classical ML — deep learning adds new architectures and training techniques on top of those same foundations, not a replacement for them"
+          },
+          {
+            "title": "🚀 Where deep learning goes from here",
+            "content": "This course covered the foundational building blocks: how networks compute and learn, how to fight overfitting, CNNs for images, and RNN-family models for sequences. From here, a huge and fast-moving field builds on exactly these ideas — attention and transformers, large language models, diffusion-based image generation, and more — all of which reuse the concepts from this course (layers, loss functions, backpropagation, regularization, transfer learning) as their foundation."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Jumping straight to a complex architecture without a simple baseline first.** A quick baseline (even a simple linear model) helps you know whether a fancier deep learning approach is actually earning its added complexity.\n\n**Forgetting that deep learning doesn't replace good data science practice.** Messy, leaky, or poorly understood data will undermine even the most sophisticated architecture.\n\n**Treating this course's techniques as separate, isolated tricks rather than a connected toolkit.** In practice, most real projects combine several of them together — the right combination depends on the specific task, data, and constraints."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "dl_putting_together_quiz",
+        "questions": [
+          {
+            "question": "What recurring theme connects most of the regularization techniques covered in this course (dropout, weight decay, batch norm, early stopping, augmentation)?",
+            "options": [
+              "They all specifically speed up matrix multiplication",
+              "They all exist to help a high-capacity model generalize well rather than simply memorizing the training data",
+              "They are only relevant for convolutional networks",
+              "They all eliminate the need for a validation set"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Dropout, weight decay, batch normalization, early stopping, and data augmentation each attack the same underlying problem from different angles: preventing a large, flexible network from overfitting to its training data.",
+            "id": "q1"
+          },
+          {
+            "question": "Why does the choice of architecture typically depend on the type of data?",
+            "options": [
+              "Architecture choice is arbitrary and has no real connection to data type",
+              "Different data types have different structural properties (images have spatial locality, sequences have order) that specific architectures are designed to exploit",
+              "All architectures perform identically regardless of data type",
+              "Only one architecture (CNNs) can be used for any type of data"
+            ],
+            "correctAnswer": 1,
+            "explanation": "CNNs are designed around the local, spatial structure of images; RNN-family models are designed around the sequential, ordered structure of sequences — matching architecture to the data's actual structure is central to why these specialized designs work well.",
+            "id": "q2"
+          },
+          {
+            "question": "How do the concepts from the earlier math, data science, and machine learning courses relate to deep learning?",
+            "options": [
+              "They are completely unrelated and deep learning starts from entirely new foundations",
+              "They remain directly relevant — deep learning builds new architectures and training techniques on top of the same underlying concepts, like gradients, loss functions, and honest evaluation",
+              "Deep learning replaces the need for train/validation/test splits entirely",
+              "Only the math course's content is relevant; data science and ML concepts don't apply"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Deep learning doesn't discard the fundamentals — gradient-based optimization, loss functions, evaluation metrics, and avoiding data leakage are exactly as important here as in classical machine learning; deep learning adds new architectures and training techniques on top of that same foundation.",
+            "id": "q3"
+          },
+          {
+            "question": "What recurring theme connects dropout, weight decay, batch norm, early stopping, and data augmentation?",
+            "options": [
+              "They all specifically speed up matrix multiplication",
+              "They all exist to help a high-capacity model generalize well rather than memorize training data",
+              "They are only useful for convolutional networks",
+              "They eliminate the need for a validation set"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Each of these techniques attacks the same underlying overfitting problem from a different angle, helping large models generalize rather than memorize.",
+            "id": "q4"
+          },
+          {
+            "question": "According to the typical project workflow, what should be chosen based on the type of task, such as classification versus regression?",
+            "options": [
+              "The number of GPUs used",
+              "The loss function",
+              "The dataset file format",
+              "The programming language"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The loss function should match the task — cross-entropy for classification, MSE for regression, and so on, as covered in the workflow's stages.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does the lesson recommend starting with a simple baseline before a complex architecture?",
+            "options": [
+              "Simple baselines are always the final, best solution",
+              "A quick baseline reveals data issues or bugs faster and more cheaply than jumping straight to a huge architecture",
+              "Complex architectures never need any comparison",
+              "Baselines are required by law for all ML projects"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A simple baseline can surface problems in the data or pipeline quickly and cheaply, before investing in a more complex architecture.",
+            "id": "q6"
+          },
+          {
+            "question": "How do the concepts from the earlier math, data science, and machine learning courses relate to deep learning, per this lesson?",
+            "options": [
+              "They are irrelevant once you start deep learning",
+              "They remain directly relevant, since deep learning builds on the same fundamentals like gradients and honest evaluation",
+              "Deep learning eliminates the need for a test set",
+              "Only the math course's content still applies"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Deep learning doesn't replace foundational concepts — gradients, loss functions, evaluation metrics, and avoiding data leakage remain just as important.",
+            "id": "q7"
+          },
+          {
+            "question": "What broader fields does the lesson mention as building on the concepts covered in this Deep Learning course?",
+            "options": [
+              "Only classical statistics",
+              "Attention and transformers, large language models, and diffusion-based image generation",
+              "Only spreadsheet software",
+              "Nothing — deep learning is a dead end with no further applications"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson notes that attention/transformers, large language models, and diffusion models all build on the foundational concepts covered in this course.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

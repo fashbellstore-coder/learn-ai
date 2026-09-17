@@ -1,0 +1,561 @@
+{
+  "id": "cld_linux_and_networking",
+  "title": "Linux & Networking Fundamentals",
+  "description": "The Linux filesystem, processes and permissions, core networking concepts, and shell scripting for automation.",
+  "icon": "🧭",
+  "color": "#37474F",
+  "order": 0,
+  "estimatedHours": 3,
+  "difficulty": "beginner",
+  "prerequisites": [],
+  "lessons": [
+    {
+      "id": "cld_essential_linux_and_the_filesystem",
+      "title": "Essential Linux and the Filesystem",
+      "description": "Nearly every AI system in this curriculum eventually runs on a Linux server — this is the ground floor.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Navigate a Linux filesystem confidently and explain why understanding it matters for deploying AI systems."
+          },
+          {
+            "title": "📁 The filesystem as a tree",
+            "content": "Linux organizes everything as a single tree rooted at `/`, with standard locations for different purposes — `/etc` for configuration, `/var/log` for logs, `/home` for user directories. Knowing this layout means you can find a service's configuration or logs without guessing, on any Linux machine you encounter, from a cheap cloud VM to a GPU server."
+          },
+          {
+            "title": "⌨️ Commands you'll use constantly",
+            "content": "Navigating (`cd`, `ls`, `pwd`), inspecting files (`cat`, `less`, `tail -f` for watching a live log — exactly how you'd watch a model server's logs during a deploy), and searching (`grep`, `find`) form the daily vocabulary of operating any server, including every GPU instance and Kubernetes node discussed later in this course."
+          },
+          {
+            "title": "🔗 Why this belongs in an AI curriculum",
+            "content": "Every model, agent, and pipeline built throughout this curriculum eventually needs to run somewhere — and 'somewhere' is almost always some flavor of Linux. This course's remaining modules (Docker, Kubernetes, CI/CD, cloud providers) all assume this foundation."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "Here's a tiny simulated filesystem, walked and searched with the same logic `ls`, `find`, and `grep` use, to make the standard-layout idea concrete.\n\n```python\nfilesystem = {\n    \"/etc/nginx/nginx.conf\": \"server { listen 80; }\",\n    \"/etc/app/config.yaml\": \"log_level: INFO\",\n    \"/var/log/app.log\": \"2026-01-01 12:00:00 INFO service started\\n2026-01-01 12:00:05 ERROR connection refused\",\n    \"/home/deploy/deploy.sh\": \"#!/bin/bash\\necho deploying...\",\n}\n\ndef ls(prefix):\n    \"\"\"Lists files whose path starts with the given prefix -- like `ls` on a directory.\"\"\"\n    return sorted(p for p in filesystem if p.startswith(prefix))\n\ndef grep(pattern, path):\n    \"\"\"Finds lines in a file containing the pattern -- like `grep pattern file`.\"\"\"\n    return [line for line in filesystem[path].split(\"\\n\") if pattern in line]\n\nprint(\"ls /etc ->\", ls(\"/etc\"))\nprint(\"ls /var/log ->\", ls(\"/var/log\"))\nprint(\"grep 'ERROR' /var/log/app.log ->\", grep(\"ERROR\", \"/var/log/app.log\"))\n```\n\n`ls(\"/etc\")` finds both config files without needing to know they exist in advance, purely because configuration lives under the standard `/etc` location. `grep(\"ERROR\", ...)` pulls out exactly the one line that matters from `/var/log/app.log` — this is the same real-time triage `tail -f` combined with `grep` gives you on an actual server: knowing *where* to look (the standard layout) and *how* to search (grep) together turn an unfamiliar server into a navigable one."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Guessing at file locations instead of relying on the standard layout.** Poking around randomly for a service's config file wastes time that a quick check of `/etc/<service-name>/` would have saved — the standard layout exists precisely so you don't have to guess.\n\n**Reading an entire large log file instead of searching or tailing it.** `cat`-ing a multi-gigabyte log file floods your terminal and tells you nothing useful — `grep` for the pattern you care about, or `tail -f` to watch new lines as they arrive.\n\n**Treating the filesystem layout as optional trivia rather than load-bearing knowledge.** Every later module in this course — Docker, Kubernetes, CI/CD — assumes you can navigate a Linux machine comfortably; skipping this foundation makes everything after it harder than it needs to be.\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "cld_essential_linux_and_the_filesystem_quiz",
+        "questions": [
+          {
+            "question": "What does the Linux filesystem's standard layout (like `/etc` for config, `/var/log` for logs) provide?",
+            "options": [
+              "A predictable structure that lets you find a service's configuration or logs on any Linux machine without guessing",
+              "A guarantee that no two files can ever have the same name",
+              "Automatic backup of all files to the cloud",
+              "A requirement that all files be owned by the root user"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The standardized directory layout is exactly what makes navigating an unfamiliar Linux server predictable rather than a guessing game.",
+            "id": "q1"
+          },
+          {
+            "question": "Why is `tail -f` a particularly useful command for operating a deployed AI service?",
+            "options": [
+              "It lets you watch a log file update in real time, useful for monitoring a model server's logs during a deploy",
+              "It permanently deletes the log file being watched",
+              "It only works on files smaller than one kilobyte",
+              "It compresses log files to save disk space"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Watching logs live as they're written is exactly the kind of real-time visibility needed when deploying or debugging a running service.",
+            "id": "q2"
+          },
+          {
+            "question": "Why does this Linux foundation matter for the rest of this course?",
+            "options": [
+              "Because Docker, Kubernetes, and cloud providers all ultimately run on Linux servers, so this foundation underlies everything that follows",
+              "Because Linux is unrelated to any cloud infrastructure covered later",
+              "Because Kubernetes replaces the need for any Linux knowledge",
+              "Because this lesson's content will never be used again in this course"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Every later topic in this course builds on infrastructure that is, underneath, a Linux system — making this foundational knowledge directly relevant throughout.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, what does `ls(\"/etc\")` return, and why?",
+            "options": [
+              "Every path in the filesystem, regardless of location",
+              "Both /etc/nginx/nginx.conf and /etc/app/config.yaml, since both paths start with the '/etc' prefix",
+              "Only /var/log/app.log",
+              "Nothing, since /etc is empty"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`ls` filters `filesystem` for every path starting with the given prefix, and both configuration files happen to live under `/etc`, so both are returned, sorted.",
+            "id": "q4"
+          },
+          {
+            "question": "What does `grep(\"ERROR\", \"/var/log/app.log\")` return in the code example?",
+            "options": [
+              "Every line in the file",
+              "An empty list, since no line contains 'ERROR'",
+              "Just the line '2026-01-01 12:00:05 ERROR connection refused'",
+              "The entire nginx.conf file"
+            ],
+            "correctAnswer": 2,
+            "explanation": "`grep` filters the file's lines for the substring \"ERROR\", and only the second line of `/var/log/app.log` contains it, so that's the single line returned.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is guessing at file locations instead of relying on the standard layout flagged as a common mistake?",
+            "options": [
+              "Because poking around randomly wastes time a quick check of the standard location (like /etc/<service-name>/) would have saved",
+              "Because the standard layout doesn't actually exist on real Linux systems",
+              "Because guessing is always faster than checking the standard layout",
+              "Because file locations are randomized on every Linux system"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's common mistakes point out that the standard layout exists precisely to avoid the time waste of guessing at where something might be.",
+            "id": "q6"
+          },
+          {
+            "question": "Why is reading an entire large log file with `cat` instead of searching or tailing it considered a mistake?",
+            "options": [
+              "Because it floods your terminal with irrelevant output and tells you nothing useful, compared to grep-ing for a specific pattern or tail -f-ing new lines",
+              "Because cat cannot technically open files larger than 1KB",
+              "Because reading log files is always illegal",
+              "Because grep and tail -f are slower than cat for any file size"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explains that dumping a huge log file's entire contents is unhelpful compared to targeted tools like grep or tail -f that surface only what's actually relevant.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does the lesson warn against treating the filesystem layout as optional trivia?",
+            "options": [
+              "Because every later module in this course assumes comfortable navigation of a Linux machine, so skipping this foundation makes everything after it harder",
+              "Because the filesystem layout has no bearing on any later course content",
+              "Because Docker and Kubernetes eliminate the need for any filesystem knowledge",
+              "Because this lesson's content is only tested once and never used again"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's common mistakes emphasize that this foundational knowledge is load-bearing for Docker, Kubernetes, and CI/CD content that follows, not a skippable detail.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "cld_processes_permissions_and_users",
+      "title": "Processes, Permissions, and Users",
+      "description": "Who can run what, and what happens when a program actually executes — the security and operations backbone of any server.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain the Linux permission model and how processes relate to the services you'll deploy."
+          },
+          {
+            "title": "👤 Users, groups, and permissions",
+            "content": "Every file has an owner, a group, and a set of read/write/execute permissions for owner, group, and everyone else. Running a production service as an unprivileged, dedicated user rather than root limits the damage a compromised process could do — a concrete implementation of the least-privilege principle the Eval & Security and Enterprise AI courses discuss at a higher level."
+          },
+          {
+            "title": "⚙️ Processes: a running program",
+            "content": "A process is a program currently executing, with its own memory space, and a process ID (PID) you can use to inspect or stop it (`ps`, `kill`). Every model server, API, and background worker discussed throughout the App Dev course is, at the operating system level, just a process — understanding processes demystifies what 'restart the service' actually does."
+          },
+          {
+            "title": "🔐 Why least privilege matters operationally",
+            "content": "A process running with more permissions than it needs is a larger attack surface if compromised — a web server that only needs to read a specific directory shouldn't run with permission to write anywhere on the filesystem. This is the same defense-in-depth thinking from the Eval & Security course, applied at the operating-system layer rather than the model or API layer."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "A tiny permission-check simulation shows why running as an unprivileged user actually limits what a compromised process could do.\n\n```python\nclass SimulatedFile:\n    def __init__(self, owner, permissions):\n        self.owner = owner\n        self.permissions = permissions  # e.g. {'read': ['owner', 'group'], 'write': ['owner']}\n\ndef can_access(user, is_owner, action, file):\n    allowed_roles = file.permissions.get(action, [])\n    if is_owner and \"owner\" in allowed_roles:\n        return True\n    if \"everyone\" in allowed_roles:\n        return True\n    return False\n\napp_config = SimulatedFile(owner=\"app-service\", permissions={\"read\": [\"owner\"], \"write\": [\"owner\"]})\nsystem_passwd = SimulatedFile(owner=\"root\", permissions={\"read\": [\"everyone\"], \"write\": [\"owner\"]})\n\nprint(\"unprivileged 'app-service' user reading its own config:\",\n      can_access(\"app-service\", is_owner=True, action=\"read\", file=app_config))\nprint(\"unprivileged 'app-service' user writing to system_passwd (owned by root):\",\n      can_access(\"app-service\", is_owner=False, action=\"write\", file=system_passwd))\nprint(\"a compromised root process writing to system_passwd:\",\n      can_access(\"root\", is_owner=True, action=\"write\", file=system_passwd))\n```\n\nThe unprivileged `app-service` user can read and write its own config (it's the owner), but `can_access` correctly returns `False` when that same non-owner user tries to write to `system_passwd`, which only `root` (its owner) can write to. The third check shows exactly the risk the lesson describes: if the compromised process *were* running as `root`, that same write would succeed — the permission model is what turns \"run as an unprivileged user\" from a suggestion into an actual, enforced boundary."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Running a production service as root 'just to avoid permission errors.'** This is exactly the mistake the lesson warns about — sidestepping a permission error by running as root removes the entire protective boundary, rather than fixing the actual permission the service needs.\n\n**Confusing killing a process with actually fixing the underlying problem.** `kill`-ing and restarting a crashing process can mask a real bug that will simply recur, rather than treating the crash as a signal to investigate.\n\n**Granting broad, unnecessary permissions during setup 'to save time later.'** Least privilege is easiest to get right from the start; broadening access under time pressure and never narrowing it back down is how permission creep accumulates on a system.\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "cld_processes_permissions_and_users_quiz",
+        "questions": [
+          {
+            "question": "Why is running a production service as a dedicated, unprivileged user preferable to running it as root?",
+            "options": [
+              "It limits the damage a compromised process could do, implementing least-privilege at the operating system level",
+              "It makes the service run measurably faster",
+              "Root users cannot run any services at all",
+              "Unprivileged users have unlimited filesystem access by default"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Restricting a process's permissions to only what it actually needs directly limits the blast radius if that process is ever compromised.",
+            "id": "q1"
+          },
+          {
+            "question": "What is a process, in Linux terms?",
+            "options": [
+              "A program currently executing, with its own memory space and a process ID",
+              "A file stored permanently on disk",
+              "A network connection between two servers",
+              "A type of user account"
+            ],
+            "correctAnswer": 0,
+            "explanation": "A process is the runtime instance of a running program, distinct from the static file that defines it on disk.",
+            "id": "q2"
+          },
+          {
+            "question": "How does this lesson's least-privilege principle connect to material from the Eval & Security course?",
+            "options": [
+              "It applies the same defense-in-depth, least-privilege thinking at the operating-system layer instead of the model or API layer",
+              "It contradicts the security principles taught in the Eval & Security course",
+              "It has no relationship to security concepts covered elsewhere",
+              "It only applies to database security, not operating systems"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The recurring theme of limiting privilege to what's actually needed shows up again here, just applied to OS-level process permissions rather than model or API access.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, why does `can_access(\"app-service\", is_owner=False, action=\"write\", file=system_passwd)` return False?",
+            "options": [
+              "Because 'app-service' is not the owner of system_passwd, and system_passwd's write permission is restricted to its owner only",
+              "Because system_passwd has no write permission defined for anyone",
+              "Because app-service does not exist as a user",
+              "Because can_access always returns False for the write action"
+            ],
+            "correctAnswer": 0,
+            "explanation": "`system_passwd.permissions[\"write\"]` is `[\"owner\"]`, and since `is_owner=False` for this call, the `if is_owner and \"owner\" in allowed_roles` check fails, and there's no \"everyone\" entry either, so access is correctly denied.",
+            "id": "q4"
+          },
+          {
+            "question": "What does the third `can_access` call in the code example demonstrate?",
+            "options": [
+              "That root can never write to any file under any circumstances",
+              "That if the compromised process were running as root (the file's actual owner), the same write that was denied to app-service would succeed",
+              "That system_passwd cannot be written to by anyone, including root",
+              "That the permission model has no effect on root users"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The third call passes `\"root\"` with `is_owner=True`, and since root is `system_passwd`'s actual owner with write permission, `can_access` returns `True` -- illustrating exactly why running a service as root removes the protective boundary that denied the earlier, unprivileged attempt.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is running a production service as root 'just to avoid permission errors' flagged as a common mistake?",
+            "options": [
+              "Because it removes the entire protective boundary the permission model provides, rather than fixing the actual permission the service needs",
+              "Because permission errors are always bugs in the operating system itself",
+              "Because root users cannot run any services",
+              "Because avoiding permission errors is never possible in Linux"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's common mistakes identify this as sidestepping the real fix (granting the specific permission needed) by removing all restrictions instead, which defeats the purpose of least privilege.",
+            "id": "q6"
+          },
+          {
+            "question": "Why is repeatedly killing and restarting a crashing process, without investigating further, called a mistake?",
+            "options": [
+              "Because it can mask a real underlying bug that will simply recur, rather than treating the crash as a signal worth investigating",
+              "Because kill and restart always permanently fixes any crash",
+              "Because processes can never be restarted once killed",
+              "Because crashing processes never have an underlying cause"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson points out that restarting a crashing process without understanding why it crashed just delays the same problem from recurring, rather than addressing its root cause.",
+            "id": "q7"
+          },
+          {
+            "question": "Why is granting broad, unnecessary permissions during setup 'to save time later' considered a mistake?",
+            "options": [
+              "Because least privilege is easiest to get right from the start, and broadened access under time pressure tends to accumulate as permission creep rather than getting narrowed back down later",
+              "Because broad permissions always cause immediate system crashes",
+              "Because Linux automatically revokes excess permissions after 24 hours",
+              "Because narrow permissions are always harder to configure than broad ones"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson warns that permissions granted broadly under time pressure tend to stick around rather than getting revisited and tightened later, which is exactly how permission creep builds up on a system.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "cld_networking_basics_ip_dns_and_ports",
+      "title": "Networking Basics: IP, DNS, and Ports",
+      "description": "Every API call in this curriculum — to an LLM, a vector database, or your own service — travels over this stack.",
+      "duration": 13,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain what an IP address, a DNS lookup, and a port each identify in a network request."
+          },
+          {
+            "title": "📍 IP addresses: where a machine lives on the network",
+            "content": "An IP address identifies a specific machine (or a specific interface) on a network, the way a street address identifies a building. Every request from your API to an LLM provider, or from a client to your own deployed service, ultimately resolves to an IP address to know where to actually send the network traffic."
+          },
+          {
+            "title": "📖 DNS: translating names to addresses",
+            "content": "DNS (Domain Name System) translates a human-readable name like `api.openai.com` into the IP address a computer actually needs to route traffic — the same idea as a phone book, done automatically on every request so humans and applications can use memorable names instead of raw numeric addresses."
+          },
+          {
+            "title": "🚪 Ports: which service on that machine",
+            "content": "A single machine can run many services simultaneously — a web server, a database, an SSH daemon — each listening on a different port number, so incoming traffic on port 443 goes to the web server while traffic on port 5432 goes to the database. This is why a service's address is often written as `host:port` — both pieces are needed to reach the right service on the right machine."
+          },
+          {
+            "title": "🔗 Where this becomes concrete later",
+            "content": "Every load balancer, container, and Kubernetes service in this course routes traffic using exactly these three concepts — an IP, resolved from a DNS name, directed to a specific port. Understanding them here makes the later infrastructure lessons much less abstract."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "Here's DNS resolution and port routing simulated together, showing exactly what a request needs before it can actually reach the right service.\n\n```python\ndns_records = {\"api.example.com\": \"203.0.113.10\", \"db.example.com\": \"203.0.113.20\"}\n\nservices_by_ip_and_port = {\n    (\"203.0.113.10\", 443): \"web-api-service\",\n    (\"203.0.113.10\", 22): \"ssh-daemon\",\n    (\"203.0.113.20\", 5432): \"postgres-database\",\n}\n\ndef resolve_and_connect(hostname, port):\n    ip = dns_records.get(hostname)\n    if ip is None:\n        return f\"DNS lookup failed for {hostname!r}\"\n    service = services_by_ip_and_port.get((ip, port))\n    if service is None:\n        return f\"resolved {hostname} -> {ip}, but nothing listening on port {port}\"\n    return f\"resolved {hostname} -> {ip}, connected to {service!r} on port {port}\"\n\nprint(resolve_and_connect(\"api.example.com\", 443))\nprint(resolve_and_connect(\"api.example.com\", 22))\nprint(resolve_and_connect(\"db.example.com\", 5432))\nprint(resolve_and_connect(\"api.example.com\", 5432))   # right host, wrong port\nprint(resolve_and_connect(\"unknown.example.com\", 443))  # DNS lookup fails entirely\n```\n\n`resolve_and_connect` mirrors what happens on every real request: `dns_records.get(hostname)` is the DNS step, translating a name into an IP; `services_by_ip_and_port.get((ip, port))` is the port-routing step, since the same IP (`203.0.113.10`) hosts two entirely different services depending on which port is targeted. Requesting the right host but the wrong port (`api.example.com` on 5432) correctly finds nothing, since that IP has no service registered on 5432 — and an unknown hostname fails at the very first DNS step, before port routing is even considered."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming a service is unreachable because of DNS when the real problem is the port.** \"Connection refused\" (wrong or closed port) and \"could not resolve host\" (DNS failure) are different problems with different fixes — diagnosing which one you're actually facing saves real debugging time.\n\n**Forgetting that DNS records can be stale or cached.** A DNS change doesn't always take effect instantly everywhere — cached results from a previous lookup can point to an old IP for a while after a record is updated.\n\n**Treating `host:port` as one opaque string instead of two separate, independently-failing pieces.** Debugging a connection problem goes faster once you check the DNS resolution and the port-level reachability as two separate questions, rather than one combined mystery.\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "cld_networking_basics_ip_dns_and_ports_quiz",
+        "questions": [
+          {
+            "question": "What does DNS translate?",
+            "options": [
+              "A human-readable domain name into the IP address a computer needs to route traffic",
+              "An IP address into a MAC address",
+              "A port number into a domain name",
+              "A file path into a URL"
+            ],
+            "correctAnswer": 0,
+            "explanation": "DNS resolution is exactly the name-to-address translation that lets humans use memorable names while the network still routes by IP address.",
+            "id": "q1"
+          },
+          {
+            "question": "Why can one machine run multiple network services simultaneously without conflict?",
+            "options": [
+              "Each service listens on a different port number, so traffic can be directed to the correct service by port",
+              "Because only one service is ever allowed to run on a machine at a time",
+              "Because each service requires its own separate physical machine",
+              "Because IP addresses automatically change for each running service"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Ports provide the addressing granularity within a single machine, letting multiple services coexist and each receive their own traffic.",
+            "id": "q2"
+          },
+          {
+            "question": "Why does understanding IP, DNS, and ports make later lessons on load balancers and Kubernetes less abstract?",
+            "options": [
+              "Because those systems route traffic using exactly these same concepts — an IP resolved from a DNS name, directed to a specific port",
+              "Because load balancers and Kubernetes don't use networking concepts at all",
+              "Because DNS is only relevant to email systems, not infrastructure",
+              "Because ports are unrelated to how containers communicate"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The infrastructure covered later in this course builds directly on these fundamental networking concepts, rather than introducing an unrelated new model.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, what does `resolve_and_connect(\"api.example.com\", 5432)` return, and why?",
+            "options": [
+              "A successful connection to postgres-database",
+              "A message saying it resolved to the IP but nothing is listening on port 5432, since that IP only has services registered on ports 443 and 22",
+              "A DNS lookup failure",
+              "The exact same result as resolve_and_connect(\"db.example.com\", 5432)"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The hostname resolves fine to `203.0.113.10`, but `services_by_ip_and_port` has no entry for `(\"203.0.113.10\", 5432)` -- only ports 443 and 22 are registered for that IP -- so the function reports resolution succeeded but nothing is listening on that port.",
+            "id": "q4"
+          },
+          {
+            "question": "Why does `resolve_and_connect(\"unknown.example.com\", 443)` fail differently from the previous question's example?",
+            "options": [
+              "Because it fails at the DNS step itself, before port routing is ever considered, since 'unknown.example.com' has no entry in dns_records",
+              "Because port 443 doesn't exist on any machine",
+              "Because it fails at the exact same step as api.example.com on port 5432",
+              "Because unknown.example.com resolves to a different IP with no ports at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "`dns_records.get(\"unknown.example.com\")` returns `None` since that hostname isn't in the dictionary, so the function returns the DNS-failure message immediately, without ever reaching the port-lookup step -- a structurally different failure than resolving successfully but finding no service on the requested port.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is assuming a service is unreachable due to DNS, when the real problem is the port, flagged as a mistake?",
+            "options": [
+              "Because 'connection refused' (a port problem) and 'could not resolve host' (a DNS problem) are different failures with different fixes, so correctly diagnosing which one you're facing saves debugging time",
+              "Because DNS and ports are actually the exact same concept",
+              "Because port problems can never occur in practice",
+              "Because DNS failures and port failures always require identical fixes"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's common mistakes point out that these are structurally different problems, and conflating them wastes time chasing the wrong fix.",
+            "id": "q6"
+          },
+          {
+            "question": "Why is forgetting that DNS records can be stale or cached a mistake?",
+            "options": [
+              "Because a DNS change doesn't always take effect instantly everywhere, so cached results from a previous lookup can point to an old IP for a while after a record is updated",
+              "Because DNS caching never actually happens on real systems",
+              "Because DNS records update instantly and globally the moment they're changed",
+              "Because cached DNS results are always more accurate than fresh lookups"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson warns that DNS propagation isn't instantaneous, so a recently changed record might still resolve to the old IP for some clients due to caching.",
+            "id": "q7"
+          },
+          {
+            "question": "Why should `host:port` be treated as two separate, independently-failing pieces rather than one opaque string?",
+            "options": [
+              "Because debugging a connection problem goes faster when DNS resolution and port-level reachability are checked as two separate questions, rather than one combined mystery",
+              "Because host and port cannot actually fail independently of each other",
+              "Because treating them separately always doubles debugging time",
+              "Because ports do not affect network routing at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's common mistakes highlight that separating the DNS question from the port question makes diagnosing a connectivity problem far more tractable than treating the whole thing as one undifferentiated failure.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "cld_shell_scripting_for_automation",
+      "title": "Shell Scripting for Automation",
+      "description": "The small scripts that quietly hold together every deploy pipeline you'll ever touch.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Write a simple shell script that automates a repeated multi-step task, and explain why automation matters operationally."
+          },
+          {
+            "title": "📜 What a shell script actually is",
+            "content": "A shell script is just a sequence of the same commands you'd type interactively, saved to a file and run as a unit — variables, conditionals, and loops work much like in any programming language, letting you automate a sequence like 'build the container, run the tests, push the image' as one repeatable, reliable command."
+          },
+          {
+            "title": "🔁 Why automate rather than repeat manually",
+            "content": "A manual, multi-step deploy process run by hand is slow and error-prone — a forgotten step, a typo, an inconsistent order between two people's manual runs. A script runs the same steps the same way every time, which is exactly the reliability property the CI/CD module later in this course builds much larger automation around."
+          },
+          {
+            "title": "⚠️ Scripts need error handling too",
+            "content": "A script that doesn't check whether each step actually succeeded before moving to the next can silently continue after a failure, doing more damage — `set -e` (stop on first error) and explicit checks on critical steps are the shell-script equivalent of the error-handling discipline covered throughout the App Dev course's API-building lessons."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "Here's the difference `set -e`-style behavior makes, modeled in Python: a script that keeps going after a failure versus one that stops immediately.\n\n```python\ndef run_step(name, succeeds):\n    print(f\"running: {name}\")\n    if not succeeds:\n        print(f\"  FAILED: {name}\")\n    return succeeds\n\nsteps = [\n    (\"build container\", True),\n    (\"run tests\", False),   # this step fails\n    (\"push image\", True),   # should NEVER run after a failed test step\n]\n\n# --- Without error handling: keeps going regardless ---\n\nprint(\"--- no error handling ---\")\nfor name, succeeds in steps:\n    run_step(name, succeeds)\nprint(\"script finished 'successfully' even though a step failed and pushed a broken image\\n\")\n\n# --- With set -e style error handling: stops at the first failure ---\n\nprint(\"--- with 'set -e' style error handling ---\")\nfor name, succeeds in steps:\n    ok = run_step(name, succeeds)\n    if not ok:\n        print(f\"stopping script immediately -- '{name}' failed, later steps skipped\")\n        break\n```\n\nWithout error handling, the loop runs all three steps regardless of outcome — including `push image`, which runs even though `run tests` just failed, exactly the silent-continue risk the lesson warns about. With the `set -e`-style check, the loop's `if not ok: break` stops execution the moment `run tests` fails, so `push image` never runs at all — a broken image never gets pushed."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Writing a script with no error handling, assuming every step will always succeed.** As the code example shows, this can let a broken later step (like pushing an image) run anyway after an earlier step has already failed.\n\n**Hardcoding values that should be parameters or environment variables.** A script with a hardcoded environment name or file path only works in the one context it was written for, defeating the reusability that makes automation valuable in the first place.\n\n**Treating a working script as \"done\" with no comments or documentation.** A script that only its original author understands becomes a liability the moment that person is unavailable — a few lines explaining *why* a non-obvious step exists pays for itself quickly.\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "cld_shell_scripting_for_automation_quiz",
+        "questions": [
+          {
+            "question": "What is a shell script, fundamentally?",
+            "options": [
+              "A sequence of commands saved to a file and run as a single repeatable unit, with support for variables, conditionals, and loops",
+              "A special kind of database query language",
+              "A compiled binary that cannot be edited after creation",
+              "A configuration file with no executable logic"
+            ],
+            "correctAnswer": 0,
+            "explanation": "A shell script is just ordinary interactive commands captured into a reusable, automatable sequence — not a fundamentally different kind of artifact.",
+            "id": "q1"
+          },
+          {
+            "question": "Why is a scripted deploy process more reliable than a manual, step-by-step process run by hand?",
+            "options": [
+              "A script runs the same steps the same way every time, avoiding forgotten steps, typos, or inconsistencies between different people's manual runs",
+              "Scripts always run instantly with zero execution time",
+              "Manual processes are always faster than scripted ones",
+              "Scripts eliminate the need for testing entirely"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Consistency and repeatability are exactly what automation buys over manual execution, which is prone to human error and inconsistency.",
+            "id": "q2"
+          },
+          {
+            "question": "What does `set -e` (or similar error handling) protect a script against?",
+            "options": [
+              "Silently continuing to later steps after an earlier step has already failed",
+              "Running the script faster than without it",
+              "Preventing the script from ever being edited again",
+              "Automatically fixing any bugs in the script's logic"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Explicit error handling ensures a failure is caught and stops execution, rather than letting the script blindly proceed and potentially cause further damage.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, what happens to 'push image' in the 'no error handling' run, even though 'run tests' fails?",
+            "options": [
+              "It's automatically skipped",
+              "It still runs, since the loop has no check that stops it after a failed step",
+              "It fails silently without printing anything",
+              "The script crashes with an exception"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The 'no error handling' loop calls `run_step` for every entry in `steps` unconditionally, so `push image` runs regardless of `run tests` having just failed -- exactly the silent-continue risk the lesson warns about.",
+            "id": "q4"
+          },
+          {
+            "question": "In the 'with error handling' version, what causes the loop to stop before `push image` runs?",
+            "options": [
+              "The if not ok: break check, triggered when run_step returns False for the failed 'run tests' step",
+              "A random decision by the script",
+              "push image is removed from the steps list entirely",
+              "The script runs push image first, then stops"
+            ],
+            "correctAnswer": 0,
+            "explanation": "When `run_step(\"run tests\", False)` returns `False`, the `if not ok: break` check inside the loop triggers, printing the stop message and exiting the loop before `push image` is ever reached.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is writing a script with no error handling, assuming every step will always succeed, flagged as a mistake?",
+            "options": [
+              "Because it can let a broken later step run anyway after an earlier step has already failed, as shown in the code example",
+              "Because scripts without error handling always run faster",
+              "Because error handling is impossible to implement in shell scripts",
+              "Because every step in a script always succeeds by definition"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's common mistakes directly reference the code example's demonstration: without error handling, a failure doesn't stop later, potentially damaging steps from running.",
+            "id": "q6"
+          },
+          {
+            "question": "Why is hardcoding values that should be parameters or environment variables considered a mistake?",
+            "options": [
+              "Because a script with a hardcoded environment name or file path only works in the one context it was written for, defeating the reusability automation is meant to provide",
+              "Because hardcoded values always run faster than parameterized ones",
+              "Because shell scripts cannot technically accept parameters",
+              "Because hardcoding values is required for security reasons"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explains that hardcoding undermines the very reusability that makes automation valuable — a script tied to one specific context can't be reused elsewhere without editing it.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does the lesson warn against treating a working script as 'done' with no comments or documentation?",
+            "options": [
+              "Because a script only its original author understands becomes a liability the moment that person is unavailable",
+              "Because comments always slow down script execution significantly",
+              "Because documented scripts cannot be version controlled",
+              "Because undocumented scripts are always more reliable"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson points out that a few lines explaining non-obvious steps pays off quickly, since an undocumented script becomes hard to maintain or trust once the original author isn't available to explain it.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,675 @@
+{
+  "id": "module_2",
+  "title": "Joining Tables",
+  "description": "Connect related tables with primary/foreign keys, INNER and OUTER joins, self joins, UNION, and multi-table joins",
+  "icon": "🔗",
+  "color": "#336791",
+  "order": 2,
+  "estimatedHours": 3,
+  "difficulty": "Intermediate",
+  "prerequisites": [
+    "Aggregating & Grouping Data"
+  ],
+  "lessons": [
+    {
+      "id": "lesson_2_1",
+      "title": "Keys & Relationships",
+      "description": "Understand primary keys and foreign keys — the glue that connects tables together",
+      "duration": "10 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain what a primary key and a foreign key are, and how they let two tables relate to each other."
+          },
+          {
+            "title": "🔑 Primary keys: each row's unique ID",
+            "content": "A **primary key** is a column (or set of columns) that uniquely identifies each row in a table — no two rows can share one, and it can't be NULL. In our schema, `customer_id` is the primary key of `customers`, `order_id` is the primary key of `orders`, and so on.\n\nThink of it like a social security number or a serial number: it exists purely so you can point at *this one specific row* and no other."
+          },
+          {
+            "title": "🔗 Foreign keys: pointing to another table's row",
+            "content": "A **foreign key** is a column that stores another table's primary key value, creating a link between the two tables. In `orders`, the `customer_id` column is a foreign key — it doesn't identify the order itself, it points at *which customer* placed it.\n\n```sql\norders.customer_id  →  points to  →  customers.customer_id\norders.order_id  = primary key of orders (unique per order)\n```\n\nThis is exactly the relationship that lets you ask questions that span two tables, like \"which customer placed order #482?\" — and it's what the JOIN keyword (next lesson) is built around."
+          },
+          {
+            "title": "🧭 One-to-many, the most common relationship",
+            "content": "Most relationships in our schema are **one-to-many**: one customer can have many orders, but each order belongs to exactly one customer. You can always spot the \"many\" side — it's the table holding the foreign key (`orders.customer_id`), because each of its rows points to just one row on the \"one\" side (`customers.customer_id`)."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "Confusing which side of a relationship is \"one\" and which is \"many\" — the foreign key always lives on the many side. Assuming a foreign key column has the same name as the primary key it points to — it usually does in tidy schemas, but not always."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "quiz_lesson_2_1",
+        "questions": [
+          {
+            "question": "What makes a primary key different from other columns?",
+            "options": [
+              "It must always be text",
+              "It uniquely identifies each row and can't be NULL or duplicated",
+              "It's always the first column in the table",
+              "It automatically sorts the table"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A primary key's whole job is to uniquely identify a row — every value must be unique, and it can never be NULL.",
+            "id": "q1"
+          },
+          {
+            "question": "What is orders.customer_id an example of?",
+            "options": [
+              "A primary key of the orders table",
+              "A foreign key pointing to customers.customer_id",
+              "A calculated column",
+              "An index name"
+            ],
+            "correctAnswer": 1,
+            "explanation": "It's a foreign key: it stores a value from another table's primary key (customers.customer_id) to link an order back to the customer who placed it.",
+            "id": "q2"
+          },
+          {
+            "question": "In a one-to-many relationship between customers and orders, which table holds the foreign key?",
+            "options": [
+              "customers, because it's the 'one' side",
+              "orders, because it's the 'many' side and each order points to one customer",
+              "Both tables need the same foreign key",
+              "Neither — foreign keys are only used in many-to-many relationships"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The 'many' side (orders, since one customer can have many orders) holds the foreign key pointing back to the 'one' side (customers).",
+            "id": "q3"
+          },
+          {
+            "question": "Can a table have more than one candidate key, even though it has only one primary key?",
+            "options": [
+              "Yes, other unique columns can serve as candidate keys even if not chosen as the primary key",
+              "No, a table can only ever have exactly one unique column",
+              "No, only foreign keys can be unique",
+              "Yes, but only in tables with fewer than 10 rows"
+            ],
+            "correctAnswer": 0,
+            "explanation": "A table can have several columns that could each uniquely identify a row; only one is designated the primary key.",
+            "id": "q4"
+          },
+          {
+            "question": "What does a foreign key reference?",
+            "options": [
+              "A primary key in another (or the same) table",
+              "A column with no constraints at all",
+              "The table's row count",
+              "A column that must contain NULLs"
+            ],
+            "correctAnswer": 0,
+            "explanation": "A foreign key points to a primary key elsewhere, establishing the relationship between tables.",
+            "id": "q5"
+          },
+          {
+            "question": "Why must a primary key be unique?",
+            "options": [
+              "So each row can be unambiguously identified",
+              "So the table can be sorted faster",
+              "Because SQL requires all columns to be unique",
+              "Because foreign keys are otherwise disabled"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Uniqueness is what allows a primary key to reliably identify exactly one row.",
+            "id": "q6"
+          },
+          {
+            "question": "Can a primary key contain a NULL value?",
+            "options": [
+              "No, a primary key column cannot contain NULLs",
+              "Yes, as long as it's still unique among non-NULL values",
+              "Only in the first row of a table",
+              "Only if the table has no foreign keys"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Primary keys must be both unique and non-NULL to reliably identify every row.",
+            "id": "q7"
+          },
+          {
+            "question": "What kind of relationship exists between customers and orders when one customer can place many orders?",
+            "options": [
+              "A one-to-many relationship",
+              "A many-to-many relationship",
+              "A one-to-one relationship",
+              "No relationship at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "One customer linked to many orders is the classic one-to-many relationship, with the foreign key living on the 'many' side.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "lesson_2_2",
+      "title": "INNER JOIN",
+      "description": "Combine rows from two tables based on a matching key",
+      "duration": "15 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Write an INNER JOIN to combine two related tables and understand exactly which rows it keeps."
+          },
+          {
+            "title": "🧩 Combining two tables",
+            "content": "A `JOIN` lets a query pull columns from more than one table at once, matched up by their key relationship:\n\n```sql\nSELECT orders.order_id, customers.name, orders.total_amount\nFROM orders\nINNER JOIN customers ON orders.customer_id = customers.customer_id;\n```\n\nThe `ON` clause is the crucial part — it tells the database **how** the two tables relate. Without it, the database wouldn't know which customer goes with which order."
+          },
+          {
+            "title": "✅ INNER JOIN keeps only matches",
+            "content": "`INNER JOIN` (often just written `JOIN`) returns only the rows where the matching condition is true on **both sides**. If an order somehow had no matching customer, that order would simply be left out of the result.\n\nThat's the defining feature to remember: **INNER JOIN = only rows that match in both tables.** The next lesson covers what to do when you want unmatched rows kept too."
+          },
+          {
+            "title": "🏷️ Table aliases keep it readable",
+            "content": "Typing full table names gets tedious, especially with more joins. Give tables short aliases instead:\n\n```sql\nSELECT o.order_id, c.name, o.total_amount\nFROM orders AS o\nINNER JOIN customers AS c ON o.customer_id = c.customer_id;\n```\n\n`o` and `c` now stand in for the table names everywhere else in the query — this becomes essential once you're joining three or four tables."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "Forgetting the ON clause — most databases require it, and without it you can accidentally create a cross join (every row paired with every row). Joining on the wrong pair of columns, which silently produces a table that looks plausible but is wrong."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "quiz_lesson_2_2",
+        "questions": [
+          {
+            "question": "What does the ON clause in a JOIN specify?",
+            "options": [
+              "Which columns to display in the output",
+              "How the two tables relate — the condition used to match their rows",
+              "The order results should be sorted in",
+              "Which table to filter first"
+            ],
+            "correctAnswer": 1,
+            "explanation": "ON defines the matching condition between the two tables — typically a foreign key column equaling the primary key it points to.",
+            "id": "q1"
+          },
+          {
+            "question": "If an order has a customer_id that doesn't exist in the customers table, what happens with INNER JOIN?",
+            "options": [
+              "The order still appears, with NULLs for customer columns",
+              "The order is excluded from the result entirely",
+              "The query throws an error",
+              "The customer_id is automatically corrected"
+            ],
+            "correctAnswer": 1,
+            "explanation": "INNER JOIN only keeps rows where the join condition matches on both sides. An order with no matching customer row simply doesn't appear in the result.",
+            "id": "q2"
+          },
+          {
+            "question": "In FROM orders AS o INNER JOIN customers AS c ON o.customer_id = c.customer_id, what is o?",
+            "options": [
+              "A new column",
+              "An alias standing in for the orders table for the rest of the query",
+              "A function",
+              "A typo for 'order'"
+            ],
+            "correctAnswer": 1,
+            "explanation": "AS o creates a short alias for the orders table, so it can be referred to as o instead of the full table name in the rest of the query.",
+            "id": "q3"
+          },
+          {
+            "question": "What rows does an INNER JOIN return?",
+            "options": [
+              "Only rows that have matching values in both joined tables",
+              "Every row from the left table, matched or not",
+              "Every row from both tables regardless of match",
+              "Only rows with NULL foreign keys"
+            ],
+            "correctAnswer": 0,
+            "explanation": "INNER JOIN only keeps rows where the join condition finds a match in both tables.",
+            "id": "q4"
+          },
+          {
+            "question": "Can you JOIN more than two tables in one query?",
+            "options": [
+              "Yes, by chaining multiple JOIN clauses together",
+              "No, SQL only supports joining exactly two tables",
+              "Only if the tables are named identically",
+              "Only using a subquery, never a direct JOIN"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Multiple JOIN clauses can be chained to combine data from several tables in one query.",
+            "id": "q5"
+          },
+          {
+            "question": "What is a common reason to use a table alias like `AS o` in a JOIN?",
+            "options": [
+              "To keep the query shorter and more readable when referencing columns",
+              "Because JOIN requires aliases to function at all",
+              "To permanently rename the table in the database",
+              "To prevent the join from matching any rows"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Aliases are a readability convenience, letting you write o.customer_id instead of orders.customer_id repeatedly.",
+            "id": "q6"
+          },
+          {
+            "question": "What happens to unmatched rows from either table in an INNER JOIN?",
+            "options": [
+              "They are excluded from the result entirely",
+              "They appear with NULLs filling in for the missing side",
+              "They cause the query to fail",
+              "They are automatically merged with the nearest matching row"
+            ],
+            "correctAnswer": 0,
+            "explanation": "INNER JOIN strictly requires a match on both sides — no match means the row doesn't appear at all.",
+            "id": "q7"
+          },
+          {
+            "question": "Does the order of tables in an INNER JOIN change the result set (ignoring column order)?",
+            "options": [
+              "No, INNER JOIN is symmetric, so the matched rows are the same either way",
+              "Yes, joining A to B gives different matched rows than B to A",
+              "Only if one of the tables has no primary key",
+              "Only when more than two tables are involved"
+            ],
+            "correctAnswer": 0,
+            "explanation": "INNER JOIN's matching logic is symmetric — the same rows match regardless of which table is listed first.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "lesson_2_3",
+      "title": "OUTER JOINs",
+      "description": "Keep unmatched rows too, with LEFT, RIGHT, and FULL OUTER JOIN",
+      "duration": "15 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain when to use LEFT JOIN instead of INNER JOIN, and read the NULLs it produces for unmatched rows."
+          },
+          {
+            "title": "👈 LEFT JOIN: keep everything on the left",
+            "content": "`LEFT JOIN` keeps **every row from the left (first) table**, whether or not it has a match on the right. Where there's no match, the right table's columns just come back as `NULL`.\n\n```sql\nSELECT c.name, o.order_id, o.total_amount\nFROM customers AS c\nLEFT JOIN orders AS o ON c.customer_id = o.customer_id;\n```\n\nThis is exactly how you'd answer \"show me every customer, including ones who have never ordered anything\" — an INNER JOIN would silently drop those customers, but LEFT JOIN keeps them with NULL order columns."
+          },
+          {
+            "title": "🔎 Finding the unmatched rows on purpose",
+            "content": "A very common pattern combines `LEFT JOIN` with a `WHERE ... IS NULL` check to find rows with *no* match at all:\n\n```sql\nSELECT c.name\nFROM customers AS c\nLEFT JOIN orders AS o ON c.customer_id = o.customer_id\nWHERE o.order_id IS NULL;\n```\n\nThis answers \"which customers have never placed an order?\" — a question INNER JOIN literally cannot answer, because it only ever shows matches."
+          },
+          {
+            "title": "↔️ RIGHT JOIN and FULL OUTER JOIN",
+            "content": "`RIGHT JOIN` is the mirror image of LEFT JOIN — it keeps every row from the **right** table instead. In practice, most people just swap the table order and use LEFT JOIN, so RIGHT JOIN is rarely written.\n\n`FULL OUTER JOIN` keeps **everything from both sides**, matched where possible and NULL-padded where not. It's less common day-to-day, but useful for spotting mismatches between two tables that are supposed to line up."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "Using INNER JOIN when the real question is about *missing* relationships — the customers-with-no-orders example above is a classic case where only LEFT JOIN gives the right answer. Forgetting that after a LEFT JOIN, columns from the right table can be NULL, and code that doesn't expect that will break."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "quiz_lesson_2_3",
+        "questions": [
+          {
+            "question": "What's the key difference between INNER JOIN and LEFT JOIN?",
+            "options": [
+              "They always return the same result",
+              "INNER JOIN keeps only matching rows; LEFT JOIN also keeps unmatched left-table rows, with NULLs on the right",
+              "LEFT JOIN is faster but less accurate",
+              "INNER JOIN can only be used with two tables, LEFT JOIN with three or more"
+            ],
+            "correctAnswer": 1,
+            "explanation": "INNER JOIN drops rows with no match on either side. LEFT JOIN keeps every row from the left table regardless, filling in NULL for right-table columns when there's no match.",
+            "id": "q1"
+          },
+          {
+            "question": "How would you find customers who have never placed an order?",
+            "options": [
+              "INNER JOIN customers to orders and filter WHERE order_id IS NULL",
+              "LEFT JOIN customers to orders and filter WHERE o.order_id IS NULL",
+              "RIGHT JOIN orders to customers with no filter",
+              "This can't be done with joins"
+            ],
+            "correctAnswer": 1,
+            "explanation": "LEFT JOIN keeps every customer even with no matching order (NULL in order columns), and the WHERE o.order_id IS NULL filter then isolates exactly the customers with no match.",
+            "id": "q2"
+          },
+          {
+            "question": "What does FULL OUTER JOIN return?",
+            "options": [
+              "Only rows that match in both tables",
+              "Only rows from the left table",
+              "Every row from both tables, matched where possible and NULL-padded where not",
+              "An error, since it isn't valid SQL"
+            ],
+            "correctAnswer": 2,
+            "explanation": "FULL OUTER JOIN combines the behavior of LEFT and RIGHT JOIN: it keeps everything from both tables, matching where it can and filling NULLs where it can't.",
+            "id": "q3"
+          },
+          {
+            "question": "What does a LEFT JOIN guarantee about the left (first-listed) table's rows?",
+            "options": [
+              "Every row from the left table appears in the result, matched or not",
+              "Only matched rows from the left table appear",
+              "The left table's rows are dropped if no match exists",
+              "The left table must have a primary key to be used"
+            ],
+            "correctAnswer": 0,
+            "explanation": "LEFT JOIN always keeps every row from the left table, filling in NULLs for the right side if there's no match.",
+            "id": "q4"
+          },
+          {
+            "question": "When a LEFT JOIN finds no match on the right table, what appears in the right table's columns?",
+            "options": [
+              "NULL values",
+              "Zero (0)",
+              "An empty string",
+              "The row is simply omitted"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Unmatched right-side columns are filled with NULL rather than being omitted or defaulted to another value.",
+            "id": "q5"
+          },
+          {
+            "question": "What's a practical use case for a LEFT JOIN with a NULL check?",
+            "options": [
+              "Finding customers who have never placed an order",
+              "Finding customers who have placed at least one order",
+              "Sorting customers alphabetically",
+              "Counting the total number of products"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Filtering for NULL on the joined side after a LEFT JOIN reveals rows from the left table with no match — like customers with zero orders.",
+            "id": "q6"
+          },
+          {
+            "question": "Is RIGHT JOIN the mirror image of LEFT JOIN?",
+            "options": [
+              "Yes, RIGHT JOIN keeps every row from the right table instead of the left",
+              "No, RIGHT JOIN behaves identically to INNER JOIN",
+              "No, RIGHT JOIN is not a valid SQL keyword",
+              "Yes, but only for numeric columns"
+            ],
+            "correctAnswer": 0,
+            "explanation": "RIGHT JOIN is the mirror of LEFT JOIN, guaranteeing all rows from the right-hand table instead.",
+            "id": "q7"
+          },
+          {
+            "question": "Why is FULL OUTER JOIN sometimes described as combining LEFT and RIGHT JOIN?",
+            "options": [
+              "Because it keeps unmatched rows from both tables, not just one side",
+              "Because it only returns matched rows from both sides",
+              "Because it requires exactly two matching columns",
+              "Because it always returns an empty result"
+            ],
+            "correctAnswer": 0,
+            "explanation": "FULL OUTER JOIN preserves unmatched rows from both the left and right tables simultaneously.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "lesson_2_4",
+      "title": "Self Joins & UNION",
+      "description": "Join a table to itself, and stack two result sets together",
+      "duration": "13 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Write a self join to compare rows within one table, and use UNION to combine two queries' results."
+          },
+          {
+            "title": "🪞 Self joins: a table joined to itself",
+            "content": "Sometimes the relationship you need is *within* one table — like employees having a manager who is also an employee. A **self join** joins a table to itself, using two different aliases to tell the two 'copies' apart:\n\n```sql\nSELECT e.name AS employee, m.name AS manager\nFROM employees AS e\nLEFT JOIN employees AS m ON e.manager_id = m.employee_id;\n```\n\n`e` represents each employee, and `m` represents that employee's manager — same table, two roles. LEFT JOIN is used here so employees with no manager (like the CEO) still show up, with NULL in the manager column."
+          },
+          {
+            "title": "➕ UNION: stacking two result sets",
+            "content": "`UNION` combines the rows from two separate `SELECT` queries into one result, stacked on top of each other — as long as both queries return the **same number of columns with compatible types**.\n\n```sql\nSELECT name, 'customer' AS role FROM customers\nUNION\nSELECT name, 'employee' AS role FROM employees;\n```\n\nThis is useful when you want a single combined list from two different tables that represent similar things."
+          },
+          {
+            "title": "🔁 UNION vs UNION ALL",
+            "content": "Plain `UNION` automatically removes duplicate rows across the two result sets — which means it does extra work to check for duplicates. `UNION ALL` keeps every row from both queries, duplicates included, and is faster since it skips that check.\n\nUse `UNION ALL` whenever you know there won't be duplicates, or you don't care about them — it's the better default for performance."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "Forgetting that both queries in a UNION need matching column counts and compatible types. Reaching for a self join when a simple filter would do — self joins are for genuinely comparing rows within the same table, like employee-to-manager."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "quiz_lesson_2_4",
+        "questions": [
+          {
+            "question": "In a self join like FROM employees AS e LEFT JOIN employees AS m ON e.manager_id = m.employee_id, what are e and m?",
+            "options": [
+              "Two different physical tables",
+              "Two aliases for the same employees table, representing different roles in the comparison",
+              "Built-in SQL keywords",
+              "Column names"
+            ],
+            "correctAnswer": 1,
+            "explanation": "e and m are just two aliases pointing at the same employees table, letting the query treat each row twice — once as 'the employee' and once as 'the manager'.",
+            "id": "q1"
+          },
+          {
+            "question": "What's required for two SELECT queries to be combined with UNION?",
+            "options": [
+              "They must query the same table",
+              "They must return the same number of columns with compatible types",
+              "They must both use GROUP BY",
+              "Nothing — any two queries can be combined"
+            ],
+            "correctAnswer": 1,
+            "explanation": "UNION stacks result sets row-by-row, so the two queries need the same number of columns, in a compatible order and type, for the combination to make sense.",
+            "id": "q2"
+          },
+          {
+            "question": "What's the main practical difference between UNION and UNION ALL?",
+            "options": [
+              "UNION ALL is only for numeric columns",
+              "UNION removes duplicate rows across both result sets; UNION ALL keeps every row, including duplicates, and is faster",
+              "UNION can only combine two queries; UNION ALL can combine more",
+              "There is no difference"
+            ],
+            "correctAnswer": 1,
+            "explanation": "UNION does extra work to de-duplicate the combined rows. UNION ALL skips that check and keeps everything, which is both simpler in meaning and cheaper to run.",
+            "id": "q3"
+          },
+          {
+            "question": "What is a self join used for?",
+            "options": [
+              "Comparing rows within the same table to each other, like an employee to their manager",
+              "Joining a table to itself twice with no purpose",
+              "Joining a table only to itself and no other table",
+              "A join that always returns zero rows"
+            ],
+            "correctAnswer": 0,
+            "explanation": "A self join relates rows in a table to other rows in that same table, common for hierarchical data like employee/manager.",
+            "id": "q4"
+          },
+          {
+            "question": "What must be true about the columns selected in each part of a UNION?",
+            "options": [
+              "Each SELECT must return the same number of columns with compatible types",
+              "The column names must be identical across both queries",
+              "Each query must come from the exact same table",
+              "UNION requires exactly one column in each query"
+            ],
+            "correctAnswer": 0,
+            "explanation": "UNION requires matching column count and compatible types, though column names can differ.",
+            "id": "q5"
+          },
+          {
+            "question": "What does UNION do with exact duplicate rows across the combined result?",
+            "options": [
+              "Removes duplicates automatically, keeping only distinct rows",
+              "Keeps every duplicate row",
+              "Causes an error if duplicates exist",
+              "Randomly drops half of the duplicate rows"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Plain UNION deduplicates the combined result; UNION ALL keeps every row including duplicates.",
+            "id": "q6"
+          },
+          {
+            "question": "When would UNION ALL be preferred over UNION?",
+            "options": [
+              "When you want to keep duplicates, or know there won't be any and want better performance",
+              "Never — UNION ALL is always worse",
+              "Only when combining more than three queries",
+              "Only when working with text columns"
+            ],
+            "correctAnswer": 0,
+            "explanation": "UNION ALL skips the deduplication step, which is both simpler when duplicates aren't a concern and generally faster.",
+            "id": "q7"
+          },
+          {
+            "question": "In a self join aliasing a table as `e` and `m`, what does the join condition typically compare?",
+            "options": [
+              "A foreign key column on one alias to the primary key on the other, like e.manager_id = m.employee_id",
+              "Two completely unrelated columns",
+              "The table name to itself as a string",
+              "Nothing — self joins require no ON condition"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The join condition links each employee's manager_id to another row's employee_id within the same table.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "lesson_2_5",
+      "title": "Multi-Table Joins in Practice",
+      "description": "Chain three or more joins together to answer a real, multi-table question",
+      "duration": "14 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Chain multiple JOINs across three or more tables to answer a question that no single table can answer alone."
+          },
+          {
+            "title": "🧵 Chaining joins",
+            "content": "Real questions often span more than two tables. \"What did each customer actually buy?\" needs `customers`, `orders`, `order_items`, and `products` all connected:\n\n```sql\nSELECT c.name, p.name AS product, oi.quantity, oi.unit_price\nFROM customers AS c\nJOIN orders AS o       ON c.customer_id = o.customer_id\nJOIN order_items AS oi ON o.order_id = oi.order_id\nJOIN products AS p     ON oi.product_id = p.product_id;\n```\n\nEach `JOIN` adds one more table into the mix, following the chain of foreign keys: customer → order → order item → product."
+          },
+          {
+            "title": "🧠 Reading a multi-join query",
+            "content": "When a query has several joins, read it as a chain of connections rather than all at once:\n\n• Start at `FROM` — that's your anchor table\n• Each `JOIN ... ON ...` adds one more table, connected by a key\n• By the time you reach `SELECT`, you can picture one wide, combined table made from all of them\n\nIt also helps to build these queries incrementally: start with two tables, run it, confirm it looks right, then add the next join."
+          },
+          {
+            "title": "💰 Joining with an aggregate: revenue per product",
+            "content": "Joins and GROUP BY combine naturally. \"Which products earned the most revenue?\" needs a join (to get product names) plus an aggregate (to total the revenue):\n\n```sql\nSELECT p.name, SUM(oi.quantity * oi.unit_price) AS revenue\nFROM order_items AS oi\nJOIN products AS p ON oi.product_id = p.product_id\nGROUP BY p.name\nORDER BY revenue DESC;\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "Joining tables that aren't actually related by a key, which silently multiplies rows in strange ways. Losing track of which alias refers to which table once there are four or five of them — pick short, memorable aliases and stay consistent."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "quiz_lesson_2_5",
+        "questions": [
+          {
+            "question": "To find out what products each customer bought, which tables need to be joined together (based on our schema)?",
+            "options": [
+              "Only customers and products",
+              "customers, orders, order_items, and products, following the foreign key chain",
+              "Only orders and order_items",
+              "Just products, since it lists all items"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The chain of foreign keys runs customer → order → order item → product, so all four tables need to be joined to connect a customer to the specific products they bought.",
+            "id": "q1"
+          },
+          {
+            "question": "What's a good strategy for writing a query with four or five joins?",
+            "options": [
+              "Write the whole thing at once and hope it's correct",
+              "Build it incrementally — start with two tables, verify, then add joins one at a time",
+              "Avoid using aliases to keep it simple",
+              "Always use RIGHT JOIN for every table"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Building incrementally — join two tables, check the result, then add the next join — makes it much easier to catch mistakes early instead of debugging a large query all at once.",
+            "id": "q2"
+          },
+          {
+            "question": "In SUM(oi.quantity * oi.unit_price) AS revenue, what is being calculated per row before the SUM?",
+            "options": [
+              "Just the unit_price",
+              "The line-item total: quantity times unit price for that order item",
+              "The customer's total spend",
+              "The number of products in the category"
+            ],
+            "correctAnswer": 1,
+            "explanation": "quantity * unit_price computes the revenue for one order line item; SUM then adds those line totals together per group (here, per product).",
+            "id": "q3"
+          },
+          {
+            "question": "Why might a query need to join four or five tables together?",
+            "options": [
+              "Because the information needed spans data that's spread across several related tables",
+              "Because SQL requires at least four tables in every query",
+              "Because JOIN only works with an even number of tables",
+              "Because more joins always make a query faster"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Real business questions often require combining data scattered across several normalized tables.",
+            "id": "q4"
+          },
+          {
+            "question": "What's a reasonable strategy for building a complex multi-join query?",
+            "options": [
+              "Build and test it one join at a time, verifying results at each step",
+              "Write every join at once with no testing",
+              "Avoid using aliases entirely to keep it simple",
+              "Always join every table in the database regardless of need"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Incrementally adding and verifying each join makes it much easier to catch mistakes before the query grows complex.",
+            "id": "q5"
+          },
+          {
+            "question": "What happens to a computed expression like `quantity * unit_price` when wrapped inside SUM()?",
+            "options": [
+              "It's calculated per row first, then those per-row values are summed together",
+              "It's summed first, then multiplied once at the end",
+              "It causes a SQL syntax error",
+              "It only works if quantity and unit_price are in the same table"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The multiplication happens per row before the aggregate SUM combines all those row-level results.",
+            "id": "q6"
+          },
+          {
+            "question": "Why is it useful to alias computed columns like `SUM(oi.quantity * oi.unit_price) AS revenue`?",
+            "options": [
+              "It gives a clear, reusable name to reference the calculated value elsewhere in the query",
+              "It changes the underlying calculation",
+              "It's required for the multiplication to execute",
+              "It converts the column into a primary key"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Aliasing a computed expression makes the result readable and lets you reference it in ORDER BY or elsewhere.",
+            "id": "q7"
+          },
+          {
+            "question": "When joining multiple tables, why does column naming sometimes need a table prefix like `o.customer_id`?",
+            "options": [
+              "To disambiguate when the same column name exists in more than one joined table",
+              "Because SQL requires every column reference to include a prefix",
+              "Because prefixes make queries run faster",
+              "Because unprefixed columns are always interpreted as strings"
+            ],
+            "correctAnswer": 0,
+            "explanation": "A prefix resolves ambiguity when multiple joined tables share a column name, like customer_id appearing in both customers and orders.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

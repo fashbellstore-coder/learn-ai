@@ -1,0 +1,575 @@
+{
+  "id": "sec_fairness_and_harms",
+  "title": "Fairness, Bias & Harms",
+  "description": "Where bias actually comes from across the ML/LLM pipeline, measuring fairness and its inherent trade-offs, harmful content detection and safety classifiers, and mitigating bias at each pipeline stage.",
+  "icon": "⚖️",
+  "color": "#C62828",
+  "order": 3,
+  "estimatedHours": 5,
+  "difficulty": "advanced",
+  "prerequisites": [
+    "sec_input_attacks"
+  ],
+  "lessons": [
+    {
+      "id": "sec_sources_of_bias",
+      "title": "Where Bias Actually Comes From",
+      "description": "A biased model usually isn't the result of a single bad decision — it's the accumulated effect of choices made at every stage of the pipeline.",
+      "duration": 13,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Trace the sources of bias in an ML/LLM system across the stages of the pipeline, from data collection through deployment."
+          },
+          {
+            "title": "📊 Bias in training data",
+            "content": "If training data over- or under-represents certain groups, contains historical patterns of discrimination baked into the raw record (hiring or lending decisions that were themselves biased, now used as 'ground truth' for a model to learn from), or reflects skewed sampling (data collected primarily from one demographic or context), a model trained on it can learn and often amplify those same patterns — directly connecting to the data-quality principles from the Fine-Tuning and MLOps courses, just viewed through the lens of representational fairness rather than only accuracy."
+          },
+          {
+            "title": "🏷️ Bias in labeling and annotation",
+            "content": "Even with representative raw data, if the humans (or models, per the Fine-Tuning course's RLAIF discussion) doing the labeling bring their own biases to subjective judgment calls (what counts as 'high quality,' what counts as 'appropriate'), that bias gets encoded into the labels a model is trained to predict — a subtle source of bias that can exist even in a dataset that looks demographically balanced on its surface."
+          },
+          {
+            "title": "🏗️ Bias in model architecture and objective choices",
+            "content": "What a model is optimized to predict, and what proxy metrics stand in for the actual goal, can themselves introduce bias even with perfectly balanced, perfectly labeled data — optimizing for an easily-measurable proxy that correlates with but isn't identical to the actual goal can systematically disadvantage groups for whom that proxy is a worse fit, independent of anything wrong with the training data itself."
+          },
+          {
+            "title": "🚀 Bias amplification at deployment",
+            "content": "How a system is actually used in production can amplify a bias that existed only mildly in the underlying model — a recommendation system with a small bias in what it surfaces can create a feedback loop where biased exposure produces biased engagement data, which then reinforces the same bias in future retraining, mirroring the same feedback-loop concern the MLOps course's monitoring module raised for concept drift generally, just specifically about fairness-relevant drift here."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "Before trusting a training set, it's worth checking how each group's share of the data compares to a reference population. The toy example below computes a simple representation ratio per group to flag under-representation.\n\n```python\n# Toy training dataset: each record tagged with a demographic group\nrecords = [\n    {\"id\": 1, \"group\": \"A\"}, {\"id\": 2, \"group\": \"A\"}, {\"id\": 3, \"group\": \"A\"},\n    {\"id\": 4, \"group\": \"A\"}, {\"id\": 5, \"group\": \"A\"}, {\"id\": 6, \"group\": \"A\"},\n    {\"id\": 7, \"group\": \"A\"}, {\"id\": 8, \"group\": \"B\"}, {\"id\": 9, \"group\": \"B\"},\n    {\"id\": 10, \"group\": \"C\"},\n]\n\n# Population reference: the share each group should have if data mirrored reality\npopulation_share = {\"A\": 0.40, \"B\": 0.35, \"C\": 0.25}\n\ndef representation_ratios(records, population_share):\n    total = len(records)\n    counts = {}\n    for r in records:\n        counts[r[\"group\"]] = counts.get(r[\"group\"], 0) + 1\n\n    ratios = {}\n    for group, expected_share in population_share.items():\n        observed_share = counts.get(group, 0) / total\n        # ratio < 1 means the group is under-represented relative to the population\n        ratios[group] = round(observed_share / expected_share, 2)\n    return ratios\n\nprint(representation_ratios(records, population_share))\n# {'A': 1.75, 'B': 0.57, 'C': 0.4}\n```\n\nGroup C's ratio of 0.4 flags it as substantially under-represented relative to the reference population, while group A's 1.75 shows it is over-represented — exactly the kind of raw-data skew this lesson describes as one possible root cause of downstream bias."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Treating \"demographically balanced\" as \"bias-free.\"** A dataset can look balanced in raw counts while still encoding biased labels or skewed sampling within each group; representation checks catch only one of the several bias sources this lesson covers, not the whole problem.\n\n**Assuming historical \"ground truth\" is neutral.** Using past hiring or lending outcomes as training labels without asking whether those outcomes were themselves produced by biased decisions bakes discrimination in as if it were an objective target.\n\n**Fixing data bias while ignoring deployment feedback loops.** Even a perfectly curated training set can develop new bias once it's in production, because biased exposure changes the engagement data used for retraining; mitigation has to include monitoring after launch, not just before it."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "sec_sources_of_bias_quiz",
+        "questions": [
+          {
+            "question": "How can training data introduce bias into a model, even beyond simple demographic under-representation?",
+            "options": [
+              "Training data can never actually introduce any bias",
+              "Historical data can encode past discriminatory patterns (like biased hiring or lending decisions) as 'ground truth,' which a model then learns and often amplifies",
+              "Bias only comes from the model architecture, never from the data itself",
+              "Bias in training data is always immediately obvious and easy to detect"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Beyond simple under-representation, historical data can bake in the effects of past discriminatory decisions, which a model then learns as if they were neutral ground truth.",
+            "id": "q1"
+          },
+          {
+            "question": "How can bias be introduced during labeling and annotation, even with representative raw data?",
+            "options": [
+              "Labeling can never introduce bias if the raw data is balanced",
+              "Subjective judgment calls made by human (or model) labelers can encode their own biases into the labels a model is trained to predict, even in a demographically balanced dataset",
+              "Labeling bias only affects classical ML models, never LLMs",
+              "Annotation is a purely mechanical process with no room for subjective judgment"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Even with balanced raw data, subjective labeling decisions (like what counts as 'appropriate' or 'high quality') can encode bias that isn't visible just by looking at the dataset's demographic composition.",
+            "id": "q2"
+          },
+          {
+            "question": "What is a bias-amplification feedback loop at deployment, per this lesson?",
+            "options": [
+              "A phenomenon that only affects models with no production deployment at all",
+              "A small initial bias in what a system surfaces creates biased engagement data, which then reinforces the same bias in future retraining, mirroring the MLOps course's concept-drift feedback concern",
+              "Feedback loops always reduce bias over time automatically",
+              "This phenomenon has no relationship to any concept covered in the MLOps course"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This mirrors the MLOps course's concern about feedback loops in production data — here applied specifically to how deployment-stage bias can compound over successive retraining cycles.",
+            "id": "q3"
+          },
+          {
+            "question": "According to this lesson, how can bias be introduced through model architecture and objective choices, even with perfectly balanced and perfectly labeled data?",
+            "options": [
+              "It's impossible for bias to arise this way if the data is balanced and the labels are clean",
+              "Optimizing for an easily-measurable proxy that correlates with but isn't identical to the true goal can systematically disadvantage groups for whom that proxy is a worse fit",
+              "Architecture choices only ever affect model accuracy, never fairness",
+              "This source of bias is identical to labeling bias and cannot be distinguished from it"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson specifically notes that proxy-metric optimization can introduce bias independent of anything wrong with the training data, because the proxy may fit certain groups worse than others.",
+            "id": "q4"
+          },
+          {
+            "question": "Which course's monitoring module does this lesson's discussion of deployment-stage bias amplification explicitly connect to?",
+            "options": [
+              "The Fine-Tuning course's RLAIF discussion",
+              "The MLOps course's monitoring module, regarding concept-drift feedback loops",
+              "The ML course's classification-metrics module",
+              "This lesson makes no connection to any other course"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson states the deployment feedback loop 'mirrors the same feedback-loop concern the MLOps course's monitoring module raised for concept drift generally.'",
+            "id": "q5"
+          },
+          {
+            "question": "In the representation_ratios function shown in this lesson, what does a computed ratio below 1.0 for a group indicate?",
+            "options": [
+              "The group is over-represented in the training data relative to its expected population share",
+              "The group's observed share of the training data is smaller than its expected population share, flagging possible under-representation",
+              "The group has been completely excluded from the dataset",
+              "The function encountered a division error for that group"
+            ],
+            "correctAnswer": 1,
+            "explanation": "ratio = observed_share / expected_share, so a value under 1 means the observed share in the dataset is lower than the reference population share.",
+            "id": "q6"
+          },
+          {
+            "question": "In the example run of representation_ratios, group C returns a ratio of about 0.4 while group A returns about 1.75. What does this tell us?",
+            "options": [
+              "Group A is under-represented and group C is over-represented",
+              "Group C is substantially under-represented relative to its expected share, while group A is over-represented relative to its expected share",
+              "Both groups are represented exactly at their expected population shares",
+              "The ratios are meaningless without knowing the model's accuracy"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A ratio of 1.75 (above 1) for group A means it's over-represented, and 0.4 (well below 1) for group C means it's substantially under-represented, flagging it for potential remediation.",
+            "id": "q7"
+          },
+          {
+            "question": "Why is it a mistake to treat a demographically balanced training dataset as automatically 'bias-free,' per this lesson's common mistakes?",
+            "options": [
+              "It isn't a mistake — balanced datasets are always bias-free",
+              "Balance in raw counts says nothing about whether labels are biased or whether sampling within each group is skewed — those are separate bias sources this lesson identifies",
+              "Balanced datasets are inherently less accurate than unbalanced ones",
+              "Balance only matters for image classification tasks, not for LLMs"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Representation balance addresses only one of the pipeline stages described in this lesson (data collection); labeling bias and other sources can still exist despite balanced raw counts.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "sec_measuring_fairness",
+      "title": "Measuring Fairness: There's No Single Definition",
+      "description": "Different, individually reasonable-sounding definitions of 'fair' can be mathematically incompatible with each other — which one applies is a judgment call, not a computation.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Describe at least two different fairness metrics, and explain why choosing between them is a substantive decision rather than a purely technical one."
+          },
+          {
+            "title": "⚖️ Demographic parity",
+            "content": "Requires that a model's positive outcome rate (approved, selected, recommended) is roughly equal across different groups — appealing in its simplicity, but it can require actively ignoring genuine differences in the underlying qualifying criteria across groups if those criteria happen to correlate with group membership, which not everyone agrees is the right notion of fairness for every situation."
+          },
+          {
+            "title": "🎯 Equalized odds / equal opportunity",
+            "content": "Requires that a model's error rates (false positive rate, false negative rate, or both) are roughly equal across groups, rather than requiring equal overall positive outcome rates — a different, also reasonable-sounding notion of fairness, but one that generally cannot be simultaneously satisfied alongside demographic parity except in special cases, which is a mathematical fact, not a limitation of any particular measurement technique."
+          },
+          {
+            "title": "🧮 Why these definitions can conflict",
+            "content": "When the actual base rates of the outcome being predicted genuinely differ across groups (for reasons unrelated to the model itself), demographic parity and equalized odds generally cannot both hold at the same time — this is a mathematically proven impossibility result, not a solvable engineering problem, meaning choosing a fairness metric is fundamentally a values-based decision about which kind of fairness matters most for a given application, not something a more sophisticated technique can sidestep."
+          },
+          {
+            "title": "🎯 Practical implications for choosing a metric",
+            "content": "The right fairness metric depends on the specific application's context and stakes — a lending decision, a content recommendation, and a medical diagnosis tool might reasonably call for different fairness definitions given their different consequences and contexts, echoing this course's evaluation-foundations theme that a good evaluation needs to align with what actually matters for the specific application, not a one-size-fits-all metric applied uniformly regardless of context."
+          },
+          {
+            "title": "📐 Seeing it in practice",
+            "content": "The two functions below implement a demographic-parity difference and an equalized-odds difference (via a true-positive-rate gap) on a small toy loan-approval dataset with two groups.\n\n```python\n# Toy predictions, true labels, and group membership for a loan-approval model\npredictions = [1, 1, 0, 1, 0, 0, 1, 0, 1, 0]\nlabels      = [1, 0, 0, 1, 0, 1, 1, 0, 0, 0]\ngroups      = [\"A\", \"A\", \"A\", \"A\", \"A\", \"B\", \"B\", \"B\", \"B\", \"B\"]\n\ndef positive_rate(preds, mask):\n    selected = [p for p, m in zip(preds, mask) if m]\n    return sum(selected) / len(selected)\n\ndef demographic_parity_difference(preds, groups):\n    mask_a = [g == \"A\" for g in groups]\n    mask_b = [g == \"B\" for g in groups]\n    return abs(positive_rate(preds, mask_a) - positive_rate(preds, mask_b))\n\ndef true_positive_rate(preds, labels, mask):\n    tp = sum(1 for p, l, m in zip(preds, labels, mask) if m and l == 1 and p == 1)\n    actual_positives = sum(1 for l, m in zip(labels, mask) if m and l == 1)\n    return tp / actual_positives if actual_positives else 0.0\n\ndef equalized_odds_difference(preds, labels, groups):\n    mask_a = [g == \"A\" for g in groups]\n    mask_b = [g == \"B\" for g in groups]\n    return abs(true_positive_rate(preds, labels, mask_a) - true_positive_rate(preds, labels, mask_b))\n\nprint(\"demographic parity diff:\", round(demographic_parity_difference(predictions, groups), 2))\nprint(\"equalized odds diff:\", round(equalized_odds_difference(predictions, labels, groups), 2))\n# demographic parity diff: 0.2\n# equalized odds diff: 0.5\n```\n\nNotice the two metrics disagree: the demographic-parity gap looks fairly small (0.2), while the equalized-odds gap is large (0.5), because groups A and B have different underlying label base rates in this toy set — exactly the mathematical conflict the lesson describes."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Reporting a single fairness number as \"the\" fairness score.** Demographic parity and equalized odds can and do disagree, sometimes sharply, so publishing only one metric hides which kind of fairness a system actually satisfies — and which it doesn't.\n\n**Assuming a small demographic-parity gap by itself means a system is fair.** As the toy example shows, near-parity in overall positive-outcome rates can coexist with a large gap in error rates across groups; always check more than one fairness definition before declaring a system fair.\n\n**Trying to satisfy demographic parity and equalized odds simultaneously by tuning harder.** When base rates genuinely differ across groups, the impossibility result means no amount of additional tuning reconciles the two; the choice must be a deliberate values decision, not an optimization target to be solved away."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "sec_measuring_fairness_quiz",
+        "questions": [
+          {
+            "question": "What does demographic parity require of a model's outcomes?",
+            "options": [
+              "Equal error rates across all groups",
+              "Roughly equal positive outcome rates (approved, selected, recommended) across different groups",
+              "Perfect accuracy on every individual prediction",
+              "That the model never uses any demographic information at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Demographic parity focuses on equalizing the rate at which different groups receive a positive outcome, regardless of underlying qualifying criteria differences.",
+            "id": "q1"
+          },
+          {
+            "question": "Why can demographic parity and equalized odds generally not both be satisfied simultaneously?",
+            "options": [
+              "They are actually identical metrics that always agree with each other",
+              "When base rates of the actual outcome genuinely differ across groups, satisfying both is a mathematically proven impossibility except in special cases, not a solvable engineering limitation",
+              "This is simply a limitation of current measurement tools that better technology will eventually fix",
+              "Fairness metrics never actually conflict with each other in practice"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This is a mathematical impossibility result under differing base rates — a genuine trade-off that no engineering improvement can sidestep, making the choice of metric a values-based decision.",
+            "id": "q2"
+          },
+          {
+            "question": "Why might different applications reasonably call for different fairness metrics?",
+            "options": [
+              "All applications should always use exactly the same fairness metric regardless of context",
+              "The right fairness definition depends on the specific application's context and stakes, echoing the evaluation-foundations principle that evaluation should align with what actually matters for that application",
+              "Fairness metrics are purely a matter of personal preference with no connection to application context",
+              "Only one fairness metric has ever been mathematically defined"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Just as different applications need evaluation aligned to their own actual priorities, different fairness stakes and contexts can reasonably call for different fairness definitions.",
+            "id": "q3"
+          },
+          {
+            "question": "According to the lesson's discussion of practical implications, what determines which fairness metric is 'right' for a given application?",
+            "options": [
+              "There's a single universally correct fairness metric for every application",
+              "The application's specific context and stakes (e.g., lending vs. content recommendation vs. medical diagnosis), echoing the course's evaluation-foundations theme that evaluation should align with what matters for that specific use case",
+              "Whichever metric happens to be easiest to compute",
+              "The choice never actually affects real-world outcomes"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson explicitly says different applications 'might reasonably call for different fairness definitions given their different consequences and contexts.'",
+            "id": "q4"
+          },
+          {
+            "question": "What does equalized odds require, as distinct from demographic parity?",
+            "options": [
+              "That overall positive-outcome rates be equal across groups",
+              "That error rates (false positive rate, false negative rate, or both) be roughly equal across groups, rather than equal overall positive-outcome rates",
+              "That the model never make any errors at all",
+              "That training data be equally sized for every group"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Equalized odds targets equal error rates across groups, which is a different requirement from demographic parity's equal overall positive-outcome rates.",
+            "id": "q5"
+          },
+          {
+            "question": "In the code example, why is equalized_odds_difference large (0.5) even though demographic_parity_difference is comparatively small (0.2)?",
+            "options": [
+              "Because the two groups have very different true positive rates even though their overall positive-prediction rates are similar — exactly the kind of disagreement between fairness metrics the lesson describes",
+              "Because there is a bug in the true_positive_rate function",
+              "Because group B has more records than group A",
+              "Because demographic_parity_difference and equalized_odds_difference measure exactly the same thing and should always match"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The groups' overall positive rates are close, but group A's true positive rate is much higher than group B's, so the metrics diverge — the code's key illustration of the two definitions disagreeing.",
+            "id": "q6"
+          },
+          {
+            "question": "What does the true_positive_rate function in the example compute for a given group?",
+            "options": [
+              "The overall fraction of predictions that are positive, regardless of the true label",
+              "The fraction of actual positive-labeled examples in that group that the model correctly predicted as positive",
+              "The total count of records belonging to that group",
+              "The fraction of negative-labeled examples incorrectly predicted as positive"
+            ],
+            "correctAnswer": 1,
+            "explanation": "true_positive_rate divides the count of correctly-predicted positives (tp) by the count of actual positives in that group, i.e., recall restricted to that group.",
+            "id": "q7"
+          },
+          {
+            "question": "Why is it a mistake to assume a small demographic-parity gap by itself means a system is fair?",
+            "options": [
+              "It isn't a mistake — demographic parity alone is always sufficient to prove fairness",
+              "A small demographic-parity gap can coexist with a large equalized-odds gap, since the two metrics measure different things and can disagree, as the toy example demonstrates",
+              "Demographic parity is never a valid fairness metric in any context",
+              "Fairness gaps in error rates are always smaller than gaps in positive-outcome rates"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The example shows a small parity difference (0.2) alongside a large equalized-odds difference (0.5); single-metric reporting can hide real disparities that a second metric would reveal.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "sec_harmful_content_and_safety_classifiers",
+      "title": "Harmful Content Detection and Safety Classifiers",
+      "description": "Before a model's output reaches a user, a separate, purpose-built classifier often gets the final say on whether it's actually safe to show.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain the role of a dedicated safety classifier in an LLM system's defense-in-depth strategy, and its trade-offs."
+          },
+          {
+            "title": "🛡️ What a safety classifier does",
+            "content": "A separate, typically smaller and more specialized model trained specifically to detect categories of harmful content (violence, harassment, explicit content, and other policy-defined categories) — run on either the input (catching a harmful request before it reaches the main model) or the output (catching a harmful response before it reaches the user), or both, functioning as an additional defense-in-depth layer alongside the input filtering and permission scoping covered in this course's previous module."
+          },
+          {
+            "title": "⚖️ The precision-recall trade-off, applied to safety",
+            "content": "Building on the classification-metrics concepts from the ML course: a safety classifier tuned to catch nearly all genuinely harmful content (high recall) will likely also flag some legitimate content as harmful (lower precision, more false positives) — an overly aggressive classifier frustrates legitimate users and can itself become a usability and even a fairness problem if false positives disproportionately affect certain kinds of legitimate content or certain groups of users, while an overly permissive one lets real harms through, which is exactly why tuning this trade-off is a genuine judgment call, not a matter of finding some obviously correct setting."
+          },
+          {
+            "title": "🌍 Context-dependence of what counts as harmful",
+            "content": "The same content can be harmful or entirely appropriate depending on context — a detailed description of violence is a safety concern in most contexts but expected and appropriate in a news article, a history lesson, or age-appropriate fiction — a safety classifier that only looks at surface content without context can systematically misclassify legitimate content, which is why more sophisticated safety systems try to incorporate context (the surrounding conversation, the platform's purpose) rather than judging isolated content in a vacuum."
+          },
+          {
+            "title": "🎯 Safety classifiers as one layer, not a complete solution",
+            "content": "Exactly mirroring this course's defense-in-depth lesson: a safety classifier is one layer among several (model-level safety training, input filtering, permission scoping, monitoring), not a standalone guarantee — it can be evaded by inputs specifically crafted to avoid triggering its detection patterns (the same jailbreak logic from this module's earlier lessons, applied to evading a classifier instead of a model's own safety training), which is exactly why it needs to be red-teamed (this course's module 1) just like every other safety mechanism, not assumed to be reliable because it exists."
+          },
+          {
+            "title": "🎚️ Seeing it in practice",
+            "content": "The function below flags content as harmful when its safety-classifier score meets a threshold, then computes precision and recall against the ground-truth labels at three different thresholds.\n\n```python\n# Toy safety classifier scores (higher = more likely harmful) and true labels\nscores = [0.95, 0.82, 0.71, 0.60, 0.55, 0.48, 0.30, 0.20, 0.10, 0.05]\ntrue_harmful = [1, 1, 0, 1, 0, 1, 0, 0, 0, 0]  # 1 = actually harmful content\n\ndef precision_recall_at_threshold(scores, labels, threshold):\n    flagged = [(s >= threshold) for s in scores]\n    tp = sum(1 for f, l in zip(flagged, labels) if f and l == 1)\n    fp = sum(1 for f, l in zip(flagged, labels) if f and l == 0)\n    fn = sum(1 for f, l in zip(flagged, labels) if not f and l == 1)\n    precision = tp / (tp + fp) if (tp + fp) else 1.0\n    recall = tp / (tp + fn) if (tp + fn) else 1.0\n    return round(precision, 2), round(recall, 2)\n\nfor threshold in (0.75, 0.5, 0.25):\n    precision, recall = precision_recall_at_threshold(scores, true_harmful, threshold)\n    print(f\"threshold={threshold}: precision={precision}, recall={recall}\")\n# threshold=0.75: precision=1.0, recall=0.5\n# threshold=0.5: precision=0.6, recall=0.75\n# threshold=0.25: precision=0.57, recall=1.0\n```\n\nLowering the threshold catches more truly harmful content (recall rises from 0.5 to 1.0) but at the cost of precision (which drops from 1.0 to 0.57) — a concrete illustration of the tuning trade-off this lesson describes."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Picking a single \"best\" threshold without considering the application's actual cost of false positives vs. false negatives.** A children's education platform and an adult content moderation system might reasonably choose very different operating points on the same precision-recall curve; there's no universally correct threshold.\n\n**Evaluating a safety classifier on content stripped of context.** Because the same content can be harmful or entirely appropriate depending on surrounding context, testing (or deploying) a classifier only on isolated snippets can produce a precision/recall estimate that doesn't hold once real conversational context is present.\n\n**Treating a safety classifier as a complete solution once it's deployed.** Because it can be evaded by inputs crafted specifically to avoid its detection patterns, a safety classifier needs the same ongoing red-teaming as every other safety mechanism, not one-time validation followed by blind trust."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "sec_harmful_content_and_safety_classifiers_quiz",
+        "questions": [
+          {
+            "question": "What is the typical role of a dedicated safety classifier in an LLM system?",
+            "options": [
+              "It replaces the need for any other safety mechanism entirely",
+              "A separate, specialized model that detects harmful content categories on input or output, functioning as an additional defense-in-depth layer alongside other mechanisms",
+              "It only ever runs during model training, never during actual deployment",
+              "It has no relationship to the defense-in-depth concept from earlier in this course"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A safety classifier is a distinct, purpose-built model working alongside other defenses (input filtering, permission scoping) as one more layer, not a standalone complete solution.",
+            "id": "q1"
+          },
+          {
+            "question": "What trade-off does tuning a safety classifier's sensitivity involve?",
+            "options": [
+              "There is no trade-off — safety classifiers can be tuned to be perfect with no downside",
+              "Higher recall (catching more genuinely harmful content) tends to come with lower precision (more false positives flagging legitimate content), which is a genuine judgment call rather than a solvable engineering problem",
+              "Precision and recall are unrelated to safety classifier tuning",
+              "Safety classifiers should always be tuned for maximum recall regardless of false-positive consequences"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This mirrors the general precision-recall trade-off from the ML course, applied specifically to safety classification, where over-tuning either direction has real costs (missed harms or frustrated legitimate users).",
+            "id": "q2"
+          },
+          {
+            "question": "Why does context-dependence make harmful-content detection especially challenging?",
+            "options": [
+              "Context never actually matters for determining whether content is harmful",
+              "The same content can be harmful or appropriate depending on context (a news article versus an isolated harmful request), so a classifier ignoring context can systematically misclassify legitimate content",
+              "Context-dependence only matters for classical ML classifiers, never LLM-based safety systems",
+              "Sophisticated safety classifiers never need to consider surrounding context at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since identical content can be appropriate or harmful depending on its context, classifiers that only look at isolated content without broader context risk misclassifying legitimate use cases.",
+            "id": "q3"
+          },
+          {
+            "question": "Per this lesson, what does 'defense-in-depth' mean in the context of a safety classifier?",
+            "options": [
+              "A safety classifier is a standalone guarantee that replaces the need for input filtering and permission scoping",
+              "A safety classifier functions as one additional layer alongside input filtering and permission scoping from the course's previous module, not a complete solution by itself",
+              "Defense-in-depth means running the same classifier multiple times on identical input",
+              "The concept has no connection to jailbreaking or red-teaming discussed elsewhere in this course"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson describes the classifier as functioning alongside input filtering and permission scoping as one layer among several, not a standalone guarantee.",
+            "id": "q4"
+          },
+          {
+            "question": "Why does this lesson say a safety classifier needs to be red-teamed, connecting to an earlier module in this course?",
+            "options": [
+              "Because it can be evaded by inputs specifically crafted to avoid triggering its detection patterns, the same jailbreak logic covered in this module's earlier lessons, so it needs red-teaming (module 1) like every other safety mechanism",
+              "Red-teaming is unrelated to safety classifiers and only applies to base model training",
+              "A safety classifier, once deployed, can never be evaded",
+              "Red-teaming is mentioned only as an aside with no connection to jailbreak techniques"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly connects classifier evasion to jailbreak logic from earlier lessons and says this is exactly why the classifier needs to be red-teamed like any other safety mechanism.",
+            "id": "q5"
+          },
+          {
+            "question": "In the example, why does precision drop as the threshold is lowered from 0.75 to 0.25?",
+            "options": [
+              "Because lowering the threshold flags more content overall, including more legitimate (non-harmful) content, increasing false positives relative to true positives",
+              "Because lowering the threshold always increases the total number of true positives found without affecting false positives",
+              "Because the scores list is sorted in the wrong order",
+              "Precision does not actually change in the example; only recall changes"
+            ],
+            "correctAnswer": 0,
+            "explanation": "At the 0.25 threshold, more low-scoring non-harmful items get flagged (false positives rise), pulling precision down from 1.0 to 0.57 even as recall rises to 1.0.",
+            "id": "q6"
+          },
+          {
+            "question": "What does the recall value computed by precision_recall_at_threshold represent?",
+            "options": [
+              "The fraction of all flagged content that is actually harmful",
+              "The fraction of all actually-harmful content that the classifier successfully flagged at that threshold",
+              "The total number of content items in the dataset",
+              "The classifier's raw score for the highest-scoring item"
+            ],
+            "correctAnswer": 1,
+            "explanation": "recall = tp / (tp + fn), i.e., the share of actual positives (truly harmful items) that were caught by that threshold.",
+            "id": "q7"
+          },
+          {
+            "question": "Why is it a mistake to evaluate a safety classifier only on content stripped of its surrounding context?",
+            "options": [
+              "It isn't a mistake, since context never changes whether content counts as harmful",
+              "Because the same content can be harmful or appropriate depending on context, a context-free evaluation can produce a precision/recall estimate that doesn't hold once real conversational context is present",
+              "Context only matters for demographic-parity calculations, not safety classifiers",
+              "Stripping context always makes a classifier's measured recall artificially low"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This matches the lesson's context-dependence section: a classifier's measured performance on isolated content may not generalize once real context is present.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "sec_mitigating_bias",
+      "title": "Approaches to Mitigating Bias",
+      "description": "Bias can be addressed at different stages of the pipeline — and the earlier you catch it, the less you have to compensate for later.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Describe bias mitigation strategies at each stage of the ML/LLM pipeline and explain why earlier intervention is generally preferable."
+          },
+          {
+            "title": "📊 Data-stage mitigation",
+            "content": "Building directly on this module's sources-of-bias lesson: improving representation in training data (actively collecting or sampling to correct known under-representation), auditing labels for annotator bias (using the same data-validation discipline from the MLOps course, applied specifically to check for demographic skew in labeling patterns, not just general data quality), and being cautious about historical data that encodes past discriminatory outcomes as if they were neutral ground truth."
+          },
+          {
+            "title": "🎯 Objective and architecture-stage mitigation",
+            "content": "Explicitly incorporating fairness constraints into what a model is optimized for (rather than optimizing purely for the underlying task metric and hoping fairness follows naturally), or choosing evaluation and selection criteria during model development (per the ML course and Fine-Tuning course's evaluation lessons) that include fairness metrics from this module's previous lesson alongside standard accuracy metrics, so a fairness regression is caught during development rather than only discovered after deployment."
+          },
+          {
+            "title": "🚀 Deployment-stage mitigation",
+            "content": "Post-processing model outputs to correct for known bias patterns (adjusting decision thresholds differently across groups to achieve a chosen fairness criterion) and ongoing production monitoring for the amplification feedback loops this module's first lesson described, extending the MLOps course's drift-monitoring discipline specifically toward fairness-relevant metrics, not just general model-performance metrics."
+          },
+          {
+            "title": "🎯 Why earlier intervention is generally preferable",
+            "content": "Fixing a bias problem at the data stage prevents it from ever being learned in the first place, while deployment-stage post-processing is compensating for a bias that's already baked into the model, which is generally a less complete and more fragile fix — mirroring the same general software engineering principle (also seen in the MLOps course's data-validation lesson) that catching a problem earlier in a pipeline is cheaper and more reliable than catching it later, applied here specifically to fairness rather than general correctness."
+          },
+          {
+            "title": "🧮 Seeing it in practice",
+            "content": "The function below performs simple deployment-stage post-processing: rather than retraining, it searches per group for the decision threshold that brings that group's positive (approval) rate closest to a shared target, illustrating the threshold-adjustment idea from the deployment-stage mitigation section.\n\n```python\n# Toy per-group score distributions and labels from a trained (already-biased) model\ngroup_scores = {\n    \"A\": [0.9, 0.8, 0.7, 0.4, 0.3],\n    \"B\": [0.6, 0.5, 0.45, 0.2, 0.1],\n}\n\ndef positive_rate_at_threshold(scores, threshold):\n    flagged = [s >= threshold for s in scores]\n    return sum(flagged) / len(flagged)\n\ndef find_threshold_for_target_rate(scores, target_rate, candidates):\n    # Pick the candidate threshold whose resulting positive rate is closest to target_rate\n    best = min(candidates, key=lambda t: abs(positive_rate_at_threshold(scores, t) - target_rate))\n    return best\n\ndef equalize_positive_rates(group_scores, target_rate, candidates):\n    thresholds = {}\n    for group, scores in group_scores.items():\n        thresholds[group] = find_threshold_for_target_rate(scores, target_rate, candidates)\n    return thresholds\n\ncandidate_thresholds = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]\ntarget_rate = 0.4  # aim for a 40% approval rate in every group\n\ngroup_thresholds = equalize_positive_rates(group_scores, target_rate, candidate_thresholds)\nprint(group_thresholds)\n# {'A': 0.8, 'B': 0.5}\n```\n\nGroup A ends up needing a higher threshold (0.8) than group B (0.5) to reach the same ~40% approval rate — exactly the kind of group-specific threshold adjustment the lesson describes, applied after the model is already trained."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Relying solely on deployment-stage threshold adjustment and skipping earlier-stage fixes.** Post-processing compensates for bias already baked into the model; it's a more fragile fix than catching the same problem at the data or objective stage, per this lesson's own earlier-is-better argument.\n\n**Applying group-specific thresholds without disclosing or documenting the practice.** Using different decision thresholds per group can itself raise legal and ethical questions, and it satisfies only one fairness metric (e.g., equalized positive rates), potentially at the cost of others like equalized odds — it needs to be a deliberate, documented, values-informed choice, not a quiet patch.\n\n**Treating one mitigation stage as sufficient.** Because bias can enter at the data, objective, architecture, and deployment stages independently, fixing only one stage (e.g., only post-processing outputs) leaves the other sources of bias described earlier in this module untouched."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "sec_mitigating_bias_quiz",
+        "questions": [
+          {
+            "question": "What does data-stage bias mitigation involve, building on this module's earlier lesson?",
+            "options": [
+              "Only addressing bias after a model is already fully trained and deployed",
+              "Improving training data representation, auditing labels for annotator bias, and being cautious about historical data that encodes past discriminatory outcomes as neutral ground truth",
+              "Ignoring data quality entirely and focusing exclusively on model architecture",
+              "Data-stage mitigation is impossible since bias always originates from the model itself"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This directly extends the sources-of-bias lesson's findings into concrete mitigation actions taken at the earliest, data-collection stage of the pipeline.",
+            "id": "q1"
+          },
+          {
+            "question": "What does incorporating fairness metrics into model selection criteria during development accomplish?",
+            "options": [
+              "It has no practical benefit and is purely a formality",
+              "It catches a fairness regression during development, rather than only discovering it after deployment, alongside standard accuracy metrics from the ML and Fine-Tuning courses' evaluation lessons",
+              "It replaces the need for any accuracy metrics entirely",
+              "Fairness metrics can only ever be measured after a model is already deployed"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Including fairness alongside accuracy during model development and selection means fairness problems can be caught and addressed before deployment rather than discovered only afterward.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is earlier-stage bias intervention generally preferable to deployment-stage post-processing?",
+            "options": [
+              "Later-stage intervention is always strictly better and more complete than earlier intervention",
+              "Fixing bias at the data stage prevents it from ever being learned, while deployment-stage post-processing compensates for bias already baked into the model, which is a less complete and more fragile fix, mirroring the MLOps course's catch-it-early principle",
+              "There is no meaningful difference between intervening at different pipeline stages",
+              "Deployment-stage mitigation is the only approach that has ever proven effective"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This mirrors the general 'catch problems earlier in the pipeline' principle from the MLOps course's data-validation lesson, applied specifically to fairness: preventing a bias from being learned is more robust than compensating for it after the fact.",
+            "id": "q3"
+          },
+          {
+            "question": "What does objective and architecture-stage mitigation involve, per this lesson?",
+            "options": [
+              "Waiting until deployment to address any fairness concerns",
+              "Explicitly incorporating fairness constraints into what a model is optimized for, and including fairness metrics alongside accuracy metrics during model selection so regressions are caught during development",
+              "Only ever using accuracy as the sole selection criterion",
+              "Architecture-stage mitigation is not discussed in this lesson"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson describes incorporating fairness constraints into the objective and including fairness metrics in model selection criteria so problems surface during development.",
+            "id": "q4"
+          },
+          {
+            "question": "What does deployment-stage mitigation involve, and which course's discipline does it extend, per this lesson?",
+            "options": [
+              "Post-processing outputs (e.g., adjusting thresholds per group) and ongoing monitoring for amplification feedback loops, extending the MLOps course's drift-monitoring discipline toward fairness-relevant metrics",
+              "Deployment-stage mitigation means retraining the model from scratch every day",
+              "It has no connection to any monitoring concept discussed elsewhere in this course",
+              "Deployment-stage mitigation only applies to demographic parity, never other fairness metrics"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson states deployment-stage mitigation extends 'the MLOps course's drift-monitoring discipline specifically toward fairness-relevant metrics.'",
+            "id": "q5"
+          },
+          {
+            "question": "In the equalize_positive_rates example, what is find_threshold_for_target_rate doing?",
+            "options": [
+              "It retrains the underlying model from scratch for each group",
+              "It searches a set of candidate thresholds and picks the one whose resulting positive rate for that group is closest to a shared target rate",
+              "It computes the group's overall accuracy at every candidate threshold",
+              "It removes all records belonging to underrepresented groups"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The function uses min() over the candidate thresholds by absolute difference between positive_rate_at_threshold and target_rate — a threshold search, not retraining.",
+            "id": "q6"
+          },
+          {
+            "question": "In the example run, why does group A end up with a higher threshold (0.8) than group B (0.5) to reach the same ~40% target positive rate?",
+            "options": [
+              "Because group A's score distribution is generally higher, so a higher cutoff is needed to select roughly the same proportion of top-scoring records as in group B",
+              "Because the code has a bug that always assigns the highest candidate to whichever group appears first",
+              "Because group A has fewer records than group B",
+              "Because target_rate is different for each group in the code"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Group A's scores skew higher than group B's, so a correspondingly higher threshold is needed to land near the same 40% approval rate — the per-group threshold adjustment the lesson describes.",
+            "id": "q7"
+          },
+          {
+            "question": "Why is it a mistake to rely solely on deployment-stage threshold adjustment while skipping earlier-stage bias fixes?",
+            "options": [
+              "It isn't a mistake — deployment-stage fixes are always sufficient on their own",
+              "Post-processing compensates for bias already baked into the model rather than preventing it from being learned, making it a less complete and more fragile fix than earlier intervention, per this lesson's own argument",
+              "Deployment-stage adjustments are illegal in every jurisdiction",
+              "Earlier-stage fixes and deployment-stage fixes always accomplish exactly the same thing"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This matches the lesson's 'why earlier intervention is generally preferable' section and the corresponding common mistake it implies.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

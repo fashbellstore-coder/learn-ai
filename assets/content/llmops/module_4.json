@@ -1,0 +1,575 @@
+{
+  "id": "llo_rag_and_agent_ops",
+  "title": "Operating RAG and Agent Systems",
+  "description": "RAG-specific operational concerns (index staleness, retrieval drift), agent-specific concerns (trajectory and tool-call monitoring), hallucination detection, and incident response for LLM systems.",
+  "icon": "🕸️",
+  "color": "#6A1B9A",
+  "order": 4,
+  "estimatedHours": 5,
+  "difficulty": "advanced",
+  "prerequisites": [
+    "llo_evaluation_gates"
+  ],
+  "lessons": [
+    {
+      "id": "llo_rag_specific_operational_concerns",
+      "title": "RAG-Specific Operational Concerns",
+      "description": "A RAG system's failure modes are largely about its index and retrieval quality — and both can silently degrade even when nothing about the deployed code changed.",
+      "duration": 13,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Identify RAG-specific operational risks (beyond generic LLM concerns) and describe how to monitor for them, building directly on the RAG course."
+          },
+          {
+            "title": "📚 Index staleness",
+            "content": "Building directly on the RAG course's grounding and freshness themes: if the underlying documents change (updated policies, new products, corrected information) but the vector index isn't refreshed to match, the RAG system will confidently retrieve and cite outdated information — an operational failure mode with no code bug involved at all, mirroring the MLOps course's data-drift concept, but for a retrieval index instead of a training dataset. Index refresh needs its own monitored, reliable pipeline (echoing the MLOps course's orchestration-and-CI/CD lesson) rather than being an occasional manual task someone remembers to do."
+          },
+          {
+            "title": "🎯 Retrieval quality drift",
+            "content": "Even with a fully up-to-date index, retrieval quality can degrade over time — the actual distribution of user queries shifts away from what the retrieval system was tuned against (mirroring the MLOps course's data-drift concept again, now applied to queries instead of model inputs generally), or a change elsewhere in the pipeline subtly affects retrieval behavior. Monitoring retrieval-specific metrics (from the RAG course's evaluation lesson) continuously in production, not just once at initial build time, is what catches this."
+          },
+          {
+            "title": "📊 What to specifically monitor for a production RAG system",
+            "content": "Retrieval relevance metrics (per the RAG course) computed on a continuous sample of production queries, not just an initial offline evaluation set. Index freshness — how recently was the index actually updated relative to the underlying source documents' own update frequency. Citation/grounding rate — is the system actually citing retrieved sources, or increasingly answering from the model's own (potentially outdated or hallucinated) knowledge despite retrieval being available, which the RAG course's prompting-for-citations lesson specifically aimed to prevent."
+          },
+          {
+            "title": "🔗 Tying this back to the tracing module",
+            "content": "Every one of these signals depends on the RAG-specific tracing structure from module 2's tracing-multistep-systems lesson — you can't monitor retrieval relevance or citation rate in production without the trace data that actually captures what was retrieved and what the final answer did with it, which is exactly why tracing needed to be established before this module in the course's sequence."
+          },
+          {
+            "title": "💻 Monitoring index staleness and citation rate in Python",
+            "content": "The two RAG-specific signals from this lesson — index staleness and citation/grounding rate — are both straightforward to compute once trace and document-update data are available:\n\n```python\nfrom datetime import datetime, timedelta\n\ndef check_index_staleness(index_last_built, source_docs, staleness_threshold_hours=24):\n    \"\"\"Flag a RAG index as stale if source documents were updated\n    more recently than the index itself was last rebuilt.\"\"\"\n    most_recent_doc_update = max(doc[\"updated_at\"] for doc in source_docs)\n    staleness = most_recent_doc_update - index_last_built\n    is_stale = staleness > timedelta(hours=staleness_threshold_hours)\n    return {\n        \"is_stale\": is_stale,\n        \"staleness_hours\": staleness.total_seconds() / 3600,\n        \"most_recent_doc_update\": most_recent_doc_update,\n    }\n\ndef citation_rate(traces):\n    \"\"\"Of the traces that had retrieved context available, what\n    fraction actually cited a retrieved source in the final answer?\"\"\"\n    with_context = [t for t in traces if t[\"retrieved_docs\"]]\n    if not with_context:\n        return None\n    cited = sum(1 for t in with_context if t[\"cited_sources\"])\n    return cited / len(with_context)\n\n# Index rebuilt yesterday, but a policy doc changed an hour ago\nindex_last_built = datetime(2026, 9, 5, 9, 0)\nsource_docs = [{\"updated_at\": datetime(2026, 9, 6, 8, 0)}]\nresult = check_index_staleness(index_last_built, source_docs)\nprint(result[\"is_stale\"])  # True - the index is behind the source documents\n```\n\n`check_index_staleness` is the kind of check that should run continuously against the index pipeline, not once at build time, and `citation_rate` is exactly the grounding signal described above — computed only over traces where retrieval actually happened."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Treating index refresh as a one-off manual chore.** Without a monitored, reliable refresh pipeline, the index quietly falls behind the source documents and nobody notices until a user is handed outdated information.\n\n**Evaluating retrieval quality once, at launch, and never again.** Query distributions and pipeline behavior shift over time, so an evaluation run from months ago tells you nothing about today's retrieval quality.\n\n**Confusing retrieval availability with actual grounding.** A system can have retrieval turned on and still answer from the model's own (possibly outdated) knowledge instead of citing what was retrieved, which is exactly why citation rate needs to be tracked directly rather than assumed."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "llo_rag_specific_operational_concerns_quiz",
+        "questions": [
+          {
+            "question": "What is index staleness, and why is it a distinct operational risk from a code bug?",
+            "options": [
+              "It's not a real risk — indexes never actually become outdated",
+              "When underlying documents change but the vector index isn't refreshed, the system confidently retrieves outdated information with no code bug involved at all",
+              "Index staleness only occurs when the RAG system's code itself is broken",
+              "It's identical to a model hallucination and has the same root cause"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Index staleness is a pure data-freshness problem — the code can be working perfectly while the underlying index simply reflects an outdated version of the source documents.",
+            "id": "q1"
+          },
+          {
+            "question": "How does retrieval quality drift mirror a concept from the MLOps course?",
+            "options": [
+              "It has no relationship to any MLOps concept",
+              "It mirrors the MLOps course's data-drift concept, but applied to the distribution of user queries rather than general model inputs",
+              "Retrieval quality drift is the same thing as a model registry",
+              "It's identical to the rollback strategy concept from MLOps"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Just as classical ML models can experience data drift as production inputs shift, a RAG system's retrieval quality can degrade as the actual query distribution shifts away from what it was tuned against.",
+            "id": "q2"
+          },
+          {
+            "question": "Why does monitoring RAG-specific signals like citation rate depend on the tracing module covered earlier in this course?",
+            "options": [
+              "It doesn't depend on tracing at all — these signals are available with no additional infrastructure",
+              "You can't monitor what was retrieved or whether it was cited without the trace data that captures those specific details, which is why tracing needed to be established first",
+              "Citation rate can only be measured during initial development, never in production",
+              "Tracing and RAG monitoring are entirely separate, unconnected practices"
+            ],
+            "correctAnswer": 1,
+            "explanation": "RAG-specific monitoring signals require exactly the kind of detailed trace data (what was retrieved, what the final answer did with it) established in module 2, explaining the course's sequencing.",
+            "id": "q3"
+          },
+          {
+            "question": "According to the lesson, how should the index refresh process be handled?",
+            "options": [
+              "As an occasional manual task performed whenever someone remembers",
+              "Through its own monitored, reliable pipeline, similar in spirit to the MLOps course's orchestration-and-CI/CD lesson",
+              "It should never be automated, since staleness is not a real risk",
+              "Only when a user reports incorrect information"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson explicitly draws the parallel to MLOps orchestration and CI/CD, treating index refresh as infrastructure that needs its own reliable, monitored pipeline rather than manual upkeep.",
+            "id": "q4"
+          },
+          {
+            "question": "Why should citation/grounding rate be monitored specifically, even when retrieval is functioning and up to date?",
+            "options": [
+              "Because citation rate has nothing to do with grounding quality",
+              "Because a system can have working retrieval available and still increasingly answer from the model's own outdated or hallucinated knowledge instead of citing retrieved sources",
+              "Because citation rate only matters for non-RAG systems",
+              "Because retrieval relevance metrics make citation rate redundant"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson notes that citation rate specifically catches the case where retrieval works but the model quietly stops relying on it, falling back to its own knowledge instead.",
+            "id": "q5"
+          },
+          {
+            "question": "In the `check_index_staleness` function, what two timestamps are compared to determine staleness?",
+            "options": [
+              "The current time and the time the function was called",
+              "When the index was last built and the most recent update timestamp among the source documents",
+              "The average age of all documents in the index",
+              "The staleness threshold and the number of documents"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The function computes the gap between `index_last_built` and the most recent `updated_at` value across `source_docs`, flagging staleness when that gap exceeds the threshold.",
+            "id": "q6"
+          },
+          {
+            "question": "In the `citation_rate` function, what does it return when none of the traces have retrieved context available?",
+            "options": [
+              "Zero",
+              "One",
+              "None",
+              "An empty list"
+            ],
+            "correctAnswer": 2,
+            "explanation": "The function explicitly returns `None` when `with_context` is empty, since a citation rate is undefined without any traces that actually had retrieved documents to cite.",
+            "id": "q7"
+          },
+          {
+            "question": "A team ships a RAG chatbot, runs a thorough retrieval evaluation before launch, and then never revisits it. Six months later, citation rate has quietly dropped. What mistake does this illustrate?",
+            "options": [
+              "Confusing retrieval availability with actual grounding",
+              "Evaluating retrieval quality once, at launch, and never again, instead of monitoring it continuously as query patterns and the pipeline evolve",
+              "Refreshing the index too frequently",
+              "Relying too heavily on tracing data"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This is the retrieval-quality-drift mistake described in the lesson: a one-time offline evaluation doesn't catch degradation that emerges later as the query distribution or pipeline changes.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "llo_agent_specific_operational_concerns",
+      "title": "Agent-Specific Operational Concerns",
+      "description": "An agent's operational health is largely about its trajectories and tool-call reliability — problems that a simple 'did it produce a final answer' check would completely miss.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Identify agent-specific operational risks and describe monitoring approaches for them, building directly on the Agents course's evaluation and failure-mode lessons."
+          },
+          {
+            "title": "🛤️ Trajectory monitoring at scale",
+            "content": "Extending the Agents course's trajectory-evaluation concept from a development-time evaluation practice into an ongoing production monitoring signal: tracking, across real production traffic, metrics like average steps per successful task, how often the max-iteration stopping condition fires (a proxy for how often the agent is struggling or looping, per the Agents course's failure-modes lesson), and how often specific tools are selected incorrectly — these operational metrics surface systemic problems that wouldn't be visible from final-answer quality alone."
+          },
+          {
+            "title": "🔧 Tool-call reliability monitoring",
+            "content": "Tracking tool-call success and failure rates in production, per tool, extending the Agents course's tool-failure-handling lesson into an ongoing operational signal — a specific tool's failure rate climbing over time (perhaps due to an external API changing, mirroring the MCP course's versioning-and-compatibility concerns for tools specifically) is exactly the kind of thing that needs to be caught by monitoring rather than discovered only when users start complaining."
+          },
+          {
+            "title": "💰 Cost per task, not just cost per call",
+            "content": "Because an agent's number of steps (and therefore LLM calls) per task varies dynamically based on the task and the agent's own reasoning, tracking cost per completed task (not just cost per individual model call) is the metric that actually reflects whether the agent is operating efficiently — a sudden increase in average cost per task, even with no code change, can be an early signal of the same unproductive-looping problem the Agents course's stopping-conditions lesson was designed to prevent."
+          },
+          {
+            "title": "🎯 Connecting agent monitoring to the broader evaluation-gate practice",
+            "content": "These agent-specific signals feed directly into the deployment-gating practice from module 3 — a change to an agent's tools, prompts, or orchestration logic should be evaluated not just on final-task-success rate, but on these trajectory-level and cost-level signals too, catching a change that technically improves success rate while quietly making the agent much less efficient or reliable in how it gets there."
+          },
+          {
+            "title": "💻 Computing trajectory and tool-reliability metrics in Python",
+            "content": "The signals described above — steps per task, stopping-condition rate, and per-tool failure rate — can all be aggregated from production traces with one pass over the data:\n\n```python\nfrom collections import defaultdict\n\ndef agent_trajectory_monitor(task_traces):\n    \"\"\"Aggregate production agent traces into the operational signals\n    from this lesson: steps per task, stopping-condition rate, and\n    per-tool failure rates.\"\"\"\n    total_steps = 0\n    max_iteration_hits = 0\n    tool_calls = defaultdict(lambda: {\"success\": 0, \"failure\": 0})\n\n    for trace in task_traces:\n        total_steps += len(trace[\"steps\"])\n        if trace[\"stop_reason\"] == \"max_iterations\":\n            max_iteration_hits += 1\n        for step in trace[\"steps\"]:\n            tool = step.get(\"tool_name\")\n            if tool is None:\n                continue\n            outcome = \"success\" if step[\"tool_succeeded\"] else \"failure\"\n            tool_calls[tool][outcome] += 1\n\n    n = len(task_traces)\n    avg_steps_per_task = total_steps / n if n else 0\n    max_iteration_rate = max_iteration_hits / n if n else 0\n\n    tool_failure_rates = {}\n    for tool, counts in tool_calls.items():\n        attempts = counts[\"success\"] + counts[\"failure\"]\n        tool_failure_rates[tool] = counts[\"failure\"] / attempts if attempts else 0\n\n    return {\n        \"avg_steps_per_task\": avg_steps_per_task,\n        \"max_iteration_rate\": max_iteration_rate,\n        \"tool_failure_rates\": tool_failure_rates,\n    }\n```\n\n`max_iteration_rate` is the direct proxy for looping described above, and a climbing entry in `tool_failure_rates` for one specific tool is exactly the signal that should trigger investigation before users notice."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Judging agent health only by final-task-success rate.** A change can keep success rate flat while quietly increasing steps per task or tool failures — problems that only trajectory-level metrics surface.\n\n**Tracking cost per LLM call instead of cost per completed task.** Because step count varies per task, per-call cost hides the unproductive-looping problem that per-task cost would reveal.\n\n**Ignoring a rising per-tool failure rate until users complain.** A single tool's failure rate climbing (for example, from an external API change) needs to be caught by monitoring, not discovered anecdotally."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "llo_agent_specific_operational_concerns_quiz",
+        "questions": [
+          {
+            "question": "How does trajectory monitoring extend the Agents course's evaluation concept into production operations?",
+            "options": [
+              "It has no relationship to the Agents course's evaluation concepts",
+              "It turns trajectory evaluation from a development-time practice into an ongoing production signal, tracking metrics like average steps per task and how often stopping conditions fire",
+              "Trajectory monitoring only applies during initial agent development, never after deployment",
+              "It replaces the need for the Agents course's evaluation concepts entirely"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This lesson extends the Agents course's trajectory-evaluation idea into a continuous operational practice, using production-scale metrics rather than one-time development evaluation.",
+            "id": "q1"
+          },
+          {
+            "question": "Why is tracking cost per completed task more meaningful than only tracking cost per individual model call for an agent?",
+            "options": [
+              "Cost per call is always a more meaningful metric than cost per task",
+              "An agent's number of steps per task varies dynamically, so cost per task reflects whether the agent is operating efficiently overall, catching issues like unproductive looping",
+              "Cost tracking is irrelevant to agent operations",
+              "Cost per task and cost per call are always identical for agents"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since agent step counts vary by task and by the agent's own reasoning, per-task cost is the metric that actually reveals efficiency problems like the unproductive looping the stopping-conditions lesson addressed.",
+            "id": "q2"
+          },
+          {
+            "question": "Why should a change to an agent's tools or prompts be evaluated on trajectory-level signals, not just final-task-success rate?",
+            "options": [
+              "Final-task-success rate alone is always sufficient to evaluate any agent change",
+              "A change could technically improve success rate while quietly making the agent much less efficient or reliable in how it gets there, which trajectory-level signals would catch",
+              "Trajectory-level signals have no relevance to evaluating agent changes",
+              "Evaluating agent changes should never consider cost or efficiency at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Relying only on final-success-rate risks missing efficiency or reliability regressions that a trajectory- and cost-level view would surface, connecting directly to the deployment-gating practice from module 3.",
+            "id": "q3"
+          },
+          {
+            "question": "What does the max-iteration stopping condition rate act as a proxy for, according to the lesson?",
+            "options": [
+              "How much the agent costs to run per LLM call",
+              "How often the agent is struggling or looping rather than completing tasks efficiently",
+              "How many tools are registered with the agent",
+              "How recently the agent's prompt was updated"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson describes tracking how often the max-iteration stopping condition fires specifically as a proxy signal for struggling or looping behavior in production.",
+            "id": "q4"
+          },
+          {
+            "question": "How does the lesson connect tool-call reliability monitoring to a concern raised in the MCP course?",
+            "options": [
+              "It says the two topics are unrelated",
+              "It notes that a tool's rising failure rate may stem from an external API changing, mirroring the MCP course's versioning-and-compatibility concerns for tools",
+              "It claims MCP eliminates the need for tool-call monitoring entirely",
+              "It says tool failures can only be caused by the agent's own reasoning, never external factors"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson explicitly draws a parallel between a tool's failure rate climbing due to an external API change and the MCP course's discussion of tool versioning and compatibility.",
+            "id": "q5"
+          },
+          {
+            "question": "In `agent_trajectory_monitor`, what does the computed `max_iteration_rate` represent?",
+            "options": [
+              "The average number of tools called per task",
+              "The fraction of traces whose stop reason was hitting the max-iteration limit",
+              "The total number of steps across all traces",
+              "The failure rate of the single most-used tool"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`max_iteration_rate` divides `max_iteration_hits` (traces that stopped due to max iterations) by the total number of traces, matching the looping proxy described in the lesson.",
+            "id": "q6"
+          },
+          {
+            "question": "In `agent_trajectory_monitor`, what happens to a step whose `tool_name` is `None`?",
+            "options": [
+              "It raises an exception and stops the function",
+              "It is skipped and does not contribute to `tool_failure_rates`",
+              "It is counted as a tool failure",
+              "It is counted as a tool success"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The function explicitly checks `if tool is None: continue`, so steps with no associated tool call are skipped when building the per-tool failure counts.",
+            "id": "q7"
+          },
+          {
+            "question": "A team ships a prompt change that raises an agent's final-task-success rate by 3%, and declares the change a clear win without checking anything else. What mistake does this risk making?",
+            "options": [
+              "Tracking cost per completed task instead of cost per call",
+              "Judging agent health only by final-task-success rate, potentially missing a hidden increase in steps per task or tool failures that the same change introduced",
+              "Disabling an unreliable tool too early",
+              "Relying too heavily on trajectory-level signals"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This is exactly the mistake the lesson warns about: success rate alone can mask a regression in efficiency or reliability that only trajectory-level and cost-per-task signals would catch.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "llo_hallucination_detection_and_monitoring",
+      "title": "Hallucination Detection and Monitoring",
+      "description": "The LLM-specific failure mode with no classical-ML analogue, and the closest thing this course has to its own dedicated monitoring signal.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Describe approaches to detecting and monitoring hallucination in production, and why it's genuinely harder than classical ML's drift detection."
+          },
+          {
+            "title": "🎭 Why hallucination doesn't map cleanly onto MLOps' drift concepts",
+            "content": "The MLOps course's drift detection relies on comparing production data against training data, or comparing predictions against eventual ground truth. Hallucination — a model confidently generating plausible-sounding but false or unsupported content — doesn't have a clean input-distribution or ground-truth-comparison analogue in the same way, especially for genuinely open-ended queries where there's no single retrievable 'correct' answer to check against at all."
+          },
+          {
+            "title": "🔍 Detection approaches for grounded (RAG) systems specifically",
+            "content": "Where retrieved context is available (per the RAG course), checking whether the generated answer's claims are actually supported by the retrieved content — this is more tractable than detecting hallucination in a completely ungrounded generation, since there's a concrete reference (the retrieved documents) to check claims against, extending the RAG course's prompting-for-faithfulness lesson into an ongoing production check rather than a one-time prompting technique."
+          },
+          {
+            "title": "🔍 Detection approaches for ungrounded generation",
+            "content": "Harder, but not impossible: LLM-as-judge (per module 3) can be prompted specifically to assess whether a response's claims seem well-supported or overconfident given what's actually known, self-consistency checks (asking the same question multiple times and checking whether answers are consistent, since a model confidently making things up may vary its specific claims across repeated attempts more than a model reciting solid knowledge would), and tracking user feedback signals (corrections, low ratings) as an indirect but real-world signal."
+          },
+          {
+            "title": "🎯 Monitoring hallucination rate as an ongoing production metric",
+            "content": "Rather than treating hallucination detection as purely a one-time evaluation concern, sampling production traffic continuously and running it through whichever detection approach fits the system (grounded-claim-checking for RAG, LLM-as-judge or self-consistency for ungrounded generation) turns hallucination rate into a trackable operational metric — one that can be gated on (per module 3), alerted on (mirroring the MLOps course's alerting lesson), and used to trigger investigation exactly like any other production health signal, rather than something only noticed anecdotally when a user complains."
+          },
+          {
+            "title": "💻 Grounded claim-checking vs. self-consistency in Python",
+            "content": "The two detection approaches from this lesson correspond to two branches of the same function, depending on whether retrieved context is available:\n\n```python\ndef detect_hallucination(answer_claims, retrieved_docs=None, repeated_answers=None):\n    \"\"\"Illustrates the two detection approaches from this lesson:\n    grounded claim-checking when retrieved context exists, and\n    self-consistency checking when it doesn't.\"\"\"\n    if retrieved_docs is not None:\n        # Grounded case: does each claim appear supported by retrieved text?\n        unsupported = [\n            claim for claim in answer_claims\n            if not any(claim.lower() in doc.lower() for doc in retrieved_docs)\n        ]\n        return {\n            \"mode\": \"grounded\",\n            \"unsupported_claims\": unsupported,\n            \"hallucination_rate\": len(unsupported) / len(answer_claims) if answer_claims else 0,\n        }\n\n    # Ungrounded case: ask the same question multiple times and compare.\n    if repeated_answers:\n        unique_answers = set(repeated_answers)\n        consistency = 1 - (len(unique_answers) - 1) / len(repeated_answers)\n        return {\n            \"mode\": \"self_consistency\",\n            \"consistency_score\": consistency,\n            \"likely_hallucinating\": consistency < 0.5,\n        }\n\n    return {\"mode\": \"unknown\", \"error\": \"no context or repeated samples provided\"}\n\nclaims = [\"The refund window is 30 days\", \"Shipping is free over $50\"]\ndocs = [\"Our refund window is 30 days from purchase.\"]\nprint(detect_hallucination(claims, retrieved_docs=docs))\n# flags the free-shipping claim as unsupported by the retrieved context\n```\n\nThe grounded branch is the RAG-specific claim-checking approach; the self-consistency branch is the fallback for ungrounded generation where no retrieved reference exists to check against."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Trying to reuse MLOps-style drift detection unchanged for hallucination.** Hallucination has no clean training-data or ground-truth comparison point, especially for open-ended queries, so it needs its own detection approach.\n\n**Treating hallucination detection as a one-time evaluation task.** Sampling production traffic continuously and turning hallucination rate into a trackable metric is what lets it be gated and alerted on like any other health signal.\n\n**Assuming self-consistency alone proves correctness.** A model can be consistently wrong, so self-consistency is an indirect signal best combined with other checks (LLM-as-judge, user feedback), not a standalone guarantee of accuracy."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "llo_hallucination_detection_and_monitoring_quiz",
+        "questions": [
+          {
+            "question": "Why doesn't hallucination detection map cleanly onto the MLOps course's drift-detection approach?",
+            "options": [
+              "Hallucination and drift are actually identical phenomena with the same detection method",
+              "Drift detection relies on comparing production data to training data or predictions to ground truth, but hallucination lacks a clean equivalent, especially for open-ended queries with no single retrievable correct answer",
+              "Hallucination never actually occurs in production LLM systems",
+              "Drift detection techniques work perfectly for detecting hallucination with no modification needed"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Hallucination's lack of a clean ground-truth or input-distribution comparison point (especially for open-ended generation) is exactly why it needs its own detection approaches rather than reusing MLOps drift detection directly.",
+            "id": "q1"
+          },
+          {
+            "question": "Why is hallucination detection more tractable for grounded (RAG) systems than for ungrounded generation?",
+            "options": [
+              "It isn't more tractable — grounded and ungrounded detection are equally difficult",
+              "Retrieved context provides a concrete reference to check the generated answer's claims against, unlike ungrounded generation where no such reference exists",
+              "RAG systems never actually experience hallucination at all",
+              "Grounded systems require completely different detection tools with no connection to the RAG course's content"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Having retrieved documents as a concrete reference makes checking claim-support more tractable than assessing hallucination in generation with no external reference to check against.",
+            "id": "q2"
+          },
+          {
+            "question": "What does self-consistency checking involve as a hallucination-detection approach for ungrounded generation?",
+            "options": [
+              "Comparing the model's output against a fixed training dataset",
+              "Asking the same question multiple times and checking whether answers are consistent, since confident fabrication may vary more across repeated attempts than solid knowledge would",
+              "Only checking the model's output once, with no repetition",
+              "Comparing two completely different models against each other with unrelated questions"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Self-consistency exploits the idea that a model reciting genuine knowledge tends to be more consistent across repeated queries than one confidently fabricating an answer, providing an indirect hallucination signal.",
+            "id": "q3"
+          },
+          {
+            "question": "Besides self-consistency and LLM-as-judge, what other signal does the lesson mention for detecting hallucination in ungrounded generation?",
+            "options": [
+              "A fixed offline benchmark run once before launch",
+              "User feedback signals such as corrections and low ratings, tracked as an indirect but real-world signal",
+              "The size of the model's training dataset",
+              "The number of tools available to the model"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson explicitly lists tracking user feedback signals (corrections, low ratings) alongside LLM-as-judge and self-consistency as an approach for ungrounded generation.",
+            "id": "q4"
+          },
+          {
+            "question": "Once hallucination rate is monitored continuously in production, what can it be used for according to the lesson?",
+            "options": [
+              "Nothing beyond a historical record — it cannot inform any operational decisions",
+              "It can be gated on, alerted on, and used to trigger investigation, just like any other production health signal",
+              "It can only be viewed manually once per quarter",
+              "It replaces the need for any other production monitoring signal"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson describes hallucination rate as a metric that, once tracked continuously, becomes usable for gating, alerting, and triggering investigation — the same treatment as other operational signals.",
+            "id": "q5"
+          },
+          {
+            "question": "In `detect_hallucination`, what marks a claim as unsupported in the grounded branch?",
+            "options": [
+              "The claim contains more than ten words",
+              "The claim's text does not appear (case-insensitively) in any of the retrieved documents",
+              "The claim was generated in the first LLM call of the trace",
+              "The claim matches a keyword from the user's original question"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The grounded branch checks, for each claim, whether it appears (case-insensitively) inside any of the `retrieved_docs`; if not, it is added to `unsupported_claims`.",
+            "id": "q6"
+          },
+          {
+            "question": "In `detect_hallucination`, what does a low `consistency_score` in the self-consistency branch suggest?",
+            "options": [
+              "That the retrieved documents were of poor quality",
+              "That the repeated answers varied a lot, which the function flags as `likely_hallucinating`",
+              "That the model was never actually queried more than once",
+              "That the grounded branch should have been used instead"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A low consistency score means the repeated answers diverged from each other; the function marks this as `likely_hallucinating` when the score falls below 0.5, matching the self-consistency reasoning in the lesson.",
+            "id": "q7"
+          },
+          {
+            "question": "A team runs a single self-consistency check, gets a high consistency score, and concludes the model's claims must be factually correct with no further checks needed. What mistake does this illustrate?",
+            "options": [
+              "Trying to reuse MLOps-style drift detection unchanged for hallucination",
+              "Assuming self-consistency alone proves correctness, when a model can be consistently wrong and self-consistency is only an indirect signal",
+              "Treating hallucination detection as a one-time evaluation task",
+              "Using LLM-as-judge instead of self-consistency"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This is the mistake the lesson warns about directly: consistency across repeated answers does not guarantee the answer is actually correct, so it should be combined with other signals rather than trusted alone.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "llo_incident_response_for_llm_systems",
+      "title": "Incident Response for LLM Systems",
+      "description": "The same contain-diagnose-review structure from the MLOps course, with LLM-specific failure categories and tracing data doing the diagnostic work.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Apply the MLOps course's incident-response structure to an LLM-specific incident, identifying what changes and what stays the same."
+          },
+          {
+            "title": "🚨 Detection: LLM-specific signals",
+            "content": "Beyond the operational and drift signals from the MLOps course, detection here also draws on this course's own signals: an evaluation-gate failure caught before deployment (module 3), a spike in hallucination rate or tool-call failures (this module's earlier lessons), or a cost/latency anomaly (foreshadowing module 5) — the detection sources are broader than classical ML's, but the overall structure (a monitoring signal crossing a threshold, or an external report) is the same."
+          },
+          {
+            "title": "🩹 Containment: the same priority order, LLM-specific options",
+            "content": "Mirroring the MLOps course's rollback lesson directly: the fastest containment option is often rolling back a prompt or model version to a known-good one (per this course's prompt-registry lesson), exactly as fast and low-risk as the MLOps course described for models, provided the same registry-and-deployment-strategy discipline was actually in place beforehand — for an agent or RAG-specific problem, containment might also mean temporarily disabling a specific unreliable tool or falling back to a simpler, non-agentic response path."
+          },
+          {
+            "title": "🔍 Diagnosis: using this course's own failure categories",
+            "content": "Determining which category applies — a prompt regression (module 1), a retrieval/index problem (this module's RAG lesson), an agent trajectory or tool-reliability problem (this module's agent lesson), a hallucination spike (previous lesson), or a genuine upstream issue (a third-party model provider outage, an MCP server problem per the MCP course) — using the tracing data from module 2 to actually pinpoint which category applies, exactly the diagnostic payoff that module was built to provide."
+          },
+          {
+            "title": "📝 Post-incident review: feeding back into this course's practices",
+            "content": "Mirroring the MLOps course's post-incident-review lesson directly: documenting what happened and updating the relevant system as a result — a new regression test case (module 3) that would have caught this, a new monitoring signal (this module) for the specific failure category involved, a change to a gating threshold (module 3) — closing the loop so the same category of incident is more likely to be caught automatically next time, rather than relying on the same manual detection working again by chance."
+          },
+          {
+            "title": "💻 A contain-diagnose-review incident handler in Python",
+            "content": "The MLOps course's contain-diagnose-review structure translates directly into code, with this course's LLM-specific failure categories filling in the diagnosis step:\n\n```python\ndef handle_llm_incident(signal, system_state):\n    \"\"\"Mirrors the MLOps course's contain-diagnose-review structure,\n    adapted with this course's LLM-specific failure categories.\"\"\"\n    report = {\"signal\": signal, \"steps\": []}\n\n    # 1. Containment: fastest safe option first, before full diagnosis.\n    if system_state.get(\"known_good_prompt_version\"):\n        system_state[\"active_prompt_version\"] = system_state[\"known_good_prompt_version\"]\n        report[\"steps\"].append(\"rolled back prompt to known-good version\")\n    elif signal[\"category\"] == \"tool_failure\":\n        system_state[\"disabled_tools\"].add(signal[\"tool_name\"])\n        report[\"steps\"].append(f\"disabled unreliable tool: {signal['tool_name']}\")\n\n    # 2. Diagnosis: use tracing data to pick a failure category.\n    category = diagnose_from_traces(signal[\"trace_ids\"], system_state[\"traces\"])\n    report[\"diagnosed_category\"] = category\n\n    # 3. Post-incident review: feed back into gates and monitoring.\n    if category == \"prompt_regression\":\n        report[\"steps\"].append(\"add regression test case to eval suite\")\n    elif category == \"index_staleness\":\n        report[\"steps\"].append(\"add index-freshness monitoring signal\")\n    report[\"steps\"].append(\"document incident and update gating threshold if needed\")\n\n    return report\n\ndef diagnose_from_traces(trace_ids, traces):\n    # Simplified: real diagnosis inspects retrieval, tool calls, and prompts.\n    return traces[trace_ids[0]][\"likely_category\"]\n```\n\nNotice containment (step 1) runs before diagnosis (step 2) completes — the rollback or tool-disable happens immediately, exactly as the MLOps course prioritized fast containment over waiting for a full root-cause analysis."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Skipping containment to fully diagnose the root cause first.** Rolling back to a known-good prompt or model version is fast and low-risk and should happen before a full diagnosis, exactly as the MLOps course prioritized rollback.\n\n**Diagnosing without tracing data.** Guessing at whether the problem is a prompt regression, a retrieval issue, or an upstream outage is far slower and less reliable than using module 2's trace data to pinpoint the category.\n\n**Closing an incident without updating gates or monitoring.** Skipping the post-incident review step means the same category of incident has to be caught manually again next time instead of automatically."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "llo_incident_response_for_llm_systems_quiz",
+        "questions": [
+          {
+            "question": "How does LLM incident detection compare to the MLOps course's incident-detection sources?",
+            "options": [
+              "It's identical, with no LLM-specific additions",
+              "It draws on additional LLM-specific signals (eval-gate failures, hallucination spikes, tool-call failures, cost/latency anomalies) on top of the same overall structure from the MLOps course",
+              "LLM systems cannot actually be monitored for incidents at all",
+              "Detection sources for LLM systems have nothing in common with classical ML"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The overall detection structure carries over from the MLOps course, extended with the LLM-specific signals developed throughout this course's earlier modules.",
+            "id": "q1"
+          },
+          {
+            "question": "What is the fastest containment option for an LLM system incident, mirroring the MLOps course's rollback lesson?",
+            "options": [
+              "Immediately retraining the entire underlying model from scratch",
+              "Rolling back a prompt or model version to a known-good one via the prompt registry, provided the same registry-and-deployment-strategy discipline was in place beforehand",
+              "Permanently shutting down the entire LLM application with no path to recovery",
+              "Ignoring the incident until it resolves itself"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Just as the MLOps course emphasized fast rollback as the priority containment action, reverting to a known-good prompt or model version (enabled by the prompt registry from this course) is the analogous fast containment option here.",
+            "id": "q2"
+          },
+          {
+            "question": "How does diagnosis in an LLM incident use the tracing data from module 2?",
+            "options": [
+              "Tracing data is irrelevant to incident diagnosis",
+              "Tracing data is used to pinpoint which failure category applies (prompt regression, retrieval problem, agent trajectory issue, hallucination spike, or upstream outage), exactly the diagnostic payoff that module was built to provide",
+              "Diagnosis relies exclusively on user complaints with no technical data involved",
+              "Tracing data can only be used before deployment, never during incident response"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Module 2's tracing infrastructure exists specifically to make this kind of diagnosis possible — pinpointing exactly which failure category applies rather than guessing at the cause.",
+            "id": "q3"
+          },
+          {
+            "question": "For an agent- or RAG-specific incident, what containment option does the lesson mention beyond rolling back a prompt or model version?",
+            "options": [
+              "Permanently deleting the affected tool from the codebase",
+              "Temporarily disabling a specific unreliable tool or falling back to a simpler, non-agentic response path",
+              "Retraining the underlying foundation model",
+              "Waiting for the next scheduled deployment window before acting"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson lists disabling an unreliable tool or falling back to a simpler, non-agentic path as agent/RAG-specific containment options alongside prompt or model rollback.",
+            "id": "q4"
+          },
+          {
+            "question": "What does the post-incident review step feed back into, according to the lesson?",
+            "options": [
+              "Nothing — the incident is simply documented and no system changes are made",
+              "A new regression test case, a new monitoring signal for the specific failure category, or a change to a gating threshold, closing the loop so the same incident category is more likely to be caught automatically next time",
+              "Only the marketing team's public status page",
+              "A complete rewrite of the prompt registry"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson describes post-incident review as feeding back into concrete artifacts — regression tests, monitoring signals, and gating thresholds — so future incidents of the same category are caught automatically.",
+            "id": "q5"
+          },
+          {
+            "question": "In `handle_llm_incident`, what happens if `system_state` has a `known_good_prompt_version` set?",
+            "options": [
+              "The function immediately returns without taking any action",
+              "The active prompt version is rolled back to the known-good version before diagnosis is performed",
+              "The function disables all tools regardless of the incident category",
+              "Diagnosis runs first, and only then is containment considered"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The function checks for a `known_good_prompt_version` first and performs the rollback as step 1, before calling `diagnose_from_traces`, matching the contain-before-diagnose ordering described in the lesson.",
+            "id": "q6"
+          },
+          {
+            "question": "What role does `diagnose_from_traces` play inside `handle_llm_incident`?",
+            "options": [
+              "It performs containment by disabling tools",
+              "It inspects trace data to determine which failure category the incident belongs to, which the rest of the function then uses to decide what to add to the post-incident review",
+              "It sends a notification to the on-call engineer",
+              "It rolls back the prompt version"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`diagnose_from_traces` returns a `category` (like `prompt_regression` or `index_staleness`) derived from trace data, which `handle_llm_incident` then uses to decide which specific post-incident-review action to append.",
+            "id": "q7"
+          },
+          {
+            "question": "A team spends an hour fully investigating the root cause of a live incident before taking any containment action. What mistake does this illustrate?",
+            "options": [
+              "Diagnosing without tracing data",
+              "Skipping containment to fully diagnose the root cause first, instead of taking the fast, low-risk rollback step immediately",
+              "Closing an incident without updating gates or monitoring",
+              "Disabling a tool that was not actually unreliable"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This is the containment-ordering mistake described in the lesson: a fast rollback to a known-good version should happen immediately, before spending time on a full root-cause investigation.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

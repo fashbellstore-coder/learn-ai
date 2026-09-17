@@ -1,0 +1,543 @@
+{
+  "id": "module_3",
+  "title": "More Classical Algorithms & Evaluation",
+  "description": "Round out your toolbox with KNN, SVMs, and Naive Bayes, then learn cross-validation and hyperparameter tuning for honestly comparing models.",
+  "icon": "🧰",
+  "color": "#43A047",
+  "order": 3,
+  "estimatedHours": 2,
+  "difficulty": "Intermediate",
+  "prerequisites": [
+    "module_2"
+  ],
+  "lessons": [
+    {
+      "id": "ml_knn",
+      "title": "K-Nearest Neighbors",
+      "description": "Learn one of the simplest possible ML algorithms: predict based on whoever's nearby.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain how KNN makes predictions and describe its main tradeoffs."
+          },
+          {
+            "title": "👥 The core idea",
+            "content": "**K-Nearest Neighbors (KNN)** predicts a new point's value by looking at the `k` closest points in the training data and going with the majority vote (classification) or average (regression) of their labels.\n\nThere's no real \"training\" happening in the usual sense — KNN just stores the training data and does all its work at prediction time by measuring distances."
+          },
+          {
+            "title": "📏 Distance and the choice of k",
+            "content": "```python\nfrom sklearn.neighbors import KNeighborsClassifier\n\nmodel = KNeighborsClassifier(n_neighbors=5)\nmodel.fit(X_train, y_train)\n\npredictions = model.predict(X_test)\n```\n\n• A **small k** (like 1) makes very flexible, noisy predictions — sensitive to individual outliers (high variance)\n• A **large k** smooths predictions out but can blur genuinely different regions together (higher bias)\n• Distance is usually Euclidean distance, which makes **feature scaling essential** — an unscaled feature with large raw values can dominate the distance calculation"
+          },
+          {
+            "title": "⚖️ Strengths and weaknesses",
+            "content": "• Simple and intuitive — easy to explain and reason about\n• No real training step, so it adapts instantly to new training data\n• Slow at prediction time on large datasets — it has to compare against every training point (unless special data structures are used)\n• Struggles in high dimensions — with many features, the notion of \"nearby\" becomes less meaningful (the *curse of dimensionality*)"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Forgetting to scale features before using KNN.** Since it's entirely based on distance, an unscaled feature can completely dominate the neighbor calculation.\n\n**Picking k=1 by default.** This tends to overfit heavily, since a single nearby outlier fully determines the prediction.\n\n**Using KNN on very high-dimensional data without caution.** As the number of features grows, distances between points become less meaningful, and KNN's performance tends to degrade."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ml_knn_quiz",
+        "questions": [
+          {
+            "question": "How does KNN make a prediction for a new data point?",
+            "options": [
+              "By fitting a line through all the training data",
+              "By looking at the k closest training points and taking their majority vote or average",
+              "By building a decision tree",
+              "By computing gradients and updating weights"
+            ],
+            "correctAnswer": 1,
+            "explanation": "KNN finds the k nearest training examples to the new point (by distance) and bases its prediction on those neighbors' labels — majority vote for classification, average for regression.",
+            "id": "q1"
+          },
+          {
+            "question": "Why is feature scaling especially important for KNN?",
+            "options": [
+              "It isn't important for KNN specifically",
+              "KNN relies entirely on distance calculations, so an unscaled feature with large raw values can dominate the result",
+              "Scaling only matters for tree-based models",
+              "KNN doesn't use numeric features at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since predictions depend directly on distances between points, a feature measured in much larger numbers (like income vs. age) can overwhelm the distance calculation unless features are put on a comparable scale first.",
+            "id": "q2"
+          },
+          {
+            "question": "What's a downside of choosing a very small k, like k=1?",
+            "options": [
+              "It always underfits the data",
+              "It can overfit — a single nearby outlier fully determines the prediction, making it very sensitive to noise",
+              "It makes training impossible",
+              "It has no real downside"
+            ],
+            "correctAnswer": 1,
+            "explanation": "With k=1, each prediction depends entirely on the single nearest training point, which makes predictions highly sensitive to noise or outliers in the training data — a form of overfitting.",
+            "id": "q3"
+          },
+          {
+            "question": "What does the 'k' in K-Nearest Neighbors control?",
+            "options": [
+              "The number of features used",
+              "The number of nearby training points consulted when making a prediction",
+              "The number of trees built",
+              "The learning rate used during training"
+            ],
+            "correctAnswer": 1,
+            "explanation": "k determines how many of the closest training examples are considered when voting on or averaging toward a prediction for a new point.",
+            "id": "q4"
+          },
+          {
+            "question": "Does KNN require an explicit training phase where parameters are learned?",
+            "options": [
+              "Yes, extensive training is required before any prediction can be made",
+              "Not really — KNN mostly just stores the training data and does its real work at prediction time by searching for neighbors",
+              "KNN requires more training time than any other algorithm",
+              "KNN cannot be used for prediction at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "KNN is often called a 'lazy learner' because it doesn't build an explicit model during training — it simply stores the data and computes distances when a prediction is requested.",
+            "id": "q5"
+          },
+          {
+            "question": "What's a downside of choosing a very large k, like k equal to the entire dataset size?",
+            "options": [
+              "It always leads to severe overfitting",
+              "It can lead to underfitting, since predictions get smoothed toward the overall average and lose the ability to reflect local patterns",
+              "It has no downside at all",
+              "It makes KNN require a GPU to run"
+            ],
+            "correctAnswer": 1,
+            "explanation": "An extremely large k averages over almost all the data for every prediction, washing out local structure and pushing predictions toward one overly smoothed answer.",
+            "id": "q6"
+          },
+          {
+            "question": "How does KNN typically make a prediction for a regression task, as opposed to classification?",
+            "options": [
+              "It takes a majority vote among the neighbors, exactly like classification",
+              "It averages the target values of the k nearest neighbors",
+              "It selects the single furthest neighbor's value",
+              "KNN cannot be used for regression tasks"
+            ],
+            "correctAnswer": 1,
+            "explanation": "For regression, KNN typically averages the numeric target values of the nearest neighbors rather than taking a majority vote.",
+            "id": "q7"
+          },
+          {
+            "question": "Why can KNN become slow to use as the training dataset grows very large?",
+            "options": [
+              "KNN doesn't slow down regardless of dataset size",
+              "Each prediction requires computing distances to potentially every training point, so prediction time grows with dataset size",
+              "KNN only works on datasets smaller than 10 rows",
+              "Larger datasets make KNN faster, not slower"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Because each new prediction needs to compare against the training data to find nearest neighbors, larger datasets mean more distance calculations and slower predictions.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ml_svm",
+      "title": "Support Vector Machines",
+      "description": "Learn how SVMs find the best possible boundary between classes, with the widest safety margin.",
+      "duration": "9 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain the core intuition behind support vector machines and what the \"kernel trick\" does."
+          },
+          {
+            "title": "📏 Finding the widest possible margin",
+            "content": "A **Support Vector Machine (SVM)** finds a boundary (a line, or a higher-dimensional plane) that separates two classes — but instead of just any boundary that works, it specifically looks for the one with the **widest possible margin** to the nearest points of each class.\n\nThose nearest points — the ones closest to the boundary, which effectively \"support\" it — are called the **support vectors**, giving the algorithm its name. Points far from the boundary don't affect where it's drawn at all."
+          },
+          {
+            "title": "🌀 The kernel trick: handling non-linear boundaries",
+            "content": "Plain SVMs draw a straight-line boundary, which fails on data that isn't linearly separable. The **kernel trick** implicitly maps data into a higher-dimensional space where a straight boundary *can* separate the classes — without ever explicitly computing that expensive higher-dimensional transformation.\n\n```python\nfrom sklearn.svm import SVC\n\nmodel = SVC(kernel=\"rbf\", C=1.0)  # \"rbf\" kernel handles non-linear boundaries\nmodel.fit(X_train, y_train)\n\npredictions = model.predict(X_test)\n```\n\n• `kernel=\"linear\"` — a straight-line boundary\n• `kernel=\"rbf\"` — a flexible, non-linear boundary (a common default choice)\n• `C` — controls the tradeoff between a wider margin and correctly classifying every training point"
+          },
+          {
+            "title": "⚖️ Strengths and weaknesses",
+            "content": "• Effective in high-dimensional spaces and when there's a clear margin of separation between classes\n• Like KNN, sensitive to feature scaling, since it relies on distances\n• Can be slow to train on very large datasets\n• Less naturally interpretable than a decision tree or linear model, especially with non-linear kernels"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Skipping feature scaling.** SVMs, like KNN, are distance-based — unscaled features distort the margin calculation.\n\n**Using a linear kernel on clearly non-linear data.** If a straight line can't reasonably separate the classes, the RBF (or another non-linear) kernel is usually needed.\n\n**Not tuning `C`.** A very large `C` tries hard to classify every training point correctly (risking overfitting); a very small `C` allows more margin violations (risking underfitting) — this tradeoff needs tuning, like any hyperparameter."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ml_svm_quiz",
+        "questions": [
+          {
+            "question": "What is an SVM specifically trying to maximize when finding a decision boundary?",
+            "options": [
+              "The number of misclassified training points",
+              "The margin — the distance between the boundary and the nearest points of each class",
+              "The total number of features used",
+              "The training speed"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Unlike just finding any boundary that separates the classes, an SVM specifically searches for the one with the widest possible margin to the nearest points on each side.",
+            "id": "q1"
+          },
+          {
+            "question": "What does the kernel trick allow an SVM to do?",
+            "options": [
+              "Train without any data",
+              "Effectively draw non-linear decision boundaries by implicitly operating in a higher-dimensional space",
+              "Skip the need for a training step entirely",
+              "Automatically select the best features"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The kernel trick lets an SVM behave as if it mapped the data into a higher-dimensional space where a straight boundary can separate classes, without ever explicitly computing that expensive transformation.",
+            "id": "q2"
+          },
+          {
+            "question": "What does the `support vectors` in \"Support Vector Machine\" refer to?",
+            "options": [
+              "Every single training point in the dataset",
+              "The training points closest to the decision boundary, which determine where it's drawn",
+              "The names of the input features",
+              "A type of kernel function"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Only the points nearest the boundary (the support vectors) actually influence where the boundary is placed — points far from the boundary have no effect on it.",
+            "id": "q3"
+          },
+          {
+            "question": "What are the points closest to an SVM's decision boundary sometimes at risk of, if the margin is too tight?",
+            "options": [
+              "Being completely ignored by the model",
+              "Being misclassified if new data varies even slightly, since there's little buffer around the boundary",
+              "Automatically becoming support vectors regardless of position",
+              "Having no influence on the model at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A narrow margin leaves little room for variation in new data, increasing the risk that points near the boundary get misclassified.",
+            "id": "q4"
+          },
+          {
+            "question": "What is a 'soft margin' SVM designed to handle?",
+            "options": [
+              "Data that is perfectly separable with no exceptions",
+              "Data that isn't perfectly separable, by allowing some misclassified or margin-violating points in exchange for a better overall boundary",
+              "Only numeric regression tasks",
+              "Datasets with no features at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A soft margin permits some training points to fall within or beyond the margin, trading a bit of training accuracy for a boundary that generalizes better on imperfect, real-world data.",
+            "id": "q5"
+          },
+          {
+            "question": "How does an SVM's decision boundary get determined among all the training data?",
+            "options": [
+              "By using every single training point equally",
+              "It's determined only by the support vectors — the points closest to the boundary — not by every training point",
+              "Randomly, regardless of the data",
+              "By the average of all feature values across the whole dataset"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Only the support vectors (the closest points to the boundary) actually determine where the boundary is placed; points far from the boundary don't directly affect it.",
+            "id": "q6"
+          },
+          {
+            "question": "What's a common choice of kernel used to handle non-linear decision boundaries in SVMs?",
+            "options": [
+              "The identity kernel, which never changes anything",
+              "The radial basis function (RBF) kernel",
+              "The alphabetical sorting kernel",
+              "There is no such thing as a kernel in SVMs"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The RBF kernel is a commonly used kernel that lets an SVM capture complex, non-linear decision boundaries.",
+            "id": "q7"
+          },
+          {
+            "question": "Why can SVMs become computationally expensive on very large datasets?",
+            "options": [
+              "SVMs always run instantly regardless of dataset size",
+              "Training time and memory requirements can grow substantially with the number of training examples, especially with non-linear kernels",
+              "SVMs only work on datasets with fewer than 5 rows",
+              "Large datasets make SVM training faster"
+            ],
+            "correctAnswer": 1,
+            "explanation": "As dataset size grows, especially with non-linear kernels, the computations behind fitting an SVM's boundary can become significantly more demanding.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ml_naive_bayes",
+      "title": "Naive Bayes",
+      "description": "Learn how a simple probability rule, combined with a bold simplifying assumption, makes a surprisingly effective classifier.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain the core idea behind Naive Bayes and why it's called \"naive.\""
+          },
+          {
+            "title": "🧮 Built on Bayes' theorem",
+            "content": "**Naive Bayes** classifies by estimating, for each possible class, the probability of that class given the observed features — using Bayes' theorem to flip \"probability of features given class\" (which is easier to estimate from training data) into \"probability of class given features\" (what you actually want to predict).\n\nThe class with the highest resulting probability wins."
+          },
+          {
+            "title": "🙈 Why \"naive\"?",
+            "content": "The \"naive\" part is a simplifying assumption: it treats every feature as **independent** of every other feature, given the class. In reality, features are often correlated (like \"contains the word 'free'\" and \"contains the word 'win'\" in spam email), so this assumption is usually technically wrong.\n\nSurprisingly, Naive Bayes often works quite well in practice anyway — especially for text classification — even though its core assumption is violated."
+          },
+          {
+            "title": "📧 A classic use case: spam filtering",
+            "content": "```python\nfrom sklearn.naive_bayes import MultinomialNB\n\nmodel = MultinomialNB()\nmodel.fit(X_train_word_counts, y_train)\n\npredictions = model.predict(X_test_word_counts)\n```\n\nNaive Bayes is a long-standing favorite for text classification (spam detection, sentiment analysis) because it's fast, works well with high-dimensional sparse data (like word counts), and needs relatively little training data to get reasonable results."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming the independence assumption needs to be true for the model to work well.** In practice, Naive Bayes is often \"right for the wrong reasons\" — it can classify well even when features are clearly correlated.\n\n**Using it as a first choice for problems where feature interactions really matter.** Since it ignores interactions between features by design, it can miss patterns that genuinely depend on feature *combinations*.\n\n**Overlooking it as \"too simple\" without trying it.** As a fast, cheap baseline — especially for text — it's often worth trying before more complex models."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ml_naive_bayes_quiz",
+        "questions": [
+          {
+            "question": "What does Naive Bayes use to estimate the probability of each class given the observed features?",
+            "options": [
+              "Gradient descent",
+              "Bayes' theorem",
+              "K-means clustering",
+              "Random tree splits"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Naive Bayes applies Bayes' theorem to convert the more easily estimated \"probability of features given class\" into the desired \"probability of class given features.\"",
+            "id": "q1"
+          },
+          {
+            "question": "What assumption makes Naive Bayes \"naive\"?",
+            "options": [
+              "It assumes there's no relationship between features and the class label at all",
+              "It assumes all features are independent of each other, given the class — which is often not exactly true in practice",
+              "It assumes the dataset has no missing values",
+              "It assumes there are only two possible classes"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The \"naive\" independence assumption treats every feature as unrelated to every other feature (given the class), which simplifies the math a lot even though it's rarely exactly true for real data.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is Naive Bayes a popular choice for text classification tasks like spam filtering?",
+            "options": [
+              "It requires enormous amounts of training data to work at all",
+              "It's fast, handles high-dimensional sparse data like word counts well, and performs reasonably even with limited training data",
+              "It's the only algorithm that can process text",
+              "It doesn't rely on probability at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Naive Bayes is computationally cheap, scales well to the large number of features text data typically produces (like one feature per word), and tends to give solid results even on smaller training sets.",
+            "id": "q3"
+          },
+          {
+            "question": "What does Naive Bayes ultimately compare to make its classification decision?",
+            "options": [
+              "The physical distance between data points",
+              "The estimated posterior probability of each possible class, choosing the class with the highest probability",
+              "The number of features present, regardless of their values",
+              "It doesn't use probability at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Naive Bayes computes an estimated probability for each class given the observed features, and predicts whichever class has the highest resulting probability.",
+            "id": "q4"
+          },
+          {
+            "question": "Despite its 'naive' independence assumption often being technically wrong, why does Naive Bayes still often perform reasonably well?",
+            "options": [
+              "Because the independence assumption is always exactly true in real data",
+              "Because even a rough probability estimate is often enough to correctly rank which class is most likely, even if the exact probabilities aren't perfectly calibrated",
+              "Because Naive Bayes secretly checks feature dependencies anyway",
+              "It doesn't perform well in practice at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Even when features aren't perfectly independent, the simplified calculation often still ranks the true class highest, which is all that's needed for a correct classification.",
+            "id": "q5"
+          },
+          {
+            "question": "What kind of input data does Naive Bayes commonly work well with in text classification?",
+            "options": [
+              "Only images with no text at all",
+              "Word counts or frequencies, representing text as sparse high-dimensional numeric features",
+              "Data with no numeric features whatsoever",
+              "Only continuous time-series measurements"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Representing text as word counts (a 'bag of words') produces sparse, high-dimensional features that Naive Bayes handles efficiently.",
+            "id": "q6"
+          },
+          {
+            "question": "How does Naive Bayes compare in training speed to more complex algorithms like SVMs or gradient boosting?",
+            "options": [
+              "It's typically much slower to train",
+              "It's typically very fast to train, since it mainly involves counting and simple probability calculations",
+              "Training speed is identical across all these algorithms",
+              "Naive Bayes cannot be trained at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Because Naive Bayes relies on straightforward frequency counts and probability estimates rather than iterative optimization, it trains very quickly.",
+            "id": "q7"
+          },
+          {
+            "question": "What does Bayes' theorem let Naive Bayes do, conceptually?",
+            "options": [
+              "Ignore the observed features entirely",
+              "Flip around the probability of features given a class into the probability of a class given the observed features",
+              "Only work with continuous numeric targets",
+              "Guarantee 100% classification accuracy"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Bayes' theorem provides the mathematical way to go from how likely features are within a class (easy to estimate from data) to how likely a class is given the observed features (what we actually want).",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ml_cross_validation",
+      "title": "Cross-Validation and Hyperparameter Tuning",
+      "description": "Learn a more reliable way to evaluate a model, and how to systematically search for the best settings.",
+      "duration": "9 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain how k-fold cross-validation works and why it gives a more reliable performance estimate than a single train/validation split."
+          },
+          {
+            "title": "🎲 The problem with a single split",
+            "content": "A single train/validation split gives you one performance number — but that number depends partly on which specific rows happened to land in each set. A \"lucky\" or \"unlucky\" split can make a model look better or worse than it really is, especially with smaller datasets."
+          },
+          {
+            "title": "🔄 K-fold cross-validation",
+            "content": "**K-fold cross-validation** splits the data into `k` equal chunks (folds). It then trains and evaluates the model `k` times, each time using a different fold as the validation set and the rest for training — then averages the results.\n\n```python\nfrom sklearn.model_selection import cross_val_score\n\nscores = cross_val_score(model, X, y, cv=5)  # 5-fold cross-validation\nprint(scores)         # 5 individual scores, one per fold\nprint(scores.mean())  # averaged, more reliable estimate\n```\n\nEvery row gets used for both training and validation (just never both at once, in the same round), which uses the data more efficiently and produces a much more stable performance estimate than a single split."
+          },
+          {
+            "title": "🎛️ Hyperparameter tuning with grid search",
+            "content": "**Hyperparameters** are settings you choose before training (like a tree's `max_depth` or an SVM's `C`) — as opposed to the weights the model learns automatically. **Grid search** combines cross-validation with a systematic search over combinations of hyperparameter values.\n\n```python\nfrom sklearn.model_selection import GridSearchCV\n\nparam_grid = {\"max_depth\": [3, 5, 10], \"n_estimators\": [50, 100, 200]}\n\nsearch = GridSearchCV(model, param_grid, cv=5)\nsearch.fit(X_train, y_train)\n\nprint(search.best_params_)  # the combination that performed best\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Tuning hyperparameters against the test set instead of using cross-validation on the training set.** This leaks information from the test set, making the final \"honest\" evaluation no longer honest.\n\n**Using too few folds on a very small dataset, or too many on a very large one.** k=5 or k=10 are common defaults, but the right choice balances computation time against how stable you need the estimate to be.\n\n**Forgetting that cross-validation itself doesn't replace a final held-out test set.** CV helps you choose good hyperparameters using only the training data — the test set is still needed for one final, honest check at the very end."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ml_cross_validation_quiz",
+        "questions": [
+          {
+            "question": "Why can a single train/validation split give a misleading picture of model performance?",
+            "options": [
+              "Single splits are always exactly accurate",
+              "The specific rows that happen to land in each set can make a model look better or worse than it truly is, especially with smaller datasets",
+              "Single splits can't be used to evaluate models at all",
+              "There's no real risk with a single split"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A model's measured performance can shift noticeably depending on which particular rows ended up in the validation set — cross-validation averages over many different splits to reduce this luck-of-the-draw effect.",
+            "id": "q1"
+          },
+          {
+            "question": "In 5-fold cross-validation, how many times is the model trained and evaluated?",
+            "options": [
+              "Once",
+              "5 times, each time with a different fold held out for validation",
+              "25 times",
+              "It depends on the dataset size"
+            ],
+            "correctAnswer": 1,
+            "explanation": "K-fold cross-validation runs k separate rounds, each holding out a different fold for validation and training on the rest — with k=5, that's 5 rounds, whose scores are then averaged.",
+            "id": "q2"
+          },
+          {
+            "question": "What's the difference between a hyperparameter and a regular model parameter?",
+            "options": [
+              "There's no real difference",
+              "A hyperparameter is a setting chosen before training (like max_depth); a regular parameter (like a weight) is learned automatically during training",
+              "Hyperparameters are only used in deep learning",
+              "Regular parameters are always more important than hyperparameters"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Hyperparameters (like tree depth, learning rate, or k in KNN) are chosen by you before training starts; the model's actual weights or splits are learned from the data during training itself.",
+            "id": "q3"
+          },
+          {
+            "question": "What happens to the training and validation sets across the different folds in k-fold cross-validation?",
+            "options": [
+              "They stay exactly the same across every fold",
+              "Each fold takes a turn as the validation set while the rest serve as training data, rotating through the whole dataset",
+              "Only one fold is ever used, and the rest are discarded",
+              "The folds are combined into a single set before any validation happens"
+            ],
+            "correctAnswer": 1,
+            "explanation": "In k-fold cross-validation, the data is split into k parts, and each part takes a turn being held out for validation while the model trains on the rest.",
+            "id": "q4"
+          },
+          {
+            "question": "How is a model's overall cross-validation performance typically reported?",
+            "options": [
+              "Only the single best fold's score is reported",
+              "As the average (and often the spread) of the performance scores across all the folds",
+              "As the worst-performing fold's score only",
+              "Cross-validation doesn't produce a summarized score"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The typical practice is to average the performance across all folds, which also lets you see how much performance varies between folds.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is cross-validation especially useful when a dataset is small?",
+            "options": [
+              "Cross-validation is only useful for very large datasets",
+              "It makes more efficient use of limited data by letting every example serve in both training and validation roles across different folds",
+              "It reduces the total amount of data needed to zero",
+              "Small datasets can't be evaluated at all without cross-validation"
+            ],
+            "correctAnswer": 1,
+            "explanation": "With limited data, a single train/validation split wastes some data purely for validation; cross-validation lets every example contribute to both training and validation across folds.",
+            "id": "q6"
+          },
+          {
+            "question": "What's a common approach for searching over multiple hyperparameter combinations using cross-validation?",
+            "options": [
+              "Testing exactly one combination and stopping",
+              "Grid search or random search, evaluating multiple hyperparameter settings using cross-validation to pick the best one",
+              "Skipping cross-validation entirely during hyperparameter tuning",
+              "Choosing hyperparameters by their alphabetical order"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Grid search and random search systematically try different hyperparameter combinations, using cross-validation at each combination to fairly estimate performance.",
+            "id": "q7"
+          },
+          {
+            "question": "Why is it important that hyperparameter tuning use cross-validation (or a separate validation set) rather than the final test set?",
+            "options": [
+              "It isn't important — using the test set for tuning is standard best practice",
+              "Tuning against the test set would contaminate it, making the final reported performance overly optimistic and no longer a fair estimate",
+              "Cross-validation and the test set are exactly the same thing",
+              "Hyperparameters have no effect on test set performance"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Reserving the test set purely for a final, untouched evaluation preserves an honest estimate of how the tuned model will perform on truly new data.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,525 @@
+{
+  "id": "module_1",
+  "title": "Tool Calling",
+  "description": "What tool calling is and isn't, writing tool schemas the model can act on reliably, tracing the full request-execute-respond loop, and treating tool access with a real security mindset.",
+  "icon": "🛠️",
+  "color": "#5E35B1",
+  "order": 1,
+  "estimatedHours": 2,
+  "difficulty": "Intermediate",
+  "prerequisites": [],
+  "lessons": [
+    {
+      "id": "llme_what_is_tool_calling",
+      "title": "What Tool Calling Actually Is",
+      "description": "Understand how an LLM can trigger real code instead of just generating text.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain what tool calling is and why it's what turns a text generator into something that can take real actions."
+          },
+          {
+            "title": "🔧 Giving the model a menu of actions",
+            "content": "**Tool calling** (also called function calling) lets you describe a set of available functions — name, description, and parameter schema — to the model, and lets the model's output include a structured request to call one of them with specific arguments, instead of only generating free text. This is what lets an LLM check a calendar, query a database, or send an email — actions no amount of text generation alone could actually perform."
+          },
+          {
+            "title": "🔄 The model doesn't execute anything itself",
+            "content": "It's essential to understand what the model does and doesn't do here: the model only decides *which* tool to call and *what arguments* to use — your application code is what actually executes the function and returns the result. The model has no direct access to your systems; it only produces a structured suggestion that your code chooses whether and how to act on.\n\n```python\ntools = [{\n    \"name\": \"get_weather\",\n    \"description\": \"Get current weather for a city\",\n    \"parameters\": {\"city\": \"string\"},\n}]\n# Model's response might be a structured call like:\n# {\"tool\": \"get_weather\", \"arguments\": {\"city\": \"Boston\"}}\n# Your code then actually calls the real weather API\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming the model directly executes the tool.** It only outputs a structured request; your code decides whether to actually run it — this distinction matters enormously for safety (covered later in this module).\n\n**Giving the model too many overlapping or poorly-described tools.** Vague or redundant tool descriptions make it harder for the model to reliably pick the right one.\n\n**Not handling the case where the model requests a tool call with invalid or missing arguments.** Just like structured output generally, tool-call arguments should be validated, not blindly executed."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "llme_what_is_tool_calling_quiz",
+        "questions": [
+          {
+            "question": "What does tool calling let an LLM do that plain text generation alone cannot?",
+            "options": [
+              "Generate longer responses than usual",
+              "Produce a structured request to call a specific described function with specific arguments, which application code can then actually execute to take a real action",
+              "Directly access and modify a company's database without any application code involved",
+              "Tool calling has no functional difference from regular text generation"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Tool calling gives the model a way to output a structured, executable-looking request (which function, with what arguments) rather than only prose — that structured request is what application code uses to actually perform an action like a database query or API call.",
+            "id": "q1"
+          },
+          {
+            "question": "Does the model itself directly execute the tool it requests?",
+            "options": [
+              "Yes, the model has direct access to execute any tool it decides to call",
+              "No — the model only produces a structured suggestion of which tool to call and with what arguments; the calling application's code decides whether and how to actually execute it",
+              "The model executes tools only when running in 'admin mode'",
+              "Tool execution and tool calling are the exact same step"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This is a critical distinction: the model has no direct access to real systems. It outputs a structured request, and it's entirely up to your application code to decide whether to actually run that requested action.",
+            "id": "q2"
+          },
+          {
+            "question": "Why should tool-call arguments be validated before executing the requested function?",
+            "options": [
+              "Validation is unnecessary because model-generated arguments are always perfectly correct",
+              "Just like any other structured output, the model can produce invalid or missing arguments, so blindly executing them without validation risks errors or unintended behavior",
+              "Tool-call arguments cannot be validated by application code",
+              "Validation only matters for text generation, not for tool calls"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Tool-call arguments are still model-generated structured output and can be malformed or incomplete, so validating them before execution follows the same discipline as validating any other structured output before it's used.",
+            "id": "q3"
+          },
+          {
+            "question": "In the get_weather example from this lesson, what does the model's response actually contain?",
+            "options": [
+              "A structured call like {\"tool\": \"get_weather\", \"arguments\": {\"city\": \"Boston\"}}",
+              "The actual current weather data for Boston, retrieved directly by the model",
+              "A plain-text paragraph describing typical weather patterns",
+              "An error message saying weather cannot be checked"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's example shows the model's response as a structured tool-call request with a tool name and arguments, not the actual weather data itself — that still needs to be fetched by application code.",
+            "id": "q4"
+          },
+          {
+            "question": "What real-world actions does this lesson say tool calling makes possible that text generation alone could not?",
+            "options": [
+              "Checking a calendar, querying a database, or sending an email",
+              "Only generating longer paragraphs of text",
+              "Improving the model's underlying training accuracy",
+              "Reducing the number of tokens in a response"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly lists checking a calendar, querying a database, and sending an email as examples of real actions tool calling enables that pure text generation cannot perform on its own.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does the lesson warn against giving a model too many overlapping or poorly-described tools?",
+            "options": [
+              "Because vague or redundant tool descriptions make it harder for the model to reliably pick the right one",
+              "Because having more tools always improves the model's accuracy",
+              "Because tool descriptions have no effect on which tool gets selected",
+              "Because models can only ever be given exactly one tool at a time"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson lists this as a common mistake: overlapping or vaguely described tools reduce the model's ability to reliably choose the correct one for a given request.",
+            "id": "q6"
+          },
+          {
+            "question": "According to this lesson, what should happen when the model requests a tool call with invalid or missing arguments?",
+            "options": [
+              "The arguments should be validated, not blindly executed",
+              "The tool should be executed anyway regardless of the arguments' validity",
+              "The entire conversation should be discarded immediately",
+              "The model should be prevented from ever calling tools again"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson draws a parallel to structured output generally: tool-call arguments can be invalid or incomplete, so they should be validated rather than executed without question.",
+            "id": "q7"
+          },
+          {
+            "question": "Why is it a critical distinction that the model doesn't execute anything itself, per this lesson?",
+            "options": [
+              "Because the model has no direct access to real systems; it only produces a structured suggestion your code chooses whether to act on",
+              "Because the model executes tools automatically and instantly with no application code involved",
+              "Because this distinction has no real consequence for how applications are built",
+              "Because only some models lack execution ability, while others execute directly"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson stresses this distinction matters enormously for safety: the model only proposes a tool call, and it's entirely up to the application's own code to decide whether and how to actually run it.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "llme_tool_schemas",
+      "title": "Defining Good Tool Schemas",
+      "description": "Write tool descriptions that give the model what it needs to choose and call correctly.",
+      "duration": "7 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can name the key elements of a well-written tool schema and explain why description quality affects tool-selection accuracy."
+          },
+          {
+            "title": "📝 A tool schema is a mini API contract",
+            "content": "A tool schema typically includes: a clear **name**, a **description** of exactly what it does and when to use it, and a **parameters** definition (names, types, which are required). The model relies entirely on this description to decide when and how to use the tool — it has no other information about what the function actually does internally."
+          },
+          {
+            "title": "🎯 Description quality directly affects selection accuracy",
+            "content": "A vague description ('does something with dates') gives the model far less signal than a specific one ('returns the number of business days between two ISO-format dates, excluding weekends and US federal holidays') — this connects directly to the prompt-specificity principle from the generative AI course, applied here to a tool description instead of a user-facing prompt.\n\n```python\n# Vague — hard for the model to know when to use this:\n{\"name\": \"process\", \"description\": \"processes data\"}\n\n# Specific — clear when and how to use it:\n{\n    \"name\": \"lookup_order_status\",\n    \"description\": \"Given an order ID, returns its current shipping status and estimated delivery date.\",\n    \"parameters\": {\"order_id\": \"string, required\"},\n}\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Writing generic, one-word tool names and descriptions.** This is one of the most common causes of a model choosing the wrong tool or failing to use an available tool at all.\n\n**Defining overlapping tools that do nearly the same thing.** This forces the model to guess between similar options, increasing the chance of an inconsistent or wrong choice.\n\n**Leaving parameter types and requirements ambiguous.** If it's unclear whether a parameter is required or what format it expects, expect inconsistent arguments in the model's tool calls."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "llme_tool_schemas_quiz",
+        "questions": [
+          {
+            "question": "What information does the model rely on to decide when and how to use a given tool?",
+            "options": [
+              "The internal source code of the function",
+              "Only the tool's schema — its name, description, and parameter definitions — since it has no other visibility into what the function actually does",
+              "A separate, unrelated training dataset about tool usage",
+              "The model does not use any information to decide when to use a tool"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The model can't see how a tool is implemented internally — its schema (name, description, parameters) is the entire basis it has for deciding when a tool is relevant and what arguments to supply.",
+            "id": "q1"
+          },
+          {
+            "question": "Why does a vague tool description like 'processes data' cause problems compared to a specific one?",
+            "options": [
+              "Vague descriptions actually work identically to specific ones",
+              "A vague description gives the model far less signal about when and how to use the tool correctly, increasing the chance of wrong or missed tool selection",
+              "Vague descriptions are preferred because they give the model more creative freedom",
+              "Description wording has no effect on tool selection accuracy"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Just as prompt specificity improves general generation quality, a specific, clear tool description gives the model concrete signal about exactly when and how a tool should be used — a vague one leaves that decision to guesswork.",
+            "id": "q2"
+          },
+          {
+            "question": "Why can defining multiple overlapping tools that do nearly the same thing cause problems?",
+            "options": [
+              "Overlapping tools always improve the model's accuracy",
+              "It forces the model to guess between similar options, increasing the likelihood of an inconsistent or incorrect tool choice",
+              "Having more tools available never has any downside",
+              "The model automatically merges overlapping tools into one"
+            ],
+            "correctAnswer": 1,
+            "explanation": "When multiple tools serve nearly the same purpose, the model has less clear signal about which one is actually the right choice for a given situation, which raises the chance of inconsistent or wrong selections.",
+            "id": "q3"
+          },
+          {
+            "question": "In the lesson's comparison, what specifically makes the 'lookup_order_status' example a well-written tool schema?",
+            "options": [
+              "Its description clearly states what it does and when to use it, alongside a defined required parameter",
+              "It has the shortest possible name of any tool in the example",
+              "It omits a description entirely to save tokens",
+              "It defines no parameters at all, leaving them open-ended"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's specific example gives a clear description of exactly what the tool returns and includes a well-defined required parameter, in contrast to the vague 'processes data' example.",
+            "id": "q4"
+          },
+          {
+            "question": "What three elements does this lesson say a tool schema typically includes?",
+            "options": [
+              "A name, a description, and a parameters definition",
+              "Only a name, with no other required elements",
+              "A price, a name, and a version number",
+              "A list of every possible error the tool could produce"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson defines a tool schema as typically consisting of a clear name, a description of what it does and when to use it, and a parameters definition covering names, types, and requirements.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does leaving parameter types and requirements ambiguous cause problems, according to this lesson?",
+            "options": [
+              "It leads to inconsistent arguments in the model's tool calls, since it's unclear whether a parameter is required or what format it expects",
+              "Ambiguous parameters always default to a safe, predictable value",
+              "Parameter ambiguity has no effect on how the model constructs tool-call arguments",
+              "Only tool names matter; parameter details are irrelevant to the model"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly warns that ambiguous parameter types or requirements should be expected to produce inconsistent arguments in the model's actual tool calls.",
+            "id": "q6"
+          },
+          {
+            "question": "What is the only source of information the model has about what a tool actually does, per this lesson?",
+            "options": [
+              "The tool's schema — its name, description, and parameter definitions",
+              "The tool's internal source code, which the model can read directly",
+              "A separate specialized dataset the model was trained on for that exact tool",
+              "The model has no information at all about any tool it calls"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson states plainly that the model has no visibility into a tool's internal implementation — its schema is the entire basis for deciding when and how to use it.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does defining nearly-identical, overlapping tools create a problem for tool selection, according to this lesson?",
+            "options": [
+              "It forces the model to guess between similar options, increasing the chance of an inconsistent or wrong choice",
+              "Overlapping tools are automatically merged by the API before being shown to the model",
+              "More overlapping tools always make the model's choice easier and more accurate",
+              "Overlapping tools have no effect on the model's decision-making process"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explains that near-duplicate tools leave the model with less clear signal about which one is actually correct, raising the risk of an inconsistent or wrong selection.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "llme_tool_call_loop",
+      "title": "The Tool-Call Loop: Request, Execute, Respond",
+      "description": "Trace the full round trip from a user's question to a tool result woven back into the answer.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can trace all the steps of a complete tool-calling round trip."
+          },
+          {
+            "title": "🔁 A conversation with your own code in the loop",
+            "content": "A full tool-calling interaction typically goes: (1) user asks a question, (2) the model decides a tool is needed and returns a structured tool-call request, (3) your application code executes the actual function, (4) the tool's result is added back into the conversation (as a new message), and (5) the model is called again, now with the tool's result available, to produce a final natural-language answer for the user.\n\n```python\n# Conceptual loop:\n# 1. messages = [system, user_question]\n# 2. response = call_model(messages)  # model requests a tool call\n# 3. result = execute_tool(response.tool_call)\n# 4. messages.append(tool_result_message(result))\n# 5. final_response = call_model(messages)  # now with the tool result available\n```"
+          },
+          {
+            "title": "🔂 Sometimes it loops more than once",
+            "content": "A more complex request might need several tool calls chained together (look up an order, then check inventory, then estimate a delivery date) before the model has enough information to give a final answer — the same loop simply repeats with an updated message history each time."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Forgetting step 5 — never calling the model again after executing the tool.** Without this final call, the user only ever sees raw tool output, not a natural-language answer incorporating it.\n\n**Not setting a limit on how many tool-call rounds can chain together.** Without a cap, a confused model (or a genuinely ambiguous situation) could loop indefinitely, burning cost and time.\n\n**Losing track of message ordering in a multi-tool-call conversation.** Tool results need to be correctly associated with their originating tool-call request in the message history, or the model can misinterpret which result belongs to which call."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "llme_tool_call_loop_quiz",
+        "questions": [
+          {
+            "question": "What happens after your application code executes a tool the model requested?",
+            "options": [
+              "Nothing further happens; the raw tool result is shown to the user directly",
+              "The tool's result is added back into the conversation as a new message, and the model is called again so it can produce a final natural-language answer incorporating that result",
+              "The conversation ends immediately without any further model calls",
+              "The tool result is discarded and the original user question is asked again from scratch"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The loop isn't complete until the tool's result is fed back into the conversation and the model is called once more — that final call is what turns raw tool output into a coherent natural-language answer for the user.",
+            "id": "q1"
+          },
+          {
+            "question": "Why might a single user request require more than one round of the tool-call loop?",
+            "options": [
+              "Multiple tool calls are never actually needed for any request",
+              "A complex request might need several tool calls chained together (e.g. look up an order, then check inventory) before the model has enough information for a final answer",
+              "Every request requires exactly one tool call, no more and no less",
+              "Chaining tool calls is not something the loop structure supports"
+            ],
+            "correctAnswer": 1,
+            "explanation": "For requests needing information gathered in stages, the same request-execute-respond loop can repeat multiple times, each round adding more information to the conversation until the model has what it needs for a final answer.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is it important to set a limit on how many tool-call rounds can chain together in a single interaction?",
+            "options": [
+              "There's no need for a limit; tool-call chains always terminate on their own quickly",
+              "Without a cap, a confused model or genuinely ambiguous situation could loop through tool calls indefinitely, wasting cost and time",
+              "Limiting tool-call rounds prevents the model from ever using a tool at all",
+              "A limit is only relevant when using exactly one tool"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since a model can in principle keep requesting more tool calls without necessarily reaching a natural stopping point, capping the number of rounds protects against runaway cost and latency from an unbounded loop.",
+            "id": "q3"
+          },
+          {
+            "question": "In the lesson's conceptual code example, what are messages after step 4 of the tool-call loop?",
+            "options": [
+              "The original system and user messages plus the newly appended tool result message",
+              "Only the tool result, with the original conversation discarded",
+              "An empty list, since messages are cleared after each tool call",
+              "The system prompt alone, with all other messages removed"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's example shows messages.append(tool_result_message(result)) adding the tool's result onto the existing conversation, rather than discarding or resetting prior messages.",
+            "id": "q4"
+          },
+          {
+            "question": "According to this lesson, what specific example illustrates a request needing multiple chained tool calls?",
+            "options": [
+              "Looking up an order, then checking inventory, then estimating a delivery date",
+              "Asking the model to summarize a single static paragraph",
+              "A request that only ever needs the weather tool from an earlier lesson",
+              "Any request that includes exactly one user message"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson gives this exact multi-step example — order lookup, then inventory check, then delivery estimate — to illustrate why some requests need several tool calls chained together.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does the lesson warn against forgetting to call the model again after executing a requested tool?",
+            "options": [
+              "Without that final call, the user only ever sees raw tool output, not a natural-language answer incorporating it",
+              "Skipping the final call always produces a better user experience",
+              "The tool-call loop is already complete once the tool itself finishes executing",
+              "Calling the model again after tool execution is entirely optional and rarely useful"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson is explicit that step 5 — calling the model again with the tool's result — is what turns raw tool output into a coherent answer; skipping it leaves the user seeing unprocessed tool output.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does the lesson recommend correctly tracking message ordering across multiple tool calls?",
+            "options": [
+              "Because tool results need to be correctly associated with their originating tool-call request, or the model can misinterpret which result belongs to which call",
+              "Because message ordering has no effect on how the model interprets tool results",
+              "Because only the very last tool result in a conversation ever matters",
+              "Because message order is automatically managed and can never go wrong"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is losing track of message ordering, which can cause the model to misassociate a tool's result with the wrong originating tool-call request.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson recommend setting a cap on how many tool-call rounds can chain together?",
+            "options": [
+              "Without a cap, a confused model or genuinely ambiguous situation could loop indefinitely, burning cost and time",
+              "Because tool-call loops always terminate naturally after exactly one round",
+              "Because capping rounds prevents the model from ever using more than one tool total",
+              "Because there is no real risk of a tool-call loop continuing longer than intended"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explains that without an explicit limit, the loop could in principle continue indefinitely in an ambiguous or confused scenario, wasting cost and time — a cap protects against that.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "llme_tool_safety",
+      "title": "Tool Safety: Allow-Lists and Blast Radius",
+      "description": "Treat the model as an untrusted actor with an API, and design tool access accordingly.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain why tool access needs the same security mindset as giving API access to an untrusted party."
+          },
+          {
+            "title": "🔐 The model is a coworker with an API, not a trusted operator",
+            "content": "Because tool calling gives a model the ability to trigger real actions, it deserves the same security thinking you'd apply to any system that can be manipulated by adversarial or unexpected input: prompt injection (malicious instructions hidden in retrieved content or user input) could attempt to trick the model into calling a tool it shouldn't, with arguments it shouldn't use."
+          },
+          {
+            "title": "🚧 Limiting blast radius",
+            "content": "Practical mitigations include: an explicit **allow-list** of tools available in a given context (don't expose a 'delete_all_records' tool to a customer support flow that never needs it), **scoped credentials** (a tool's underlying API access should be no broader than what that specific tool needs), and **human-in-the-loop confirmation** for high-consequence actions (sending money, deleting data) rather than fully automatic execution.\n\n```python\n# Conceptual: different tool sets for different trust contexts\ncustomer_facing_tools = [\"lookup_order_status\", \"check_shipping_estimate\"]\ninternal_admin_tools = [\"lookup_order_status\", \"issue_refund\", \"delete_order\"]\n# A customer-facing session never even sees the admin-only tools\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Giving every session access to every available tool 'just in case'.** This maximizes the damage a successful prompt injection or model mistake could cause — expose only what a given context genuinely needs.\n\n**Assuming a well-written system prompt alone prevents misuse.** Prompt instructions are a strong signal but not a hard security boundary — actual access restrictions (allow-lists, scoped credentials) are what enforce a real limit.\n\n**Automating irreversible, high-consequence actions with no human confirmation step.** For anything hard to undo, a confirmation step is cheap insurance against a rare but costly mistake."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "llme_tool_safety_quiz",
+        "questions": [
+          {
+            "question": "Why does tool calling require the same security mindset as giving an untrusted party API access?",
+            "options": [
+              "Tool calling carries no real security implications since the model always behaves as intended",
+              "Because a model with tool access can be manipulated (e.g. via prompt injection) into calling tools with unintended arguments, the same defensive thinking used for any adversarial-input-facing system applies",
+              "Security only matters for tools that touch financial systems",
+              "Tool calling and API access are unrelated concepts"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since tool calling gives a model the ability to trigger real actions, and that model can be influenced by adversarial or unexpected input (prompt injection), it deserves the same security scrutiny you'd give any system exposed to untrusted input.",
+            "id": "q1"
+          },
+          {
+            "question": "What does an 'allow-list' of tools accomplish as a safety measure?",
+            "options": [
+              "It gives every session access to every tool available in the system",
+              "It restricts which tools are even available in a given context, so a customer-facing session, for example, never has access to a high-consequence admin-only tool",
+              "It has no effect on which tools a model can call",
+              "It only applies to tools that don't touch any real systems"
+            ],
+            "correctAnswer": 1,
+            "explanation": "By explicitly limiting which tools exist in a given context, an allow-list ensures that even a manipulated or mistaken model call can't reach a tool it was never given access to in the first place — directly limiting the potential blast radius.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is human-in-the-loop confirmation valuable for high-consequence, hard-to-undo actions?",
+            "options": [
+              "Confirmation steps are never worth the added friction, regardless of the action's consequences",
+              "For actions that are difficult or impossible to undo, a confirmation step provides a cheap safeguard against a rare but potentially costly mistake or manipulation",
+              "Confirmation steps eliminate the need for allow-lists or scoped credentials entirely",
+              "Human confirmation is only relevant for actions with no real consequences"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since some actions (sending money, deleting data) can't be easily reversed if triggered incorrectly, adding a human confirmation step trades a small amount of friction for meaningful protection against a rare failure with outsized consequences.",
+            "id": "q3"
+          },
+          {
+            "question": "In the lesson's example of customer_facing_tools versus internal_admin_tools, what is the key difference between the two lists?",
+            "options": [
+              "The customer-facing session never even sees high-consequence admin-only tools like issue_refund or delete_order",
+              "Both lists contain exactly the same tools with no difference",
+              "The admin tools list contains fewer tools than the customer-facing list",
+              "Customer-facing tools always include delete_order for convenience"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's example explicitly separates a limited customer-facing tool set from a broader internal admin set, illustrating how allow-lists limit exposure to high-consequence tools by context.",
+            "id": "q4"
+          },
+          {
+            "question": "What does this lesson identify as a way that a model with tool access could be manipulated?",
+            "options": [
+              "Prompt injection — malicious instructions hidden in retrieved content or user input",
+              "The model spontaneously deciding to act maliciously with no external influence",
+              "A software bug in the tool's own internal implementation",
+              "An update to the model's training data after deployment"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson specifically names prompt injection — malicious instructions hidden in retrieved content or user input — as the mechanism by which a model could be tricked into calling a tool it shouldn't.",
+            "id": "q5"
+          },
+          {
+            "question": "What does 'scoped credentials' mean as a tool-safety mitigation, according to this lesson?",
+            "options": [
+              "A tool's underlying API access should be no broader than what that specific tool needs",
+              "Every tool should share one single set of maximally broad credentials",
+              "Credentials should never be limited or restricted by tool",
+              "Scoped credentials refers to limiting the number of tools a session can see"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson defines scoped credentials as ensuring a tool's actual API access is restricted to only what it genuinely needs, limiting the damage even if that tool were misused.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does the lesson warn against assuming a well-written system prompt alone prevents tool misuse?",
+            "options": [
+              "Because prompt instructions are a strong signal but not a hard security boundary — actual access restrictions are what enforce a real limit",
+              "Because system prompts have complete, guaranteed control over tool access",
+              "Because tool misuse is impossible regardless of system prompt quality",
+              "Because system prompts and access restrictions are functionally identical safeguards"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson is explicit that prompt-based instructions influence behavior strongly but aren't an unbreakable security boundary — real enforcement comes from actual restrictions like allow-lists and scoped credentials.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does the lesson caution against giving every session access to every available tool 'just in case'?",
+            "options": [
+              "Because this maximizes the damage a successful prompt injection or model mistake could cause",
+              "Because giving broad tool access always improves the model's task performance with no downside",
+              "Because tool access has no bearing on the consequences of a model mistake",
+              "Because sessions can only be configured with access to a single tool at a time"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explains that granting unnecessary tool access to every session widens the potential blast radius of any successful manipulation or mistake — exposing only what's genuinely needed limits that risk.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,525 @@
+{
+  "id": "module_0",
+  "title": "Generative Modeling Foundations",
+  "description": "The discriminative-vs-generative distinction, density modeling and sampling, autoregressive factorization, and why evaluating generative models is fundamentally harder than evaluating classifiers.",
+  "icon": "🎨",
+  "color": "#EC407A",
+  "order": 0,
+  "estimatedHours": 2,
+  "difficulty": "Beginner",
+  "prerequisites": [],
+  "lessons": [
+    {
+      "id": "gen_discriminative_vs_generative",
+      "title": "Discriminative vs. Generative: What's Actually Different",
+      "description": "See the core distinction between models that classify and models that create.",
+      "duration": "7 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain the difference between a discriminative model and a generative model in terms of what each one actually learns."
+          },
+          {
+            "title": "🏷️ Discriminative: learning a boundary",
+            "content": "A discriminative model — like the classifiers you built in the machine learning course — learns to separate categories: given an input, predict a label (spam vs. not spam, cat vs. dog). It learns p(label | input): the boundary between classes, not how the inputs themselves are structured."
+          },
+          {
+            "title": "🎨 Generative: learning to produce new examples",
+            "content": "A **generative model** learns enough about the structure of the data itself to produce *new* examples that look like it came from the same distribution — new text, new images, new audio. Instead of p(label | input), it models p(input) itself (or p(input | some condition), like a text prompt).\n\n```python\n# Conceptual difference:\n# Discriminative: photo -> \"cat\" or \"dog\"          (predicts a label)\n# Generative:     \"a photo of a cat\" -> new photo   (produces new data)\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming any impressive chat interface is automatically \"generative AI\".** The distinguishing feature is what the model was trained to produce (new data) vs. classify, not how flashy the interface looks.\n\n**Thinking generative models don't use the discriminative concepts you already know.** Many generative training setups still use classification-style losses internally (e.g. a discriminator in a GAN) — the two ideas often work together.\n\n**Confusing \"generative\" with \"good\".** A generative model can produce fluent, confident output that is still wrong — being generative says nothing about accuracy."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "gen_discriminative_vs_generative_quiz",
+        "questions": [
+          {
+            "question": "What does a discriminative model like a spam classifier actually learn?",
+            "options": [
+              "How to generate new spam emails from scratch",
+              "A boundary that separates categories — essentially p(label | input) — rather than the structure of the inputs themselves",
+              "The complete probability distribution of all possible emails",
+              "Nothing measurable; discriminative models are undefined"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A discriminative model, like the classifiers from the ML course, learns to map an input to a label by finding the boundary between classes — it models p(label | input), not the data's own structure.",
+            "id": "q1"
+          },
+          {
+            "question": "What is the key difference in what a generative model models compared to a discriminative one?",
+            "options": [
+              "There is no real difference between the two",
+              "A generative model learns enough about the data's structure to produce new examples resembling it, effectively modeling p(input) rather than just p(label | input)",
+              "Generative models only work on images, never on text",
+              "Generative models cannot be trained with any labeled data"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Where a discriminative model predicts a label for a given input, a generative model learns the structure of the data well enough to produce brand-new examples that resemble the training distribution.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is it a mistake to equate \"generative\" with \"accurate\" or \"good\"?",
+            "options": [
+              "Generative models are always more accurate than discriminative ones",
+              "Being generative describes what a model was trained to do (produce new data), which says nothing on its own about whether that output is correct or trustworthy",
+              "Generative models cannot produce fluent output",
+              "Accuracy is not a meaningful concept for any type of model"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A generative model can produce confident, fluent output that is nonetheless factually wrong. \"Generative\" describes the modeling objective, not a guarantee of correctness — a key distinction for later lessons on evaluation and hallucination.",
+            "id": "q3"
+          },
+          {
+            "question": "A model that predicts whether an email is spam or not spam is an example of which kind of model?",
+            "options": [
+              "A generative model",
+              "A discriminative model",
+              "A diffusion model",
+              "An autoregressive model"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Predicting a label for a given input (spam vs. not spam) is exactly the discriminative task: learning p(label | input), the boundary between classes.",
+            "id": "q4"
+          },
+          {
+            "question": "In the notation used in this lesson, what does a generative model try to model instead of p(label | input)?",
+            "options": [
+              "p(input), or p(input | some condition) like a prompt",
+              "The gradient of the loss function",
+              "The learning rate schedule",
+              "The number of training epochs"
+            ],
+            "correctAnswer": 0,
+            "explanation": "A generative model models p(input) itself (or p(input | condition)), learning enough about the data's structure to produce new examples, rather than mapping inputs to labels.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does the lesson point out that a GAN's discriminator uses a classification-style loss internally?",
+            "options": [
+              "To show that generative and discriminative ideas can work together rather than being mutually exclusive",
+              "To prove that GANs are not actually generative models",
+              "To show that discriminators always outperform generators",
+              "To argue that classification is now obsolete"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson notes that many generative setups (like a GAN) still use discriminative, classification-style components internally, so the two concepts often combine rather than compete.",
+            "id": "q6"
+          },
+          {
+            "question": "Why can't 'having a flashy chat interface' be used to decide whether a system is generative AI?",
+            "options": [
+              "Because interface polish has nothing to do with what the underlying model was trained to produce",
+              "Because chat interfaces are always non-generative",
+              "Because only image-based interfaces count as generative AI",
+              "Because flashy interfaces guarantee correctness"
+            ],
+            "correctAnswer": 0,
+            "explanation": "What makes a model generative is its training objective (producing new data) rather than how impressive or interactive its interface appears — a common mistake called out directly in the lesson.",
+            "id": "q7"
+          },
+          {
+            "question": "A model trained to produce a fluent, confident paragraph that turns out to be factually wrong illustrates which point from this lesson?",
+            "options": [
+              "That being generative says nothing on its own about accuracy",
+              "That discriminative models are always more accurate",
+              "That generative models cannot produce fluent text",
+              "That fluency guarantees correctness"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly warns against confusing 'generative' with 'good' — a generative model can produce confident, fluent output that is still wrong.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "gen_density_modeling",
+      "title": "Density Modeling: Learning p(x)",
+      "description": "Understand generative modeling as the task of learning a probability distribution over data.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain what it means for a generative model to \"learn p(x)\", and why sampling from that distribution produces new data."
+          },
+          {
+            "title": "📊 A distribution over all possible data",
+            "content": "Formally, a generative model tries to approximate p(x) — the probability distribution over all possible data points x (all possible sentences, all possible images). Training data are treated as samples drawn from some true, unknown p(x); the model's job is to build an approximation p̂(x) close enough that sampling from it produces realistic new examples."
+          },
+          {
+            "title": "🎲 Sampling: turning a distribution into an example",
+            "content": "Once you have p̂(x), **sampling** draws a specific x from it — this is what turns an abstract distribution into one concrete new sentence or image. Different generative model families (autoregressive, from the transformers course's GPT lesson, versus diffusion, covered later in this course) approximate and sample from p(x) in very different ways, but the underlying goal is the same.\n\n```python\n# Conceptual: an autoregressive LM factors p(x) token by token\n# p(x) = p(x_1) * p(x_2 | x_1) * p(x_3 | x_1, x_2) * ...\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Thinking the model literally stores the training data.** A well-trained generative model approximates the distribution the data came from; it doesn't (ideally) memorize and replay training examples verbatim.\n\n**Forgetting p̂(x) is only an approximation.** Any generative model's output distribution differs from the true data distribution, which is exactly why generated samples can be subtly (or obviously) wrong or biased.\n\n**Assuming density modeling only applies to text.** The same p(x) framing applies to images, audio, and other modalities — only the factorization and architecture change."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "gen_density_modeling_quiz",
+        "questions": [
+          {
+            "question": "What does it mean for a generative model to \"learn p(x)\"?",
+            "options": [
+              "It means memorizing the training dataset exactly",
+              "It means building an approximation of the probability distribution that the training data was drawn from, so new samples can be drawn from that approximation",
+              "It means learning to classify x into a fixed set of labels",
+              "p(x) refers only to image pixel values and nothing else"
+            ],
+            "correctAnswer": 1,
+            "explanation": "p(x) is the (unknown) true distribution the training data came from. A generative model builds an approximation p̂(x) good enough that sampling from it produces new, realistic-looking data.",
+            "id": "q1"
+          },
+          {
+            "question": "What does \"sampling\" mean in the context of a generative model?",
+            "options": [
+              "Selecting a random row from the training dataset to show as output",
+              "Drawing a specific, concrete example (like one sentence or image) from the model's learned probability distribution p̂(x)",
+              "Deleting part of the model to make it smaller",
+              "Testing the model's accuracy on a held-out test set"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Sampling is the step that turns an abstract learned distribution into one actual, concrete output — a specific sentence, image, or other data point drawn according to the probabilities the model has learned.",
+            "id": "q2"
+          },
+          {
+            "question": "Why does it matter that p̂(x) is only an approximation of the true data distribution?",
+            "options": [
+              "It doesn't matter — approximations are always perfectly accurate",
+              "Because p̂(x) differs from the true distribution, generated samples can reflect that gap as subtle errors, biases, or outright incorrect content",
+              "Approximation only matters for very small models",
+              "p̂(x) is never actually an approximation; it's always exact"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since any learned p̂(x) is an imperfect approximation of reality, whatever gap exists between it and the true distribution shows up in generated output — as errors, biases, or artifacts — which motivates later lessons on evaluation and limitations.",
+            "id": "q3"
+          },
+          {
+            "question": "What is p(x) in the context of a generative model, as defined in this lesson?",
+            "options": [
+              "The probability distribution over all possible data points x",
+              "The accuracy of the model on a test set",
+              "The number of parameters in the model",
+              "The learning rate used during training"
+            ],
+            "correctAnswer": 0,
+            "explanation": "p(x) is the true (unknown) probability distribution over all possible data points, such as all possible sentences or images, that the training data is assumed to be drawn from.",
+            "id": "q4"
+          },
+          {
+            "question": "What is p̂(x) as distinguished from p(x) in this lesson?",
+            "options": [
+              "The model's learned approximation of the true distribution p(x)",
+              "The exact, perfect true distribution",
+              "A completely unrelated random distribution",
+              "The training loss curve"
+            ],
+            "correctAnswer": 0,
+            "explanation": "p̂(x) is the model's approximation, built from training data, of the true underlying distribution p(x) — the two are related but p̂(x) is never a perfect copy.",
+            "id": "q5"
+          },
+          {
+            "question": "According to this lesson, how do autoregressive and diffusion models differ in the context of density modeling?",
+            "options": [
+              "They approximate and sample from p(x) in very different ways, despite sharing the same underlying goal",
+              "They are mathematically identical processes with different names",
+              "Only autoregressive models actually model p(x)",
+              "Diffusion models don't use any notion of probability"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson notes that autoregressive and diffusion families approximate and sample from p(x) very differently, but both are still pursuing the same underlying density-modeling goal.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does the lesson caution against thinking a generative model 'literally stores the training data'?",
+            "options": [
+              "Because a well-trained model approximates the distribution the data came from rather than memorizing and replaying examples verbatim",
+              "Because generative models are incapable of ever reproducing any similar content",
+              "Because training data is deleted after training",
+              "Because p(x) only applies to labeled data"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is assuming literal storage; instead, the goal is approximating the underlying distribution, not memorizing and replaying exact training examples.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does density modeling's p(x) framing apply beyond just text, according to this lesson?",
+            "options": [
+              "Because the same distributional framing applies to images, audio, and other modalities, with only the factorization and architecture changing",
+              "Because p(x) is a term used exclusively in image processing",
+              "Because text is the only modality that can be modeled probabilistically",
+              "Because audio and images cannot be represented as distributions"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly states that density modeling isn't text-specific: the same p(x) idea applies across images, audio, and other data types, just with different factorizations and architectures.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "gen_autoregressive_factorization",
+      "title": "Autoregressive Generation: One Token at a Time",
+      "description": "Revisit how autoregressive models like GPT factor a hard problem into simple next-token steps.",
+      "duration": "7 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain how autoregressive generation breaks down modeling p(x) into a sequence of simpler next-token predictions."
+          },
+          {
+            "title": "🔗 Breaking a hard problem into easy pieces",
+            "content": "Directly modeling the probability of an entire sentence is intractable — there are far too many possible sentences. Autoregressive models (the transformers course's GPT lesson covered this architecture) sidestep this by factoring p(x) into a chain of next-token predictions: predict token 1, then token 2 given token 1, then token 3 given tokens 1-2, and so on.\n\n```python\n# p(x_1, x_2, ..., x_n) = p(x_1) * p(x_2|x_1) * p(x_3|x_1,x_2) * ... \n# Generation: repeatedly sample the next token, then feed it back in\n```"
+          },
+          {
+            "title": "🔁 Generation is a loop, not one big computation",
+            "content": "This is why text generation feels like it happens \"one word at a time\" — because it literally does. Each new token becomes part of the input for predicting the next one, which is also why early mistakes in a generation can compound: a wrong token early on shifts every prediction that follows it."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming the whole output is planned in advance.** A standard autoregressive model doesn't draft and revise; each token is chosen given only what came before it.\n\n**Forgetting that errors compound.** Because each step conditions on the previous ones, an early mistake can steer the rest of the generation off course — this is part of why sampling strategy (next lesson) matters so much.\n\n**Thinking autoregressive generation is the only way to generate data.** It's the dominant approach for text, but diffusion models (this course, later module) generate very differently, refining an entire output holistically rather than token by token."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "gen_autoregressive_factorization_quiz",
+        "questions": [
+          {
+            "question": "Why do autoregressive models factor p(x) into a chain of next-token predictions instead of modeling the whole sequence directly?",
+            "options": [
+              "Directly modeling the probability of an entire sequence is intractable given the enormous number of possible sequences, so the problem is broken into simpler conditional steps",
+              "Factoring has no practical benefit and is done purely by convention",
+              "It only works for very short sequences",
+              "Autoregressive models don't actually use any factorization"
+            ],
+            "correctAnswer": 1,
+            "explanation": "There are far too many possible full sequences to model directly. Factoring p(x) into next-token conditional probabilities turns an intractable problem into a chain of much simpler, learnable steps.",
+            "id": "q1"
+          },
+          {
+            "question": "Why can an early mistake in autoregressive text generation affect everything that comes after it?",
+            "options": [
+              "It can't — later tokens are generated completely independently of earlier ones",
+              "Because each new token is predicted conditioned on all the previous tokens, an early wrong token becomes part of the context for every subsequent prediction",
+              "Mistakes only affect the very last token generated",
+              "Autoregressive models automatically correct earlier mistakes"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since each step's prediction is conditioned on everything generated so far, an early error becomes part of the input context for all later steps, letting it steer the rest of the generation in a compounding way.",
+            "id": "q2"
+          },
+          {
+            "question": "How does diffusion-based generation (covered later in this course) fundamentally differ from autoregressive generation?",
+            "options": [
+              "There is no difference; all generative models work identically",
+              "Diffusion refines an entire output holistically over multiple steps, rather than generating strictly one token at a time in sequence",
+              "Diffusion also generates token by token, just using a different vocabulary",
+              "Diffusion cannot generate images, only text"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Unlike the strictly sequential, one-token-at-a-time approach of autoregressive models, diffusion models start from noise and iteratively refine an entire output (like a whole image) across steps — a fundamentally different generation process, previewed here before its own dedicated module.",
+            "id": "q3"
+          },
+          {
+            "question": "How does an autoregressive model factor the probability of a full sequence, as shown in this lesson?",
+            "options": [
+              "As a chain of conditional next-token probabilities, each conditioned on all previous tokens",
+              "As a single unconditional probability computed all at once",
+              "As an average over every possible sequence",
+              "As a fixed lookup table of full sentences"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson shows p(x_1,...,x_n) factored as p(x_1) * p(x_2|x_1) * p(x_3|x_1,x_2) * ..., a chain of next-token conditional probabilities.",
+            "id": "q4"
+          },
+          {
+            "question": "Why is directly modeling the probability of an entire sentence described as intractable in this lesson?",
+            "options": [
+              "Because there are far too many possible sentences to model directly",
+              "Because sentences don't have any probability associated with them",
+              "Because only single words have probabilities, not sequences",
+              "Because tractability only matters for images, not text"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson states that modeling an entire sentence's probability directly is intractable simply due to the enormous number of possible sentences, motivating the token-by-token factorization instead.",
+            "id": "q5"
+          },
+          {
+            "question": "During autoregressive generation, what happens to each newly generated token?",
+            "options": [
+              "It becomes part of the input context used to predict the next token",
+              "It is discarded immediately after being generated",
+              "It replaces all previously generated tokens",
+              "It is used only to compute a final accuracy score"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explains that each new token becomes part of the input for predicting the next token, which is why generation happens in a feedback loop, one token at a time.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does the lesson say a standard autoregressive model doesn't 'plan ahead' or draft and revise?",
+            "options": [
+              "Because each token is chosen given only what came before it, with no revision step",
+              "Because autoregressive models always generate the entire output at once",
+              "Because planning ahead is only possible with diffusion models",
+              "Because autoregressive models never use previous tokens as context"
+            ],
+            "correctAnswer": 0,
+            "explanation": "This is listed as a common mistake to avoid: assuming the whole output is planned in advance, when in fact each token decision is made sequentially based only on prior tokens, without revision.",
+            "id": "q7"
+          },
+          {
+            "question": "How does the lesson contrast diffusion-based generation with autoregressive generation?",
+            "options": [
+              "Diffusion refines an entire output holistically across steps, rather than generating strictly one token at a time",
+              "Diffusion also generates strictly one token at a time, identically to autoregressive models",
+              "Diffusion cannot be used for any data type covered in this course",
+              "Diffusion and autoregressive generation are mathematically identical"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson previews that diffusion models (covered later) generate very differently from autoregressive models — refining an entire output holistically rather than sequentially token by token.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "gen_evaluating_generative_models",
+      "title": "Evaluating Generative Models: Harder Than It Looks",
+      "description": "See why 'is this a good generation?' doesn't have a single simple answer, and what people try instead.",
+      "duration": "7 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can name the core challenge in evaluating generative models and describe a couple of approaches used to work around it."
+          },
+          {
+            "title": "❓ There's no single correct output",
+            "content": "Evaluating a classifier is straightforward — the machine learning course covered accuracy, precision, recall against a known correct label. Evaluating a generative model is harder: for \"write a poem about autumn\", there is no single correct output to compare against. Many very different generations could all be equally good."
+          },
+          {
+            "title": "📏 Proxies people use anyway",
+            "content": "Since there's no ground truth to compare against directly, practitioners use proxies: **perplexity** (how surprised a language model is by held-out text — lower is generally better, but doesn't capture creativity or correctness), **human evaluation** (people rate outputs, which is expensive but often the most meaningful signal), and **automated metrics** comparing generated text to reference text (useful for tasks like translation, less useful for open-ended generation).\n\n```python\n# Perplexity, conceptually: lower means the model found the\n# real, held-out text less \"surprising\" -- a rough fluency signal,\n# not a correctness or creativity signal\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Treating low perplexity as proof of quality.** A fluent, low-perplexity model can still generate confidently wrong or nonsensical content.\n\n**Skipping human evaluation because it's expensive.** For genuinely open-ended generation tasks, automated metrics often miss exactly the qualities that matter (coherence, creativity, correctness).\n\n**Applying classification-style metrics where they don't fit.** Accuracy and F1 (from the ML course) assume one correct label — trying to force them onto open-ended generation tasks usually misrepresents quality."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "gen_evaluating_generative_models_quiz",
+        "questions": [
+          {
+            "question": "Why is evaluating a generative model harder than evaluating a classifier?",
+            "options": [
+              "It isn't harder — the exact same metrics like accuracy and F1 apply directly",
+              "For open-ended generation tasks, there's no single correct output to compare against, unlike a classifier's known correct label",
+              "Generative models cannot be evaluated at all, under any method",
+              "Generative models only ever produce one possible correct output"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A classifier has one correct label to check against (as in the ML course's metrics). An open-ended generation task like writing a poem has many equally valid possible outputs, so there's no single ground truth to compare against directly.",
+            "id": "q1"
+          },
+          {
+            "question": "What does perplexity measure, and what is its main limitation?",
+            "options": [
+              "It directly measures factual correctness and has no limitations",
+              "It measures how \"surprised\" a language model is by held-out text (lower is generally better as a fluency signal), but it doesn't capture correctness or creativity",
+              "It measures how many parameters a model has",
+              "It only applies to image generation models"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Perplexity is a rough fluency proxy — a model that assigns high probability to real held-out text scores well — but a model can be fluent (low perplexity) while still generating false or low-quality content, which perplexity alone can't detect.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is human evaluation often still used for generative tasks despite being expensive?",
+            "options": [
+              "It isn't used in practice; automated metrics fully replaced it",
+              "For genuinely open-ended tasks, automated metrics often miss qualities like coherence, creativity, and correctness that human judgment can capture",
+              "Human evaluation is actually cheaper than any automated metric",
+              "Human evaluation is only relevant for classification tasks"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since automated proxies like perplexity don't fully capture what makes an open-ended generation genuinely good, human judgment remains one of the most meaningful (if costly) signals for evaluating quality on these tasks.",
+            "id": "q3"
+          },
+          {
+            "question": "Why is there no single correct output to compare against for a prompt like 'write a poem about autumn'?",
+            "options": [
+              "Because many very different generations could all be equally good for an open-ended task",
+              "Because poems cannot be evaluated by any method",
+              "Because generative models never produce text",
+              "Because only one correct poem exists for any topic"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's core point is that open-ended generation tasks lack a single ground-truth answer, unlike a classifier's known correct label, since many different outputs can be equally valid.",
+            "id": "q4"
+          },
+          {
+            "question": "What does perplexity measure, according to this lesson?",
+            "options": [
+              "How surprised a language model is by held-out text, where lower is generally better as a fluency signal",
+              "The exact factual accuracy of generated text",
+              "The creativity level of a generated response",
+              "The number of parameters in a language model"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Perplexity is described as a proxy for fluency: it measures how surprised the model is by real held-out text, with lower values generally indicating better fit to natural language patterns.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is human evaluation still used for generative tasks despite being expensive, per this lesson?",
+            "options": [
+              "Because it's often the most meaningful signal for judging open-ended, creative qualities that automated metrics can miss",
+              "Because it is actually cheaper than any automated approach",
+              "Because automated metrics are illegal to use for generative tasks",
+              "Because human evaluation always agrees perfectly with perplexity scores"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explains that human evaluation, while costly, often captures coherence, creativity, and correctness that automated proxies fail to reflect for open-ended tasks.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does the lesson warn against applying classification metrics like accuracy and F1 to open-ended generation tasks?",
+            "options": [
+              "Because those metrics assume one correct label, which doesn't fit tasks with many valid possible outputs",
+              "Because accuracy and F1 can only be computed for image data",
+              "Because classification metrics are always higher than generation-appropriate metrics",
+              "Because F1 requires no ground truth at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Accuracy and F1 (from the ML course) presume a single correct label to check against, which misrepresents quality when applied to open-ended generation tasks that have many equally valid outputs.",
+            "id": "q7"
+          },
+          {
+            "question": "What is the risk of treating low perplexity as proof of a generative model's overall quality?",
+            "options": [
+              "A fluent, low-perplexity model can still generate confidently wrong or nonsensical content",
+              "Low perplexity guarantees the content is completely accurate",
+              "Perplexity cannot be computed for any language model",
+              "Low perplexity always means the model is a classifier"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is trusting low perplexity as a quality guarantee — fluency and correctness are separate properties, so a fluent model can still be wrong.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,525 @@
+{
+  "id": "module_4",
+  "title": "Efficient Fine-Tuning: PEFT & LoRA",
+  "description": "Why full fine-tuning gets expensive at scale, how LoRA trains a small low-rank update instead of every parameter, how quantization (QLoRA) shrinks memory further, and how to merge or keep adapters separate.",
+  "icon": "🧩",
+  "color": "#D81B60",
+  "order": 4,
+  "estimatedHours": 3,
+  "difficulty": "Intermediate",
+  "prerequisites": [],
+  "lessons": [
+    {
+      "id": "hf_full_finetune_cost",
+      "title": "Why Full Fine-Tuning Gets Expensive",
+      "description": "Understand the memory and compute cost of updating every parameter in a large model.",
+      "duration": "7 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain why fine-tuning every parameter of a large model becomes impractical as models grow."
+          },
+          {
+            "title": "💰 Every parameter needs memory, three times over",
+            "content": "Full fine-tuning updates every weight in the model. For each trainable parameter, you typically need memory for the weight itself, its gradient, and optimizer state (e.g. Adam keeps two extra values per parameter) — memory scales up fast as parameter count grows, the same scaling concern touched on in the deep learning course's discussion of model size."
+          },
+          {
+            "title": "📈 Bigger models, harder problem",
+            "content": "A model with a few hundred million parameters is fine-tunable on a single consumer GPU. A model with tens of billions of parameters needs many high-end GPUs just to hold the weights, gradients, and optimizer state for full fine-tuning — often out of reach for an individual or small team."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming more GPU memory always solves the problem.** At large enough scale, full fine-tuning requires infrastructure most individuals and small teams simply don't have.\n\n**Ignoring optimizer state memory.** People often only budget for the model's raw weight size and are surprised when training runs out of memory anyway.\n\n**Not considering whether full fine-tuning is even necessary.** Often, only a small amount of task-specific adaptation is needed on top of a strong pretrained base — the motivation for the next lesson's approach."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "hf_full_finetune_cost_quiz",
+        "questions": [
+          {
+            "question": "Why does full fine-tuning require more memory than just storing the model's raw weights?",
+            "options": [
+              "It doesn't — weight storage is the only memory cost",
+              "Each trainable parameter also needs memory for its gradient and optimizer state, which can multiply the effective memory requirement several times over",
+              "Memory usage is unrelated to the number of trainable parameters",
+              "Full fine-tuning uses less memory than inference"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Beyond the weights themselves, training needs gradients and optimizer state (e.g., Adam keeps extra values per parameter) — all scaling with the number of trainable parameters, which is why full fine-tuning of large models needs much more memory than just holding the weights.",
+            "id": "q1"
+          },
+          {
+            "question": "Why does full fine-tuning become impractical for very large models?",
+            "options": [
+              "It never becomes impractical, regardless of model size",
+              "The combined memory needed for weights, gradients, and optimizer state across billions of parameters can exceed what's available even on many high-end GPUs",
+              "Large models cannot be fine-tuned by definition",
+              "Model size has no bearing on fine-tuning feasibility"
+            ],
+            "correctAnswer": 1,
+            "explanation": "As parameter count grows into the billions, the combined memory for weights, gradients, and optimizer state can exceed what even multiple high-end GPUs provide, putting full fine-tuning out of reach for most individuals and small teams.",
+            "id": "q2"
+          },
+          {
+            "question": "What motivates looking for an alternative to full fine-tuning for large models?",
+            "options": [
+              "There is no need for an alternative; full fine-tuning is always best",
+              "Often only a small amount of task-specific adaptation is needed on top of an already-strong pretrained base, so updating every parameter is more than necessary",
+              "Alternatives to full fine-tuning don't exist",
+              "Full fine-tuning is actually cheaper than any alternative"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since a pretrained model already encodes strong general capability, often only a small, targeted adjustment is needed to adapt it to a new task — which is exactly the gap that efficient fine-tuning methods like LoRA are designed to fill.",
+            "id": "q3"
+          },
+          {
+            "question": "Why does full fine-tuning require more memory than just storing the model's raw weights?",
+            "options": [
+              "It doesn't — weight storage is the only memory cost involved",
+              "Each trainable parameter also needs memory for its gradient and optimizer state, multiplying the effective memory requirement",
+              "Memory usage has no relationship to the number of trainable parameters",
+              "Full fine-tuning always uses less memory than inference"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Beyond the weights themselves, training needs gradients and optimizer state (e.g., Adam keeps extra values per parameter), all scaling with the number of trainable parameters.",
+            "id": "q4"
+          },
+          {
+            "question": "According to this lesson, roughly what scale of model is fine-tunable on a single consumer GPU with full fine-tuning?",
+            "options": [
+              "Tens of billions of parameters",
+              "A few hundred million parameters",
+              "Only models with fewer than 100 parameters",
+              "There is no scale at which full fine-tuning is feasible on a single GPU"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson notes that a model with a few hundred million parameters is fine-tunable on a single consumer GPU, while tens of billions of parameters requires many high-end GPUs.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does full fine-tuning become impractical for very large models?",
+            "options": [
+              "It never becomes impractical, regardless of model size",
+              "The combined memory needed for weights, gradients, and optimizer state across billions of parameters can exceed what's available even on many high-end GPUs",
+              "Large models cannot technically be fine-tuned at all",
+              "Model size has no bearing on fine-tuning feasibility"
+            ],
+            "correctAnswer": 1,
+            "explanation": "As parameter count grows into the billions, the combined memory for weights, gradients, and optimizer state can exceed what even multiple high-end GPUs provide, putting full fine-tuning out of reach for many teams.",
+            "id": "q6"
+          },
+          {
+            "question": "What common mistake does this lesson warn about regarding memory budgeting for fine-tuning?",
+            "options": [
+              "Budgeting too much memory for the model's raw weight size",
+              "Only budgeting for the model's raw weight size and being surprised when training runs out of memory anyway",
+              "Never budgeting for memory at all, since it never matters",
+              "Assuming optimizer state requires zero additional memory, which is always true"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson warns that people often only budget for the model's raw weight size and are surprised when training runs out of memory anyway, having ignored the additional gradient and optimizer state memory.",
+            "id": "q7"
+          },
+          {
+            "question": "What motivates looking for an alternative to full fine-tuning for large models?",
+            "options": [
+              "There is no need for an alternative; full fine-tuning is always the best option",
+              "Often only a small amount of task-specific adaptation is needed on top of an already-strong pretrained base, so updating every parameter is more than necessary",
+              "Alternatives to full fine-tuning simply don't exist",
+              "Full fine-tuning is actually cheaper than any known alternative"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since a pretrained model already encodes strong general capability, often only a small, targeted adjustment is needed — exactly the gap that efficient fine-tuning methods like LoRA are designed to fill.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "hf_lora_intuition",
+      "title": "LoRA: Low-Rank Adapters, Intuitively",
+      "description": "Understand LoRA's core idea: freezing the base model and training a small number of extra parameters.",
+      "duration": "9 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain LoRA's core idea and why it trains far fewer parameters than full fine-tuning."
+          },
+          {
+            "title": "🧊 Freeze the base, train a small add-on",
+            "content": "**LoRA** (Low-Rank Adaptation) freezes all of the original model's weights and instead trains small additional matrices injected alongside certain layers. The math course's coverage of matrix rank is exactly the intuition here: LoRA assumes the *update* needed for fine-tuning can be well-approximated by a low-rank matrix — a much smaller number of parameters than the full weight matrix.\n\n```python\n# Conceptual: instead of updating a full weight matrix W directly,\n# LoRA learns two small matrices A and B such that\n# the effective update is W + (A @ B), with A and B far smaller than W\n```"
+          },
+          {
+            "title": "⚡ Dramatically fewer trainable parameters",
+            "content": "A LoRA setup might train less than 1% of a model's total parameters while achieving performance close to full fine-tuning on many tasks. Because the base weights stay frozen, gradients and optimizer state are only needed for the small LoRA matrices — solving the memory problem from the previous lesson.\n\n```python\nfrom peft import LoraConfig, get_peft_model\n\nconfig = LoraConfig(r=8, lora_alpha=16, target_modules=[\"q_proj\", \"v_proj\"])\npeft_model = get_peft_model(model, config)\npeft_model.print_trainable_parameters()\n# trainable params: 1,572,864 || all params: 124,439,808 || trainable%: 1.26\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Setting rank (`r`) too low for a complex task.** A very small rank may not have enough capacity to capture the needed adaptation, hurting performance.\n\n**Applying LoRA to the wrong layers.** `target_modules` needs to point at the layers where adaptation actually helps (commonly attention projection layers) — misconfiguring this wastes the technique's benefit.\n\n**Expecting LoRA to always match full fine-tuning exactly.** It gets close on many tasks, but isn't guaranteed to fully match full fine-tuning performance on every task."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "hf_lora_intuition_quiz",
+        "questions": [
+          {
+            "question": "What is the core idea behind LoRA?",
+            "options": [
+              "Training every parameter in the model exactly as full fine-tuning does",
+              "Freezing the original model's weights and training small additional low-rank matrices that approximate the needed update",
+              "Deleting most of the model's layers before training",
+              "Replacing the tokenizer with a smaller one"
+            ],
+            "correctAnswer": 1,
+            "explanation": "LoRA keeps the base model frozen and introduces small, low-rank matrices to approximate the fine-tuning update, drastically reducing the number of parameters that need training.",
+            "id": "q1"
+          },
+          {
+            "question": "Why does LoRA use far less memory during training than full fine-tuning?",
+            "options": [
+              "It doesn't — LoRA and full fine-tuning use identical memory",
+              "Since the base weights are frozen, gradients and optimizer state are only needed for the small LoRA matrices, not the full parameter set",
+              "LoRA avoids using gradients entirely",
+              "LoRA only works on CPUs, which inherently use less memory"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Because the base model's weights don't need gradients or optimizer state (they're frozen), only the small LoRA matrices require that extra memory — a tiny fraction of what full fine-tuning would need.",
+            "id": "q2"
+          },
+          {
+            "question": "What does the LoRA rank parameter (`r`) control, and what's the risk of setting it too low?",
+            "options": [
+              "Rank has no effect on the model's behavior",
+              "Rank controls the capacity of the low-rank update matrices; too low a rank may not have enough capacity to capture the adaptation the task needs",
+              "A lower rank always improves performance with no downside",
+              "Rank only affects how fast the tokenizer runs"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The rank sets how expressive the low-rank update can be. Set too low, it may lack the capacity to represent the adaptation needed for a complex task, which can hurt fine-tuned performance.",
+            "id": "q3"
+          },
+          {
+            "question": "What is the core idea behind LoRA, according to this lesson?",
+            "options": [
+              "Training every parameter in the model exactly as full fine-tuning does",
+              "Freezing the original model's weights and training small additional low-rank matrices that approximate the needed update",
+              "Deleting most of the model's layers before training begins",
+              "Replacing the tokenizer with a smaller one"
+            ],
+            "correctAnswer": 1,
+            "explanation": "LoRA keeps the base model frozen and introduces small, low-rank matrices to approximate the fine-tuning update, drastically reducing the number of parameters that need training.",
+            "id": "q4"
+          },
+          {
+            "question": "What math course concept does this lesson connect to LoRA's core intuition?",
+            "options": [
+              "Probability distributions",
+              "Matrix rank",
+              "Derivatives and gradients",
+              "Standard deviation"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson connects LoRA's approach directly to the math course's coverage of matrix rank — LoRA assumes the needed fine-tuning update can be well-approximated by a low-rank matrix.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does LoRA use far less memory during training than full fine-tuning?",
+            "options": [
+              "It doesn't — LoRA and full fine-tuning use identical memory",
+              "Since the base weights are frozen, gradients and optimizer state are only needed for the small LoRA matrices, not the full parameter set",
+              "LoRA avoids using any gradients whatsoever",
+              "LoRA only works on CPUs, which inherently use less memory"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Because the base model's weights don't need gradients or optimizer state (they're frozen), only the small LoRA matrices require that extra memory — a tiny fraction of what full fine-tuning would need.",
+            "id": "q6"
+          },
+          {
+            "question": "According to the example given, roughly what percentage of a model's total parameters might a LoRA setup train?",
+            "options": [
+              "Around 50%",
+              "Less than 1%",
+              "Exactly 100%",
+              "Around 75%"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson's example shows a LoRA setup training about 1.26% of a model's total parameters while achieving performance close to full fine-tuning on many tasks.",
+            "id": "q7"
+          },
+          {
+            "question": "What risk does setting the LoRA rank (`r`) too low for a complex task create?",
+            "options": [
+              "There is no risk; lower rank always performs identically",
+              "A very small rank may not have enough capacity to capture the needed adaptation, hurting performance",
+              "Lower rank always improves training speed with zero downside",
+              "Rank only affects the tokenizer, not the model's performance"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The rank sets how expressive the low-rank update can be; set too low, it may lack sufficient capacity to represent the adaptation a complex task actually needs, which can hurt fine-tuned performance.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "hf_quantization_basics",
+      "title": "Quantization for Training: 8-bit and 4-bit",
+      "description": "See how reducing numeric precision shrinks memory use even further, combined with LoRA.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain what quantization does and why combining it with LoRA (QLoRA) shrinks memory needs even more."
+          },
+          {
+            "title": "🔢 Fewer bits per number",
+            "content": "Model weights are normally stored as 32-bit or 16-bit floating point numbers. **Quantization** stores them with fewer bits — 8-bit or even 4-bit — trading a small amount of precision for a large reduction in memory footprint.\n\n```python\n# Conceptual: a 7-billion-parameter model at\n# 16-bit precision: ~14 GB\n# 8-bit precision:  ~7 GB\n# 4-bit precision:  ~3.5 GB\n```"
+          },
+          {
+            "title": "🧩 QLoRA: quantization plus LoRA together",
+            "content": "**QLoRA** loads the frozen base model in 4-bit precision (saving huge amounts of memory) while training LoRA adapters in normal higher precision on top. This combination is what makes fine-tuning multi-billion-parameter models feasible on a single consumer GPU."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming quantization is free.** Lower precision can slightly reduce output quality — usually small, but worth validating on your own task rather than assuming zero impact.\n\n**Quantizing the LoRA adapters themselves.** QLoRA typically keeps the small trainable adapters at higher precision; it's the large frozen base that gets quantized.\n\n**Forgetting hardware/library support varies.** Not every combination of hardware and quantization library works identically — check compatibility before committing to a specific setup."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "hf_quantization_basics_quiz",
+        "questions": [
+          {
+            "question": "What does quantization do to a model's weights?",
+            "options": [
+              "It deletes weights entirely to save space",
+              "It stores weights using fewer bits per number (e.g. 8-bit or 4-bit instead of 32-bit), trading some precision for a large reduction in memory footprint",
+              "It converts weights into text strings",
+              "It has no effect on memory usage"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Quantization represents each weight with fewer bits, directly shrinking memory footprint — the tradeoff is a small amount of numeric precision lost in exchange for a large memory savings.",
+            "id": "q1"
+          },
+          {
+            "question": "What does QLoRA combine to make fine-tuning very large models feasible on limited hardware?",
+            "options": [
+              "Two completely separate models trained independently",
+              "A quantized (e.g. 4-bit) frozen base model with LoRA adapters trained on top at higher precision",
+              "Quantization applied only to the training data, not the model",
+              "Full fine-tuning combined with a smaller batch size"
+            ],
+            "correctAnswer": 1,
+            "explanation": "QLoRA loads the large frozen base model in low precision (saving memory) while still training the small LoRA adapters at higher precision, combining both techniques' memory savings to make large-model fine-tuning fit on modest hardware.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is it important to validate task performance after quantizing a model rather than assuming zero impact?",
+            "options": [
+              "Quantization always improves performance with no downside",
+              "Lower numeric precision can introduce small quality degradations that vary by task, so it's worth checking rather than assuming there's no effect",
+              "Quantization makes validation impossible",
+              "Quantized models cannot be evaluated at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "While quantization's precision loss is often small, its actual impact can vary by task and model, so checking real performance after quantizing avoids being surprised by an unexpected quality drop.",
+            "id": "q3"
+          },
+          {
+            "question": "What does quantization do to a model's weights?",
+            "options": [
+              "It deletes weights entirely to save disk space",
+              "It stores weights using fewer bits per number, trading some precision for a large reduction in memory footprint",
+              "It converts weights into plain text strings",
+              "It has no effect on memory usage at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Quantization represents each weight with fewer bits (e.g., 8-bit or 4-bit instead of 32-bit), directly shrinking memory footprint at the cost of a small amount of numeric precision.",
+            "id": "q4"
+          },
+          {
+            "question": "According to the example given, roughly how much memory does a 7-billion-parameter model need at 4-bit precision compared to 16-bit?",
+            "options": [
+              "The same amount, about 14 GB either way",
+              "Roughly 3.5 GB at 4-bit versus about 14 GB at 16-bit",
+              "4-bit precision actually requires more memory than 16-bit",
+              "There is no meaningful memory difference between precisions"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson's example shows a 7B-parameter model needing about 14 GB at 16-bit precision but only about 3.5 GB at 4-bit precision — a substantial reduction.",
+            "id": "q5"
+          },
+          {
+            "question": "What does QLoRA combine to make fine-tuning very large models feasible on limited hardware?",
+            "options": [
+              "Two completely separate models trained independently of each other",
+              "A quantized (e.g. 4-bit) frozen base model with LoRA adapters trained on top at higher precision",
+              "Quantization applied only to the training data, never the model",
+              "Full fine-tuning combined with a smaller batch size"
+            ],
+            "correctAnswer": 1,
+            "explanation": "QLoRA loads the large frozen base model in low precision (saving memory) while still training the small LoRA adapters at higher precision, combining both techniques' memory savings.",
+            "id": "q6"
+          },
+          {
+            "question": "According to this lesson, are the LoRA adapters themselves typically quantized in QLoRA?",
+            "options": [
+              "Yes, the adapters are quantized along with the base model",
+              "No — QLoRA typically keeps the small trainable adapters at higher precision, quantizing only the large frozen base",
+              "QLoRA does not use any adapters at all",
+              "Only half of the adapter matrices are quantized"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson notes that QLoRA typically keeps the small trainable LoRA adapters at higher precision; it's the large frozen base model that gets quantized to 4-bit.",
+            "id": "q7"
+          },
+          {
+            "question": "Why is it important to validate task performance after quantizing a model rather than assuming zero impact?",
+            "options": [
+              "Quantization always improves performance with no possible downside",
+              "Lower numeric precision can introduce small quality degradations that vary by task, so checking is worthwhile",
+              "Quantization makes any form of validation technically impossible",
+              "Quantized models cannot be evaluated under any circumstances"
+            ],
+            "correctAnswer": 1,
+            "explanation": "While quantization's precision loss is often small, its actual impact can vary by task and model, so validating real performance afterward avoids being surprised by an unexpected quality drop.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "hf_merge_adapters",
+      "title": "Merging and Saving Adapters",
+      "description": "Combine trained LoRA adapters back into the base model, or keep them separate for flexibility.",
+      "duration": "6 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain the tradeoff between merging LoRA adapters into the base model and keeping them as separate files."
+          },
+          {
+            "title": "🔀 Two ways to ship a LoRA-tuned model",
+            "content": "After training, you can either **merge** the LoRA matrices back into the base model's weights (producing one standalone model, at the cost of losing the ability to swap adapters), or **keep the adapter separate** (a small file, often just a few megabytes, applied on top of the shared frozen base at load time).\n\n```python\n# Keep separate (small adapter file, swap easily):\npeft_model.save_pretrained(\"my-lora-adapter\")\n\n# Merge into a standalone model:\nmerged_model = peft_model.merge_and_unload()\nmerged_model.save_pretrained(\"my-merged-model\")\n```"
+          },
+          {
+            "title": "🎯 Why keeping adapters separate is often better",
+            "content": "If you have several fine-tuned variants (one per customer, one per task), storing each as a small separate adapter on top of one shared frozen base is far cheaper in storage than saving a full merged model per variant."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Merging when you actually need to swap between multiple tasks.** Once merged, you lose the ability to cheaply switch adapters at inference time.\n\n**Forgetting the adapter needs the exact same base model to apply correctly.** An adapter trained against one base checkpoint won't behave correctly applied to a different one.\n\n**Not considering storage costs at scale.** Ten merged 7B-parameter models take vastly more disk space than one shared base plus ten small adapters."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "hf_merge_adapters_quiz",
+        "questions": [
+          {
+            "question": "What is the tradeoff between merging LoRA adapters into the base model versus keeping them separate?",
+            "options": [
+              "There is no tradeoff — the two approaches are identical in every way",
+              "Merging produces one standalone model but loses the ability to cheaply swap adapters; keeping them separate allows swapping but requires the base model to be present at load time",
+              "Merging is always required before a model can be used at all",
+              "Keeping adapters separate makes the model larger, not smaller"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Merging bakes the adaptation permanently into the weights (one fixed model), while keeping adapters separate preserves flexibility to swap between different task-specific adapters on top of the same shared base.",
+            "id": "q1"
+          },
+          {
+            "question": "Why might storing multiple task-specific LoRA adapters be more storage-efficient than storing multiple fully merged models?",
+            "options": [
+              "There is no storage difference between the two approaches",
+              "Each adapter is small (often just megabytes) and shares one common frozen base, whereas each merged model is a full standalone copy of the entire model",
+              "Merged models are always smaller than adapters",
+              "LoRA adapters cannot be stored at all, only merged models can"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A small LoRA adapter file applied on top of one shared base model uses far less disk space across many variants than saving a completely separate, fully merged model for each variant.",
+            "id": "q2"
+          },
+          {
+            "question": "Why must a LoRA adapter be applied to the same base model checkpoint it was trained against?",
+            "options": [
+              "Adapters work identically regardless of which base model they're applied to",
+              "The adapter's low-rank matrices were learned as an update relative to that specific base model's weights, so applying it to a different checkpoint produces an incorrect combination",
+              "Adapters contain the full base model weights already, so the base doesn't matter",
+              "This restriction only applies to 4-bit quantized models"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A LoRA adapter's matrices encode an update relative to the exact weights it was trained against. Applying it to a different base checkpoint means combining it with weights it was never actually trained to complement, producing incorrect behavior.",
+            "id": "q3"
+          },
+          {
+            "question": "What is the tradeoff between merging LoRA adapters into the base model versus keeping them separate?",
+            "options": [
+              "There is no tradeoff; the two approaches are identical in every way",
+              "Merging produces one standalone model but loses the ability to cheaply swap adapters; keeping them separate preserves swapping but requires the base model at load time",
+              "Merging is always required before a model can be used for anything",
+              "Keeping adapters separate always makes the resulting model larger, not smaller"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Merging bakes the adaptation permanently into the weights (one fixed model), while keeping adapters separate preserves the flexibility to swap between different task-specific adapters on top of the same shared base.",
+            "id": "q4"
+          },
+          {
+            "question": "Why might storing multiple task-specific LoRA adapters be more storage-efficient than storing multiple fully merged models?",
+            "options": [
+              "There is no storage difference between the two approaches",
+              "Each adapter is small (often just megabytes) and shares one common frozen base, whereas each merged model is a full standalone copy of the entire model",
+              "Merged models are always smaller than adapters in every case",
+              "LoRA adapters cannot be stored separately at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A small LoRA adapter file applied on top of one shared base model uses far less disk space across many variants than saving a completely separate, fully merged model for each variant.",
+            "id": "q5"
+          },
+          {
+            "question": "Why must a LoRA adapter be applied to the same base model checkpoint it was trained against?",
+            "options": [
+              "Adapters work identically regardless of which base model they're applied to",
+              "The adapter's low-rank matrices were learned as an update relative to that specific base model's weights",
+              "Adapters already contain the full base model weights, so the base doesn't matter",
+              "This restriction only applies to 4-bit quantized models"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A LoRA adapter's matrices encode an update relative to the exact weights it was trained against, so applying it to a different base checkpoint produces an incorrect combination.",
+            "id": "q6"
+          },
+          {
+            "question": "In the code example, what method is used to merge a LoRA adapter into a standalone model?",
+            "options": [
+              "save_pretrained() alone, with no other call needed",
+              "merge_and_unload()",
+              "load_dataset()",
+              "compute_metrics()"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson's code example shows peft_model.merge_and_unload() producing a merged standalone model, as opposed to save_pretrained() which just saves the small separate adapter.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson recommend keeping adapters separate when you have several fine-tuned variants, like one per customer?",
+            "options": [
+              "It doesn't; merging is always recommended in every case",
+              "Storing each variant as a small separate adapter on top of one shared frozen base is far cheaper in storage than saving a full merged model per variant",
+              "Separate adapters are required by Hugging Face's terms of service",
+              "There is no storage or flexibility benefit to keeping adapters separate"
+            ],
+            "correctAnswer": 1,
+            "explanation": "For multiple variants (like one per customer or task), keeping each as a small separate adapter on a shared base is far more storage-efficient than saving a fully merged model for every single variant.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

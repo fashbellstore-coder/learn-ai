@@ -1,0 +1,543 @@
+{
+  "id": "module_2",
+  "title": "Fighting Overfitting in Deep Networks",
+  "description": "With millions of parameters, deep networks need dedicated tools against overfitting: dropout, weight decay, batch normalization, early stopping, and data augmentation.",
+  "icon": "🛡️",
+  "color": "#9C27B0",
+  "order": 2,
+  "estimatedHours": 2,
+  "difficulty": "Intermediate",
+  "prerequisites": [
+    "module_1"
+  ],
+  "lessons": [
+    {
+      "id": "dl_overfitting_deep",
+      "title": "Overfitting in Deep Networks",
+      "description": "Revisit overfitting with the specific challenges that come from having millions of learnable parameters.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain why deep networks are especially prone to overfitting and recognize the telltale training curve."
+          },
+          {
+            "title": "🔁 A quick recap, at much larger scale",
+            "content": "From the machine learning course: overfitting happens when a model fits the training data's noise instead of the real underlying pattern. Deep networks can have millions (sometimes billions) of parameters — enough capacity to potentially memorize an entire training set outright if you let them, especially with limited training data."
+          },
+          {
+            "title": "📉 Reading the training curve",
+            "content": "The clearest sign of overfitting is watching training loss and validation loss over the course of training:\n\n```\nEpoch  Training Loss   Validation Loss\n1      0.85            0.88\n5      0.42            0.45\n10     0.20            0.25\n20     0.08            0.30   ← validation loss going back up!\n30     0.02            0.41   ← training loss keeps dropping, validation gets worse\n```\n\nTraining loss steadily decreasing while validation loss starts rising is the textbook signature of overfitting — the network is continuing to improve on data it has memorized, while getting worse at generalizing."
+          },
+          {
+            "title": "🎯 Why this is a bigger deal in deep learning specifically",
+            "content": "Classical ML models (like a shallow decision tree) have relatively few parameters, capping how much they can memorize. Deep networks have far more capacity, and modern architectures are often deliberately **overparameterized** — trained with more parameters than training examples. This makes explicit regularization techniques (the rest of this module) not just helpful but essential in most real deep learning projects."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Only checking training loss during training.** Training loss alone can look great right up until the model has badly overfit — validation loss must be tracked in parallel.\n\n**Training for however many epochs \"feels right\" without checking the validation curve.** The point where validation loss starts rising is a much more principled stopping signal than a fixed guess.\n\n**Assuming a huge, powerful model is automatically better.** Without enough data or regularization, more capacity often just means more overfitting risk, not better real-world performance."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "dl_overfitting_deep_quiz",
+        "questions": [
+          {
+            "question": "What's the telltale sign of overfitting when watching training curves?",
+            "options": [
+              "Both training and validation loss decrease together the whole time",
+              "Training loss keeps decreasing while validation loss starts increasing",
+              "Training loss stays constant throughout training",
+              "Validation loss is always lower than training loss"
+            ],
+            "correctAnswer": 1,
+            "explanation": "When training loss keeps improving but validation loss starts getting worse, it means the model is increasingly fitting the training data's specifics (including its noise) rather than learning patterns that generalize.",
+            "id": "q1"
+          },
+          {
+            "question": "Why are deep neural networks especially prone to overfitting compared to simpler models?",
+            "options": [
+              "Deep networks can't actually overfit, unlike simpler models",
+              "They often have vastly more parameters, giving them enough capacity to potentially memorize the training data outright",
+              "Deep networks always train on more data than simpler models",
+              "Overfitting only happens with linear models"
+            ],
+            "correctAnswer": 1,
+            "explanation": "With millions or billions of parameters, deep networks have enormous capacity — enough, without proper regularization, to essentially memorize the training set rather than learning generalizable patterns.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is only monitoring training loss insufficient during deep learning training?",
+            "options": [
+              "Training loss is never a useful signal at all",
+              "Training loss can keep looking great even as the model badly overfits — validation loss is needed to detect that gap",
+              "Monitoring training loss is actually sufficient on its own",
+              "Validation loss cannot be computed during training"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Training loss reflects performance only on data the model has already seen (and can memorize) — validation loss, computed on held-out data, is what reveals whether the model is actually generalizing or just memorizing.",
+            "id": "q3"
+          },
+          {
+            "question": "What training curve pattern is the textbook signature of overfitting?",
+            "options": [
+              "Training and validation loss both decreasing steadily together",
+              "Training loss decreasing while validation loss starts increasing",
+              "Both losses staying flat throughout training",
+              "Validation loss decreasing while training loss increases"
+            ],
+            "correctAnswer": 1,
+            "explanation": "When training loss keeps dropping but validation loss starts rising, the model is increasingly fitting the training set's specifics rather than learning generalizable patterns.",
+            "id": "q4"
+          },
+          {
+            "question": "Why can deep networks be described as 'overparameterized'?",
+            "options": [
+              "They have fewer parameters than training examples",
+              "They are often trained with more parameters than training examples",
+              "They never have enough parameters for any task",
+              "Overparameterization refers to the number of epochs, not parameters"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Modern deep architectures are frequently trained with far more parameters than there are training examples, which is what the term overparameterized refers to.",
+            "id": "q5"
+          },
+          {
+            "question": "Compared to a shallow decision tree, why is overfitting often a bigger concern for deep networks?",
+            "options": [
+              "Deep networks always train on less data",
+              "Deep networks have far more parameters, giving them much greater capacity to memorize training data",
+              "Shallow decision trees cannot overfit at all",
+              "Deep networks cannot use validation sets"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The huge number of parameters in deep networks gives them enough capacity to potentially memorize the entire training set, making regularization especially important.",
+            "id": "q6"
+          },
+          {
+            "question": "Why is monitoring only the training loss during training insufficient?",
+            "options": [
+              "Training loss is never a real signal",
+              "Training loss can look great even as the model badly overfits — validation loss reveals whether it generalizes",
+              "Validation loss can't be computed during training",
+              "There's no difference between training and validation loss"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Training loss reflects performance only on already-seen data, so it can keep improving even as the model overfits — validation loss, on held-out data, reveals the true generalization gap.",
+            "id": "q7"
+          },
+          {
+            "question": "What does the lesson suggest about a training run where training loss steadily drops to 0.02 while validation loss rises to 0.41?",
+            "options": [
+              "The model is generalizing extremely well",
+              "This is the textbook pattern of overfitting",
+              "This indicates underfitting",
+              "This means the loss function is broken"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A widening gap between a still-decreasing training loss and a rising validation loss is exactly the pattern the lesson identifies as overfitting.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "dl_dropout_weight_decay",
+      "title": "Dropout and Weight Decay",
+      "description": "Learn the two most common techniques for keeping a large network from overfitting.",
+      "duration": "9 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain how dropout and weight decay each help prevent overfitting."
+          },
+          {
+            "title": "🎲 Dropout: forcing redundancy",
+            "content": "**Dropout** randomly \"turns off\" (zeroes out) a fraction of neurons during each training step — a different random subset each time. This prevents the network from relying too heavily on any single neuron or narrow path, forcing it to learn more robust, redundant representations spread across many neurons.\n\n```python\n# Conceptual PyTorch-style layer\n# nn.Dropout(p=0.5)   # randomly zeroes ~50% of neurons during training\n```\n\nImportantly, dropout is only applied during training — at prediction (inference) time, the full network is used, typically with outputs scaled to account for the neurons that were dropped during training."
+          },
+          {
+            "title": "⚖️ Weight decay: penalizing large weights",
+            "content": "**Weight decay** is the deep learning name for L2 regularization from the machine learning course — it adds a penalty for large weights directly into the loss function, encouraging the network to prefer smaller, simpler weight values that are less likely to overfit to training-data noise.\n\n```python\n# Conceptual PyTorch-style setup\n# optimizer = torch.optim.Adam(model.parameters(), lr=0.001, weight_decay=1e-4)\n```"
+          },
+          {
+            "title": "🎯 Using them together",
+            "content": "Dropout and weight decay attack overfitting from different angles — dropout by preventing over-reliance on specific neurons, weight decay by discouraging extreme weight values — and it's common to use both together, along with the other techniques covered in this module.\n\n• Typical dropout rates: 0.2 to 0.5, depending on the layer and how much overfitting risk exists\n• Weight decay values are usually small (like 1e-4 or 1e-5) — too much can cause underfitting, just like excessive L1/L2 regularization did for linear models"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Applying dropout during evaluation/inference, not just training.** This introduces unnecessary randomness into predictions — dropout should be active during training only.\n\n**Setting dropout or weight decay too aggressively.** Like any regularization, overdoing it can push a model from overfitting straight into underfitting.\n\n**Using these techniques as a substitute for having enough training data.** They help fight overfitting, but they can't fully make up for a model that's simply too complex for the amount of data available."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "dl_dropout_weight_decay_quiz",
+        "questions": [
+          {
+            "question": "What does dropout do during training?",
+            "options": [
+              "It removes entire layers from the network permanently",
+              "It randomly zeroes out a fraction of neurons at each training step, forcing more robust, redundant representations",
+              "It reduces the size of the training dataset",
+              "It increases the learning rate"
+            ],
+            "correctAnswer": 1,
+            "explanation": "By randomly disabling different neurons on each training step, dropout prevents the network from relying too heavily on any single neuron, encouraging it to spread useful information across many neurons instead.",
+            "id": "q1"
+          },
+          {
+            "question": "What is weight decay equivalent to, from the machine learning course?",
+            "options": [
+              "Dropout",
+              "L2 regularization — penalizing large weights in the loss function",
+              "Cross-validation",
+              "The learning rate schedule"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Weight decay adds a penalty proportional to the squared size of the weights directly into the loss, which is exactly the same mechanism as L2 (Ridge) regularization covered earlier.",
+            "id": "q2"
+          },
+          {
+            "question": "Should dropout be applied during inference (making predictions), the same as during training?",
+            "options": [
+              "Yes, always apply it identically in both cases",
+              "No — dropout should be active only during training; the full network is used at inference time",
+              "Dropout has no effect during either training or inference",
+              "Only during inference, never during training"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Dropout's randomness is a training-time regularization technique — at inference, you want to use the complete, stable network (with outputs appropriately scaled) rather than randomly disabling neurons.",
+            "id": "q3"
+          },
+          {
+            "question": "What is a typical range of dropout rates mentioned in the lesson?",
+            "options": [
+              "0.001 to 0.01",
+              "0.2 to 0.5",
+              "5 to 10",
+              "50 to 100"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson notes typical dropout rates fall between 0.2 and 0.5, depending on the layer and overfitting risk.",
+            "id": "q4"
+          },
+          {
+            "question": "What happens to dropout's random neuron deactivation at inference (prediction) time?",
+            "options": [
+              "It's applied even more aggressively than during training",
+              "It's turned off — the full network is used, with outputs typically scaled to account for training-time dropout",
+              "Inference cannot be performed if dropout was used during training",
+              "Dropout only ever runs at inference time, never during training"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Dropout is a training-time technique; at inference the complete network is used, usually with output scaling to account for the neurons that were dropped during training.",
+            "id": "q5"
+          },
+          {
+            "question": "What does weight decay add to the loss function?",
+            "options": [
+              "A penalty for using too few epochs",
+              "A penalty for large weight values, encouraging smaller, simpler weights",
+              "A penalty for having too many layers",
+              "A bonus for large gradients"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Weight decay (L2 regularization) adds a term to the loss that penalizes large weight magnitudes, nudging the model toward smaller, less overfit-prone weights.",
+            "id": "q6"
+          },
+          {
+            "question": "What can happen if weight decay is set far too high?",
+            "options": [
+              "The model will perfectly fit the training data",
+              "It can push the model toward underfitting, similar to excessive L1/L2 regularization in linear models",
+              "It has no possible negative effect",
+              "It will always improve validation performance"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Just like excessive regularization in linear models, too much weight decay overly constrains the weights and can cause underfitting.",
+            "id": "q7"
+          },
+          {
+            "question": "Why might dropout and weight decay commonly be used together?",
+            "options": [
+              "Because they are mathematically identical techniques",
+              "Because they attack overfitting from different angles — dropout via redundancy, weight decay via penalizing large weights",
+              "Because using only one of them is technically impossible",
+              "Because they replace the need for a validation set"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Dropout prevents over-reliance on specific neurons while weight decay discourages extreme weight values — using both together tackles overfitting from complementary directions.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "dl_batch_norm",
+      "title": "Batch Normalization",
+      "description": "Learn how normalizing activations between layers speeds up and stabilizes training.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain what batch normalization does and why it helps deep networks train more effectively."
+          },
+          {
+            "title": "❓ The problem it addresses",
+            "content": "As data flows through a deep network's layers, the distribution of values (their scale and spread) can shift and drift from layer to layer and change as training progresses — sometimes called *internal covariate shift*. This can make training slower and less stable, especially in very deep networks."
+          },
+          {
+            "title": "📏 What batch normalization does",
+            "content": "**Batch normalization** normalizes the activations within each mini-batch — subtracting the batch mean and dividing by the batch standard deviation — at each layer it's applied to, keeping values in a more consistent, well-behaved range throughout training.\n\n```python\n# Conceptual PyTorch-style layer, inserted between a linear layer and its activation\n# nn.BatchNorm1d(num_features)\n```\n\nIt also includes small learnable parameters that let the network adjust the normalized scale and shift if that turns out to work better — so it doesn't rigidly force every layer's output into exactly the same fixed range."
+          },
+          {
+            "title": "✅ Practical benefits",
+            "content": "• **Faster training** — networks with batch norm often train faster and can tolerate higher learning rates\n• **More stable gradients** — helps mitigate vanishing/exploding gradient problems in deep networks\n• **A mild regularizing effect** — the noise introduced by using different mini-batch statistics at each step provides a small amount of regularization, similar in spirit (though not mechanism) to dropout\n\nBatch normalization is extremely common in modern CNN and other deep architectures, though newer alternatives (like layer normalization, common in transformers) serve a similar purpose in different contexts."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Confusing batch normalization with feature scaling from data preprocessing.** They're related in spirit (both about keeping values in a consistent range) but batch norm operates on internal activations, layer by layer, during training itself — not just on the raw input features.\n\n**Using a very small batch size with batch normalization.** Since it computes statistics from each mini-batch, very small batches give noisy, unreliable normalization statistics.\n\n**Forgetting behavior differs between training and inference.** At inference time, batch norm uses running statistics accumulated during training, rather than statistics from the (often single-example) inference batch."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "dl_batch_norm_quiz",
+        "questions": [
+          {
+            "question": "What does batch normalization do?",
+            "options": [
+              "It removes a random subset of neurons during training",
+              "It normalizes layer activations within each mini-batch, keeping their scale and distribution more consistent during training",
+              "It reduces the number of layers in the network",
+              "It replaces the need for a loss function"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Batch normalization standardizes the activations at a given layer using the mean and standard deviation of the current mini-batch, helping keep values in a stable, consistent range as training progresses.",
+            "id": "q1"
+          },
+          {
+            "question": "What problem does batch normalization primarily help address?",
+            "options": [
+              "Missing data in the training set",
+              "Unstable, shifting distributions of activations between layers as training progresses, which can slow and destabilize training",
+              "The need to choose a loss function",
+              "Overly large training datasets"
+            ],
+            "correctAnswer": 1,
+            "explanation": "As layer inputs shift during training, deeper layers have to keep adapting to a moving target — batch normalization stabilizes these distributions, generally making training faster and more reliable.",
+            "id": "q2"
+          },
+          {
+            "question": "Why can a very small batch size be problematic when using batch normalization?",
+            "options": [
+              "Batch normalization requires no batches at all",
+              "Batch norm computes statistics (mean, standard deviation) from each mini-batch, so a very small batch gives noisy, unreliable statistics",
+              "Small batch sizes always speed up training regardless of normalization",
+              "It has no real effect on batch normalization's behavior"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since batch normalization relies on the mean and variance computed from the current mini-batch, a very small batch produces a poor, high-variance estimate of those statistics, which can make normalization less effective or even counterproductive.",
+            "id": "q3"
+          },
+          {
+            "question": "What phenomenon does batch normalization help address as data flows through a deep network?",
+            "options": [
+              "Vanishing training data",
+              "Internal covariate shift — shifting distributions of activations between layers during training",
+              "The need for a loss function",
+              "Excessive dataset size"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Batch normalization stabilizes the distribution of activations at each layer, addressing the shifting-distribution problem sometimes called internal covariate shift.",
+            "id": "q4"
+          },
+          {
+            "question": "What statistics does batch normalization use to normalize activations?",
+            "options": [
+              "The mean and standard deviation of the entire dataset, computed once before training",
+              "The mean and standard deviation of the current mini-batch",
+              "A fixed constant chosen manually for every layer",
+              "The maximum and minimum values ever seen"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Batch normalization computes the mean and standard deviation from the current mini-batch and uses them to normalize that layer's activations.",
+            "id": "q5"
+          },
+          {
+            "question": "What happens to batch normalization's behavior at inference time compared to training?",
+            "options": [
+              "It behaves identically, recomputing batch statistics fresh each time",
+              "It uses running statistics accumulated during training rather than the current (often single-example) batch",
+              "It is disabled entirely and has zero effect",
+              "It requires retraining the whole model"
+            ],
+            "correctAnswer": 1,
+            "explanation": "At inference, batch norm relies on running statistics gathered during training rather than statistics from the inference batch, which may be too small or even a single example.",
+            "id": "q6"
+          },
+          {
+            "question": "Besides faster and more stable training, what secondary benefit does batch normalization provide?",
+            "options": [
+              "It removes the need for an optimizer",
+              "A mild regularizing effect, from the noise of different mini-batch statistics at each step",
+              "It guarantees zero overfitting",
+              "It converts the network into a CNN automatically"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson notes that the noise introduced by using different mini-batch statistics at each step gives batch normalization a mild regularizing effect, similar in spirit to dropout.",
+            "id": "q7"
+          },
+          {
+            "question": "Why is using a very small batch size potentially problematic when applying batch normalization?",
+            "options": [
+              "Small batches make batch norm unnecessary",
+              "Batch norm's statistics, computed per mini-batch, become noisy and unreliable with very few examples",
+              "Small batches always disable batch normalization automatically",
+              "It has no effect on batch normalization at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Because batch norm's mean and variance are estimated from the mini-batch itself, a very small batch produces a poor, high-variance estimate of these statistics.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "dl_early_stopping_augmentation",
+      "title": "Early Stopping and Data Augmentation",
+      "description": "Learn two more practical, widely-used techniques for training networks that generalize well.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain early stopping and data augmentation, and why both directly address overfitting."
+          },
+          {
+            "title": "⏹️ Early stopping",
+            "content": "**Early stopping** means monitoring validation loss during training and stopping once it stops improving (or starts getting worse) — rather than training for a fixed, predetermined number of epochs regardless of what's happening.\n\n```python\n# Conceptual training loop with early stopping\n# best_val_loss = infinity\n# patience_counter = 0\n# for epoch in range(max_epochs):\n#     train_one_epoch()\n#     val_loss = evaluate(validation_data)\n#     if val_loss < best_val_loss:\n#         best_val_loss = val_loss\n#         patience_counter = 0\n#         save_checkpoint()   # keep the best version seen so far\n#     else:\n#         patience_counter += 1\n#         if patience_counter >= patience:\n#             break   # stop training — validation stopped improving\n```\n\nThis directly targets the exact overfitting pattern from earlier in this module: training loss still dropping while validation loss creeps up."
+          },
+          {
+            "title": "🖼️ Data augmentation",
+            "content": "**Data augmentation** artificially expands the effective size and diversity of a training set by applying realistic transformations to existing examples — for images: random crops, flips, rotations, slight color changes, and similar. The label stays the same; only the appearance changes.\n\n```python\n# Conceptual augmentation examples for an image\n# flipped = flip_horizontal(image)\n# rotated = rotate(image, degrees=15)\n# cropped = random_crop(image, size=(224, 224))\n```\n\nBy training on these varied versions, the network learns to recognize the underlying pattern (like \"this is a cat\") regardless of incidental variations (orientation, lighting, exact framing) — directly reducing overfitting to the exact pixels of the original training examples."
+          },
+          {
+            "title": "🎯 Both are essentially about the same goal",
+            "content": "Early stopping, data augmentation, dropout, weight decay, and batch normalization all attack overfitting from different angles — some by limiting how long/how much the model can memorize (early stopping), some by artificially enriching the data (augmentation), and some by constraining the model itself (dropout, weight decay). In practice, most successful deep learning projects combine several of these techniques together, rather than relying on just one."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Using an overly short patience for early stopping.** Validation loss can fluctuate a bit from epoch to epoch — stopping at the very first small uptick can cut training short before it's truly done improving.\n\n**Applying augmentations that change the label's meaning.** Flipping a handwritten digit \"6\" horizontally can turn it into something that looks like a different digit — augmentations need to make sense for the specific task and data.\n\n**Assuming these techniques replace the need for genuinely more or better data.** They help a model generalize better from what it has, but they're not a full substitute for real data diversity when it's available."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "dl_early_stopping_augmentation_quiz",
+        "questions": [
+          {
+            "question": "What triggers early stopping during training?",
+            "options": [
+              "Reaching a fixed, predetermined number of epochs",
+              "Validation loss no longer improving (or getting worse) over a number of epochs",
+              "The training loss reaching exactly zero",
+              "Running out of available memory"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Early stopping monitors validation performance and halts training once it stops improving, rather than committing to a fixed epoch count regardless of what's actually happening during training.",
+            "id": "q1"
+          },
+          {
+            "question": "What is data augmentation designed to do?",
+            "options": [
+              "Remove noisy examples from the training set",
+              "Artificially expand training data diversity by applying realistic transformations, like flips or rotations, that preserve the original label",
+              "Reduce the number of layers in the network",
+              "Replace the need for a validation set"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Data augmentation creates varied versions of existing training examples (like a rotated or flipped image) whose true label doesn't change, helping the network learn patterns that generalize beyond the exact original examples.",
+            "id": "q2"
+          },
+          {
+            "question": "Why might a horizontally flipped image not be a valid augmentation for every task?",
+            "options": [
+              "Flipping images is technically impossible",
+              "For some tasks, flipping changes the meaning of the label — like turning a handwritten '6' into something resembling a different digit",
+              "Augmentation never changes an image's appearance",
+              "Flipping always improves performance regardless of the task"
+            ],
+            "correctAnswer": 1,
+            "explanation": "An augmentation is only valid if it preserves the original label's correctness — some transformations (like certain flips or rotations) can invalidate the label for specific tasks, so augmentations need to be chosen thoughtfully for the problem at hand.",
+            "id": "q3"
+          },
+          {
+            "question": "What triggers early stopping to halt training?",
+            "options": [
+              "Reaching a fixed number of epochs decided in advance",
+              "Validation loss no longer improving (or getting worse) over some number of epochs",
+              "The training loss reaching exactly zero",
+              "Running out of GPU memory"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Early stopping monitors validation performance and halts training once it stops improving, rather than committing to a fixed epoch count.",
+            "id": "q4"
+          },
+          {
+            "question": "In the early stopping code pattern from the lesson, what does the 'patience' counter track?",
+            "options": [
+              "The total number of epochs trained so far",
+              "How many consecutive epochs have passed without validation loss improving",
+              "The batch size used during training",
+              "The learning rate schedule"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The patience counter increments each time validation loss fails to improve, and training stops once it reaches a set threshold, allowing some tolerance for minor fluctuations.",
+            "id": "q5"
+          },
+          {
+            "question": "What must a valid data augmentation for images preserve?",
+            "options": [
+              "The exact same pixel values as the original",
+              "The correctness of the original label after the transformation is applied",
+              "The original file size",
+              "The training loss value"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A valid augmentation must not change what the correct label actually is — flipping a digit that becomes a different digit, for instance, would be an invalid augmentation.",
+            "id": "q6"
+          },
+          {
+            "question": "What is a risk of setting early stopping's patience too short?",
+            "options": [
+              "Training will run forever",
+              "Training might stop too soon, before the model is truly done improving, due to normal fluctuations in validation loss",
+              "It guarantees the best possible model",
+              "It has no downside at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Validation loss naturally fluctuates a bit — an overly short patience can halt training prematurely on a temporary uptick rather than genuine convergence.",
+            "id": "q7"
+          },
+          {
+            "question": "How does data augmentation help fight overfitting?",
+            "options": [
+              "By reducing the number of layers in the network",
+              "By artificially increasing the effective diversity of training data, so the model learns underlying patterns rather than exact pixel values",
+              "By removing the need for a validation set",
+              "By decreasing the learning rate automatically"
+            ],
+            "correctAnswer": 1,
+            "explanation": "By exposing the model to varied, label-preserving versions of the same examples, augmentation helps it generalize past incidental details like exact orientation or lighting.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

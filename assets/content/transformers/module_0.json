@@ -1,0 +1,549 @@
+{
+  "id": "module_0",
+  "title": "From Attention to Self-Attention",
+  "description": "The core mechanism behind Transformers: self-attention within a sequence, the Query/Key/Value framework, the scaled dot-product formula, and running multiple attention heads in parallel.",
+  "icon": "🔍",
+  "color": "#00BCD4",
+  "order": 0,
+  "estimatedHours": 2,
+  "difficulty": "Intermediate",
+  "prerequisites": [],
+  "lessons": [
+    {
+      "id": "tf_self_attention_intro",
+      "title": "From Attention to Self-Attention",
+      "description": "Revisit attention from the NLP course and see how it becomes even more powerful when applied within a single sequence.",
+      "duration": "9 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain what self-attention computes and how it differs from the attention mechanism covered in the NLP course."
+          },
+          {
+            "title": "🔁 A quick recap",
+            "content": "Recall from the NLP course: attention let a decoder look back at an encoder's hidden states and dynamically focus on the most relevant input parts. That was **cross-attention** — attention *between* two different sequences (the input and the output being generated)."
+          },
+          {
+            "title": "🪞 Self-attention: a sequence attending to itself",
+            "content": "**Self-attention** applies this same core idea *within* a single sequence — each element attends to every other element in the *same* sequence (including itself), figuring out which other words matter most for understanding this one, in this specific context.\n\nConsider: \"The animal didn't cross the street because it was too tired.\" What does \"it\" refer to — the animal, or the street? Self-attention lets the model directly weigh the relevance of every other word (\"animal\", \"street\", \"tired\", ...) when building a representation for \"it\" — and in this sentence, \"tired\" strongly suggests \"it\" refers to the animal."
+          },
+          {
+            "title": "🌐 Why this is such a big deal",
+            "content": "Recall the RNN limitations from the deep learning course: information had to flow step by step through a hidden state, which could dilute long-range context and created a sequential bottleneck. Self-attention lets *every* word directly relate to *every* other word in a single step, regardless of distance — no step-by-step propagation needed, and (as later lessons cover) this also allows much better parallelization during training.\n\n```\n# Conceptual: self-attention output for \"it\" considers ALL words at once\n# \"it\" attending to: The(0.02) animal(0.71) didn't(0.01) cross(0.03)\n#                     the(0.01) street(0.08) because(0.02) it(0.03) was(0.01)\n#                     too(0.02) tired(0.06)\n# → heavily weighted toward \"animal\", correctly resolving the reference\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Confusing self-attention with the cross-attention from the NLP course.** Cross-attention relates two different sequences (like source and target in translation); self-attention relates a sequence to itself. Both use the same underlying mechanism, applied differently.\n\n**Assuming self-attention only matters for pronoun resolution.** That's a clear, intuitive example, but self-attention captures all kinds of relationships between words — grammatical dependencies, thematic relevance, and more.\n\n**Missing the connection to RNN limitations.** Self-attention's ability to directly connect any two positions, in a single step, without sequential propagation, is precisely what addresses the core weaknesses of RNN-based sequence models covered in the deep learning course."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "tf_self_attention_intro_quiz",
+        "questions": [
+          {
+            "question": "What does self-attention compute, in contrast to the cross-attention covered in the NLP course?",
+            "options": [
+              "Attention between two completely unrelated sequences with no shared context",
+              "How each element in a sequence relates to every other element within that same sequence, rather than between two different sequences",
+              "A fixed, unchanging score assigned to each word in advance",
+              "The exact grammatical part of speech for each word"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Self-attention applies the attention mechanism within a single sequence — each element attends to every other element in the same sequence — as opposed to cross-attention, which relates two different sequences to each other, like a decoder attending to an encoder's output.",
+            "id": "q1"
+          },
+          {
+            "question": "In the sentence 'The animal didn't cross the street because it was too tired,' how does self-attention help resolve what 'it' refers to?",
+            "options": [
+              "It always defaults to the most recently mentioned noun",
+              "It lets the model directly weigh the relevance of every other word in the sentence when building a representation for 'it,' allowing context like 'tired' to correctly point to 'animal'",
+              "It ignores all other words in the sentence entirely",
+              "Self-attention cannot resolve this kind of reference at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Self-attention computes a weighted relevance between 'it' and every other word in the sentence simultaneously — contextual cues like 'tired' (which fits 'animal' more naturally than 'street') can be directly incorporated into that weighting, helping resolve the reference correctly.",
+            "id": "q2"
+          },
+          {
+            "question": "How does self-attention address the core limitation of RNN-based sequence models covered in the deep learning course?",
+            "options": [
+              "It processes sequences even more slowly than RNNs, step by step",
+              "It lets any two positions in a sequence relate to each other directly in a single step, rather than requiring information to propagate sequentially through a hidden state",
+              "It eliminates the need for any sequence data at all",
+              "It only works on sequences shorter than 5 words"
+            ],
+            "correctAnswer": 1,
+            "explanation": "RNNs required information to flow step by step through a hidden state, creating a sequential bottleneck and diluting long-range context — self-attention instead lets every position directly attend to every other position in one step, addressing both of these limitations at once.",
+            "id": "q3"
+          },
+          {
+            "question": "What kind of attention did the NLP course's seq2seq lesson cover, before this lesson introduced self-attention?",
+            "options": [
+              "Self-attention within a single sequence",
+              "Cross-attention, between a decoder and an encoder's hidden states",
+              "No attention mechanism was covered in the NLP course",
+              "Attention that only works on images"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The NLP course's seq2seq lesson covered cross-attention, where a decoder attends to an encoder's hidden states — a different sequence than its own — which this lesson contrasts with self-attention.",
+            "id": "q4"
+          },
+          {
+            "question": "In self-attention, which elements can a given element attend to?",
+            "options": [
+              "Only the element immediately before it",
+              "Every other element in the same sequence, including itself",
+              "Only elements in a completely different sequence",
+              "Only the very first element in the sequence"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Self-attention lets each element in a sequence attend to every other element in that same sequence, including itself, when building its context-aware representation.",
+            "id": "q5"
+          },
+          {
+            "question": "What RNN limitation from the deep learning course does self-attention directly address?",
+            "options": [
+              "RNNs could not process any text data at all",
+              "The sequential bottleneck of propagating information step by step through a hidden state, which could dilute long-range context",
+              "RNNs required no training data",
+              "RNNs could only process images, not text"
+            ],
+            "correctAnswer": 1,
+            "explanation": "RNNs required information to flow step by step through a hidden state, creating a sequential bottleneck and diluting long-range context — self-attention lets every position relate to every other position directly in one step.",
+            "id": "q6"
+          },
+          {
+            "question": "Besides resolving long-range dependencies in one step, what other practical benefit does self-attention provide over RNNs, as the lesson mentions?",
+            "options": [
+              "It requires no learned parameters at all",
+              "Much better parallelization during training, since positions don't need to be processed strictly in sequence",
+              "It eliminates the need for any training data",
+              "It can only be used with very short sequences"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Because self-attention doesn't require step-by-step sequential processing, it allows much better parallelization during training compared to RNNs, which is a major practical advantage covered in this lesson.",
+            "id": "q7"
+          },
+          {
+            "question": "In the 'animal...street...it...tired' example, what does self-attention allow the model to do that helps resolve the pronoun?",
+            "options": [
+              "It only ever looks at the word immediately preceding the pronoun",
+              "It directly weighs the relevance of every other word in the sentence simultaneously when building a representation for 'it'",
+              "It ignores context entirely and picks a word at random",
+              "It requires a human to manually label the correct referent"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Self-attention computes relevance between 'it' and every other word in the sentence at once, so a contextual cue like 'tired' can directly inform which earlier noun 'it' most plausibly refers to.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "tf_qkv",
+      "title": "Queries, Keys, and Values",
+      "description": "Learn the three learned projections that make self-attention's relevance-weighting actually work.",
+      "duration": "10 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain the role of queries, keys, and values in the attention mechanism."
+          },
+          {
+            "title": "🔍 A useful analogy: a library search",
+            "content": "Think of a library catalog search: your **query** is what you're searching for; each book has a **key** (like its catalog tags/description) that gets compared against your query to see how relevant it is; and each book also has **value** — its actual content, which you retrieve based on how well its key matched your query.\n\nSelf-attention works the same way: for every word, the model computes a query, and compares it against every word's key to figure out relevance, then combines the values weighted by those relevance scores."
+          },
+          {
+            "title": "🔢 Where Q, K, and V actually come from",
+            "content": "For every input token's embedding (recall embeddings from the NLP course), the model learns three separate weight matrices that project that same embedding into three different vectors: a **Query (Q)**, a **Key (K)**, and a **Value (V)**.\n\n```python\n# Conceptual: for each token's embedding x\n# query = x @ W_query\n# key   = x @ W_key\n# value = x @ W_value\n# W_query, W_key, W_value are learned weight matrices\n```\n\nEvery word in the sequence gets its own Q, K, and V vector — computed the same way, using the same shared weight matrices, for every position."
+          },
+          {
+            "title": "🎯 How they're used together",
+            "content": "For a given word's query, its relevance to every other word is computed by comparing that query against every word's key (covered mathematically in the next lesson). Those relevance scores then determine how much weight to give each word's *value* when building this word's new, context-aware representation.\n\n```\n# Conceptual: for \"it\"'s query...\n# compare against every word's key → relevance scores\n# combine every word's value, weighted by those relevance scores\n# → \"it\"'s new, context-enriched representation\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming Q, K, and V are three unrelated, separately meaningful pieces of information.** They're all derived from the exact same input embedding, just projected differently — three different \"views\" of the same underlying token, each serving a distinct role in the attention computation.\n\n**Confusing which vector does what.** Query = \"what am I looking for\"; Key = \"what do I offer, for others to match against\"; Value = \"what I actually contribute once matched.\"\n\n**Forgetting the weight matrices (W_query, W_key, W_value) are learned, not fixed.** Like every other weight in a neural network, these are learned during training through backpropagation — the model learns what makes a good query/key/value for the task at hand."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "tf_qkv_quiz",
+        "questions": [
+          {
+            "question": "In the library search analogy, what does the 'key' correspond to?",
+            "options": [
+              "What you're actively searching for",
+              "Each book's catalog tags/description, which gets compared against your search to determine relevance",
+              "The book's actual content that you read",
+              "The library building itself"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The key represents what each item 'offers' to be matched against — like a book's catalog description being compared to your search query — determining how relevant that item is.",
+            "id": "q1"
+          },
+          {
+            "question": "How are the Query, Key, and Value vectors for a token actually computed?",
+            "options": [
+              "They are three unrelated, independently generated random vectors",
+              "They are all derived from the same input token embedding, each projected through its own separate learned weight matrix",
+              "Only the Value vector is learned; Query and Key are fixed",
+              "They come from three completely different input sequences"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Q, K, and V all start from the same token embedding, which gets multiplied by three distinct learned weight matrices (W_query, W_key, W_value) to produce three different projected vectors serving different roles.",
+            "id": "q2"
+          },
+          {
+            "question": "What role does the Value vector play in self-attention?",
+            "options": [
+              "It determines how relevant one word is to another",
+              "It represents what a word actually contributes to the output, combined proportionally based on the relevance scores computed from queries and keys",
+              "It stores the word's grammatical part of speech",
+              "It has no actual role in the computation"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Once relevance scores are computed by comparing queries against keys, those scores determine how much weight each word's Value vector contributes to building the new, context-aware representation — the Value is the actual content being aggregated.",
+            "id": "q3"
+          },
+          {
+            "question": "In the library search analogy used in this lesson, what does the 'query' correspond to?",
+            "options": [
+              "A book's catalog description",
+              "What you're actively searching for",
+              "The book's actual content",
+              "The library building itself"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The query represents what you are searching for — in self-attention, it's what a given token uses to search across all other tokens for relevant information.",
+            "id": "q4"
+          },
+          {
+            "question": "What does the 'value' vector represent in the library search analogy?",
+            "options": [
+              "What you're searching for",
+              "The catalog tags used to determine relevance",
+              "The book's actual content, retrieved once a match is found",
+              "The library's physical location"
+            ],
+            "correctAnswer": 2,
+            "explanation": "The value represents the actual content retrieved — once relevance has been determined by comparing a query against keys, the corresponding values are combined to produce the output.",
+            "id": "q5"
+          },
+          {
+            "question": "What serves as the input that all three of Q, K, and V are derived from, for a given token?",
+            "options": [
+              "Three separate, unrelated input sequences",
+              "The token's own input embedding",
+              "A randomly initialized vector unrelated to the token",
+              "The output of the entire Transformer model"
+            ],
+            "correctAnswer": 1,
+            "explanation": "For every token, its Query, Key, and Value are all computed by projecting the same input embedding through three separate learned weight matrices.",
+            "id": "q6"
+          },
+          {
+            "question": "How many separate learned weight matrices are used to produce Q, K, and V from a token's embedding?",
+            "options": [
+              "One matrix, shared for all three",
+              "Three separate matrices — W_query, W_key, and W_value",
+              "Zero — Q, K, and V require no learned weights",
+              "A different number of matrices for every token in the sequence"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Three distinct learned weight matrices — W_query, W_key, and W_value — project the same input embedding into three different vectors serving different roles.",
+            "id": "q7"
+          },
+          {
+            "question": "Are the W_query, W_key, and W_value weight matrices fixed in advance, or learned?",
+            "options": [
+              "They are fixed mathematical constants that never change",
+              "They are learned during training through backpropagation, just like other neural network weights",
+              "They are manually set by a human expert for each specific task",
+              "Only W_value is learned; the others are fixed"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Like every other weight in a neural network, W_query, W_key, and W_value are learned during training via backpropagation — the model learns what makes a good query, key, and value for the task.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "tf_scaled_dot_product",
+      "title": "Scaled Dot-Product Attention",
+      "description": "Learn the precise mathematical formula that turns queries, keys, and values into an attention output.",
+      "duration": "9 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can walk through the scaled dot-product attention formula step by step."
+          },
+          {
+            "title": "📐 The formula",
+            "content": "```\nAttention(Q, K, V) = softmax(Q · Kᵀ / √d_k) · V\n```\n\nThis single formula computes self-attention for an entire sequence at once — let's break down each piece."
+          },
+          {
+            "title": "🔢 Step 1: dot products measure similarity",
+            "content": "`Q · Kᵀ` computes the dot product between every query and every key — recall from the math course that a dot product is a natural way to measure how aligned two vectors are. A high dot product between a query and a key means they're pointing in a similar direction — i.e., that key is highly relevant to that query.\n\n```python\nimport numpy as np\n\n# Conceptual: raw relevance scores between all queries and all keys\nscores = queries @ keys.T   # shape: (sequence_length, sequence_length)\n```"
+          },
+          {
+            "title": "📏 Step 2: scaling by √d_k",
+            "content": "The raw dot products are divided by the square root of the key dimension (`d_k`) — this **scaling** keeps the values from growing too large as the vector dimension increases, which would otherwise push the softmax (next step) into regions with extremely small gradients, hurting training. This is a practical, technical detail solving a genuine numerical stability problem — but it's exactly why this method is called *scaled* dot-product attention."
+          },
+          {
+            "title": "🎯 Step 3: softmax turns scores into weights",
+            "content": "Recall softmax from the deep learning course: it converts raw scores into a valid probability distribution that sums to 1. Applying softmax across each query's scores turns them into attention **weights** — how much focus to give each other position."
+          },
+          {
+            "title": "➕ Step 4: weighted combination of values",
+            "content": "Finally, multiplying these attention weights by `V` produces the output: each word's new representation is a weighted combination of every word's value vector, weighted exactly by how relevant each one was determined to be.\n\n```python\n# Full conceptual computation\nscores = (queries @ keys.T) / np.sqrt(d_k)\nweights = softmax(scores, axis=-1)\noutput = weights @ values\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Skipping the scaling step mentally and just thinking of it as 'dot product + softmax.'** The scaling by √d_k is a genuine, deliberate fix for a real numerical stability issue, not an arbitrary detail — without it, training can become notably less stable, especially as dimension size grows.\n\n**Forgetting softmax is applied per-query, across all keys.** Each word's attention weights (over every other word) sum to 1 independently — it's not one global distribution across the whole computation.\n\n**Losing sight of the shapes involved.** This formula operates on the *entire* sequence simultaneously via matrix multiplication — it's not computed word by word in a loop, which is part of why it parallelizes so well on modern hardware."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "tf_scaled_dot_product_quiz",
+        "questions": [
+          {
+            "question": "What does the dot product between a query and a key measure?",
+            "options": [
+              "The exact grammatical category of a word",
+              "How aligned/similar the two vectors are — a higher dot product suggests the key is more relevant to that query",
+              "The total length of the input sequence",
+              "The number of layers in the network"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A dot product is a standard way to measure how aligned two vectors are — a large dot product between a query and a key indicates that key is highly relevant to what the query is looking for.",
+            "id": "q1"
+          },
+          {
+            "question": "Why are the raw dot product scores divided by √d_k (the scaling step)?",
+            "options": [
+              "To make the computation run on older hardware",
+              "To prevent the scores from growing too large as dimensionality increases, which would push softmax into regions with very small gradients and hurt training",
+              "To convert the scores into integers",
+              "Scaling has no real mathematical purpose and is purely stylistic"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Without this scaling, dot product magnitudes tend to grow with vector dimension, which can push softmax outputs into a regime with very small gradients — the scaling keeps training numerically stable, which is exactly why the method is named 'scaled' dot-product attention.",
+            "id": "q2"
+          },
+          {
+            "question": "What does softmax do in the scaled dot-product attention formula?",
+            "options": [
+              "It computes the final output representation directly",
+              "It converts the raw, scaled relevance scores into a valid probability distribution (weights that sum to 1) for each query, across all keys",
+              "It removes the need for a Value matrix",
+              "It scales the Query and Key matrices before the dot product"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Softmax is applied to each query's set of scaled scores across all keys, producing normalized attention weights (summing to 1) that determine how much each position's Value vector contributes to the final weighted output.",
+            "id": "q3"
+          },
+          {
+            "question": "What is the full formula for scaled dot-product attention, as given in this lesson?",
+            "options": [
+              "softmax(Q + K) · V",
+              "softmax(Q · Kᵀ / √d_k) · V",
+              "Q · K · V, with no softmax or scaling involved",
+              "softmax(V · Kᵀ) · Q"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The formula is Attention(Q, K, V) = softmax(Q · Kᵀ / √d_k) · V, computing dot-product similarities, scaling them, applying softmax, and combining with V.",
+            "id": "q4"
+          },
+          {
+            "question": "What operation does Q · Kᵀ compute in this formula?",
+            "options": [
+              "The final attention output directly",
+              "The dot product between every query and every key, measuring how aligned they are",
+              "A random shuffling of the input sequence",
+              "The positional encoding for each token"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Q · Kᵀ computes the dot product between every query and every key in the sequence, producing raw relevance scores based on how aligned each query-key pair is.",
+            "id": "q5"
+          },
+          {
+            "question": "What does d_k refer to in the scaling step of the formula?",
+            "options": [
+              "The total number of tokens in the sequence",
+              "The dimensionality of the key vectors",
+              "The number of attention heads",
+              "The number of layers in the model"
+            ],
+            "correctAnswer": 1,
+            "explanation": "d_k is the dimensionality of the key vectors; the raw dot product scores are divided by its square root as the scaling step of the formula.",
+            "id": "q6"
+          },
+          {
+            "question": "According to this lesson, is scaled dot-product attention computed one word at a time in a loop, or all at once?",
+            "options": [
+              "One word at a time, in a sequential loop, similar to an RNN",
+              "The entire sequence is processed simultaneously via matrix multiplication",
+              "It requires a separate model for each word",
+              "It can only process exactly two words at a time"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The formula operates on the entire sequence simultaneously through matrix multiplication, rather than being computed word by word in a loop — this is part of why it parallelizes well on modern hardware.",
+            "id": "q7"
+          },
+          {
+            "question": "What happens to softmax's outputs if the scaling step is skipped and dot products are allowed to grow very large?",
+            "options": [
+              "Softmax becomes exactly uniform across all positions regardless of scores",
+              "Softmax can be pushed into regions with extremely small gradients, hurting training",
+              "Softmax output is unaffected by the magnitude of its input scores",
+              "The model automatically compensates with no effect on training"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Without the √d_k scaling, large dot product magnitudes can push softmax's output into a regime with very small gradients, which hurts training — this is precisely the numerical stability problem scaling addresses.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "tf_multi_head",
+      "title": "Multi-Head Attention",
+      "description": "Learn why running several attention computations in parallel, rather than just one, makes Transformers more powerful.",
+      "duration": "9 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain what multi-head attention does and why it's more expressive than a single attention computation."
+          },
+          {
+            "title": "🤔 The limitation of a single attention computation",
+            "content": "A single self-attention computation learns one specific way of relating words to each other. But language relationships come in many different flavors at once — grammatical dependencies, semantic similarity, coreference (like the \"it\" example from earlier), and more. Asking one single attention computation to capture all of these simultaneously is a real limitation."
+          },
+          {
+            "title": "🎭 Multiple \"heads,\" each learning something different",
+            "content": "**Multi-head attention** runs several independent attention computations (called **heads**) in parallel, each with its own separate learned Q, K, V weight matrices — allowing each head to potentially specialize in a different kind of relationship.\n\n```python\n# Conceptual: 8 attention heads, each with its own W_query, W_key, W_value\n# head_1_output = attention(Q1, K1, V1)   # might focus on syntax\n# head_2_output = attention(Q2, K2, V2)   # might focus on coreference\n# ... up to head_8\n```\n\nIn practice, individual heads don't always cleanly specialize in an interpretable, human-nameable way — but empirically, giving the model this flexibility to learn several different relevance patterns in parallel consistently improves performance over a single attention computation."
+          },
+          {
+            "title": "🔗 Combining the heads back together",
+            "content": "After each head produces its own output, all the heads' outputs are concatenated together and passed through one more learned linear projection to produce the final multi-head attention output — combining whatever different perspectives each head learned into one unified representation.\n\n```python\n# Conceptual\n# combined = concatenate([head_1_output, head_2_output, ..., head_8_output])\n# final_output = combined @ W_output\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming each head learns a single, clean, human-interpretable role (like \"the syntax head\").** While this happens somewhat in practice and makes for a nice explanation, real heads often learn less clearly delineated, harder-to-name patterns — the real benefit is the added overall flexibility and capacity, not necessarily clean interpretability.\n\n**Forgetting each head has its own separate learned Q/K/V weight matrices.** This is precisely what allows different heads to specialize differently — if they shared weights, they'd all learn the exact same thing.\n\n**Overlooking the final combining projection.** Concatenating the heads' outputs alone isn't the end of the computation — a learned linear layer combines them into the final result."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "tf_multi_head_quiz",
+        "questions": [
+          {
+            "question": "Why might a single attention computation be insufficient for capturing everything relevant in language?",
+            "options": [
+              "Single attention computations cannot process more than one word at a time",
+              "Language relationships come in many different flavors simultaneously (syntax, semantics, coreference), and asking one attention computation to capture all of them at once is a real limitation",
+              "A single attention computation is always faster than multiple heads",
+              "This is not actually a real limitation"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since language involves many different kinds of relationships between words happening at once, having only one attention computation forces it to try to capture all of these simultaneously — multi-head attention instead gives the model room to potentially specialize.",
+            "id": "q1"
+          },
+          {
+            "question": "What allows different attention heads to potentially learn different kinds of relationships?",
+            "options": [
+              "All heads share the exact same Q, K, V weight matrices",
+              "Each head has its own separate, independently learned Q, K, V weight matrices",
+              "Heads are randomly assigned a fixed relationship type before training begins",
+              "Multi-head attention only uses a single shared head in practice"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Because each head has its own distinct learned weight matrices for computing Q, K, and V, different heads can end up learning to attend to different kinds of patterns or relationships in the data.",
+            "id": "q2"
+          },
+          {
+            "question": "What happens after each attention head produces its own output?",
+            "options": [
+              "Only the single best-performing head's output is kept, and the rest are discarded",
+              "All heads' outputs are concatenated together and passed through a final learned linear projection to produce the combined result",
+              "Each head's output is used as a completely separate, final model output",
+              "The heads' outputs are averaged with no further transformation"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The final step combines all the heads' individual outputs by concatenating them and applying one more learned linear layer, integrating whatever different relevance patterns each head captured into a single unified representation.",
+            "id": "q3"
+          },
+          {
+            "question": "According to this lesson, what limitation does a single attention computation have?",
+            "options": [
+              "It can only process a single word at a time",
+              "It learns one specific way of relating words, while language relationships come in many different flavors simultaneously",
+              "It cannot be trained using backpropagation",
+              "It requires no learned parameters at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A single attention computation learns just one way of relating words, but language involves many kinds of relationships (syntax, semantics, coreference) happening at once — a real limitation that multi-head attention addresses.",
+            "id": "q4"
+          },
+          {
+            "question": "What is each individual attention computation within multi-head attention called?",
+            "options": [
+              "A layer",
+              "A head",
+              "A block",
+              "A gate"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Multi-head attention runs several independent attention computations in parallel, each called a 'head,' with its own separate learned Q, K, V weight matrices.",
+            "id": "q5"
+          },
+          {
+            "question": "Does the lesson claim that individual attention heads always cleanly specialize in a single, human-nameable role?",
+            "options": [
+              "Yes, every head always specializes in exactly one clearly interpretable role",
+              "No — in practice, heads often learn less clearly delineated patterns, though the added flexibility still consistently improves performance",
+              "Heads never learn anything useful at all",
+              "Only the first head in the model ever learns anything meaningful"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson explicitly notes that individual heads don't always cleanly specialize in an interpretable way, but the added flexibility from having multiple heads still empirically improves performance over a single attention computation.",
+            "id": "q6"
+          },
+          {
+            "question": "After each attention head produces its own output, what happens next?",
+            "options": [
+              "Only the output of the very first head is kept",
+              "The heads' outputs are concatenated and passed through a final learned linear projection",
+              "Each head's output becomes a completely separate final model",
+              "The outputs are discarded and recomputed from scratch"
+            ],
+            "correctAnswer": 1,
+            "explanation": "After each head computes its own output, all the heads' outputs are concatenated together and passed through one more learned linear layer to produce the combined multi-head attention output.",
+            "id": "q7"
+          },
+          {
+            "question": "Why is it important that each head has its own separate, independently learned Q, K, V weight matrices?",
+            "options": [
+              "It isn't important — sharing weights across heads works identically",
+              "This is what allows different heads to potentially specialize in different kinds of relationships; sharing weights would make all heads learn the exact same thing",
+              "It only matters for very long sequences",
+              "It has no effect on the model's overall capacity"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Separate learned weight matrices per head are precisely what allow different heads to potentially specialize differently — if heads shared weights, they would all learn identical patterns, defeating the purpose of having multiple heads.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

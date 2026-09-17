@@ -1,0 +1,579 @@
+{
+  "id": "llo_tracing_and_observability",
+  "title": "Tracing & Observability for LLM Systems",
+  "description": "Why tracing matters specifically for LLM apps, what to actually trace (spans, tokens, latency), tracing RAG/agent/LangGraph systems specifically, and purpose-built observability tooling.",
+  "icon": "🔍",
+  "color": "#6A1B9A",
+  "order": 2,
+  "estimatedHours": 5,
+  "difficulty": "intermediate",
+  "prerequisites": [
+    "llo_prompt_management"
+  ],
+  "lessons": [
+    {
+      "id": "llo_why_tracing_matters_for_llm_apps",
+      "title": "Why Tracing Matters Specifically for LLM Applications",
+      "description": "When an LLM application produces a bad output, the question 'why' usually has an answer buried somewhere in a multi-step process — tracing is what surfaces it.",
+      "duration": 13,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain why tracing is especially critical for LLM applications, connecting to the debugging challenges from the Agents and LangGraph courses."
+          },
+          {
+            "title": "🔍 The debugging challenge LLM apps create",
+            "content": "Even a 'simple' LLM application involves several steps that can each go wrong independently: the prompt template rendering (per module 1), the model call itself, retrieval in a RAG pipeline, tool calls in an agent — and because the model's output is generated text rather than a deterministic computation, simply reading the final output often doesn't reveal which upstream step actually caused a problem, unlike a classical software stack trace that points directly at a failing line of code."
+          },
+          {
+            "title": "🔗 Direct extension of the Agents and LangGraph courses",
+            "content": "This directly builds on the Agents course's trajectory-evaluation concept and the LangGraph course's streaming-and-observability lesson: tracing captures exactly the trajectory data those lessons discussed, but as a durable, queryable operational record rather than something inspected only during active development or a single debugging session — turning ad hoc debugging into a systematic operational practice."
+          },
+          {
+            "title": "📊 What tracing reveals that a final output alone can't",
+            "content": "The exact prompt that was actually sent to the model (after template rendering, with all variables filled in) — often different from what a developer assumes was sent. What was retrieved in a RAG step, and whether it was actually relevant. Which tools an agent called, with what arguments, and what came back. The exact sequence and timing of every step — all of which can reveal that a bad final output traces back to, say, a retrieval step returning irrelevant documents, rather than the model itself reasoning poorly given genuinely good context."
+          },
+          {
+            "title": "🎯 Tracing as the foundation for everything else in this course",
+            "content": "Evaluation (module 3) needs trace data to know what a system actually did, not just its final output, to meaningfully diagnose failures. Cost and latency tracking (module 5) needs per-step timing and token usage data that only tracing provides. Nearly every later module in this course depends on tracing infrastructure being in place first, which is why it comes early in this course's sequence."
+          },
+          {
+            "title": "💻 A minimal span-based trace of an LLM call",
+            "content": "```python\nimport time\nfrom contextlib import contextmanager\n\nclass Trace:\n    \"\"\"Collects the spans produced while handling one request.\"\"\"\n\n    def __init__(self):\n        self.spans = []\n\n    @contextmanager\n    def span(self, name, **inputs):\n        record = {\"name\": name, \"inputs\": inputs, \"output\": None}\n        start = time.time()\n        try:\n            yield record\n        finally:\n            record[\"duration_ms\"] = (time.time() - start) * 1000\n            self.spans.append(record)\n\n\ndef answer_question(trace, question, call_model):\n    with trace.span(\"render_prompt\", question=question) as s:\n        prompt = f\"Answer concisely: {question}\"\n        s[\"output\"] = prompt\n\n    with trace.span(\"model_call\", prompt=prompt) as s:\n        response = call_model(prompt)\n        s[\"output\"] = response\n\n    return response\n```\n\nEach step of `answer_question` gets its own span with its own inputs, output, and duration, instead of only the function's final return value being visible — exactly the kind of per-step record this lesson says a stack trace equivalent for LLM apps requires."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Only logging the final output.** Reading just the model's final answer doesn't reveal which upstream step actually caused a problem, since generated text doesn't point to a failing line the way a classical stack trace does.\n\n**Treating tracing as a one-off debugging tool rather than durable infrastructure.** The trajectory data tracing captures is meant to become a queryable operational record, not something inspected only during a single active debugging session.\n\n**Deferring tracing setup until evaluation or cost work needs it.** Since modules 3 and 5 both depend on trace data already existing, putting off tracing infrastructure blocks the practices that come later in this course."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "llo_why_tracing_matters_for_llm_apps_quiz",
+        "questions": [
+          {
+            "question": "Why doesn't reading an LLM application's final output alone usually reveal which upstream step caused a problem?",
+            "options": [
+              "LLM applications never actually have multiple steps",
+              "The output is generated text rather than a deterministic computation, so unlike a classical stack trace, it doesn't point directly at a failing step",
+              "Final outputs are always self-explanatory about their own causes",
+              "This challenge only applies to single-model-call applications, never multi-step ones"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Unlike a classical software error that points to a specific failing line, a bad LLM output requires inspecting the intermediate steps (retrieval, tool calls, the actual rendered prompt) to find the actual cause.",
+            "id": "q1"
+          },
+          {
+            "question": "How does tracing extend the trajectory-evaluation and observability concepts from the Agents and LangGraph courses?",
+            "options": [
+              "It has no relationship to those concepts at all",
+              "It turns the same kind of trajectory data those courses discussed into a durable, queryable operational record, rather than something inspected only during active development",
+              "It replaces the need for trajectory evaluation entirely",
+              "Tracing is a completely different, unrelated technique"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Tracing operationalizes the same trajectory visibility from those earlier courses, making it a durable, systematic practice rather than an ad hoc development-time debugging tool.",
+            "id": "q2"
+          },
+          {
+            "question": "Why does tracing infrastructure need to come early in this course's module sequence?",
+            "options": [
+              "Tracing has no dependencies on or relationships with other modules in this course",
+              "Evaluation (module 3) and cost/latency tracking (module 5) both depend on trace data to function meaningfully, so tracing needs to be in place first",
+              "Tracing is actually the least important topic in this course",
+              "Later modules in this course don't require any tracing data at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since evaluation and cost/latency analysis both rely on detailed trace data, establishing tracing infrastructure early is a prerequisite for the rest of this course's practices to work.",
+            "id": "q3"
+          },
+          {
+            "question": "Which of the following is an example of something tracing can reveal that the final output alone cannot, according to this lesson?",
+            "options": [
+              "The exact prompt that was actually sent to the model after template rendering",
+              "The total number of users the application has",
+              "The application's git commit history",
+              "The company's marketing budget"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson specifically calls out the actually-rendered prompt, what was retrieved, and which tools were called as things tracing reveals that reading only the final output cannot.",
+            "id": "q4"
+          },
+          {
+            "question": "Per the 'tracing as the foundation' section, which two later modules specifically depend on trace data already being in place?",
+            "options": [
+              "Evaluation, and cost and latency tracking",
+              "Prompt management and fine-tuning",
+              "Deployment dashboards and security audits only",
+              "None — later modules are fully independent of tracing"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson names module 3 (evaluation) and module 5 (cost and latency tracking) as directly depending on trace data to function meaningfully.",
+            "id": "q5"
+          },
+          {
+            "question": "In the Trace/span example, what does each span record for a single step?",
+            "options": [
+              "Only the step's name, with nothing else",
+              "The step's name, its inputs, its output, and how long it took",
+              "Only the total duration of the entire request",
+              "Nothing — the span class is a no-op placeholder"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The `span` context manager builds a record containing the step name, inputs, output, and duration_ms, mirroring the granular data this lesson argues tracing needs to capture.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does `answer_question` wrap `render_prompt` and `model_call` in two separate spans instead of one span around the whole function?",
+            "options": [
+              "So a problem can be traced to the specific step that caused it, rather than only knowing something went wrong somewhere in the function",
+              "Because Python requires at least two spans per function",
+              "To make the code intentionally longer",
+              "Spans must always be nested exactly twice"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Separating the prompt-rendering step from the model-call step means a bad output can be traced back to whichever specific step actually produced it, matching this lesson's point about diagnosing the real cause.",
+            "id": "q7"
+          },
+          {
+            "question": "Why is 'only logging the final output' called out as a mistake in this lesson's reasoning?",
+            "options": [
+              "Because logging final outputs is technically impossible in most systems",
+              "Because the entire premise of this lesson is that generated text output doesn't point to which upstream step caused a problem, so per-step visibility is what's actually needed",
+              "Because final outputs are always correct, so there's nothing to diagnose",
+              "Because logging of any kind is discouraged in production"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This mistake directly restates the lesson's central argument: without per-step visibility, a bad final output can't be traced back to its actual cause.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "llo_what_to_trace_spans_tokens_latency",
+      "title": "What to Actually Trace: Spans, Tokens, and Latency",
+      "description": "A trace is only useful if it captures the right level of detail — too little, and it can't answer the questions you'll actually ask; too much, and it's noise.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Describe the key units of data a good LLM tracing setup captures, and why each one matters for diagnosing real problems."
+          },
+          {
+            "title": "📏 Spans: the basic unit of a trace",
+            "content": "A span represents one discrete step in the overall request (a single model call, a single retrieval operation, a single tool call), with a start time, end time, and its own inputs and outputs — nested and sequenced spans form the full trace of a request, mirroring the node-by-node structure of a LangGraph graph's execution, just recorded as durable trace data rather than only visible live."
+          },
+          {
+            "title": "🔢 Token usage per span",
+            "content": "Recording input and output token counts for every model-call span, not just an aggregate total for the whole request — this granularity is what makes it possible to answer 'which specific step in this pipeline is actually driving cost' (directly feeding into module 5's cost-and-latency concerns) rather than only knowing the total cost of a request with no visibility into which part of it was expensive."
+          },
+          {
+            "title": "⏱️ Latency per span",
+            "content": "Recording how long each span actually took, not just total end-to-end request latency — this is what lets you distinguish 'the model call itself is slow' from 'the retrieval step is the bottleneck' from 'there's unexpected overhead in the orchestrating code between steps,' each of which has a completely different fix, mirroring the same fast-signal diagnostic value the MLOps course described for operational metrics."
+          },
+          {
+            "title": "📄 The actual content at each step",
+            "content": "Beyond timing and token counts, capturing the actual content flowing through each span — the exact rendered prompt, the retrieved documents, the tool call arguments and results — is what makes a trace useful for diagnosing quality problems, not just performance problems; a span with only timing and no content can tell you a step was slow, but not why its output was wrong."
+          },
+          {
+            "title": "⚖️ Balancing detail against overhead and privacy",
+            "content": "Capturing every possible detail at maximum granularity has real costs: storage and processing overhead for the tracing system itself, and potential privacy or sensitive-data concerns if traces capture content that shouldn't be retained indefinitely — deciding what to capture, and for how long, is a genuine trade-off rather than a default of 'capture everything, keep it forever.'"
+          },
+          {
+            "title": "💻 A span that captures tokens, latency, and content together",
+            "content": "```python\nfrom dataclasses import dataclass, field\nimport time\n\n\n@dataclass\nclass Span:\n    name: str\n    input_tokens: int = 0\n    output_tokens: int = 0\n    start_time: float = field(default_factory=time.time)\n    end_time: float = None\n    content: dict = field(default_factory=dict)\n\n    def finish(self, output_tokens, content=None):\n        self.output_tokens = output_tokens\n        self.end_time = time.time()\n        if content:\n            self.content.update(content)\n\n    @property\n    def latency_ms(self):\n        return (self.end_time - self.start_time) * 1000\n\n\ndef trace_model_call(prompt, input_tokens, call_model):\n    span = Span(name=\"model_call\", input_tokens=input_tokens,\n                content={\"prompt\": prompt})\n    response, output_tokens = call_model(prompt)\n    span.finish(output_tokens=output_tokens, content={\"response\": response})\n    return response, span\n```\n\n`Span` records tokens and content separately for input versus output, and `latency_ms` is computed per span rather than for the whole request — so a slow, expensive step can be identified by name instead of only showing up in an aggregate total."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Recording only end-to-end request latency.** Without per-span timing, you can't tell whether the model call, the retrieval step, or orchestration overhead between steps is the actual bottleneck — each of which needs a different fix.\n\n**Capturing only an aggregate token count for the whole request.** This makes it impossible to answer which specific step is actually driving cost, which is exactly the visibility module 5's cost tracking depends on.\n\n**Capturing every possible detail at maximum granularity by default.** This ignores the real trade-off between tracing usefulness and the storage, processing, and privacy costs of retaining everything indefinitely."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "llo_what_to_trace_spans_tokens_latency_quiz",
+        "questions": [
+          {
+            "question": "What does a span represent in an LLM tracing system?",
+            "options": [
+              "The entire multi-step request, with no internal breakdown",
+              "One discrete step in the overall request (a model call, a retrieval, a tool call), with its own timing and inputs/outputs",
+              "Only the final output of the whole system",
+              "A unit of currency used to pay for model API calls"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Spans are the basic building block of a trace, capturing individual steps with their own timing and data, which nest and sequence together to form the full request trace.",
+            "id": "q1"
+          },
+          {
+            "question": "Why is per-span token usage more useful than only an aggregate total for the whole request?",
+            "options": [
+              "Aggregate totals are always sufficient for any cost analysis",
+              "Per-span granularity reveals which specific step in a pipeline is actually driving cost, rather than only knowing the total cost with no breakdown",
+              "Token usage cannot actually be measured per span, only in aggregate",
+              "Per-span data has no relevance to cost analysis at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Knowing which specific step consumes the most tokens is essential for the cost-optimization concerns covered in module 5 — an aggregate total alone can't point to where the cost is actually coming from.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is capturing the actual content flowing through each span (not just timing) important for tracing?",
+            "options": [
+              "Content capture is never actually useful for diagnosing any problem",
+              "A span with only timing can tell you a step was slow, but not why its output was wrong — content is needed to diagnose quality problems, not just performance ones",
+              "Timing data alone is always sufficient to diagnose both performance and quality issues",
+              "Content should never be captured due to storage constraints"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Diagnosing quality issues (a bad retrieval, a malformed prompt) requires seeing the actual content at each step, not just how long that step took — timing alone only addresses performance diagnosis.",
+            "id": "q3"
+          },
+          {
+            "question": "According to this lesson, nested and sequenced spans mirror which structure from the LangGraph course?",
+            "options": [
+              "The node-by-node execution structure of a graph",
+              "The training data used to build the model",
+              "The database schema of the vector store",
+              "The CI/CD pipeline used to deploy the app"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly says spans mirror a LangGraph graph's node-by-node execution structure, just recorded as durable trace data instead of only being visible live.",
+            "id": "q4"
+          },
+          {
+            "question": "What trade-off does this lesson identify around capturing maximum detail in every trace?",
+            "options": [
+              "Storage and processing overhead, plus potential privacy concerns, versus the usefulness of that detail",
+              "There is no trade-off — traces should always capture everything and keep it forever",
+              "Capturing more detail is always free with no downside",
+              "The only concern is cost, never privacy"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson frames maximum-detail capture as a genuine trade-off between diagnostic usefulness and the real overhead and privacy costs of retaining everything indefinitely.",
+            "id": "q5"
+          },
+          {
+            "question": "In the Span dataclass example, what does the `latency_ms` property compute?",
+            "options": [
+              "The difference between `end_time` and `start_time`, expressed in milliseconds",
+              "The number of input tokens used",
+              "A randomly generated placeholder number",
+              "The length of the prompt string"
+            ],
+            "correctAnswer": 0,
+            "explanation": "`latency_ms` is a property that converts the elapsed time between `start_time` and `end_time` into milliseconds, giving per-span timing rather than only a request-wide total.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does `trace_model_call` store the prompt and response inside `span.content`, in addition to token counts?",
+            "options": [
+              "To also support diagnosing quality problems, not just performance ones, matching this lesson's point about content",
+              "Because Python's dataclasses require a content field",
+              "To intentionally make the span object smaller",
+              "Content has no relevance to spans and is included only by convention"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Recording the actual prompt and response alongside timing and tokens is what lets the span be used to diagnose why an output was wrong, not just how slow or expensive the step was.",
+            "id": "q7"
+          },
+          {
+            "question": "Why is recording only end-to-end request latency (instead of per-span latency) considered a mistake in this lesson?",
+            "options": [
+              "It prevents distinguishing whether the model call, the retrieval step, or orchestration overhead is the actual bottleneck, each of which needs a different fix",
+              "End-to-end latency is never a useful number to have",
+              "Per-span latency cannot technically be measured in practice",
+              "There is no real downside to only tracking end-to-end latency"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Without per-span timing, you lose the ability to tell which specific step is slow, which is exactly the diagnostic distinction this lesson says per-span latency provides.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "llo_tracing_multistep_systems",
+      "title": "Tracing RAG Pipelines, Agents, and LangGraph Applications",
+      "description": "Each type of multi-step LLM system has its own natural trace structure — matching the trace to that structure is what makes it actually useful for diagnosis.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Describe how tracing structure should reflect the specific architecture of a RAG pipeline, an agent loop, or a LangGraph graph."
+          },
+          {
+            "title": "🔍 Tracing a RAG pipeline",
+            "content": "Following the RAG course's pipeline stages directly: a trace should capture the query (possibly reformulated, per the RAG course's query-formulation lesson), what was retrieved and from where, any reranking step's before-and-after ordering, how retrieved content was packed into the final prompt, and the generation step itself — structured this way, a bad final answer can be traced to a specific stage (bad retrieval versus bad packing versus the model itself reasoning poorly over genuinely good context) rather than being an undifferentiated 'the RAG system got it wrong.'"
+          },
+          {
+            "title": "🤖 Tracing an agent loop",
+            "content": "Mirroring the Agents course's control loop structure directly: each reasoning step, each tool call and its result, and the eventual final answer or stopping condition that fired — a trace structured this way surfaces exactly the kind of information the Agents course's evaluation lesson said trajectory evaluation needs, now captured durably as operational data rather than only visible during live debugging."
+          },
+          {
+            "title": "🕸️ Tracing a LangGraph application",
+            "content": "Extending the LangGraph course's own observability lesson: each node execution as its own span, with the state at each point (or at least the diff introduced by that node) captured, and which edges were taken (especially conditional ones) recorded — this is close to a direct operational implementation of the time-travel and checkpoint-inspection debugging capability the LangGraph course described, now available as standard tracing rather than requiring a special debugging session."
+          },
+          {
+            "title": "🎯 The common thread across all three",
+            "content": "In every case, the trace's structure should mirror the system's own architecture — a RAG trace follows RAG's pipeline stages, an agent trace follows the reason-act-observe loop, a LangGraph trace follows the graph's nodes and edges — rather than a generic, architecture-agnostic log format that loses the structural information needed to actually diagnose where in a specific kind of system a problem occurred."
+          },
+          {
+            "title": "💻 Tracing an agent's reason-act-observe loop",
+            "content": "```python\ndef trace_agent_loop(trace, agent, query, max_steps=5):\n    \"\"\"Each iteration of the reason-act-observe loop becomes its own span,\n    mirroring the Agents course's control loop structure.\"\"\"\n    for step in range(max_steps):\n        with trace.span(f\"reasoning_step_{step}\") as s:\n            thought, action = agent.reason(query)\n            s[\"output\"] = {\"thought\": thought, \"action\": action.name}\n\n        if action.name == \"final_answer\":\n            with trace.span(\"stop_condition\") as s:\n                s[\"output\"] = {\"reason\": \"final_answer_reached\"}\n            return action.arguments[\"answer\"]\n\n        with trace.span(f\"tool_call_{action.name}\") as s:\n            s[\"inputs\"] = action.arguments\n            result = agent.call_tool(action)\n            s[\"output\"] = result\n\n        query = agent.observe(result)\n\n    return None\n```\n\nEach reasoning step, each tool call, and the stopping condition get their own named span — so a bad final answer can be traced to a specific loop iteration instead of showing up as one opaque \"agent run\" span."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Using one generic log format for RAG, agent, and LangGraph systems alike.** This loses the structural information — pipeline stages, loop iterations, graph nodes and edges — needed to diagnose exactly where a problem occurred in that specific kind of system.\n\n**Tracing only the final generation step of a RAG pipeline.** Without spans for retrieval, reranking, and prompt packing, a bad answer can't be distinguished from a retrieval problem versus a generation problem.\n\n**Not recording which conditional edges a LangGraph run actually took.** This throws away the operational equivalent of the time-travel and checkpoint-inspection debugging the LangGraph course described."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "llo_tracing_multistep_systems_quiz",
+        "questions": [
+          {
+            "question": "What should a trace of a RAG pipeline capture, following the RAG course's own pipeline stages?",
+            "options": [
+              "Only the final generated answer, with no intermediate detail",
+              "The query, what was retrieved, any reranking, how content was packed into the prompt, and the generation step",
+              "Only the retrieval step, ignoring generation entirely",
+              "The trace should not follow the RAG pipeline's actual structure at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Structuring the trace around RAG's actual pipeline stages (per the RAG course) makes it possible to isolate exactly which stage caused a bad final answer.",
+            "id": "q1"
+          },
+          {
+            "question": "How does tracing an agent loop relate to the Agents course's trajectory-evaluation concept?",
+            "options": [
+              "It has no relationship — trajectory evaluation and tracing are unrelated",
+              "It captures exactly the kind of reasoning, tool-call, and stopping-condition information trajectory evaluation needs, now as durable operational data instead of only live debugging visibility",
+              "Tracing replaces the need for trajectory evaluation entirely",
+              "Agent tracing only captures the final answer, never intermediate reasoning"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Agent tracing operationalizes the same trajectory data the Agents course's evaluation lesson described, making it available as a durable record rather than only during a live debugging session.",
+            "id": "q2"
+          },
+          {
+            "question": "What is the common thread this lesson identifies across tracing RAG pipelines, agents, and LangGraph applications?",
+            "options": [
+              "All three should use an identical, generic, architecture-agnostic log format",
+              "A trace's structure should mirror the system's own architecture (RAG's pipeline stages, an agent's loop, a graph's nodes/edges), not a generic format that loses structural information",
+              "Only LangGraph applications actually benefit from any tracing at all",
+              "RAG, agent, and LangGraph tracing have nothing in common"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Matching trace structure to each system's actual architecture is what preserves the structural information needed to diagnose exactly where in that specific kind of system a problem occurred.",
+            "id": "q3"
+          },
+          {
+            "question": "Per this lesson, what should a RAG pipeline trace capture regarding a reranking step?",
+            "options": [
+              "Any reranking step's before-and-after ordering",
+              "Nothing about reranking — only the final generated answer matters",
+              "The training loss of the underlying language model",
+              "The physical size of the vector database on disk"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson lists capturing a reranking step's before-and-after ordering as part of what a well-structured RAG trace should record.",
+            "id": "q4"
+          },
+          {
+            "question": "How does tracing a LangGraph application relate to the LangGraph course's time-travel and checkpoint-inspection debugging?",
+            "options": [
+              "It is close to a direct operational implementation of that capability, now available as standard tracing rather than a special debugging session",
+              "It has no relationship to that capability at all",
+              "It replaces checkpoints with random sampling of graph states",
+              "LangGraph applications cannot meaningfully be traced"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly describes node-and-edge tracing in LangGraph as close to a direct operational version of the time-travel and checkpoint-inspection debugging feature covered in the LangGraph course.",
+            "id": "q5"
+          },
+          {
+            "question": "In the `trace_agent_loop` example, what causes the loop to record a `stop_condition` span and return?",
+            "options": [
+              "The agent's chosen action being `final_answer`",
+              "The loop always stops after exactly one reasoning step",
+              "A randomly triggered timer",
+              "Any tool call raising an exception"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The function checks whether `action.name == \"final_answer\"`, and only then records the `stop_condition` span and returns the final answer.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does `trace_agent_loop` give each tool call its own span rather than lumping all tool calls into one span for the entire run?",
+            "options": [
+              "To mirror the Agents course's control loop so each tool call and its result can be inspected individually, consistent with this lesson's structural-matching principle",
+              "Because Python forbids reusing the same span name twice",
+              "To make the resulting trace shorter and easier to read",
+              "Tool calls don't need to be traced at all in agent systems"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Giving each tool call its own span keeps the trace structured around the agent's actual reason-act-observe loop, which is exactly the structural-matching principle this lesson argues for.",
+            "id": "q7"
+          },
+          {
+            "question": "Why is using one generic, architecture-agnostic log format for RAG, agent, and LangGraph systems considered a mistake in this lesson?",
+            "options": [
+              "It loses the structural information (pipeline stages, loop steps, graph nodes/edges) needed to diagnose exactly where a problem occurred in that specific kind of system",
+              "Generic formats are always more detailed than architecture-specific ones",
+              "It makes traces load noticeably faster in every case",
+              "It is a strict technical requirement for evaluation-module compatibility"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's common thread is that trace structure should mirror each system's own architecture; a generic format throws away exactly the structural detail needed for diagnosis.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "llo_observability_platforms_and_tooling",
+      "title": "Observability Platforms for LLM Systems",
+      "description": "Purpose-built LLM observability tools exist precisely because generic application-monitoring tools weren't designed around prompts, tokens, and multi-step generation traces.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Describe what a purpose-built LLM observability platform typically provides beyond generic application monitoring tools."
+          },
+          {
+            "title": "🔧 Why generic monitoring tools fall short here",
+            "content": "Standard application performance monitoring tools are built around requests, errors, and latency for conventional software — they don't natively understand a 'prompt,' a 'token,' or the nested span structure of a multi-step LLM pipeline the way a purpose-built LLM observability platform does, which is why a dedicated category of tooling emerged specifically for this niche rather than teams just extending generic APM tools."
+          },
+          {
+            "title": "📊 What purpose-built LLM observability tooling typically provides",
+            "content": "Native support for capturing prompts, model responses, and token usage as first-class data (rather than generic unstructured log text). Visualization of nested trace structures matching the span concepts from earlier in this module. Built-in support for attaching evaluation scores (module 3) to specific traces, connecting observability directly to the evaluation-gate practices this course covers. Cost calculation based on token usage and known model pricing, directly supporting the cost-tracking concerns in module 5."
+          },
+          {
+            "title": "🔗 Integrating tracing into an existing LLM application",
+            "content": "Most LLM application frameworks (including LangChain and LangGraph, covered in the LangGraph course) provide integration points for this kind of tracing with relatively little code change — often via the same Runnable interface or callback mechanisms covered in that course, meaning tracing can typically be added to an already-built system without a major rewrite, which matters since retrofitting observability onto a system that was built without it in mind is a common and otherwise costly situation to be in."
+          },
+          {
+            "title": "🎯 Choosing tooling versus building your own",
+            "content": "For most teams, adopting an existing purpose-built LLM observability platform is more practical than building custom tracing infrastructure from scratch, mirroring the general 'don't reinvent infrastructure that already exists' principle from the LangChain-fundamentals lesson in the LangGraph course — building custom tracing only tends to make sense when a team's needs are genuinely unusual enough that existing tools don't fit, which is the exception rather than the default."
+          },
+          {
+            "title": "💻 Plugging an observability platform into a callback-based framework",
+            "content": "```python\nclass ObservabilityCallback:\n    \"\"\"Purpose-built LLM observability platforms plug into a framework's\n    callback mechanism (e.g. LangChain/LangGraph Runnables) with minimal\n    code change, rather than requiring a rewrite of the chain itself.\"\"\"\n\n    def __init__(self, platform_client):\n        self.client = platform_client\n\n    def on_llm_start(self, prompt, **metadata):\n        self.client.start_span(name=\"model_call\", prompt=prompt, metadata=metadata)\n\n    def on_llm_end(self, response, input_tokens, output_tokens):\n        cost = self.client.estimate_cost(input_tokens, output_tokens)\n        self.client.end_span(\n            response=response,\n            tokens={\"in\": input_tokens, \"out\": output_tokens},\n            cost=cost,\n        )\n\n    def on_eval_score(self, trace_id, criterion, score):\n        # Attaches an evaluation score (module 3) to a specific trace.\n        self.client.attach_score(trace_id, criterion=criterion, score=score)\n\n\ndef build_traced_chain(chain, platform_client):\n    callback = ObservabilityCallback(platform_client)\n    return chain.with_config(callbacks=[callback])\n```\n\n`build_traced_chain` adds full observability to an existing chain through its callback configuration alone — no change to the chain's own logic — which is exactly the low-friction integration path this lesson describes."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming a generic APM tool is good enough for an LLM system.** Generic tools are built around requests, errors, and latency for conventional software, and don't natively understand prompts, tokens, or nested LLM span structures.\n\n**Building custom tracing infrastructure by default.** For most teams, adopting an existing purpose-built platform is more practical, and custom infrastructure only makes sense when a team's needs are genuinely unusual.\n\n**Treating observability as separate from evaluation and cost tracking.** This misses the built-in score-attachment and cost-calculation features purpose-built platforms typically provide, which connect directly to modules 3 and 5."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "llo_observability_platforms_and_tooling_quiz",
+        "questions": [
+          {
+            "question": "Why do generic application performance monitoring tools fall short for LLM-specific observability?",
+            "options": [
+              "Generic tools are always superior to any specialized tooling",
+              "They're built around conventional software concepts (requests, errors, latency) and don't natively understand prompts, tokens, or nested LLM pipeline trace structures",
+              "LLM applications don't actually produce any data worth monitoring",
+              "Generic tools and LLM observability tools are functionally identical"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The mismatch between generic APM concepts and LLM-specific needs (prompts, tokens, multi-step spans) is exactly why a dedicated category of LLM observability tooling emerged.",
+            "id": "q1"
+          },
+          {
+            "question": "What capability do purpose-built LLM observability platforms typically provide that connects directly to this course's evaluation module?",
+            "options": [
+              "The ability to automatically retrain models",
+              "Built-in support for attaching evaluation scores to specific traces, connecting observability directly to evaluation-gate practices",
+              "The ability to compile Dart code",
+              "Automatic generation of new prompts with no human input"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Linking evaluation scores to specific traces is a key integration point between the tracing/observability module and the evaluation-gates module later in this course.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is adopting existing purpose-built LLM observability tooling generally more practical than building custom tracing infrastructure?",
+            "options": [
+              "Custom tracing infrastructure is always cheaper and better than any existing tool",
+              "It mirrors the general principle from the LangGraph course of not reinventing infrastructure that already exists, unless a team's needs are genuinely unusual",
+              "Existing tooling never actually integrates with frameworks like LangChain or LangGraph",
+              "Building custom tracing is technically impossible for most teams"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Just as the LangGraph course recommended building on existing frameworks rather than reinventing plumbing, adopting existing observability tooling is the practical default unless genuinely unusual needs justify custom infrastructure.",
+            "id": "q3"
+          },
+          {
+            "question": "Per this lesson, why don't generic APM tools natively fit LLM observability needs?",
+            "options": [
+              "They're built around requests, errors, and latency for conventional software, and don't understand prompts, tokens, or nested LLM spans the way purpose-built tools do",
+              "They are always too expensive for any team to license",
+              "They technically cannot be installed alongside an LLM application",
+              "They are functionally identical to purpose-built LLM observability tools"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explains that generic APM tools are designed around conventional software concepts, which is exactly why they don't natively fit prompts, tokens, and nested LLM trace structures.",
+            "id": "q4"
+          },
+          {
+            "question": "What integration points do frameworks like LangChain and LangGraph typically offer for adding tracing to an existing application?",
+            "options": [
+              "The same Runnable interface or callback mechanisms covered in the LangGraph course",
+              "A complete rewrite of the application is always required first",
+              "No integration points exist for tracing in these frameworks",
+              "Tracing is only available on paid enterprise tiers of the frameworks themselves"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson states these frameworks provide integration points via the same Runnable interface or callback mechanisms from the LangGraph course, allowing tracing to be added with relatively little code change.",
+            "id": "q5"
+          },
+          {
+            "question": "In the `ObservabilityCallback` example, what does `on_eval_score` do?",
+            "options": [
+              "It attaches an evaluation score to a specific trace, connecting observability to evaluation-gate practices",
+              "It deletes the trace associated with a given trace_id",
+              "It retrains the underlying model using the score as a reward signal",
+              "It rewrites the chain's prompt template"
+            ],
+            "correctAnswer": 0,
+            "explanation": "`on_eval_score` calls `self.client.attach_score(...)`, which is exactly the evaluation-score-to-trace attachment capability this lesson describes as a feature of purpose-built platforms.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does `build_traced_chain` use `chain.with_config(callbacks=[callback])` instead of rewriting the chain's internal logic?",
+            "options": [
+              "Because integrating tracing through existing callback/Runnable interfaces avoids a major rewrite, matching this lesson's point about retrofitting observability cheaply",
+              "Because `with_config` is required syntax for all Python classes",
+              "Because attaching callbacks actually disables tracing",
+              "Because chains cannot be traced by any other method"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Using the chain's existing callback configuration is exactly the low-code-change integration path this lesson describes as available through frameworks' Runnable/callback mechanisms.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson consider building custom tracing infrastructure from scratch the wrong default choice for most teams?",
+            "options": [
+              "Because adopting an existing purpose-built platform is more practical, mirroring the 'don't reinvent infrastructure' principle, unless a team's needs are genuinely unusual",
+              "Because building custom tracing infrastructure is against the law in most jurisdictions",
+              "Because it is technically impossible for any team to build tracing infrastructure",
+              "Because existing tools are always free while custom infrastructure always costs money"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson frames custom tracing as the exception rather than the default, since adopting existing purpose-built tooling is generally the more practical choice.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

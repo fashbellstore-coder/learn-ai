@@ -1,0 +1,529 @@
+{
+  "id": "module_4",
+  "title": "Streaming, Latency & UX",
+  "description": "Why streaming improves perceived latency, how streaming responses are actually implemented, handling partial structured output, and building resilience with timeouts, retries, and fallback models.",
+  "icon": "⚡",
+  "color": "#4527A0",
+  "order": 4,
+  "estimatedHours": 2,
+  "difficulty": "Intermediate",
+  "prerequisites": [],
+  "lessons": [
+    {
+      "id": "llme_why_streaming_matters",
+      "title": "Why Streaming Responses Matter for UX",
+      "description": "Understand the perceived-latency benefit of streaming, separate from actual total response time.",
+      "duration": "7 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain why streaming a response improves perceived latency even when total generation time is unchanged."
+          },
+          {
+            "title": "⏳ Waiting for nothing vs. watching progress",
+            "content": "Generating a long response token by token (recall autoregressive generation from the generative AI course) takes real time either way. **Streaming** sends each token to the user as it's generated, rather than waiting for the entire response to finish before showing anything — the total generation time is the same, but the user's *experience* of that time is very different."
+          },
+          {
+            "title": "🧠 Perceived latency vs. actual latency",
+            "content": "Watching text appear progressively feels much faster than staring at a blank loading indicator for the same total duration — this is a genuine, well-documented UX principle, not just a nice-to-have polish detail. The first token arriving quickly matters enormously for perceived responsiveness, even if the *full* response still takes several seconds to complete."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Building a UI as if streaming will always be used, without a non-streaming fallback.** Some contexts (certain tool-calling flows, some structured-output modes) may not support streaming cleanly — plan for both.\n\n**Treating streaming as purely cosmetic.** The perceived-latency benefit has real, measurable effects on user satisfaction and abandonment rates for longer responses.\n\n**Ignoring 'time to first token' as its own separate, importantly measured latency metric.** Total generation time and time-to-first-token are different numbers that matter for different reasons — optimizing only one can miss real UX problems in the other."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "llme_why_streaming_matters_quiz",
+        "questions": [
+          {
+            "question": "Why does streaming a response improve the user's perceived latency, even though total generation time stays the same?",
+            "options": [
+              "Streaming actually makes the model generate the response faster overall",
+              "The user sees progressive output instead of a blank loading state for the same duration, which feels meaningfully faster even though the actual total time hasn't changed",
+              "Streaming has no effect on the user's experience at all",
+              "Streaming only matters for very short responses"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Streaming doesn't change how long generation actually takes — it changes what the user experiences during that time, and watching progressive output feels substantially faster than an unchanging loading indicator for the same duration.",
+            "id": "q1"
+          },
+          {
+            "question": "Why is 'time to first token' worth tracking as its own separate latency metric?",
+            "options": [
+              "It's identical to total generation time and doesn't need separate tracking",
+              "Time to first token and total generation time measure different things that matter for different reasons, so optimizing only one metric can miss real UX problems reflected in the other",
+              "Time to first token has no relationship to perceived responsiveness",
+              "This metric only matters for non-streaming responses"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A fast first token strongly affects perceived responsiveness even if the full response takes a while longer, so tracking it separately from total generation time reveals UX issues that a single aggregate latency number could hide.",
+            "id": "q2"
+          },
+          {
+            "question": "Why should an application be designed with a non-streaming fallback rather than assuming streaming will always be available?",
+            "options": [
+              "Streaming is always supported in every possible context with no exceptions",
+              "Some contexts, like certain tool-calling flows or structured-output modes, may not support streaming cleanly, so a non-streaming fallback path is needed for those cases",
+              "Non-streaming fallbacks are never actually necessary in any real application",
+              "Streaming and non-streaming responses always require identical UI handling"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since not every generation mode or feature combination supports streaming equally well, planning for a non-streaming fallback avoids the application breaking or degrading unexpectedly in those specific contexts.",
+            "id": "q3"
+          },
+          {
+            "question": "According to this lesson, does streaming change the actual total time it takes to generate a full response?",
+            "options": [
+              "No — the total generation time is the same; only the user's experience of that time changes",
+              "Yes — streaming always makes the model generate the full response faster",
+              "Streaming eliminates the need for generation to complete at all",
+              "Streaming only affects total time for very short responses"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson is explicit that streaming doesn't change the actual generation time — what changes is the user's experience of watching progress instead of waiting on a blank state.",
+            "id": "q4"
+          },
+          {
+            "question": "What does this lesson identify as the effect of watching text appear progressively versus a blank loading indicator?",
+            "options": [
+              "It feels much faster, even for the exact same total duration",
+              "It feels exactly the same as a blank loading indicator",
+              "It always feels slower due to the added visual distraction",
+              "It has no measurable effect on user perception at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson describes this as a genuine, well-documented UX principle: progressive text feels substantially faster than an unchanging loading indicator for an identical total wait time.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does this lesson say treating streaming as 'purely cosmetic' is a mistake?",
+            "options": [
+              "Because the perceived-latency benefit has real, measurable effects on user satisfaction and abandonment rates",
+              "Because streaming has no actual effect on user behavior at all",
+              "Because streaming only ever matters for very technical, developer-facing tools",
+              "Because cosmetic changes never have measurable business impact of any kind"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly states that streaming's UX benefit is not just polish — it has measurable effects on real user satisfaction and abandonment, especially for longer responses.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson recommend not assuming streaming will always be available in every context?",
+            "options": [
+              "Because some contexts, like certain tool-calling flows or structured-output modes, may not support streaming cleanly",
+              "Because streaming is universally supported in absolutely every possible generation scenario",
+              "Because streaming was deprecated in favor of non-streaming responses",
+              "Because only text-based applications can ever use streaming"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is building a UI as if streaming will always work, when certain modes like some tool-calling flows may not cleanly support it — requiring a non-streaming fallback.",
+            "id": "q7"
+          },
+          {
+            "question": "What specific metric does this lesson highlight as important to track separately from total generation time?",
+            "options": [
+              "Time to first token",
+              "Total number of tokens generated",
+              "The size of the system prompt",
+              "The number of tools available to the model"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson calls out 'time to first token' as its own important latency metric, distinct from total generation time, since it strongly affects perceived responsiveness.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "llme_streaming_implementation",
+      "title": "Implementing Streaming: Chunks, Not One Big Response",
+      "description": "See the shape of a streaming API response and what the client-side code has to handle.",
+      "duration": "7 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can describe what a client actually receives from a streaming API and what it has to do with it."
+          },
+          {
+            "title": "📡 A sequence of small chunks, not one payload",
+            "content": "Instead of a single response object returned all at once, a streaming API sends a sequence of small chunks over time (often as Server-Sent Events or a similar mechanism), each containing a small piece of the generated text. The client reads these chunks as they arrive and appends each one to what's already been displayed, building up the full response progressively on the screen.\n\n```python\n# Conceptual client-side streaming loop\nfull_response = \"\"\nfor chunk in stream_completion(messages):\n    full_response += chunk.text\n    update_ui(full_response)  # re-render with each new piece\n```"
+          },
+          {
+            "title": "🧩 Handling a response that arrives incrementally",
+            "content": "Because the response arrives piece by piece, any processing that needs the *complete* response (like the structured-output validation from earlier in this course) has to wait until streaming finishes — you can't fully validate a JSON schema against a response that isn't done yet. This is a real design tension between streaming's UX benefit and structured output's need for a complete, parseable result."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Trying to parse structured output (like JSON) chunk by chunk as if each individual chunk were valid on its own.** Individual chunks are typically just fragments of text, not independently parseable — wait for the full stream to finish for anything requiring valid structure.\n\n**Not handling a stream that's interrupted partway through.** Network issues can cut a stream short; the client needs a defined behavior for a partial, incomplete response.\n\n**Forgetting to handle the stream's 'done' signal correctly.** Streaming APIs typically send an explicit signal marking the end of the stream — missing or mishandling it can leave the UI in an inconsistent state."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "llme_streaming_implementation_quiz",
+        "questions": [
+          {
+            "question": "What does a client receive from a streaming API, structurally?",
+            "options": [
+              "One single, complete response object delivered all at once",
+              "A sequence of small chunks delivered over time, each containing a piece of the generated text, which the client appends progressively",
+              "A pre-recorded video of the response being typed",
+              "Nothing at all until the entire generation process completes"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Streaming delivers the response as a series of incremental chunks over time rather than one complete payload, and it's the client's job to append each chunk to build up the displayed response progressively.",
+            "id": "q1"
+          },
+          {
+            "question": "Why can't structured output like JSON be reliably parsed chunk by chunk as it streams in?",
+            "options": [
+              "JSON can always be parsed correctly from any individual chunk on its own",
+              "Individual chunks are typically just text fragments, not independently valid or complete JSON, so full structural validation has to wait until the entire stream has finished",
+              "Structured output is never used together with streaming in any real system",
+              "Chunk-by-chunk parsing has no relationship to whether the JSON is complete"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since a chunk is just a fragment of the eventual full text, it generally isn't valid, parseable JSON on its own — genuine schema validation has to wait for the complete response once streaming has finished, creating a real design tension with streaming's UX benefits.",
+            "id": "q2"
+          },
+          {
+            "question": "Why does a client need explicit handling for a stream that's interrupted partway through?",
+            "options": [
+              "Streams can never be interrupted once they begin",
+              "Network issues can cut a stream short, so the client needs defined behavior for a partial, incomplete response rather than assuming every stream completes successfully",
+              "Interrupted streams are automatically and invisibly repaired by the API",
+              "Partial responses are always just as usable as complete ones with no special handling"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Real network conditions mean a stream can be cut off before completion, so a well-built client needs to explicitly account for that possibility rather than assuming every stream will run to a clean finish.",
+            "id": "q3"
+          },
+          {
+            "question": "In the lesson's conceptual client-side loop, what does the code do with each incoming chunk?",
+            "options": [
+              "It appends the chunk's text to full_response and re-renders the UI with the updated text",
+              "It discards the chunk immediately after receiving it",
+              "It waits until all chunks arrive before touching full_response at all",
+              "It replaces the entire UI with just that one chunk, discarding prior chunks"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's example loop appends each chunk's text onto the running full_response string and calls update_ui with that growing text after every chunk.",
+            "id": "q4"
+          },
+          {
+            "question": "What mechanism does this lesson mention as commonly used to deliver streaming chunks?",
+            "options": [
+              "Server-Sent Events or a similar mechanism",
+              "A single large file download at the end of generation",
+              "A separate email sent for each chunk",
+              "A one-time database write after generation completes"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson describes streaming APIs as often using Server-Sent Events or a similar mechanism to deliver the sequence of small chunks over time.",
+            "id": "q5"
+          },
+          {
+            "question": "Why can't structured output like JSON be fully validated until the entire stream finishes, according to this lesson?",
+            "options": [
+              "Because you can't fully validate a JSON schema against a response that isn't done yet",
+              "Because JSON validation can always be performed on any single incomplete chunk",
+              "Because structured output is never used together with streaming",
+              "Because validation only applies to non-streaming responses in general"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explains this as a genuine design tension: schema validation inherently requires a complete response, so it must wait until the stream is fully finished.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does the lesson warn about mishandling a streaming API's 'done' signal?",
+            "options": [
+              "Because missing or mishandling it can leave the UI in an inconsistent state",
+              "Because streaming APIs never send any signal indicating completion",
+              "Because the done signal only matters for non-streaming responses",
+              "Because the done signal automatically fixes any UI inconsistency on its own"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson lists this as a common mistake: streaming APIs typically send an explicit end-of-stream signal, and failing to handle it correctly can leave the client's UI in an inconsistent state.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson say a client needs explicit handling for an interrupted stream?",
+            "options": [
+              "Because network issues can cut a stream short, and the client needs defined behavior for a partial, incomplete response",
+              "Because streams can never be interrupted once they start transmitting",
+              "Because interrupted streams are automatically retried without any client involvement",
+              "Because partial responses are always functionally identical to complete ones"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson notes that real network conditions can cut a stream short, so the client needs a deliberate plan for handling a partial, incomplete response rather than assuming completion is guaranteed.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "llme_partial_structured_output",
+      "title": "Handling Partial Structured Output While Streaming",
+      "description": "Reconcile the tension between wanting streaming UX and needing valid structured output.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can describe a couple of practical approaches for getting some of streaming's UX benefit even when the final output needs to be structured."
+          },
+          {
+            "title": "🧩 Two goals in tension",
+            "content": "Streaming wants to show something to the user as early as possible; structured output (from the earlier module in this course) wants a complete, validated result before anything is treated as final. These two goals pull in different directions, but there are practical middle grounds."
+          },
+          {
+            "title": "🛠️ Practical approaches",
+            "content": "**Stream the human-readable parts, validate the structured parts separately** — if a response has both a natural-language explanation and a structured data payload, stream the explanation for immediate UX benefit while handling the structured payload as a complete, validated unit once it's fully received. **Incremental JSON parsers** (tools designed to tolerate and parse a growing, not-yet-complete JSON string) can show partial structure progressively, accepting some added complexity for a partial UX win. **Show a clear 'generating structured result...' state** for the portion that genuinely can't be shown until complete, rather than trying to force a false sense of streaming everywhere.\n\n```python\n# Conceptual: stream the explanation, but treat the structured\n# payload as an atomic unit only usable once fully received and validated\nresponse = {\n    \"explanation\": \"<streamed progressively to the user>\",\n    \"structured_data\": {\"category\": \"billing\", \"priority\": 3},  # validated as a whole, once complete\n}\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Forcing a fully streamed UX onto output that genuinely needs complete validation before use.** Sometimes the honest answer is a brief loading state for the structured part, not a workaround that risks showing invalid intermediate data.\n\n**Showing unvalidated partial structured data to the user or downstream systems as if it were final.** Partial JSON can look plausible while still being incomplete or ultimately invalid.\n\n**Adding incremental-parsing complexity when it isn't actually needed.** For genuinely short structured outputs, the added complexity of incremental parsing may not be worth the marginal UX gain over just waiting briefly for the complete result."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "llme_partial_structured_output_quiz",
+        "questions": [
+          {
+            "question": "What is the core tension between streaming and structured output that this lesson addresses?",
+            "options": [
+              "There is no tension; the two goals are always perfectly compatible with zero tradeoffs",
+              "Streaming wants to show output as early as possible, while structured output needs a complete, validated result before it can be treated as final and usable — these pull in different directions",
+              "Structured output is never used in the same application as streaming",
+              "Streaming only applies to image generation, never text"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Streaming's UX goal (show something immediately) and structured output's correctness goal (validate a complete result before use) are genuinely in tension, which is exactly why practical middle-ground approaches are needed.",
+            "id": "q1"
+          },
+          {
+            "question": "What is one practical approach to getting streaming's UX benefit alongside a structured output requirement?",
+            "options": [
+              "Never using structured output in a streaming application under any circumstances",
+              "Streaming the human-readable, natural-language parts of a response immediately while treating the structured data payload as a complete unit validated only once it's fully received",
+              "Showing unvalidated partial structured data directly to downstream systems as if it were final",
+              "Disabling streaming entirely whenever any structured output is needed anywhere in the response"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Splitting a response into a streamable natural-language part and an atomically-validated structured part lets an application get real streaming UX benefit where it's safe, while still enforcing full validation where correctness genuinely requires it.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is showing unvalidated partial structured data to the user or downstream systems risky?",
+            "options": [
+              "Partial structured data is always guaranteed to be valid and complete",
+              "Partial JSON can look plausible on the surface while still being incomplete or ultimately invalid, so treating it as final before full validation risks acting on incorrect or malformed data",
+              "This is never actually a risk in any real streaming system",
+              "Downstream systems automatically detect and ignore any invalid partial data"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A partially-streamed structured payload can appear reasonable while still being incomplete, so treating it as trustworthy before the full response has been validated risks feeding invalid or misleading data into downstream logic.",
+            "id": "q3"
+          },
+          {
+            "question": "In the lesson's conceptual example response, which part is streamed progressively and which is treated as an atomic unit?",
+            "options": [
+              "The explanation is streamed progressively; the structured_data is validated as a whole once complete",
+              "Both parts are streamed progressively at exactly the same time",
+              "The structured_data is streamed progressively; the explanation is validated as a whole",
+              "Neither part is ever streamed under any circumstances"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's example explicitly splits the response so the natural-language explanation streams for immediate UX benefit, while the structured_data is validated as a complete unit only once fully received.",
+            "id": "q4"
+          },
+          {
+            "question": "What do incremental JSON parsers do, according to this lesson?",
+            "options": [
+              "They tolerate and parse a growing, not-yet-complete JSON string, showing partial structure progressively",
+              "They only work on fully complete JSON, exactly like a standard parser",
+              "They eliminate the need for any structured-output validation entirely",
+              "They convert JSON permanently into plain, unstructured text"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson describes incremental JSON parsers as tools specifically designed to handle a JSON string that is still growing and not yet complete, letting partial structure be shown progressively.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does this lesson recommend a clear 'generating structured result...' state instead of forcing a streamed UX everywhere?",
+            "options": [
+              "Because some output genuinely can't be shown until complete, and forcing streaming risks showing invalid intermediate data",
+              "Because loading states always degrade the user experience compared to any workaround",
+              "Because structured output should never be shown to users under any circumstances",
+              "Because this state is required by every streaming API regardless of content type"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson recommends an honest loading indicator for output that genuinely needs to be complete before display, rather than a workaround that risks exposing invalid, not-yet-finished structured data.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson warn against adding incremental-parsing complexity when it isn't needed?",
+            "options": [
+              "Because for genuinely short structured outputs, the added complexity may not be worth the marginal UX gain over waiting briefly",
+              "Because incremental parsing is always required for any structured output, regardless of size",
+              "Because incremental parsers are incompatible with every kind of application",
+              "Because incremental parsing eliminates the need for any output validation"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson notes that incremental parsing adds real complexity, and for short structured outputs the marginal UX benefit may not justify that added cost compared to a brief wait.",
+            "id": "q7"
+          },
+          {
+            "question": "Why is showing unvalidated partial structured data to downstream systems described as risky in this lesson?",
+            "options": [
+              "Because partial JSON can look plausible while still being incomplete or ultimately invalid",
+              "Because downstream systems always automatically detect and correct invalid data on their own",
+              "Because partial data is always guaranteed to be complete and valid",
+              "Because this risk applies only to human-readable text, never structured data"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson warns that partial structured output can appear reasonable on the surface while still being incomplete, so treating it as final before full validation risks acting on invalid data.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "llme_timeouts_retries_fallback",
+      "title": "Timeouts, Retries, and Fallback Models",
+      "description": "Build resilience into an LLM application against slow, failed, or unavailable calls.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can describe why timeouts, retries, and fallback models are all needed together, not as substitutes for one another."
+          },
+          {
+            "title": "⏱️ Timeouts: don't wait forever",
+            "content": "A **timeout** caps how long your application will wait for a model response before giving up — without one, a slow or hung request can leave a user staring at a spinner indefinitely, and can tie up application resources waiting on a call that may never complete."
+          },
+          {
+            "title": "🔁 Retries: handle transient failures gracefully",
+            "content": "A **retry** re-attempts a failed call, often with a brief delay (and sometimes an increasing delay between attempts, called backoff) — useful for transient issues (a momentary network blip, a temporary rate limit) that are likely to succeed on a second attempt, but not helpful for a genuinely broken request that will fail identically every time.\n\n```python\n# Conceptual retry with simple backoff\nfor attempt in range(3):\n    try:\n        return call_model(messages, timeout=10)\n    except TransientError:\n        time.sleep(2 ** attempt)  # 1s, 2s, 4s\nraise  # give up after exhausting retries\n```"
+          },
+          {
+            "title": "🔀 Fallback models: a plan for when the primary is unavailable",
+            "content": "A **fallback model** is a secondary option (a different provider, a different model, or a local model) your application switches to if the primary model is unavailable or consistently failing — directly connected to the reliability/dependency discussion from the local-vs-API module. This turns a hard outage into a degraded-but-functioning experience instead of a complete failure."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Retrying indefinitely with no limit.** An unbounded retry loop against a genuinely broken request wastes time and resources without ever succeeding — always cap the number of attempts.\n\n**Retrying a request that will fail identically every time (like an invalid request format).** Retries help with transient issues, not with a fundamentally malformed or invalid call.\n\n**Having no fallback plan and treating provider downtime as an unavoidable full outage.** Even a lower-capability fallback keeps some functionality available, which is usually better than nothing for the user."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "llme_timeouts_retries_fallback_quiz",
+        "questions": [
+          {
+            "question": "What problem does setting a timeout on a model call solve?",
+            "options": [
+              "Timeouts have no practical purpose and can be safely omitted",
+              "Without a timeout, a slow or hung request can leave a user waiting indefinitely and tie up application resources on a call that may never complete",
+              "Timeouts guarantee a model call will always succeed",
+              "Timeouts are only relevant for streaming responses, never for standard calls"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A timeout caps how long the application waits for a response, preventing an indefinitely hung call from leaving users stuck and from tying up resources waiting on something that may never finish.",
+            "id": "q1"
+          },
+          {
+            "question": "Why are retries useful for transient failures but not for a fundamentally malformed request?",
+            "options": [
+              "Retries fix every type of failure equally well, including malformed requests",
+              "A transient failure (like a momentary network blip) may succeed on a second attempt, while a fundamentally invalid request will fail identically every time no matter how many times it's retried",
+              "Retries should never be used under any circumstances",
+              "Malformed requests are actually a form of transient failure"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Retries help when a failure is due to something temporary that might resolve on its own, like a brief network issue — but a request that's invalid at its core will keep failing the same way regardless of how many times it's retried, wasting effort.",
+            "id": "q2"
+          },
+          {
+            "question": "What role does a fallback model play in application resilience?",
+            "options": [
+              "Fallback models are never necessary since the primary model always works",
+              "A fallback model provides a secondary option to switch to if the primary model becomes unavailable or consistently fails, turning a hard outage into a degraded-but-functioning experience",
+              "Fallback models replace the need for timeouts and retries entirely",
+              "A fallback model is only relevant when using local models, never hosted APIs"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Having a fallback (a different provider, model, or local option) means a primary model outage doesn't mean a complete loss of functionality — the application can degrade gracefully instead of failing entirely, connecting directly to the dependency risks of relying on a single hosted provider.",
+            "id": "q3"
+          },
+          {
+            "question": "In the lesson's conceptual retry example, what backoff delays are shown between the three attempts?",
+            "options": [
+              "1 second, then 2 seconds, then 4 seconds",
+              "A fixed 10-second delay before every single attempt",
+              "No delay at all between any of the attempts",
+              "A delay that decreases with each subsequent attempt"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example uses time.sleep(2 ** attempt), producing delays of 1s, 2s, and 4s across the three retry attempts — an increasing backoff pattern.",
+            "id": "q4"
+          },
+          {
+            "question": "According to this lesson, what specifically does a fallback model connect back to from an earlier module?",
+            "options": [
+              "The reliability/dependency discussion from the local-vs-API module",
+              "The chunking strategies lesson from the context-windows module",
+              "The system-prompt-writing lesson from the first module",
+              "The tool-schema-design lesson from the tool-calling module"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly ties the concept of a fallback model back to the reliability and dependency tradeoffs discussed earlier in the local-vs-API models module.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does this lesson warn against retrying indefinitely with no limit?",
+            "options": [
+              "Because an unbounded retry loop against a genuinely broken request wastes time and resources without ever succeeding",
+              "Because retries should always continue forever regardless of outcome",
+              "Because retry limits always prevent any request from ever succeeding",
+              "Because indefinite retries are required by every API provider"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is retrying without a cap, which for a genuinely broken request just wastes resources on repeated attempts that can never succeed.",
+            "id": "q6"
+          },
+          {
+            "question": "What kind of failure does this lesson say retries are specifically useful for handling?",
+            "options": [
+              "Transient issues, like a momentary network blip or a temporary rate limit",
+              "A fundamentally invalid request format that will always fail",
+              "Any failure whatsoever, regardless of its underlying cause",
+              "Only failures that occur during model training, not inference"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson specifies that retries help with transient, temporary issues likely to resolve on a second attempt, not with a request that's broken in a way that will fail identically every time.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson describe having no fallback plan as risky?",
+            "options": [
+              "Because it means treating provider downtime as an unavoidable full outage, when even a lower-capability fallback keeps some functionality available",
+              "Because fallback plans always make an application slower and less reliable",
+              "Because provider downtime never actually happens in practice",
+              "Because fallback plans are only relevant for local models, never hosted APIs"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson warns that without a fallback, a primary provider's downtime becomes a complete outage — even a lower-capability fallback preserves some functionality, which is usually better for users than nothing.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,567 @@
+{
+  "id": "vdb_operating_at_scale",
+  "title": "Operating a Vector Database",
+  "description": "Sharding, replication, backups, quality monitoring, and cost control once a vector database is in production.",
+  "icon": "⚙️",
+  "color": "#D32F2F",
+  "order": 3,
+  "estimatedHours": 4,
+  "difficulty": "advanced",
+  "prerequisites": [
+    "vdb_filtering_and_hybrid_search"
+  ],
+  "lessons": [
+    {
+      "id": "vdb_sharding_and_replication",
+      "title": "Sharding and Replication",
+      "description": "How a vector index stops being 'one machine's problem' as your data grows.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain the difference between sharding and replication and why a vector database needs both at scale."
+          },
+          {
+            "title": "✂️ Sharding: splitting the data",
+            "content": "Sharding splits your vectors across multiple machines, each holding a subset. A query typically fans out to every shard, collects candidate results from each, and merges them — the same 'scatter-gather' pattern used in distributed search engines generally. Sharding is what lets you scale storage and query throughput past what a single machine's RAM and CPU can handle."
+          },
+          {
+            "title": "🪞 Replication: copying the data",
+            "content": "Replication keeps multiple copies of the same shard on different machines, so a machine failure doesn't lose data or take search offline. Replicas also let you spread read traffic across more machines, increasing throughput even without adding new data."
+          },
+          {
+            "title": "⚖️ Consistency trade-offs",
+            "content": "When a vector is updated or deleted, replicas may briefly disagree until the change propagates — the same eventual-consistency trade-off you'd meet in any distributed data store. For most search use cases, a few seconds of staleness for a newly-added document is an acceptable trade against availability and throughput; for a compliance-driven deletion, it usually is not, and needs explicit handling."
+          },
+          {
+            "title": "🔗 Where this connects",
+            "content": "This is the same operational thinking the MLOps and Cloud courses apply to model-serving infrastructure — redundancy against failure, and horizontal scaling against load — just applied to the vector index instead of the model itself."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "A tiny hash-based shard assignment function, plus a toy function for routing a read to one of a shard's replicas:\n\n```python\nimport hashlib\n\n# A tiny, illustrative sharding + replica-routing scheme (NOT production code).\n\nNUM_SHARDS = 4\nREPLICAS_PER_SHARD = 3\n\n\ndef shard_for(vector_id, num_shards=NUM_SHARDS):\n    # A stable hash of the id decides which shard owns this vector.\n    digest = hashlib.sha256(vector_id.encode()).hexdigest()\n    return int(digest, 16) % num_shards\n\n\ndef replicas_for(shard_id, replicas_per_shard=REPLICAS_PER_SHARD):\n    # Each shard has a fixed set of replica node names.\n    return [f\"shard{shard_id}-replica{r}\" for r in range(replicas_per_shard)]\n\n\ndef route_read(vector_id, replica_health, num_shards=NUM_SHARDS):\n    # Route a read to the first *healthy* replica of the owning shard.\n    shard_id = shard_for(vector_id, num_shards)\n    for replica in replicas_for(shard_id):\n        if replica_health.get(replica, True):\n            return replica\n    raise RuntimeError(f\"No healthy replica available for shard {shard_id}\")\n\n\nids = [\"doc-1\", \"doc-2\", \"doc-3\", \"doc-4\", \"doc-5\"]\nplacement = {vid: shard_for(vid) for vid in ids}\n\nreplica_health = {\"shard3-replica0\": False, \"shard3-replica1\": False}\n\nprint(placement)                                  # which shard owns each id\nprint(route_read(\"doc-2\", replica_health))        # skips down replicas, picks a healthy one\n```\n\n`shard_for` always sends a given `vector_id` to the same shard, since a stable hash produces the same digest every time — this is what lets every node compute placement independently without a lookup table. `route_read` shows the replication side: it walks `replicas_for(shard_id)` in order and returns the first replica that `replica_health` doesn't mark as down, which is exactly how replicas let reads keep working through a node failure."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Choosing a non-uniform or poorly distributed hash for shard assignment.** A hash that clusters many ids onto the same shard creates a 'hot shard' that takes disproportionate load while others sit idle, defeating the point of sharding.\n\n**Treating replica reads as always perfectly fresh.** Because replication is typically eventually consistent, routing a read to a replica right after a write can return stale data; code that assumes every replica is instantly up to date will occasionally serve wrong answers.\n\n**Resharding by simply changing the shard count without a migration plan.** Changing `num_shards` changes which shard almost every id hashes to, so vectors need to be physically moved to their new shard — flipping the number without migrating the data silently breaks lookups.\n\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "vdb_sharding_and_replication_quiz",
+        "questions": [
+          {
+            "question": "Sharding a vector database primarily helps you scale",
+            "options": [
+              "Storage capacity and query throughput beyond what one machine can handle",
+              "The accuracy of the embedding model",
+              "The number of distance metrics available",
+              "The size of a single vector's dimensionality"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Sharding distributes data and load across machines, which is what lets the system grow past single-machine limits.",
+            "id": "q1"
+          },
+          {
+            "question": "What does replication protect against?",
+            "options": [
+              "Data loss and search downtime if a machine fails",
+              "Slow embedding model inference",
+              "Poor recall from an under-tuned index",
+              "Cross-tenant data leakage"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Replication keeps redundant copies of data so a hardware or node failure doesn't take the index offline or lose data.",
+            "id": "q2"
+          },
+          {
+            "question": "Why might eventual consistency between replicas be acceptable for a newly-added search document but not for a compliance-driven deletion?",
+            "options": [
+              "Because a few seconds of staleness costs little for a new addition, but a deletion for compliance reasons may need to be guaranteed complete",
+              "Because replicas can never be inconsistent for any reason",
+              "Because deletions are always instant across all replicas by default",
+              "Because additions are always slower than deletions"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The acceptable staleness window depends on the consequence of being wrong — compliance deletions typically need stronger guarantees than routine additions.",
+            "id": "q3"
+          },
+          {
+            "question": "Per the lesson, what pattern does a sharded query typically follow?",
+            "options": [
+              "It fans out to every shard, collects candidates from each, and merges the results — the 'scatter-gather' pattern",
+              "It queries a single randomly chosen shard and ignores the rest",
+              "It queries only the shard with the least data",
+              "It requires the client to know which shard holds the answer in advance"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson describes sharded search as scatter-gather: fan out to every shard, then merge each shard's candidates.",
+            "id": "q4"
+          },
+          {
+            "question": "According to the lesson, besides protecting against data loss, what other benefit does replication provide?",
+            "options": [
+              "It spreads read traffic across more machines, increasing throughput even without adding new data",
+              "It automatically re-embeds the corpus with a newer model",
+              "It eliminates the need for sharding entirely",
+              "It reduces the dimensionality of stored vectors"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson notes replicas let you spread read traffic across more machines, increasing throughput even without adding new data.",
+            "id": "q5"
+          },
+          {
+            "question": "In the code example, why does shard_for(vector_id) return the same shard id every time it's called with the same vector_id?",
+            "options": [
+              "Because it hashes the id with a stable hash function (sha256) and takes the digest modulo num_shards, which is deterministic",
+              "Because it looks the id up in a cache that never changes",
+              "Because vector_id is always converted to shard 0",
+              "Because Python dictionaries preserve insertion order"
+            ],
+            "correctAnswer": 0,
+            "explanation": "shard_for computes hashlib.sha256(vector_id.encode()).hexdigest() and reduces it mod num_shards — a deterministic hash, so the same id always maps to the same shard.",
+            "id": "q6"
+          },
+          {
+            "question": "In the route_read example, what happens when the first replica(s) for a shard are marked unhealthy in replica_health?",
+            "options": [
+              "route_read skips them and returns the first replica in the list that is not marked unhealthy",
+              "route_read immediately raises an error even if a healthy replica exists",
+              "route_read routes the read to a different shard entirely",
+              "route_read ignores replica_health and always returns replica0"
+            ],
+            "correctAnswer": 0,
+            "explanation": "route_read loops through replicas_for(shard_id) in order and returns the first one for which replica_health.get(replica, True) is truthy, skipping unhealthy ones.",
+            "id": "q7"
+          },
+          {
+            "question": "Per 'Common mistakes', why is changing num_shards without a migration plan a problem?",
+            "options": [
+              "Because it changes which shard almost every id hashes to, so vectors must be physically moved or lookups silently break",
+              "Because num_shards cannot be changed once an index is created",
+              "Because it has no effect on hash-based shard assignment",
+              "Because it only affects newly written vectors, never existing ones"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Since shard assignment is hash(id) mod num_shards, changing num_shards reshuffles almost every id's target shard, requiring data migration.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "vdb_backups_and_disaster_recovery",
+      "title": "Backups and Disaster Recovery",
+      "description": "Your embeddings are expensive to regenerate. Treat losing them as a real incident, not an inconvenience.",
+      "duration": 11,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain why vector index backups matter and what a recovery plan needs to account for."
+          },
+          {
+            "title": "💸 Regenerating embeddings isn't free",
+            "content": "If you lose your vector index with no backup, recovery means re-embedding your entire corpus from scratch — real compute cost and real time, and if the original documents themselves are also gone, the data may be unrecoverable entirely. This is a stronger argument for backups than most people expect from 'just a search index.'"
+          },
+          {
+            "title": "📸 What to back up",
+            "content": "The vector index itself (or its source data plus a script to rebuild it), any metadata payloads, and — often overlooked — the exact embedding model version and preprocessing steps used to produce the vectors, since re-embedding with a different model version produces vectors that are not comparable to the old ones (a problem the next lesson covers directly)."
+          },
+          {
+            "title": "🧯 Test your restore, not just your backup",
+            "content": "A backup you've never restored from is a hypothesis, not a safety net — the same lesson the MLOps course's rollback lesson made about model artifacts. Periodically practice a full restore in a non-production environment and time how long it takes; that number is your actual recovery time objective, not whatever number was assumed when the backup policy was written."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "A toy backup-manifest structure, plus a restore-verification function that checks a checksum before trusting a restored vector set:\n\n```python\nimport hashlib\nimport json\n\n# A tiny, illustrative backup manifest + restore verification (NOT production code).\n\n\ndef make_manifest(vectors, model_version, preprocessing_steps):\n    payload = json.dumps(vectors, sort_keys=True).encode()\n    checksum = hashlib.sha256(payload).hexdigest()\n    return {\n        \"model_version\": model_version,\n        \"preprocessing_steps\": preprocessing_steps,\n        \"vector_count\": len(vectors),\n        \"checksum\": checksum,\n    }\n\n\ndef restore_and_verify(vectors, manifest):\n    payload = json.dumps(vectors, sort_keys=True).encode()\n    recomputed = hashlib.sha256(payload).hexdigest()\n    checks = {\n        \"checksum_matches\": recomputed == manifest[\"checksum\"],\n        \"count_matches\": len(vectors) == manifest[\"vector_count\"],\n    }\n    checks[\"restore_ok\"] = all(checks.values())\n    return checks\n\n\nvectors = {\"doc-1\": [0.1, 0.2], \"doc-2\": [0.3, 0.4]}\nmanifest = make_manifest(vectors, model_version=\"embed-v3\", preprocessing_steps=[\"lowercase\", \"strip_html\"])\n\n# Simulate a clean restore of the same data:\nrestored_ok = restore_and_verify(vectors, manifest)\n\n# Simulate a corrupted restore (one vector silently changed):\ncorrupted = {\"doc-1\": [0.1, 0.2], \"doc-2\": [0.3, 0.9]}\nrestored_bad = restore_and_verify(corrupted, manifest)\n\nprint(manifest)\nprint(restored_ok)     # checksum_matches: True, restore_ok: True\nprint(restored_bad)    # checksum_matches: False, restore_ok: False\n```\n\n`make_manifest` records not just a checksum but the `model_version` and `preprocessing_steps` alongside it, so a future restore can tell whether the vectors it's looking at were even produced the same way. `restore_and_verify` recomputes the checksum from the restored data and only reports `restore_ok: True` when it exactly matches the manifest's original checksum — notice that a single changed value anywhere in `corrupted` is enough to flip `checksum_matches` to `False`."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Backing up vectors without the embedding model version or preprocessing steps.** A restored vector set that isn't tagged with exactly how it was produced can't be safely compared or merged with vectors added after the backup, since even a minor model version bump changes the embedding space.\n\n**Assuming a backup is good because the backup job reported success.** A backup job can complete without error and still be silently corrupted or incomplete; only a verified restore (checksum, count, or an actual restore drill) confirms the backup is usable.\n\n**Never timing a restore until an actual outage forces it.** Discovering during a real incident that a \"quick restore\" actually takes six hours turns a recoverable outage into a much longer one — the time to learn your real recovery time objective is during a practice drill, not a live incident.\n\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "vdb_backups_and_disaster_recovery_quiz",
+        "questions": [
+          {
+            "question": "Why can losing a vector index without a backup be more costly than losing an ordinary cache?",
+            "options": [
+              "Rebuilding it means re-embedding the entire corpus, which costs real compute and time, and may be impossible if source documents are also gone",
+              "Vector indexes are always automatically backed up by the cloud provider",
+              "Vector databases cannot be backed up at all",
+              "Losing a vector index has no effect on the application"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Unlike a simple cache, a lost vector index isn't a cheap rebuild — regenerating embeddings at scale is a real cost, and total data loss is possible if source documents are gone too.",
+            "id": "q1"
+          },
+          {
+            "question": "A complete vector database backup should include",
+            "options": [
+              "The vectors/metadata plus the exact embedding model version and preprocessing steps used to produce them",
+              "Only the raw text documents, never the vectors",
+              "Only the index configuration file",
+              "Nothing beyond the vectors themselves"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Without knowing the exact model and preprocessing used, restored vectors may not be comparable to any vectors added later.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is testing a restore at least as important as taking a backup?",
+            "options": [
+              "Because an untested backup is only a hypothesis about recoverability, not a proven safety net",
+              "Because restoring is always faster than backing up",
+              "Because backups expire after one use",
+              "Because restore tests are required by vector database vendors"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Only a practiced restore reveals whether the backup actually works and how long recovery really takes.",
+            "id": "q3"
+          },
+          {
+            "question": "Per the lesson, what does periodically timing a full restore actually give you?",
+            "options": [
+              "Your real recovery time objective, rather than whatever number was assumed when the backup policy was written",
+              "A discount on cloud storage costs",
+              "A higher embedding model accuracy",
+              "Automatic detection of filter misconfigurations"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson says timing a practiced restore is what tells you your actual recovery time objective, not an assumed figure from the backup policy.",
+            "id": "q4"
+          },
+          {
+            "question": "The lesson compares 'test your restore' to which idea from another course?",
+            "options": [
+              "The MLOps course's rollback lesson about model artifacts",
+              "The RAG course's chunking strategy lesson",
+              "The Cloud course's networking lesson",
+              "The Math course's PCA lesson"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly draws the parallel to the MLOps course's rollback lesson, which made the same point about model artifacts.",
+            "id": "q5"
+          },
+          {
+            "question": "In the code example, what information does make_manifest store alongside the checksum?",
+            "options": [
+              "The model_version and preprocessing_steps used to produce the vectors, plus the vector_count",
+              "The full source text of every document",
+              "The IP address of the backup server",
+              "Nothing else — only the checksum is stored"
+            ],
+            "correctAnswer": 0,
+            "explanation": "make_manifest returns a dict containing model_version, preprocessing_steps, vector_count, and checksum.",
+            "id": "q6"
+          },
+          {
+            "question": "In the corrupted-restore simulation, why does restore_and_verify(corrupted, manifest) report checksum_matches as False?",
+            "options": [
+              "Because one vector's value was changed, so the recomputed sha256 hash over the corrupted data no longer matches the checksum stored in the manifest",
+              "Because the corrupted dict has a different number of keys than the original",
+              "Because restore_and_verify always returns False for any input",
+              "Because json.dumps cannot serialize the corrupted dictionary"
+            ],
+            "correctAnswer": 0,
+            "explanation": "restore_and_verify recomputes a sha256 checksum from the given vectors; changing even one value in corrupted produces a different digest, so it no longer equals manifest['checksum'].",
+            "id": "q7"
+          },
+          {
+            "question": "Per 'Common mistakes', why is a backup job reporting 'success' not sufficient proof the backup is usable?",
+            "options": [
+              "Because a backup job can complete without error while still being silently corrupted or incomplete; only a verified restore confirms it works",
+              "Because backup jobs never report their status",
+              "Because success reports are only valid for one hour",
+              "Because a successful backup job always means the restore will fail"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The mistakes section warns that job-reported success doesn't guarantee usability — only a checksum check or actual restore drill does.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "vdb_monitoring_vector_search_quality",
+      "title": "Monitoring Vector Search Quality",
+      "description": "Uptime dashboards won't tell you that search results have quietly gotten worse.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "List signals worth monitoring for a production vector search system beyond basic uptime."
+          },
+          {
+            "title": "📉 Quality can degrade silently",
+            "content": "A vector search system can be 'up' — responding to queries with normal latency — while returning steadily worse results, because the underlying data distribution shifted, because a filter is silently dropping too much of the index, or because an index rebuild used the wrong configuration. None of this shows up on a standard infrastructure dashboard."
+          },
+          {
+            "title": "📡 Signals worth tracking",
+            "content": "Query latency percentiles and error rates (standard infrastructure monitoring). Result-count anomalies — a spike in queries returning zero or very few results, which often signals an overly strict filter or an indexing gap. Sampled recall against a small labeled set, re-run periodically, the same way the RAG and LLMOps courses insisted on periodic evaluation rather than a one-time check. Downstream signals like click-through or user feedback, when available, since they reflect real relevance better than any proxy metric."
+          },
+          {
+            "title": "🚨 Alert on the business signal, not just the infrastructure signal",
+            "content": "'Search latency is fine' is necessary but not sufficient — pairing infrastructure monitoring with a periodic quality check is what catches the failure mode that matters most: a system that's technically healthy but functionally useless, which is exactly the kind of silent degradation the LLMOps course's continuous-evaluation lesson also warned about for LLM outputs."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "A small sliding-window function that flags recall drift, plus a latency-percentile alerting check:\n\n```python\nfrom collections import deque\n\n# A tiny sliding-window quality monitor (NOT production code).\n\nRECALL_WINDOW = 5\nRECALL_DROP_THRESHOLD = 0.15  # alert if recall falls this much below baseline\n\n\ndef make_recall_monitor(baseline_recall, window_size=RECALL_WINDOW):\n    window = deque(maxlen=window_size)\n\n    def record(sample_recall):\n        window.append(sample_recall)\n        if len(window) < window_size:\n            return {\"alert\": False, \"reason\": \"warming up\"}\n        avg_recent = sum(window) / len(window)\n        drop = baseline_recall - avg_recent\n        if drop >= RECALL_DROP_THRESHOLD:\n            return {\"alert\": True, \"reason\": f\"recall dropped by {drop:.2f} vs baseline\", \"avg_recent\": avg_recent}\n        return {\"alert\": False, \"avg_recent\": avg_recent}\n\n    return record\n\n\ndef check_latency_p99(latencies_ms, threshold_ms):\n    sorted_latencies = sorted(latencies_ms)\n    idx = min(len(sorted_latencies) - 1, int(len(sorted_latencies) * 0.99))\n    p99 = sorted_latencies[idx]\n    return {\"p99_ms\": p99, \"alert\": p99 > threshold_ms}\n\n\nmonitor = make_recall_monitor(baseline_recall=0.92)\nsamples = [0.91, 0.90, 0.65, 0.60, 0.62, 0.63]\n\nfor s in samples:\n    print(s, monitor(s))\n\nprint(check_latency_p99([12, 15, 14, 13, 900, 16, 15], threshold_ms=100))\n```\n\n`make_recall_monitor` closes over a `deque` sliding window so each call to `record` only reacts to the last `window_size` samples, not the full history — this is what lets it catch a *recent* drop rather than being permanently diluted by good historical data. Notice that the alert only fires once the average of the recent window falls `RECALL_DROP_THRESHOLD` below `baseline_recall`, which is why the first few declining samples in `samples` don't trigger it immediately."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Monitoring only infrastructure metrics like latency and uptime.** A system can be fast and 'up' while quietly returning worse results, so infrastructure health alone gives false confidence about search quality.\n\n**Using an unbounded, all-time average for a quality metric.** Averaging recall over the system's entire lifetime buries a recent regression under months of good historical data, delaying detection of exactly the kind of drift the lesson warns about.\n\n**Treating a one-time launch benchmark as sufficient forever.** Data distributions, filters, and index configurations all change after launch; a recall number measured once at launch says nothing about quality six months later without periodic re-measurement.\n\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "vdb_monitoring_vector_search_quality_quiz",
+        "questions": [
+          {
+            "question": "Why can a vector search system look 'healthy' on an infrastructure dashboard while actually performing poorly?",
+            "options": [
+              "Because result quality can degrade silently even when latency and uptime remain normal",
+              "Because infrastructure dashboards always include a recall metric by default",
+              "Because vector databases cannot experience quality degradation",
+              "Because latency and quality are always perfectly correlated"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Standard uptime/latency dashboards don't capture relevance quality, which can quietly degrade for reasons infrastructure monitoring won't catch.",
+            "id": "q1"
+          },
+          {
+            "question": "A spike in queries returning zero or very few results often signals",
+            "options": [
+              "An overly strict filter or an indexing gap",
+              "Perfect recall",
+              "A hardware upgrade",
+              "A successful reranking pass"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Sudden drops in result counts are a practical early signal that something in filtering or indexing has gone wrong.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is periodic sampled recall measurement valuable in production, not just during initial benchmarking?",
+            "options": [
+              "Because it catches quality degradation that infrastructure metrics like latency and uptime cannot detect on their own",
+              "Because recall never changes once an index is built",
+              "Because it replaces the need for latency monitoring entirely",
+              "Because sampled recall is required to compute storage costs"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Ongoing recall checks act like the continuous evaluation practices from LLMOps and RAG, surfacing quality drift that pure infra monitoring would miss.",
+            "id": "q3"
+          },
+          {
+            "question": "Per the lesson, why are downstream signals like click-through or user feedback valuable when available?",
+            "options": [
+              "Because they reflect real relevance better than any proxy metric",
+              "Because they are cheaper to collect than latency metrics",
+              "Because they replace the need for a labeled evaluation set entirely",
+              "Because they are the only signal infrastructure dashboards can show"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson lists downstream signals like click-through and feedback as valuable specifically because they reflect real relevance more directly than proxy metrics.",
+            "id": "q4"
+          },
+          {
+            "question": "What does the lesson identify as the failure mode that matters most, and that pairing infrastructure and quality monitoring is meant to catch?",
+            "options": [
+              "A system that's technically healthy but functionally useless",
+              "A system that is completely offline",
+              "A system with too many replicas",
+              "A system that costs too much to run"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly names 'technically healthy but functionally useless' as the failure mode that alerting on business signals, not just infrastructure signals, is meant to catch.",
+            "id": "q5"
+          },
+          {
+            "question": "In the code example, why doesn't make_recall_monitor's record function raise an alert on the very first few samples passed to it?",
+            "options": [
+              "Because the sliding window hasn't filled to window_size yet, so it returns a 'warming up' result instead of comparing to baseline",
+              "Because the baseline_recall value is set to 0 initially",
+              "Because the deque silently discards the first samples",
+              "Because RECALL_DROP_THRESHOLD only applies after 100 samples"
+            ],
+            "correctAnswer": 0,
+            "explanation": "record checks `if len(window) < window_size: return {\"alert\": False, \"reason\": \"warming up\"}` before comparing against baseline_recall, so early calls can't yet trigger an alert.",
+            "id": "q6"
+          },
+          {
+            "question": "In check_latency_p99([12, 15, 14, 13, 900, 16, 15], threshold_ms=100), what does the function report?",
+            "options": [
+              "alert: True, because the 900ms outlier lands at the 99th-percentile index of the sorted latencies, exceeding the threshold",
+              "alert: False, because the average latency is well under 100ms",
+              "alert: True, because every latency in the list exceeds 100ms",
+              "alert: False, because p99 is not computed from sorted data"
+            ],
+            "correctAnswer": 0,
+            "explanation": "sorted_latencies places 900 near the top of the sorted list; with only 7 samples the p99 index lands on that outlier, so p99_ms is 900, which exceeds threshold_ms=100 and sets alert to True.",
+            "id": "q7"
+          },
+          {
+            "question": "Per 'Common mistakes', why is using an unbounded, all-time average for a quality metric a problem?",
+            "options": [
+              "Because it buries a recent regression under months of good historical data, delaying detection of drift",
+              "Because all-time averages are mathematically impossible to compute",
+              "Because it makes the monitoring code run out of memory immediately",
+              "Because it only works for latency metrics, never recall"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The mistakes section explains that an all-time average dilutes a recent drop with historical good data, which is exactly why the code example uses a bounded sliding window instead.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "vdb_cost_optimization_at_scale",
+      "title": "Cost Optimization at Scale",
+      "description": "Vector search bills scale with dimensions, vector count, and replication — and each has its own lever.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Name at least three concrete levers for reducing vector database cost without abandoning your quality requirements."
+          },
+          {
+            "title": "📉 Reduce what you store",
+            "content": "Lower-dimensional embeddings (a smaller model, or dimensionality reduction like the PCA covered in the Math course) shrink memory and compute per vector. Quantization — the PQ technique from earlier in this course, or simpler scalar quantization — shrinks stored vector size directly, often the single biggest lever at scale."
+          },
+          {
+            "title": "🗑️ Store less of it",
+            "content": "Not every document needs to live in the hot index forever — tiering older or rarely-queried vectors to cheaper storage, or deleting embeddings for deleted source documents (an easy thing to forget, and a slow leak on your bill), both reduce cost directly."
+          },
+          {
+            "title": "⚙️ Tune replication and infrastructure to actual need",
+            "content": "Over-provisioned replicas for a system that doesn't need that much redundancy or throughput is pure waste — right-size replication to your actual availability and QPS requirements, revisited periodically as traffic patterns change, rather than set once at launch and left alone."
+          },
+          {
+            "title": "💵 Measure cost per query, not just total spend",
+            "content": "Total infrastructure spend without a per-query or per-tenant cost breakdown makes it hard to know which lever will actually move the number — the same 'cost per unit of value' discipline the LLMOps course applied to token costs, applied here to vector search queries."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "A small cost-per-query calculator comparing storage and compute tradeoffs across a few index configurations:\n\n```python\n# A tiny cost-per-query comparison across index configurations (NOT production code).\n\nconfigs = {\n    \"full_fp32_3_replicas\": {\n        \"bytes_per_vector\": 1536,   # 384 dims * 4 bytes, fp32\n        \"replicas\": 3,\n        \"monthly_infra_cost\": 900.0,\n    },\n    \"scalar_quantized_3_replicas\": {\n        \"bytes_per_vector\": 384,    # 1 byte per dim after scalar quantization\n        \"replicas\": 3,\n        \"monthly_infra_cost\": 420.0,\n    },\n    \"scalar_quantized_2_replicas\": {\n        \"bytes_per_vector\": 384,\n        \"replicas\": 2,\n        \"monthly_infra_cost\": 300.0,\n    },\n}\n\nvector_count = 10_000_000\nmonthly_queries = 5_000_000\n\n\ndef storage_bytes(config, vector_count):\n    return config[\"bytes_per_vector\"] * vector_count * config[\"replicas\"]\n\n\ndef cost_per_query(config, monthly_queries):\n    return config[\"monthly_infra_cost\"] / monthly_queries\n\n\nfor name, config in configs.items():\n    total_gb = storage_bytes(config, vector_count) / (1024 ** 3)\n    cpq = cost_per_query(config, monthly_queries)\n    print(f\"{name:30s} storage={total_gb:6.1f}GB  cost_per_query=${cpq:.6f}\")\n```\n\n`storage_bytes` shows quantization's effect directly: dropping `bytes_per_vector` from 1536 to 384 (fp32 to scalar quantization) cuts total storage 4x for the same `vector_count` and replica count. `cost_per_query` turns each configuration's flat `monthly_infra_cost` into the same per-unit number the lesson argues for — notice that `scalar_quantized_2_replicas` has both lower storage and a lower cost per query than the full-precision option, but at the cost of one fewer replica's worth of redundancy and read throughput."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Comparing configurations by total monthly cost alone, without normalizing by query volume or vector count.** A configuration that looks cheaper in absolute terms might actually cost more per query once traffic differences are accounted for, hiding the real comparison.\n\n**Cutting replicas to save cost without checking the availability and throughput requirement first.** Fewer replicas directly reduces both fault tolerance and read capacity — a cost win that turns into an incident if it drops below what the product actually needs.\n\n**Forgetting to delete embeddings for documents that were deleted elsewhere in the system.** Orphaned vectors keep consuming storage (and get multiplied by every replica) indefinitely, quietly inflating the bill for data nobody can even query for anymore.\n\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "vdb_cost_optimization_at_scale_quiz",
+        "questions": [
+          {
+            "question": "Which of these is a direct lever for reducing vector database storage cost?",
+            "options": [
+              "Quantizing vectors or using lower-dimensional embeddings",
+              "Increasing the number of replicas",
+              "Adding more metadata fields to every vector",
+              "Switching to exact brute-force search"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Quantization and lower dimensionality both directly shrink the memory footprint per vector, a major cost driver at scale.",
+            "id": "q1"
+          },
+          {
+            "question": "A commonly forgotten source of wasted vector database spend is",
+            "options": [
+              "Leftover embeddings for source documents that were already deleted elsewhere",
+              "Using a distance metric other than Euclidean",
+              "Enabling metadata filtering",
+              "Running a recall benchmark"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Orphaned embeddings for deleted documents quietly consume storage with zero value — a slow, easy-to-miss cost leak.",
+            "id": "q2"
+          },
+          {
+            "question": "Why measure cost per query or per tenant instead of just total infrastructure spend?",
+            "options": [
+              "Because it reveals which specific lever will actually reduce cost, the same way LLMOps tracks cost per token rather than just total spend",
+              "Because per-query cost is required by cloud providers",
+              "Because total spend cannot be measured for vector databases",
+              "Because per-tenant billing is illegal without it"
+            ],
+            "correctAnswer": 0,
+            "explanation": "A granular cost breakdown turns 'the bill is high' into an actionable optimization target, mirroring the cost-per-unit discipline used elsewhere in this curriculum.",
+            "id": "q3"
+          },
+          {
+            "question": "Per the lesson, why should replication be right-sized 'periodically' rather than set once at launch?",
+            "options": [
+              "Because traffic patterns change over time, and infrastructure sized for launch conditions can become over- or under-provisioned later",
+              "Because replicas automatically expire every month",
+              "Because launch-time replication settings are always illegal to keep",
+              "Because periodic resizing is required to keep the embedding model up to date"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson says replication should be right-sized to actual availability and QPS needs and revisited periodically as traffic patterns change, not set once and left alone.",
+            "id": "q4"
+          },
+          {
+            "question": "According to the lesson, what technique from earlier in the course is called out as often the single biggest storage-cost lever?",
+            "options": [
+              "Quantization (such as PQ or scalar quantization)",
+              "Adding more metadata filters",
+              "Switching to a different distance metric",
+              "Increasing the number of shards"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson states quantization, including the PQ technique covered earlier in the course, is often the single biggest lever for reducing storage at scale.",
+            "id": "q5"
+          },
+          {
+            "question": "In the code example, why does scalar_quantized_3_replicas use a much smaller storage_bytes value than full_fp32_3_replicas for the same vector_count?",
+            "options": [
+              "Because its bytes_per_vector is 384 instead of 1536, so storage_bytes (which multiplies bytes_per_vector by vector_count and replicas) scales down proportionally",
+              "Because it uses fewer replicas than full_fp32_3_replicas",
+              "Because it stores fewer vectors overall",
+              "Because monthly_queries is different between the two configs"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Both configs have replicas=3 and the same vector_count; the only difference feeding storage_bytes is bytes_per_vector (1536 vs 384), which directly scales the result.",
+            "id": "q6"
+          },
+          {
+            "question": "Based on the printed output of the code, what tradeoff does scalar_quantized_2_replicas illustrate compared to scalar_quantized_3_replicas?",
+            "options": [
+              "Lower storage and lower cost_per_query, but one fewer replica's worth of redundancy and read throughput",
+              "Higher storage but identical cost_per_query",
+              "Identical storage and identical cost_per_query, differing only in name",
+              "Higher cost_per_query despite fewer replicas"
+            ],
+            "correctAnswer": 0,
+            "explanation": "scalar_quantized_2_replicas shares the same bytes_per_vector as the 3-replica version but has fewer replicas and a lower monthly_infra_cost, so both storage_bytes and cost_per_query come out lower — at the cost of one fewer replica.",
+            "id": "q7"
+          },
+          {
+            "question": "Per 'Common mistakes', why is cutting replicas purely to save cost risky?",
+            "options": [
+              "Because fewer replicas directly reduces fault tolerance and read capacity, which can turn a cost win into an incident if it falls below what the product needs",
+              "Because replicas have no relationship to availability or throughput",
+              "Because cutting replicas always increases storage cost",
+              "Because replica count cannot legally be changed after launch"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The mistakes section warns that reducing replicas without checking the actual availability/throughput requirement first can turn a cost saving into a reliability incident.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,561 @@
+{
+  "id": "agent_fundamentals",
+  "title": "Agent Fundamentals",
+  "description": "What an AI agent actually is, the control loop underneath it, how to make sure it stops, and when an agent is genuinely the right tool.",
+  "icon": "🤖",
+  "color": "#E91E63",
+  "order": 0,
+  "estimatedHours": 5,
+  "difficulty": "beginner",
+  "prerequisites": [],
+  "lessons": [
+    {
+      "id": "agent_what_is_an_agent",
+      "title": "What Is an AI Agent, Really?",
+      "description": "An LLM alone answers questions. An agent decides what to do, does it, checks the result, and decides again.",
+      "duration": "12 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Give a precise definition of an AI agent and distinguish it from a plain LLM call or a fixed prompt chain."
+          },
+          {
+            "title": "🧠 The core definition",
+            "content": "An AI agent is a system where an LLM's outputs control what happens next — which tool gets called, what gets searched, whether to keep going or stop — rather than an LLM simply producing a final answer to a fixed prompt. The defining feature isn't 'it uses an LLM' (a single Q&A call does that too); it's that the LLM is making a **sequence of decisions**, informed by the results of its own previous actions, until some goal is reached or some stopping condition fires.\n\n```python\n# A single LLM call: fixed shape, no loop\nresponse = llm.generate(prompt)  # prompt in, answer out, done\n\n# An agent: the LLM's own output decides what happens next\nwhile not done:\n    decision = llm.decide(state)          # what to do next?\n    result = execute(decision)            # actually do it\n    state = update(state, decision, result)\n    done = decision.is_final_answer\n```"
+          },
+          {
+            "title": "🔗 Agent vs. a single LLM call",
+            "content": "A single LLM call has a fixed shape: prompt in, response out, done. There's no loop, no way for the model to act on the world and see what happened, no way to change its own next step based on new information. An agent adds exactly that: a loop, a set of tools it can invoke, and enough state to remember what it's already tried."
+          },
+          {
+            "title": "⛓️ Agent vs. a fixed chain",
+            "content": "A 'chain' (retrieve, then summarize, then format, in that fixed order) is more capable than a single call, but the sequence of steps is still decided by the developer in advance, not by the model. An agent's defining trait is that the model itself decides the next step dynamically — it might call a search tool, look at the result, decide it needs a different search, call it again, and only then produce an answer. The control flow lives in the model's reasoning, not in a script."
+          },
+          {
+            "title": "🧩 The minimum ingredients",
+            "content": "Every agent needs:\n\n- An **LLM** capable of reasoning about what to do next.\n- A set of **tools/actions** it can invoke and get results back from.\n- A **loop** that keeps calling the LLM with updated context until it's done.\n- A **stopping condition**, so the loop actually terminates.\n\nEvery agent framework you'll encounter — including LangGraph, covered in a later course — is fundamentally a way of implementing and managing these four ingredients."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Calling any LLM-powered feature an 'agent.'** A single call that generates text, even a clever one, isn't an agent unless the model's output is actually controlling a subsequent decision loop.\n\n**Confusing a fixed chain with an agent.** If the sequence of steps is hardcoded by a developer rather than chosen dynamically by the model at runtime, it's a chain, not an agent — a useful and often simpler tool in its own right.\n\n**Building the loop before deciding on a stopping condition.** A control loop with no exit strategy planned from the start is how runaway agents happen — the next lesson makes this the very first design question, not an afterthought."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "agent_what_is_an_agent_quiz",
+        "questions": [
+          {
+            "question": "What is the defining feature of an AI agent compared to a single LLM call?",
+            "options": [
+              "It always uses a larger model",
+              "The LLM's outputs control what happens next in a loop, informed by results of its own previous actions",
+              "It never produces a final text answer",
+              "It requires no tools at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The key difference is dynamic, LLM-driven control flow across multiple steps — not just that an LLM is involved, which is also true of a single Q&A call.",
+            "id": "q1"
+          },
+          {
+            "question": "How does an agent differ from a fixed chain (e.g., always retrieve, then summarize, then format)?",
+            "options": [
+              "An agent never uses retrieval",
+              "In a fixed chain, the developer decides the step sequence in advance; in an agent, the model decides the next step dynamically",
+              "A fixed chain always uses more tools than an agent",
+              "There is no meaningful difference"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A chain's control flow is hardcoded by the developer; an agent's control flow emerges from the model's own reasoning about what to do next based on what it observes.",
+            "id": "q2"
+          },
+          {
+            "question": "Which of these is NOT one of the minimum ingredients of an agent listed in this lesson?",
+            "options": [
+              "A loop that keeps calling the LLM with updated context",
+              "A stopping condition so the loop terminates",
+              "A set of tools/actions the LLM can invoke",
+              "A guarantee that the LLM never makes mistakes"
+            ],
+            "correctAnswer": 3,
+            "explanation": "The four ingredients are an LLM, tools, a loop, and a stopping condition — nothing in the definition of an agent guarantees error-free behavior, which is exactly why later lessons cover guardrails and evaluation.",
+            "id": "q3"
+          },
+          {
+            "question": "In this lesson's code example, what does the while loop check to decide whether to keep going?",
+            "options": [
+              "Whether the decision produced by the LLM is a final answer",
+              "Whether the GPU has run out of memory",
+              "Whether a fixed number of seconds has elapsed",
+              "Whether the tokenizer's vocabulary has changed"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's pseudocode sets done = decision.is_final_answer, meaning the loop keeps running until the LLM's own output indicates it has reached a final answer.",
+            "id": "q4"
+          },
+          {
+            "question": "According to this lesson, what does state represent in the agent loop code example?",
+            "options": [
+              "Enough information to remember what's already been tried, updated after each decision and result",
+              "The GPU driver version installed on the serving machine",
+              "A fixed prompt template that never changes",
+              "The tokenizer's merge rules"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's example updates state after each decision and result, which is exactly the mechanism that lets the agent remember what it has already tried across loop iterations.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does this lesson say every agent framework, including LangGraph, is 'fundamentally a way of implementing and managing' the same four ingredients?",
+            "options": [
+              "Because regardless of framework, an agent still needs an LLM, tools, a loop, and a stopping condition — frameworks differ in how they implement these, not whether they're needed",
+              "Because every framework requires exactly the same programming language",
+              "Because frameworks eliminate the need for an LLM entirely",
+              "Because LangGraph is the only framework capable of running a loop"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson frames frameworks as different implementations of the same underlying minimum ingredients, not as alternatives that avoid needing them.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson warn against calling any LLM-powered feature an 'agent'?",
+            "options": [
+              "Because a single call that generates text isn't an agent unless the model's output is actually controlling a subsequent decision loop",
+              "Because the word 'agent' is trademarked and cannot be used informally",
+              "Because LLM-powered features are never useful outside of agents",
+              "Because every LLM call already qualifies as an agent by definition"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is loosely applying the term 'agent' to any LLM feature, when the defining trait is genuinely dynamic, LLM-driven control over a loop, not just LLM involvement.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson recommend deciding on a stopping condition before building the control loop, rather than after?",
+            "options": [
+              "Because a control loop with no exit strategy planned from the start is how runaway agents happen",
+              "Because stopping conditions are only relevant once an agent is already in production",
+              "Because the LLM will always naturally stop on its own without any explicit mechanism",
+              "Because stopping conditions have no relationship to how a loop is initially designed"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is treating the stopping condition as an afterthought, when planning it from the start is what prevents an unbounded loop later.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "agent_the_control_loop",
+      "title": "The Agent Control Loop",
+      "description": "Thought, action, observation, repeat — the pattern underneath almost every agent you'll build or use.",
+      "duration": "13 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Trace through one full iteration of an agent's control loop and identify each of its stages."
+          },
+          {
+            "title": "🔁 The basic loop",
+            "content": "At each step: the LLM is given the current state (the original goal, everything that's happened so far) and asked what to do next. It produces either a final answer or a decision to take an action (call a specific tool with specific arguments). If it chose an action, that action is actually executed, and the result — the **observation** — is appended to the state. The loop repeats with this updated state, until the LLM produces a final answer or a stopping condition is hit.\n\n```python\nstate = {\"goal\": goal, \"history\": []}\nwhile True:\n    decision = llm.decide(state)\n    if decision.is_final_answer:\n        return decision.answer\n    observation = execute_tool(decision.tool, decision.args)\n    state[\"history\"].append((decision, observation))\n```"
+          },
+          {
+            "title": "📋 What 'state' actually contains",
+            "content": "The state fed into the LLM at every step usually includes:\n\n- The original task or **goal**.\n- The full **history** of thoughts, actions, and observations so far (or some managed/summarized version of it, once it gets long — a preview of the memory module coming later in this course).\n- Any additional **context** the system provides (retrieved documents, user preferences, prior conversation).\n\nThis state is what gets fed back into the LLM at every single step of the loop — the agent's 'memory' of what it's already tried is only as good as what's kept in this state."
+          },
+          {
+            "title": "⚙️ Where the loop actually runs",
+            "content": "The LLM itself never directly 'does' anything — it only produces text describing what it wants to do. The **orchestrating code** (your application, or a framework like LangGraph) is what parses that output, actually calls the requested tool, catches the result, and feeds it back in. This separation matters: the LLM is the decision-maker, but a completely separate, deterministic piece of code is the one enforcing safety, parsing correctness, and actually executing anything."
+          },
+          {
+            "title": "🎯 Why this loop is powerful",
+            "content": "Because each step gets to see the result of the previous one, an agent can course-correct in ways a fixed chain can't — try a search, notice it returned nothing useful, try a different search with different terms, then proceed. This adaptability is exactly the trade a chain gives up for predictability, and it's why agents are suited to open-ended tasks where the right sequence of steps genuinely can't be known in advance."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Letting the LLM directly execute actions instead of routing through orchestrating code.** The model should only ever describe what it wants to do — a separate deterministic layer is what actually performs it, validates it, and can refuse it.\n\n**Forgetting to append the observation back into state.** If a tool's result never makes it back into what the LLM sees next, the loop isn't really adapting to anything — it's just repeating blind guesses.\n\n**Treating the loop as free of the state-growth problem.** Every iteration appends to history, and an agent that runs for many steps will eventually need the context-management strategies covered later in this course, not just a bigger context window."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "agent_the_control_loop_quiz",
+        "questions": [
+          {
+            "question": "What is fed into the LLM at each step of the agent control loop?",
+            "options": [
+              "Only the original task, with no history",
+              "The current state, including the original goal and the history of thoughts/actions/observations so far",
+              "A randomly selected previous observation",
+              "Nothing — the LLM runs with no input after the first step"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Each loop iteration gives the LLM the accumulated state so it can decide the next step in light of everything that's happened so far, not just the original prompt.",
+            "id": "q1"
+          },
+          {
+            "question": "Who or what actually executes a tool call that the LLM decides to make?",
+            "options": [
+              "The LLM directly manipulates external systems itself",
+              "Orchestrating code (the application or framework) parses the LLM's output and actually performs the action",
+              "The action executes automatically without any code involved",
+              "Tool calls are never actually executed, only simulated"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The LLM only produces text describing an intended action; separate deterministic orchestrating code is responsible for actually calling the tool and returning the result.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is the agent control loop more adaptable than a fixed chain for open-ended tasks?",
+            "options": [
+              "It uses a bigger model",
+              "Each step can observe the previous step's result and change course accordingly, rather than following a predetermined sequence",
+              "It never needs a stopping condition",
+              "It eliminates the need for any external tools"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Seeing the outcome of each action before deciding the next one lets an agent correct course dynamically, which a chain's fixed step order cannot do.",
+            "id": "q3"
+          },
+          {
+            "question": "In this lesson's code example, what happens immediately after execute_tool returns a result?",
+            "options": [
+              "The observation is appended to state['history'] alongside the decision",
+              "The entire state dictionary is deleted",
+              "The loop exits immediately regardless of the result",
+              "The LLM is never called again for the rest of the run"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's pseudocode shows state['history'].append((decision, observation)), which is exactly how the result of an action gets fed back into the next iteration.",
+            "id": "q4"
+          },
+          {
+            "question": "According to this lesson, what three things does the state typically include?",
+            "options": [
+              "The original goal, the history of thoughts/actions/observations, and any additional context",
+              "Only the model's parameter count and GPU type",
+              "Only a list of every tool that exists, regardless of relevance",
+              "Only the final answer produced so far"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly lists these three components as what typically makes up the state fed into the LLM at each step.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does this lesson emphasize that 'the LLM itself never directly does anything'?",
+            "options": [
+              "Because the model only produces text describing an intended action, while separate orchestrating code is what actually performs, validates, and can refuse it",
+              "Because LLMs are incapable of producing any output at all",
+              "Because orchestrating code is optional and can be skipped in most agents",
+              "Because the LLM directly modifies external systems without any intermediary"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson stresses this separation because it's what allows a deterministic layer to enforce safety and correctness, rather than trusting the model's raw output to be safe to execute directly.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson warn against letting the LLM directly execute actions instead of routing through orchestrating code?",
+            "options": [
+              "Because a separate deterministic layer is what actually performs, validates, and can refuse an action, rather than trusting the model's judgment alone",
+              "Because LLMs are always faster at executing actions than orchestrating code",
+              "Because orchestrating code has no role in a well-designed agent",
+              "Because direct execution by the LLM is technically impossible in any framework"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is skipping the orchestrating layer, which is specifically what enforces safety and correctness independent of the model's own judgment.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson caution that the control loop is not free of the state-growth problem?",
+            "options": [
+              "Because every iteration appends to history, and a long-running agent will eventually need context-management strategies, not just a bigger context window",
+              "Because state never actually grows over the course of an agent run",
+              "Because context-management strategies are irrelevant to agent loops specifically",
+              "Because a bigger context window always fully solves the state-growth problem on its own"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is assuming the loop's state can grow indefinitely without consequence, when it will eventually require the context-management techniques covered later in the course.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "agent_stopping_conditions_and_loops",
+      "title": "Stopping Conditions: Making Sure the Loop Actually Ends",
+      "description": "An agent without a real stop condition doesn't loop forever gracefully — it burns tokens, time, and money until something external kills it.",
+      "duration": "12 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "List the common stopping condition mechanisms for agents and explain why relying on the model alone to stop is risky."
+          },
+          {
+            "title": "⚠️ Why this is a real problem",
+            "content": "The most natural stopping signal — 'the model decides it's done and stops calling tools' — is exactly the kind of thing that can fail silently. A model can get stuck in a pattern of retrying a failing tool call with slightly different arguments indefinitely, or oscillate between two actions without making progress, or simply misjudge that a task needs one more step when it doesn't. Relying purely on the model's own judgment to know when to stop is not a safe default for anything running unattended."
+          },
+          {
+            "title": "🔢 Max steps / max iterations",
+            "content": "The simplest and most important safeguard: a hard cap on the number of loop iterations, enforced entirely outside the model (in your orchestrating code), so no matter what the model decides, the loop cannot run forever. This should be considered mandatory for any agent, not an optional nice-to-have — it's the difference between a bug costing a few extra tool calls versus an unbounded bill.\n\n```python\nMAX_STEPS = 25\nfor step in range(MAX_STEPS):\n    decision = llm.decide(state)\n    if decision.is_final_answer:\n        return decision.answer\n    state[\"history\"].append((decision, execute_tool(decision)))\nraise AgentTimeoutError(\"max steps exceeded\")  # never a silent infinite loop\n```"
+          },
+          {
+            "title": "⏱️ Timeout-based limits",
+            "content": "A wall-clock time budget for the whole task, useful when individual steps have variable duration (a slow API call, a long-running tool) and step-count alone doesn't capture the real cost. Often used alongside max-iterations rather than instead of it."
+          },
+          {
+            "title": "🎯 Goal-completion and confidence signals",
+            "content": "Beyond hard limits, well-designed agents include explicit signals for 'done': a specific tool or output format the model uses to indicate task completion (rather than just stopping calling tools), sometimes paired with a self-check step where the agent evaluates whether the goal was actually satisfied before declaring success — which helps catch the case where the model stops early, having convinced itself a partial result is sufficient."
+          },
+          {
+            "title": "🔁 Loop-detection as a safety net",
+            "content": "Detecting when the agent is repeating the same action with the same or very similar arguments multiple times in a row, and forcibly intervening (asking the model to try something different, or halting and reporting failure) rather than letting the pattern continue until a hard step limit is finally hit. This catches unproductive stalls earlier and more gracefully than waiting for the max-iterations cutoff."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Shipping an agent with no max-iterations cap at all.** Trusting the model to always know when to stop is exactly the assumption this lesson opens by warning against.\n\n**Setting a max-iterations cap so high it's effectively meaningless.** A cap of 10,000 steps is barely different from no cap at all for cost and latency purposes — the limit needs to reflect what a reasonable task actually requires.\n\n**Relying on loop-detection alone without a hard step cap.** Loop-detection catches a specific pattern (repeating near-identical actions); it isn't a substitute for the unconditional guarantee a max-iterations limit provides against every other way a loop could fail to terminate."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "agent_stopping_conditions_and_loops_quiz",
+        "questions": [
+          {
+            "question": "Why is relying purely on the model's own judgment to decide when to stop considered risky?",
+            "options": [
+              "Models are incapable of ever producing a final answer",
+              "A model can get stuck retrying failing actions, oscillating, or misjudging completion, with nothing external to catch it",
+              "It's technically impossible for a model to signal it's done",
+              "It always uses more tokens than a fixed step count"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Models can loop unproductively or misjudge task completion, and without an external safeguard, nothing stops that from running indefinitely.",
+            "id": "q1"
+          },
+          {
+            "question": "What is the most important, close-to-mandatory safeguard for any agent loop?",
+            "options": [
+              "A larger context window",
+              "A hard cap on the number of loop iterations, enforced outside the model",
+              "Removing all tools from the agent",
+              "Using only the largest available model"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A max-iterations cap enforced in orchestrating code guarantees termination no matter what the model does internally, which is why it's treated as close to mandatory.",
+            "id": "q2"
+          },
+          {
+            "question": "What does loop-detection add on top of a simple max-iterations cap?",
+            "options": [
+              "It removes the need for any stopping condition at all",
+              "It catches unproductive repeated actions earlier and more gracefully than waiting for the hard step limit to be hit",
+              "It makes the agent run indefinitely by design",
+              "It only works if the agent has no tools"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Loop-detection can intervene as soon as a repetitive, unproductive pattern is spotted, rather than letting it continue burning steps until the hard cap is finally reached.",
+            "id": "q3"
+          },
+          {
+            "question": "In this lesson's code example, what happens if the loop reaches MAX_STEPS without the LLM producing a final answer?",
+            "options": [
+              "An AgentTimeoutError is raised instead of looping silently forever",
+              "The loop automatically doubles MAX_STEPS and continues",
+              "The state dictionary is silently deleted with no error",
+              "The LLM is called one final time with no state at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example explicitly raises an AgentTimeoutError once the for loop over range(MAX_STEPS) completes without an early return, guaranteeing the loop cannot run forever silently.",
+            "id": "q4"
+          },
+          {
+            "question": "According to this lesson, what is a benefit of timeout-based limits compared to a pure step-count cap?",
+            "options": [
+              "They capture real cost better when individual steps have highly variable duration, like a slow API call",
+              "They eliminate the need for a max-iterations cap entirely",
+              "They only apply to agents with no tools",
+              "They make loop-detection unnecessary"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explains that step count alone doesn't capture cost well when steps vary a lot in duration, which is exactly what a wall-clock timeout budget addresses, usually alongside a step cap rather than replacing it.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does this lesson recommend pairing a goal-completion signal with a self-check step?",
+            "options": [
+              "Because it helps catch the case where the model stops early, having convinced itself a partial result is sufficient",
+              "Because self-check steps eliminate the need for any max-iterations cap",
+              "Because goal-completion signals are only useful without any verification step",
+              "Because a self-check step guarantees the agent will never stop early"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson notes that a self-check step evaluating whether the goal was actually satisfied helps catch premature completion that a bare 'I'm done' signal from the model wouldn't catch on its own.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson warn against setting a max-iterations cap so high it's effectively meaningless?",
+            "options": [
+              "Because a cap like 10,000 steps is barely different from no cap at all for cost and latency purposes",
+              "Because a higher cap always makes an agent run faster",
+              "Because max-iterations caps have no relationship to cost or latency",
+              "Because an extremely high cap guarantees the agent will never fail"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is picking a cap too loose to actually bound cost or latency in practice, defeating the purpose of having one at all.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson caution against relying on loop-detection alone without a hard step cap?",
+            "options": [
+              "Because loop-detection only catches a specific pattern (near-identical repeated actions) and isn't a substitute for the unconditional guarantee a step cap provides",
+              "Because loop-detection is strictly more reliable than any step cap in every situation",
+              "Because step caps and loop-detection are functionally identical mechanisms",
+              "Because loop-detection makes a step cap technically impossible to implement"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is treating loop-detection as sufficient on its own, when it only catches one specific failure pattern rather than guaranteeing termination the way a hard step cap does.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "agent_when_to_use_an_agent",
+      "title": "When You Actually Need an Agent (and When You Don't)",
+      "description": "Agents solve real problems, but they're slower, less predictable, and more expensive than the alternatives — reach for them deliberately.",
+      "duration": "12 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Given a task description, judge whether it genuinely needs an agentic loop or would be better served by a single call, a fixed chain, or RAG alone."
+          },
+          {
+            "title": "💸 The real costs of going agentic",
+            "content": "- **More LLM calls per task** (each loop iteration is at least one call), which means more latency and more cost than a single well-crafted prompt.\n- **Less predictability** — the exact sequence of steps isn't fixed in advance, which makes testing, debugging, and giving users a consistent experience genuinely harder.\n- **More failure surface** — every additional tool call and reasoning step is another place for something to go wrong, compounding the reliability challenges covered later in this course."
+          },
+          {
+            "title": "✅ When an agent is actually the right tool",
+            "content": "- The task genuinely requires a variable, unpredictable number of steps that can't be known in advance (research questions where the right follow-up query depends on what the first search returns).\n- The task requires taking real actions in the world, not just producing text (filing a ticket, running a calculation, updating a record), especially when several actions might be needed in an order that depends on intermediate results.\n- The task benefits from self-correction — checking work and retrying differently if the first attempt didn't pan out."
+          },
+          {
+            "title": "❌ When something simpler is the better choice",
+            "content": "- A well-known, fixed sequence of steps (retrieve, then generate, then format) — that's a **chain**, not an agent, and a chain is more predictable and cheaper for exactly that reason.\n- A task that's fundamentally about answering from known information — that's what **RAG** (no agentic loop needed) is built for, as covered in the RAG course.\n- A task with one clear action and no need to inspect the result before proceeding — often just a single tool-augmented call, not a full loop."
+          },
+          {
+            "title": "🧭 A practical rule of thumb",
+            "content": "Start with the simplest thing that could work — a single call, then a fixed chain, then RAG if facts are the issue — and only reach for a full agentic loop when you can point to a specific reason none of those simpler approaches would suffice for this particular task. Agents are a powerful tool for the right problem, and a needlessly expensive, harder-to-debug choice for the wrong one.\n\n```python\n# A simplified decision heuristic\nif task.needs_variable_unpredictable_steps or task.needs_self_correction:\n    approach = \"agent\"\nelif task.step_sequence_is_fixed:\n    approach = \"chain\"\nelif task.is_answerable_from_known_documents:\n    approach = \"RAG\"\nelse:\n    approach = \"single call\"  # the default until proven insufficient\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Reaching for an agent as the default starting point.** The practical rule of thumb in this lesson exists precisely because a single call or a chain solves most tasks more cheaply and predictably.\n\n**Building an agent for a task with a genuinely fixed step sequence.** If the same steps happen in the same order every time, a chain gets the same result with far less cost, latency, and debugging difficulty.\n\n**Ignoring the failure-surface cost when scoping a new project.** Every extra tool call and reasoning step in an agentic loop is one more place for something to go wrong — a cost worth weighing explicitly, not discovering after the fact."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "agent_when_to_use_an_agent_quiz",
+        "questions": [
+          {
+            "question": "What is a real cost of using an agentic loop compared to a single LLM call?",
+            "options": [
+              "Agents are always cheaper because they use fewer tokens",
+              "More LLM calls per task, more latency, less predictability, and more failure surface",
+              "Agents eliminate the need for any evaluation",
+              "Agents never require tools"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Each loop iteration typically costs at least one more LLM call, and the unpredictable step count makes agents slower, costlier, and harder to test than simpler approaches.",
+            "id": "q1"
+          },
+          {
+            "question": "Which scenario is the best candidate for an actual agentic loop, per this lesson?",
+            "options": [
+              "A fixed, always-the-same sequence of retrieve-then-format steps",
+              "A research task where the right follow-up query depends on what an earlier search returned",
+              "Answering a question purely from a known knowledge base with no actions needed",
+              "A single clearly-defined tool call with no need to inspect the result"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Genuinely unpredictable, result-dependent step sequences are exactly what an agentic loop is suited for — the other scenarios are better served by a chain, RAG, or a single call.",
+            "id": "q2"
+          },
+          {
+            "question": "What is the practical rule of thumb this lesson recommends for choosing an approach?",
+            "options": [
+              "Always start with a full agentic loop for every task",
+              "Start with the simplest approach that could work, and escalate to an agent only with a specific reason simpler options won't suffice",
+              "Never use agents under any circumstances",
+              "Use RAG only when an agent is unavailable"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The recommended default is to start simple (single call, then chain, then RAG) and only reach for the complexity and cost of a full agent when there's a concrete reason it's needed.",
+            "id": "q3"
+          },
+          {
+            "question": "In this lesson's decision heuristic code, what approach is chosen when none of the other conditions are met?",
+            "options": [
+              "'single call', treated as the default until proven insufficient",
+              "'agent', regardless of the task's actual requirements",
+              "No approach at all — the heuristic returns nothing",
+              "'chain', regardless of whether the step sequence is fixed"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example falls through to approach = 'single call' as the default, reflecting the rule of thumb of starting with the simplest option.",
+            "id": "q4"
+          },
+          {
+            "question": "According to this lesson's code example, which condition would route a task to the 'RAG' approach?",
+            "options": [
+              "The task is answerable from known documents, and doesn't need a fixed step sequence or variable unpredictable steps",
+              "The task requires an unpredictable number of steps",
+              "The task has a completely fixed sequence of steps",
+              "The task requires no information lookup of any kind"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's heuristic checks task.is_answerable_from_known_documents after ruling out the agent and chain conditions, routing purely factual, non-agentic needs to RAG.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does this lesson list 'less predictability' as a real cost of agents, specifically calling out testing and debugging?",
+            "options": [
+              "Because the exact sequence of steps isn't fixed in advance, which makes testing, debugging, and giving users a consistent experience genuinely harder",
+              "Because agents always produce identical output on every single run",
+              "Because predictability has no bearing on how easy a system is to test or debug",
+              "Because chains are always less predictable than agents"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly connects an agent's variable step sequence to real difficulties in testing, debugging, and delivering a consistent user experience.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson warn against reaching for an agent as the default starting point?",
+            "options": [
+              "Because the practical rule of thumb exists precisely because a single call or a chain solves most tasks more cheaply and predictably",
+              "Because agents are technically incapable of solving any task correctly",
+              "Because starting with an agent is always the fastest way to ship a working system",
+              "Because chains and single calls are always strictly worse than agents for every task"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is defaulting to an agent, when starting with the simplest sufficient approach is both cheaper and more predictable for most tasks.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson caution against ignoring the failure-surface cost when scoping a new project?",
+            "options": [
+              "Because every extra tool call and reasoning step in an agentic loop is one more place for something to go wrong, a cost worth weighing explicitly",
+              "Because failure surface only matters once an agent is already fully built and deployed",
+              "Because agentic loops have no more failure surface than a single LLM call",
+              "Because failure surface is entirely unrelated to how many tool calls or steps a task involves"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is overlooking this cost during planning, when it should be weighed explicitly against the benefits an agent might provide for a given task.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

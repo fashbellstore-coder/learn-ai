@@ -1,0 +1,563 @@
+{
+  "id": "inf_serving_frameworks",
+  "title": "Serving Frameworks & Infrastructure",
+  "description": "vLLM's architecture, alternative engines, multi-GPU tensor parallelism, and autoscaling inference safely.",
+  "icon": "🏗️",
+  "color": "#F9A825",
+  "order": 4,
+  "estimatedHours": 4,
+  "difficulty": "advanced",
+  "prerequisites": [
+    "inf_quantization_and_compression"
+  ],
+  "lessons": [
+    {
+      "id": "inf_vllm_architecture",
+      "title": "vLLM's Architecture",
+      "description": "A concrete look at the serving engine that popularized PagedAttention and continuous batching together.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Describe how vLLM combines the concepts from Modules 1 and 2 into a single serving engine."
+          },
+          {
+            "title": "🧩 Bringing the pieces together",
+            "content": "vLLM is a serving engine built specifically around PagedAttention (for efficient, non-fragmented KV cache memory) and continuous batching (for high GPU utilization) — the two techniques covered earlier in this course, now seen as parts of one concrete, widely-used system rather than abstract ideas."
+          },
+          {
+            "title": "🔌 What it looks like to use",
+            "content": "vLLM exposes an OpenAI-compatible API, meaning applications built against the OpenAI API pattern from the LLM course can often point at a self-hosted vLLM server with minimal code changes — an example of an interface convention becoming a de facto standard across the ecosystem."
+          },
+          {
+            "title": "📈 Why it matters for this course's whole arc",
+            "content": "vLLM is a good checkpoint for everything covered so far: it demonstrates PagedAttention and continuous batching in a real system, supports quantized weights and KV cache from Module 3, and exposes scheduling controls related to Module 2's request scheduling — a single system where nearly every earlier lesson in this course shows up as a concrete configuration option."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "A tiny, illustrative model of vLLM's scheduler and paged KV cache, using plain dicts and lists to stand in for the real engine:\n\n```python\n# A tiny illustrative model of vLLM's scheduler + paged KV cache (NOT production code).\n\nTOTAL_BLOCKS = 6   # total physical KV cache blocks available on the GPU\nBLOCK_SIZE = 4     # tokens each block can hold\n\nfree_blocks = list(range(TOTAL_BLOCKS))\nblock_table = {}   # request_id -> list of assigned block ids\nrunning = []        # requests currently being generated (the continuous batch)\n\nrequests = {\n    \"req_a\": {\"tokens_generated\": 0, \"tokens_needed\": 6},\n    \"req_b\": {\"tokens_generated\": 0, \"tokens_needed\": 10},\n    \"req_c\": {\"tokens_generated\": 0, \"tokens_needed\": 3},\n}\nwaiting = list(requests.keys())\n\n\ndef blocks_needed(tokens):\n    return -(-tokens // BLOCK_SIZE)  # ceil division: a partial block still costs a whole block\n\n\ndef try_schedule(req_id):\n    needed = blocks_needed(requests[req_id][\"tokens_needed\"])\n    if len(free_blocks) >= needed:\n        block_table[req_id] = [free_blocks.pop() for _ in range(needed)]\n        running.append(req_id)\n        return True\n    return False\n\n\ndef step():\n    # Admit as many waiting requests as free blocks allow. This is continuous\n    # batching: new requests can join the running batch at any step, not\n    # only at a fixed batch boundary.\n    for req_id in list(waiting):\n        if try_schedule(req_id):\n            waiting.remove(req_id)\n\n    # Advance every running request by one generated token.\n    for req_id in list(running):\n        requests[req_id][\"tokens_generated\"] += 1\n        if requests[req_id][\"tokens_generated\"] >= requests[req_id][\"tokens_needed\"]:\n            running.remove(req_id)\n            free_blocks.extend(block_table.pop(req_id))  # paged KV cache blocks freed\n\n\nfor t in range(4):\n    step()\n    print(f\"t={t} running={running} waiting={waiting} free_blocks={len(free_blocks)}\")\n```\n\n`try_schedule` only admits a request once enough free blocks exist for it — no contiguous span of memory is required, just enough individually-tracked blocks, which is the core idea behind PagedAttention. `step()` shows continuous batching directly: it tries to admit waiting requests on every single step rather than only between fixed batches, and blocks are returned to the free pool only once a request finishes generating all of its tokens."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming API compatibility means identical model behavior.** vLLM's OpenAI-compatible endpoint matches the request/response shape, but sampling defaults, supported parameters, and available models still differ from a hosted OpenAI endpoint — swapping the base URL isn't the same as guaranteeing identical outputs.\n\n**Leaving scheduling and memory settings at their defaults.** vLLM exposes real controls over batching and KV cache memory that mirror the request-scheduling ideas from Module 2; ignoring them and hoping the defaults fit your workload leaves throughput on the table or risks running out of memory under load.\n\n**Forgetting that quantization support is kernel-specific.** Not every quantized weight format has an optimized kernel in every serving engine version; assuming a checkpoint quantized for one engine \"just works\" in vLLM can silently fall back to a slow path or fail to load.\n\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "inf_vllm_architecture_quiz",
+        "questions": [
+          {
+            "question": "vLLM is built around which two core techniques from earlier in this course?",
+            "options": [
+              "PagedAttention and continuous batching",
+              "Speculative decoding and GQA only",
+              "Distillation and quantization-aware training",
+              "Static batching and MQA"
+            ],
+            "correctAnswer": 0,
+            "explanation": "vLLM's design directly combines PagedAttention's memory efficiency with continuous batching's throughput gains, the two ideas covered in this course's KV cache and batching modules.",
+            "id": "q1"
+          },
+          {
+            "question": "Why does vLLM's OpenAI-compatible API matter practically?",
+            "options": [
+              "Because applications built against the OpenAI API convention can often point at a self-hosted vLLM server with minimal code changes",
+              "Because it means vLLM cannot serve open-source models",
+              "Because it eliminates the need for any authentication",
+              "Because it means vLLM only works with OpenAI's own models"
+            ],
+            "correctAnswer": 0,
+            "explanation": "A shared API convention lowers the switching cost between a hosted API and self-hosted serving, which is a meaningful practical benefit.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is vLLM described as a good checkpoint for this course's material overall?",
+            "options": [
+              "Because it demonstrates PagedAttention, continuous batching, quantization support, and scheduling controls together in one concrete system",
+              "Because it is the only serving engine that exists",
+              "Because it eliminates the need to understand any of the underlying concepts",
+              "Because it was covered before any of the underlying concepts in this course"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Nearly every concept from the KV cache, batching, and quantization modules shows up as a real, configurable feature in vLLM.",
+            "id": "q3"
+          },
+          {
+            "question": "Per the lesson's stated learning objective, what should you be able to do after this lesson?",
+            "options": [
+              "Describe how vLLM combines the concepts from Modules 1 and 2 into a single serving engine",
+              "Implement PagedAttention from scratch in CUDA",
+              "Name every configuration flag vLLM supports",
+              "Explain how vLLM differs from a relational database"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's 'What you should be able to do' section states the goal is describing how vLLM combines the Module 1 and 2 concepts into one engine.",
+            "id": "q4"
+          },
+          {
+            "question": "The lesson frames vLLM's OpenAI-compatible API as an example of what broader pattern?",
+            "options": [
+              "An interface convention becoming a de facto standard across the ecosystem",
+              "A security vulnerability common to all serving engines",
+              "A pattern unique to vLLM that no other engine has ever used",
+              "A reason to avoid using self-hosted serving entirely"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly describes this as an interface convention becoming a de facto standard across the ecosystem.",
+            "id": "q5"
+          },
+          {
+            "question": "In the toy scheduler code, why does blocks_needed use ceiling division instead of regular division?",
+            "options": [
+              "Because a request whose token count doesn't divide evenly into BLOCK_SIZE still needs a whole extra block to hold the remainder",
+              "Because ceiling division makes the code run faster",
+              "Because regular division would raise an error in Python",
+              "Because it determines how many requests can be admitted, not how many blocks a request needs"
+            ],
+            "correctAnswer": 0,
+            "explanation": "blocks_needed computes -(-tokens // BLOCK_SIZE), the standard ceiling-division trick, since even a partial block's worth of tokens still occupies a full physical block.",
+            "id": "q6"
+          },
+          {
+            "question": "Given TOTAL_BLOCKS=6, BLOCK_SIZE=4, and req_a/req_b/req_c needing 2, 3, and 1 blocks respectively, what happens at t=0 in the simulation?",
+            "options": [
+              "All three requests are immediately admitted into the running batch, since their combined block need (6) exactly equals the available blocks",
+              "Only req_a is admitted and the other two stay waiting forever",
+              "None of the requests can be scheduled because free_blocks starts empty",
+              "The simulation raises an error because too many requests were submitted at once"
+            ],
+            "correctAnswer": 0,
+            "explanation": "step() tries to schedule every waiting request each call; since 2 + 3 + 1 = 6 exactly matches TOTAL_BLOCKS, all three fit and the waiting list empties immediately at t=0.",
+            "id": "q7"
+          },
+          {
+            "question": "Per 'Common mistakes', why can assuming vLLM's OpenAI compatibility guarantees identical behavior be a problem?",
+            "options": [
+              "Because sampling defaults, supported parameters, and available models can still differ from a hosted OpenAI endpoint even though the request/response shape matches",
+              "Because vLLM's API is not actually compatible with any OpenAI client library",
+              "Because vLLM requires a completely different authentication scheme for every request",
+              "Because vLLM cannot serve more than one model at a time"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The mistakes section notes that matching the request/response shape isn't the same as guaranteeing identical outputs, since defaults and supported models can still differ.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "inf_tensorrt_llm_and_other_engines",
+      "title": "TensorRT-LLM and Other Engines",
+      "description": "vLLM isn't the only option — knowing the landscape helps you choose deliberately.",
+      "duration": 11,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Name at least one alternative serving engine to vLLM and explain a factor that might favor it."
+          },
+          {
+            "title": "⚙️ TensorRT-LLM: hardware-specific optimization",
+            "content": "TensorRT-LLM, built by NVIDIA, compiles models into highly optimized kernels specific to NVIDIA GPU architectures, often achieving excellent raw performance on that specific hardware at the cost of being less portable across other hardware vendors than a more general framework."
+          },
+          {
+            "title": "🌐 Other engines and the general pattern",
+            "content": "Text Generation Inference (TGI), and other serving frameworks, each make different trade-offs among ease of use, hardware portability, feature breadth (like structured output support), and raw performance on specific hardware — the same 'no universally best choice' pattern seen in the vector database module's comparison of Qdrant, Pinecone, and pgvector."
+          },
+          {
+            "title": "🧭 How to actually choose",
+            "content": "The decision should follow the same framework used for choosing a vector database: what hardware are you committed to, what scale and latency targets do you have, and how much engineering time can you invest in a more specialized but more performant option versus a more general, easier-to-adopt one."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "A tiny decision-scoring function that weighs serving engines against a few criteria, the way you might quantify the trade-offs described above:\n\n```python\n# A tiny illustrative engine-scoring function (NOT production code).\n\nengines = {\n    \"vLLM\": {\"portability\": 9, \"raw_speed_nvidia\": 7, \"ease_of_use\": 8, \"feature_breadth\": 8},\n    \"TensorRT-LLM\": {\"portability\": 3, \"raw_speed_nvidia\": 10, \"ease_of_use\": 5, \"feature_breadth\": 6},\n    \"TGI\": {\"portability\": 8, \"raw_speed_nvidia\": 7, \"ease_of_use\": 7, \"feature_breadth\": 7},\n}\n\n\ndef score_engine(metrics, weights):\n    return sum(metrics[criterion] * weight for criterion, weight in weights.items())\n\n\ndef rank_engines(engines, weights):\n    scored = {name: score_engine(metrics, weights) for name, metrics in engines.items()}\n    return sorted(scored.items(), key=lambda pair: pair[1], reverse=True)\n\n\n# Scenario A: committed to NVIDIA hardware, latency-critical, engineering time available.\nnvidia_latency_weights = {\n    \"portability\": 0.1, \"raw_speed_nvidia\": 0.6, \"ease_of_use\": 0.1, \"feature_breadth\": 0.2,\n}\n\n# Scenario B: mixed hardware fleet, want to move fast with limited engineering time.\nportable_easy_weights = {\n    \"portability\": 0.4, \"raw_speed_nvidia\": 0.1, \"ease_of_use\": 0.4, \"feature_breadth\": 0.1,\n}\n\nprint(rank_engines(engines, nvidia_latency_weights))\nprint(rank_engines(engines, portable_easy_weights))\n```\n\nNotice that Scenario A (heavy weight on NVIDIA raw speed) ranks TensorRT-LLM first, while Scenario B (heavy weight on portability and ease of use) ranks it last — the same requirements-first decision the lesson describes, just made concrete as weighted scores instead of an abstract heuristic."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Picking an engine based on a single \"best\" benchmark number.** A published benchmark reflects one hardware setup, batch size, and model — the ranking can flip entirely once you weight by your own constraints, as the scoring example shows for TensorRT-LLM under different scenarios.\n\n**Ignoring hardware lock-in until after adoption.** TensorRT-LLM's compiled, hardware-specific kernels deliver strong performance on NVIDIA GPUs, but committing to it before confirming your infrastructure will stay NVIDIA-only can be an expensive decision to reverse later.\n\n**Treating feature breadth as an afterthought.** Capabilities like structured output support can matter as much as raw throughput for a given product; scoring engines purely on speed and portability while ignoring feature needs can produce the wrong choice.\n\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "inf_tensorrt_llm_and_other_engines_quiz",
+        "questions": [
+          {
+            "question": "What is TensorRT-LLM's key trade-off compared to a more general serving framework?",
+            "options": [
+              "It achieves excellent performance on NVIDIA-specific hardware but is less portable across other hardware vendors",
+              "It only works with quantized models",
+              "It cannot use continuous batching at all",
+              "It requires no GPU whatsoever"
+            ],
+            "correctAnswer": 0,
+            "explanation": "TensorRT-LLM's hardware-specific compilation is what enables its strong NVIDIA performance, at the cost of reduced portability to other hardware.",
+            "id": "q1"
+          },
+          {
+            "question": "Choosing between serving engines like vLLM and TensorRT-LLM should be driven by",
+            "options": [
+              "Your committed hardware, scale/latency targets, and available engineering investment — similar to the vector database choice framework",
+              "Whichever engine was released most recently",
+              "Always picking the engine with the most GitHub stars",
+              "Avoiding any comparison and using the first engine found"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The same requirements-first decision process used for choosing a vector database applies here: concrete constraints should drive the choice, not popularity.",
+            "id": "q2"
+          },
+          {
+            "question": "The existence of multiple serving engines with different trade-offs mirrors which earlier topic in this curriculum?",
+            "options": [
+              "The comparison of vector database options like Qdrant, Pinecone, and pgvector, each with different trade-offs",
+              "The comparison of tokenizers in the LLM course",
+              "The comparison of activation functions in the Deep Learning course",
+              "The comparison of SQL join types"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Both cases involve multiple valid tools trading off scale, portability, and ease of use — there's no universal winner, only a best fit for specific constraints.",
+            "id": "q3"
+          },
+          {
+            "question": "Per the lesson's stated learning objective, what should you be able to do after this lesson?",
+            "options": [
+              "Name at least one alternative serving engine to vLLM and explain a factor that might favor it",
+              "Recompile TensorRT-LLM kernels from source",
+              "List every serving engine ever released",
+              "Prove that vLLM is always the best choice"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's 'What you should be able to do' section states the goal is naming an alternative engine and a factor that might favor it.",
+            "id": "q4"
+          },
+          {
+            "question": "According to the lesson, what do frameworks like TGI trade off among?",
+            "options": [
+              "Ease of use, hardware portability, feature breadth, and raw performance on specific hardware",
+              "Only the programming language used to write the framework",
+              "Only the price charged per API call",
+              "Only how many parameters the served model has"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson describes TGI and similar frameworks as each making different trade-offs among ease of use, portability, feature breadth, and raw hardware performance.",
+            "id": "q5"
+          },
+          {
+            "question": "In the scoring example, why does TensorRT-LLM rank first under nvidia_latency_weights but last under portable_easy_weights?",
+            "options": [
+              "Because the weights shift emphasis from raw_speed_nvidia (where it scores highest) to portability and ease_of_use (where it scores lowest)",
+              "Because score_engine ignores the weights dictionary entirely",
+              "Because TensorRT-LLM's metrics dictionary changes between the two scenarios",
+              "Because rank_engines always returns the same order regardless of weights"
+            ],
+            "correctAnswer": 0,
+            "explanation": "TensorRT-LLM has the highest raw_speed_nvidia score but the lowest portability and ease_of_use scores, so which criteria the weights emphasize flips its rank.",
+            "id": "q6"
+          },
+          {
+            "question": "What does score_engine compute for a given engine?",
+            "options": [
+              "A weighted sum of that engine's metrics, using the supplied weights dictionary",
+              "The number of GPUs required to run that engine",
+              "A random score used to break ties",
+              "The total memory footprint of the engine's binary"
+            ],
+            "correctAnswer": 0,
+            "explanation": "score_engine sums metrics[criterion] * weight over every criterion in the weights dictionary, producing one weighted score per engine.",
+            "id": "q7"
+          },
+          {
+            "question": "Per 'Common mistakes', why is picking an engine from a single published benchmark misleading?",
+            "options": [
+              "Because a benchmark reflects one hardware setup, batch size, and model, and the ranking can flip once weighted by your own constraints",
+              "Because published benchmarks are always fabricated",
+              "Because benchmarks only ever measure memory usage, never speed",
+              "Because engines cannot legally publish benchmark numbers"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The mistakes section explains that a single benchmark reflects one specific setup, and re-weighting by your own priorities — as the scoring example shows — can produce a very different ranking.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "inf_multi_gpu_and_tensor_parallelism",
+      "title": "Multi-GPU and Tensor Parallelism",
+      "description": "What to do when a model is too big for one GPU's memory, no matter how well you quantize it.",
+      "duration": 13,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain what tensor parallelism does and why it's needed even after applying quantization."
+          },
+          {
+            "title": "📏 When one GPU isn't enough",
+            "content": "Even aggressive quantization has a floor — a very large model may still not fit on a single GPU's memory, or may need faster response times than a single GPU can provide even when it fits. At that point, spreading the model across multiple GPUs becomes necessary rather than optional."
+          },
+          {
+            "title": "✂️ Tensor parallelism: splitting individual layers",
+            "content": "Tensor parallelism splits individual weight matrices across multiple GPUs, so each GPU computes a portion of each layer's operation and the partial results are combined via fast interconnects — different from splitting the model layer-by-layer across GPUs (pipeline parallelism), which sends whole layers' worth of computation to different devices in sequence."
+          },
+          {
+            "title": "🔌 The interconnect becomes the bottleneck",
+            "content": "Because tensor parallelism requires GPUs to exchange partial results at every layer, the speed of the connection between GPUs (like NVLink) becomes critical — a fast GPU with a slow interconnect to its neighbors can bottleneck the whole setup, which is why multi-GPU inference hardware choices matter as much as the GPUs themselves."
+          },
+          {
+            "title": "🔗 An echo of the Cloud course's infrastructure lessons",
+            "content": "This is the same shape of problem the Cloud course's GPU-cluster lesson raised for training: coordinating multiple devices efficiently requires the right networking, not just the right compute, and getting it wrong quietly turns 'more GPUs' into 'more idle GPUs waiting on each other.'"
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "A toy function that splits a weight matrix's rows across simulated \"GPU shards\", computes each shard's partial output independently, then reassembles the full result:\n\n```python\n# A tiny illustrative tensor-parallel matmul split across simulated \"GPU shards\" (NOT production code).\n\n# Each row of `weights` is one output neuron's weights (an output x input matrix).\nweights = [\n    [1, 2, 3, 4],   # neuron 0\n    [5, 6, 7, 8],   # neuron 1\n    [1, 0, 1, 0],   # neuron 2\n    [0, 2, 0, 2],   # neuron 3\n]\ninput_vector = [1, 1, 3, 1]\n\nNUM_GPUS = 2\n\n\ndef split_rows(matrix, num_shards):\n    # The tensor-parallelism split: each GPU owns a slice of one layer's\n    # weights (some output neurons), not a whole separate layer.\n    shard_size = len(matrix) // num_shards\n    return [matrix[i * shard_size:(i + 1) * shard_size] for i in range(num_shards)]\n\n\ndef gpu_partial_matvec(weight_shard, vector):\n    # Each simulated GPU only ever sees its own weight shard, never the\n    # full matrix, and computes just the output rows it owns.\n    return [sum(w * v for w, v in zip(row, vector)) for row in weight_shard]\n\n\ndef all_gather(partial_outputs):\n    # Stand-in for the fast-interconnect step (e.g. NVLink) that combines\n    # every GPU's partial output back into the full result vector.\n    combined = []\n    for partial in partial_outputs:\n        combined.extend(partial)\n    return combined\n\n\nshards = split_rows(weights, NUM_GPUS)\npartial_results = [gpu_partial_matvec(shard, input_vector) for shard in shards]\nreassembled = all_gather(partial_results)\nreference = gpu_partial_matvec(weights, input_vector)  # single-GPU equivalent\n\nprint(\"shard sizes:\", [len(s) for s in shards])\nprint(\"per-GPU partial outputs:\", partial_results)\nprint(\"reassembled output:\", reassembled)\nprint(\"matches single-GPU reference:\", reassembled == reference)\n```\n\n`split_rows` plays the role of assigning each GPU its slice of a layer's weights, and `gpu_partial_matvec` shows that a single simulated GPU never needs the full matrix — only its own shard — to compute its share of the output. `all_gather` stands in for the interconnect step that must run before the combined result is ready for the next layer."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming tensor parallelism avoids GPU-to-GPU communication.** Because partial results must be exchanged at every layer, tensor parallelism is actually communication-heavy — the opposite of an isolated, communication-free split.\n\n**Mixing up tensor parallelism with pipeline parallelism.** They split the model along different axes (within a layer vs. across whole layers) and have different communication patterns; treating them as interchangeable can lead to picking the wrong strategy for your bottleneck.\n\n**Adding more GPUs without checking the interconnect between them.** Splitting a model across GPUs connected by a slow link (or no NVLink) can make the setup slower than fewer, better-connected GPUs, since every layer waits on that exchange.\n\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "inf_multi_gpu_and_tensor_parallelism_quiz",
+        "questions": [
+          {
+            "question": "Why might a model need multiple GPUs even after aggressive quantization?",
+            "options": [
+              "Because quantization has a limit, and a very large model may still not fit — or respond fast enough — on a single GPU",
+              "Because quantization always makes a model larger, not smaller",
+              "Because a single GPU can never run any LLM regardless of size",
+              "Because tensor parallelism is required for all models, regardless of size"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Quantization reduces memory and can help latency, but for sufficiently large models a single GPU's capacity or speed may still be insufficient.",
+            "id": "q1"
+          },
+          {
+            "question": "How does tensor parallelism differ from pipeline parallelism?",
+            "options": [
+              "Tensor parallelism splits individual layers' computation across GPUs; pipeline parallelism sends whole layers to different GPUs in sequence",
+              "They are two names for the exact same technique",
+              "Tensor parallelism only works during training, never inference",
+              "Pipeline parallelism requires no GPU-to-GPU communication at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Tensor parallelism divides within a layer's computation, while pipeline parallelism assigns different layers wholesale to different devices.",
+            "id": "q2"
+          },
+          {
+            "question": "Why does GPU interconnect speed matter so much for tensor parallelism specifically?",
+            "options": [
+              "Because GPUs must exchange partial results at every layer, so a slow interconnect bottlenecks the whole setup regardless of GPU speed",
+              "Because interconnect speed only affects training, not inference",
+              "Because tensor parallelism does not require any GPU-to-GPU communication",
+              "Because faster interconnects always increase model quality, not speed"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The frequent exchange of partial computation results between GPUs makes the connection between them a potential bottleneck, echoing the same networking concerns raised in the Cloud course's GPU-cluster material.",
+            "id": "q3"
+          },
+          {
+            "question": "Per the lesson's stated learning objective, what should you be able to do after this lesson?",
+            "options": [
+              "Explain what tensor parallelism does and why it's needed even after applying quantization",
+              "Manually solder together a multi-GPU rig",
+              "Prove that pipeline parallelism is always superior to tensor parallelism",
+              "Calculate NVLink bandwidth from first principles"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's 'What you should be able to do' section states the goal is explaining tensor parallelism and why it's still needed post-quantization.",
+            "id": "q4"
+          },
+          {
+            "question": "According to the lesson, what shape of problem does tensor parallelism's interconnect dependency echo from the Cloud course?",
+            "options": [
+              "That coordinating multiple devices efficiently requires the right networking, not just the right compute",
+              "That GPUs are never useful for training, only inference",
+              "That cloud providers do not support multi-GPU instances",
+              "That interconnect speed is irrelevant once quantization is applied"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson draws a direct parallel to the Cloud course's GPU-cluster lesson: without the right networking, more GPUs can quietly become more idle GPUs waiting on each other.",
+            "id": "q5"
+          },
+          {
+            "question": "In the toy code, with a 4-row weight matrix and NUM_GPUS=2, what does split_rows produce?",
+            "options": [
+              "Two shards of 2 rows each, one per simulated GPU",
+              "Four shards of 1 row each",
+              "One shard containing the entire matrix",
+              "Two shards split by columns instead of rows"
+            ],
+            "correctAnswer": 0,
+            "explanation": "shard_size = len(matrix) // num_shards = 4 // 2 = 2, so split_rows returns two shards, each holding 2 of the 4 weight rows.",
+            "id": "q6"
+          },
+          {
+            "question": "What does all_gather represent in the toy tensor-parallelism example?",
+            "options": [
+              "A stand-in for the fast-interconnect step that combines every GPU's partial output back into the full result vector",
+              "A function that trains the weight matrix from scratch",
+              "A function that deletes a GPU shard once it's no longer needed",
+              "A random shuffle applied to the input vector"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The code's comment states all_gather stands in for the fast-interconnect step (like NVLink) that reassembles the full output from each GPU's partial result.",
+            "id": "q7"
+          },
+          {
+            "question": "Per 'Common mistakes', why is it wrong to assume tensor parallelism avoids GPU-to-GPU communication?",
+            "options": [
+              "Because partial results must be exchanged at every layer, making tensor parallelism communication-heavy rather than communication-free",
+              "Because tensor parallelism only ever uses a single GPU in practice",
+              "Because pipeline parallelism is the technique that avoids all communication, not tensor parallelism",
+              "Because GPU-to-GPU communication is impossible on modern hardware"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The mistakes section states plainly that tensor parallelism is communication-heavy since partial results must be exchanged at every layer.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "inf_autoscaling_inference",
+      "title": "Autoscaling Inference",
+      "description": "Traffic isn't constant, and neither should your GPU fleet be — if you can pull it off safely.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain why autoscaling LLM inference is harder than autoscaling a typical stateless web service."
+          },
+          {
+            "title": "📉 The stateless-service playbook doesn't fully apply",
+            "content": "Ordinary web service autoscaling (from the Cloud course's load balancing lesson) can add or remove instances quickly because each instance starts fast and holds little state. An LLM serving instance is different: it needs to load large model weights (which can take minutes) and may be mid-flight on long-running generation requests when a scale-down decision happens."
+          },
+          {
+            "title": "🐢 Scale-up is slow; plan ahead of demand",
+            "content": "Because loading model weights takes real time, reactive scaling — waiting until load is already high to add capacity — often arrives too late to help with the traffic spike that triggered it. Predictive scaling based on known traffic patterns, or keeping some warm standby capacity, matters more here than for a typical fast-starting web service."
+          },
+          {
+            "title": "🚪 Scale-down needs to drain, not kill",
+            "content": "Terminating an instance mid-generation abruptly cuts off in-flight user responses. A safe scale-down drains a node — stops routing new requests to it, waits for in-flight generations to complete, then terminates it — the same graceful-shutdown pattern the App Dev course's deployment lesson covers for zero-downtime deploys, applied here to GPU capacity instead of application servers."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "A small autoscaling decision function that scales replica count based on queue depth and latency, plus a draining helper for safe scale-down:\n\n```python\n# A tiny illustrative autoscaling decision function (NOT production code).\n\ndef decide_replica_count(current_replicas, queue_depth, p99_latency_ms,\n                          latency_target_ms=2000, max_queue_per_replica=4,\n                          min_replicas=1, max_replicas=10):\n    desired = current_replicas\n\n    # Scale up if the queue per replica is too deep or latency is breaching target.\n    if queue_depth / current_replicas > max_queue_per_replica or p99_latency_ms > latency_target_ms:\n        desired = current_replicas + 1\n\n    # Scale down only if there's slack on both queue depth and latency --\n    # deliberately conservative, since spinning up a replica means loading\n    # model weights, which is slow (see the \"scale-up is slow\" section above).\n    elif (queue_depth / current_replicas < max_queue_per_replica / 4\n          and p99_latency_ms < latency_target_ms / 2):\n        desired = max(current_replicas - 1, min_replicas)\n\n    return max(min_replicas, min(desired, max_replicas))\n\n\ndef draining_scale_down(replica_id, in_flight_requests):\n    # Safe scale-down: only report a replica ready to terminate once it has\n    # zero in-flight requests left; otherwise it keeps draining.\n    if in_flight_requests[replica_id] == 0:\n        return \"terminate\"\n    return \"draining\"\n\n\ntraffic_scenarios = [\n    {\"replicas\": 2, \"queue_depth\": 20, \"p99_latency_ms\": 2500},  # overloaded\n    {\"replicas\": 4, \"queue_depth\": 3, \"p99_latency_ms\": 400},    # very idle\n    {\"replicas\": 3, \"queue_depth\": 8, \"p99_latency_ms\": 1200},   # steady state\n]\n\nfor scenario in traffic_scenarios:\n    new_count = decide_replica_count(\n        scenario[\"replicas\"], scenario[\"queue_depth\"], scenario[\"p99_latency_ms\"]\n    )\n    print(scenario, \"-> desired replicas:\", new_count)\n\nprint(draining_scale_down(\"node_7\", {\"node_7\": 2}))\nprint(draining_scale_down(\"node_7\", {\"node_7\": 0}))\n```\n\nNotice that `decide_replica_count` only scales down when there's slack on *both* queue depth and latency, not just one — a deliberately conservative band, since scaling up a replica is far slower than scaling one down. `draining_scale_down` never returns `\"terminate\"` while a node still has in-flight requests, mirroring the \"drain, don't kill\" pattern the lesson describes."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Reusing stateless-web-service autoscaling thresholds unchanged.** A policy tuned for instances that start in seconds will scale too late and too abruptly for GPU serving nodes that take minutes to load model weights.\n\n**Terminating a node the instant a scale-down decision fires.** Without draining first, in-flight generations get cut off mid-response; a safe scale-down waits for a node's in-flight requests to reach zero before terminating it.\n\n**Relying only on reactive scaling for predictable traffic patterns.** If a spike is foreseeable (e.g. a daily peak), waiting for load to already be high before adding capacity means new replicas arrive after the damage is done — predictive scaling or warm standby capacity avoids that lag.\n\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "inf_autoscaling_inference_quiz",
+        "questions": [
+          {
+            "question": "Why is LLM inference autoscaling harder than autoscaling a typical stateless web service?",
+            "options": [
+              "Because loading model weights takes real time and instances may be mid-flight on long-running generation requests",
+              "Because LLM inference never experiences variable traffic",
+              "Because GPUs cannot be added or removed from a fleet",
+              "Because stateless web services also take minutes to start"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Slow startup (model loading) and in-flight long-running requests make LLM serving instances behave very differently from fast, stateless web service instances during scaling events.",
+            "id": "q1"
+          },
+          {
+            "question": "Why might reactive autoscaling (waiting for load to rise before adding capacity) be insufficient for LLM serving?",
+            "options": [
+              "Because model loading is slow enough that new capacity may arrive after the traffic spike has already caused problems",
+              "Because reactive scaling is always faster than predictive scaling",
+              "Because LLM traffic never spikes unpredictably",
+              "Because reactive scaling only applies to CPU-based services"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The delay from loading model weights means capacity added reactively can lag behind the actual need, unlike a fast-starting web service.",
+            "id": "q2"
+          },
+          {
+            "question": "What does a safe scale-down ('draining') do that an abrupt termination does not?",
+            "options": [
+              "Stops routing new requests to a node and waits for in-flight generations to finish before terminating it",
+              "Immediately kills all requests to free capacity as fast as possible",
+              "Prevents any future requests from ever reaching that node type again",
+              "Deletes the node's stored model weights before termination"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Draining avoids cutting off users mid-response, mirroring the graceful-shutdown pattern used for zero-downtime deploys elsewhere in this curriculum.",
+            "id": "q3"
+          },
+          {
+            "question": "Per the lesson's stated learning objective, what should you be able to do after this lesson?",
+            "options": [
+              "Explain why autoscaling LLM inference is harder than autoscaling a typical stateless web service",
+              "Write a full production-grade Kubernetes autoscaler",
+              "Prove that LLM inference should never be autoscaled",
+              "Calculate exact GPU costs for every cloud provider"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's 'What you should be able to do' section states the goal is explaining why LLM autoscaling is harder than stateless-service autoscaling.",
+            "id": "q4"
+          },
+          {
+            "question": "What two strategies does the lesson suggest as alternatives to purely reactive scaling?",
+            "options": [
+              "Predictive scaling based on known traffic patterns, or keeping some warm standby capacity",
+              "Doubling the timeout on every request and disabling scale-down entirely",
+              "Switching to CPU-only inference and ignoring GPU scaling",
+              "Manually restarting the service every hour"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson states that predictive scaling based on known traffic patterns, or warm standby capacity, matters more here than for a typical fast-starting web service.",
+            "id": "q5"
+          },
+          {
+            "question": "In the code example, why does scenario 3 ('steady state': 3 replicas, queue_depth=8, p99=1200ms) leave the replica count unchanged?",
+            "options": [
+              "Because queue depth per replica and latency both fall inside the stable band — not high enough to trigger scale-up, not low enough to trigger scale-down",
+              "Because decide_replica_count always returns the current_replicas value unchanged",
+              "Because p99_latency_ms=1200 exceeds latency_target_ms and forces a scale-up that is silently ignored",
+              "Because queue_depth=8 is above max_queue_per_replica and triggers scale-down"
+            ],
+            "correctAnswer": 0,
+            "explanation": "queue_depth/current_replicas is about 2.67, which is below the scale-up threshold of 4 and above the scale-down threshold of 1, and p99=1200 is below 2000 but above 1000, so neither branch fires and desired stays equal to current_replicas.",
+            "id": "q6"
+          },
+          {
+            "question": "What does draining_scale_down return when a node's in_flight_requests count is 0 versus nonzero?",
+            "options": [
+              "\"terminate\" when it's 0, and \"draining\" when it's nonzero",
+              "\"draining\" when it's 0, and \"terminate\" when it's nonzero",
+              "\"terminate\" in both cases",
+              "It raises an error when in_flight_requests is nonzero"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The function checks if in_flight_requests[replica_id] == 0 and returns \"terminate\" only then, otherwise it returns \"draining\" — the node keeps draining until no requests remain.",
+            "id": "q7"
+          },
+          {
+            "question": "Per 'Common mistakes', why is terminating a node immediately on a scale-down decision risky?",
+            "options": [
+              "Because without draining first, in-flight generations get cut off mid-response",
+              "Because it always increases cloud costs compared to draining",
+              "Because it makes the remaining nodes load their model weights again",
+              "Because it is technically impossible to terminate a node without draining it first"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The mistakes section explains that skipping draining cuts off in-flight generations mid-response, which is exactly what the drain-first pattern is meant to prevent.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,571 @@
+{
+  "id": "vdb_filtering_and_hybrid_search",
+  "title": "Metadata, Filtering & Hybrid Search",
+  "description": "Payload filters as a security boundary, hybrid dense+sparse retrieval, reranking, and query patterns beyond top-k.",
+  "icon": "🔍",
+  "color": "#D32F2F",
+  "order": 2,
+  "estimatedHours": 4,
+  "difficulty": "intermediate",
+  "prerequisites": [
+    "vdb_indexing_algorithms"
+  ],
+  "lessons": [
+    {
+      "id": "vdb_payload_filtering_and_multi_tenancy",
+      "title": "Payload Filtering and Multi-Tenancy",
+      "description": "Cosine similarity has no idea what a tenant boundary is — you have to enforce it yourself.",
+      "duration": 13,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain why authorization must be enforced as a hard filter, not a prompt instruction, in vector search."
+          },
+          {
+            "title": "🏷️ Payloads carry the metadata",
+            "content": "Alongside each vector, a vector database stores a 'payload' — arbitrary metadata like a tenant ID, document type, timestamp, or access-control tag. A query can combine a vector similarity search with hard filters on this metadata: 'find the nearest neighbors where tenant_id = 42'."
+          },
+          {
+            "title": "🚨 Why this is a security boundary, not a convenience feature",
+            "content": "An index built purely on vector similarity will happily return another tenant's document if it's semantically similar — cosine similarity has no concept of authorization. This is the same class of problem the Eval & Security course covered under prompt injection and access control: the model or the index will do exactly what it's mathematically designed to do, which is not the same as what's safe."
+          },
+          {
+            "title": "🧪 Test the negative case explicitly",
+            "content": "The single most important test for a multi-tenant vector store is a negative test: query as tenant A and assert that tenant B's vectors never appear, even as near neighbors. This deserves its own test in your suite — 'no cross-tenant leakage' — the same way the Agents course insisted on testing a tool's failure modes, not just its happy path."
+          },
+          {
+            "title": "🏗️ Two implementation strategies",
+            "content": "Namespace-per-tenant physically separates each tenant's vectors into a different index or collection — strong isolation, more operational overhead. Filtered single-index keeps everyone in one index with a mandatory filter on every query — less overhead, but the filter becoming optional (a bug) is now the whole security model."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "A tiny simulation comparing post-filtering (rank first, filter after) against pre-filtering (filter first, then rank only the matching subset):\n\n```python\n# A tiny pre-filter vs. post-filter simulation (NOT production code).\n\nvectors = {\n    \"d1\": {\"embedding\": 1.0, \"tenant\": \"A\"},\n    \"d2\": {\"embedding\": 1.1, \"tenant\": \"B\"},\n    \"d3\": {\"embedding\": 1.2, \"tenant\": \"B\"},\n    \"d4\": {\"embedding\": 1.3, \"tenant\": \"B\"},\n    \"d5\": {\"embedding\": 1.4, \"tenant\": \"A\"},\n    \"d6\": {\"embedding\": 5.0, \"tenant\": \"A\"},\n}\n\n\ndef distance(a, b):\n    return abs(a - b)\n\n\ndef post_filter_search(query, tenant, k):\n    # Rank ALL vectors by similarity first, take the top-k, THEN drop\n    # anything that doesn't belong to the tenant.\n    ranked = sorted(vectors, key=lambda name: distance(vectors[name][\"embedding\"], query))\n    top_k = ranked[:k]\n    return [name for name in top_k if vectors[name][\"tenant\"] == tenant]\n\n\ndef pre_filter_search(query, tenant, k):\n    # Restrict to the tenant's own vectors FIRST, then rank only those.\n    candidates = [name for name in vectors if vectors[name][\"tenant\"] == tenant]\n    ranked = sorted(candidates, key=lambda name: distance(vectors[name][\"embedding\"], query))\n    return ranked[:k]\n\n\nprint(post_filter_search(query=1.0, tenant=\"A\", k=3))  # ['d1']\nprint(pre_filter_search(query=1.0, tenant=\"A\", k=3))   # ['d1', 'd5', 'd6']\n```\n\n`post_filter_search` takes the top-3 nearest vectors across every tenant *before* filtering, so tenant A's `d5` — a perfectly good match — gets silently discarded because it wasn't inside that top-3 cut. `pre_filter_search` narrows to tenant A's vectors first, so it finds `d5` too; the same mandatory-filter discipline from the sections above applies just as much to how you shape the query as to whether you remember to include a filter at all."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Leaving the tenant filter optional at the application layer.** If the filter is something a caller can forget to pass rather than something the query layer enforces, the index's math won't catch the omission — it will just return another tenant's data, exactly as the sections above describe.\n\n**Testing only the happy path.** Confirming tenant A sees tenant A's documents proves nothing about isolation; only a negative test — tenant A's query never surfacing tenant B's vectors — actually validates the security boundary.\n\n**Post-filtering with a top-k that's too small.** Ranking across all tenants first and filtering afterward, as in `post_filter_search` above, can silently return fewer results than requested (or none) even though matching vectors exist further down the unfiltered ranking.\n\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "vdb_payload_filtering_and_multi_tenancy_quiz",
+        "questions": [
+          {
+            "question": "Why can't authorization for a multi-tenant vector store be left to 'the prompt will filter it out'?",
+            "options": [
+              "Because the vector index itself will return semantically similar results regardless of tenant, so filtering must happen at the query/index level",
+              "Because prompts cannot contain instructions",
+              "Because vector databases don't support any metadata",
+              "Because tenants never share similar content"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Cosine similarity has no notion of authorization — the filter has to be enforced structurally, in the query or index, not hoped for downstream.",
+            "id": "q1"
+          },
+          {
+            "question": "The single most important test for a multi-tenant vector store is",
+            "options": [
+              "A negative test asserting that querying as one tenant never returns another tenant's vectors",
+              "A test that the index returns results in under 100ms",
+              "A test that all tenants share the same collection",
+              "A test that the embedding model version is correct"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Confirming the absence of cross-tenant leakage directly validates the security boundary, which is the highest-stakes failure mode here.",
+            "id": "q2"
+          },
+          {
+            "question": "What is the tradeoff of 'filtered single-index' multi-tenancy compared to namespace-per-tenant?",
+            "options": [
+              "Less operational overhead, but a missing or buggy filter becomes a security failure rather than an inconvenience",
+              "It provides stronger isolation than namespace-per-tenant",
+              "It requires a separate vector database for every tenant",
+              "It eliminates the need for any access control testing"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Sharing one index trades isolation strength for simplicity — which raises the stakes on getting the filter logic exactly right.",
+            "id": "q3"
+          },
+          {
+            "question": "What is stored in a vector database's 'payload' alongside each vector?",
+            "options": [
+              "Arbitrary metadata like a tenant ID, document type, timestamp, or access-control tag",
+              "Only the raw text used to generate the embedding",
+              "A second, redundant embedding vector",
+              "Nothing — payloads are a deprecated feature in modern vector databases"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson describes the payload as arbitrary metadata — tenant ID, document type, timestamp, access-control tag — stored alongside the vector.",
+            "id": "q4"
+          },
+          {
+            "question": "Compared to filtered single-index, what does namespace-per-tenant multi-tenancy offer?",
+            "options": [
+              "Stronger physical isolation between tenants, at the cost of more operational overhead",
+              "Lower operational overhead but weaker isolation",
+              "No isolation at all, since it still shares one index",
+              "Automatic protection against prompt injection"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Namespace-per-tenant physically separates each tenant's vectors, giving strong isolation but at higher operational cost than a shared filtered index.",
+            "id": "q5"
+          },
+          {
+            "question": "In the code example, why does post_filter_search return fewer tenant-A matches than pre_filter_search for the same query and k?",
+            "options": [
+              "Because it ranks all vectors by similarity first and takes the top-k before filtering by tenant, so some tenant-A vectors get cut before the filter is even applied",
+              "Because post_filter_search has a bug that always returns an empty list",
+              "Because pre_filter_search searches a larger dataset than post_filter_search",
+              "Because tenant A actually has no vectors close to the query"
+            ],
+            "correctAnswer": 0,
+            "explanation": "post_filter_search truncates to the top-k across all tenants before filtering, so a valid tenant-A match like d5 can fall outside that cut and disappear from the results.",
+            "id": "q6"
+          },
+          {
+            "question": "In the code example, what does post_filter_search(query=1.0, tenant='A', k=3) return?",
+            "options": [
+              "['d1'] — only one tenant-A vector, because the other two fell outside the unfiltered top-3",
+              "['d1', 'd5', 'd6'] — all of tenant A's vectors",
+              "[] — an empty list, because none of the top-3 nearest vectors belong to tenant A",
+              "['d2', 'd3', 'd4'] — the closest vectors regardless of tenant"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The unfiltered top-3 by distance to 1.0 are d1, d2, d3; filtering that set down to tenant A leaves only d1.",
+            "id": "q7"
+          },
+          {
+            "question": "Per 'Common mistakes', why is it risky to make the tenant filter optional at the application layer instead of mandatory at the query/index layer?",
+            "options": [
+              "Because the index's similarity math won't catch a missing filter — it will simply return another tenant's data, turning a forgotten argument into a security breach",
+              "Because optional filters always slow down queries",
+              "Because vector databases reject queries that omit a filter",
+              "Because an optional filter doubles the storage cost per tenant"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The mistakes section ties directly back to the lesson's core point: cosine similarity has no notion of authorization, so an unenforced filter fails silently and dangerously.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "vdb_hybrid_search_dense_and_sparse",
+      "title": "Hybrid Search: Dense + Sparse",
+      "description": "Why production search almost never relies on embeddings alone.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain what dense and sparse retrieval each catch that the other misses, and how they're combined."
+          },
+          {
+            "title": "🧠 Dense retrieval: meaning",
+            "content": "Dense vectors (the embeddings you've worked with throughout this curriculum) capture semantic meaning — 'car' and 'automobile' land near each other. They struggle with exact tokens: a specific product SKU, an error code, or a rare proper noun may not be well represented in the embedding space at all."
+          },
+          {
+            "title": "🔤 Sparse retrieval: exact terms",
+            "content": "Sparse methods like BM25 (classic keyword search, scored by term frequency) excel at exact lexical matches — the SKU, the error code, the exact phrase — but miss paraphrases and synonyms entirely, since 'automobile' and 'car' share no keyword overlap."
+          },
+          {
+            "title": "🤝 Combining them",
+            "content": "Hybrid search runs both dense and sparse retrieval and merges the results, typically with a fusion method like Reciprocal Rank Fusion (RRF) that combines rankings without needing the two systems' scores to be on the same scale. This directly extends the RAG course's retrieval lesson, which flagged the SKU-search failure mode dense-only retrieval has."
+          },
+          {
+            "title": "📐 It's still an approximation of relevance",
+            "content": "Hybrid search improves coverage but doesn't guarantee perfect ranking — it's still worth evaluating with the same recall/precision discipline as any other retrieval method, ideally on a query set that specifically includes both semantic and exact-match cases."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "A small Reciprocal Rank Fusion (RRF) combiner merging a dense-search ranked list and a sparse/BM25-like ranked list:\n\n```python\n# A tiny Reciprocal Rank Fusion combiner (NOT production code).\n\ndef reciprocal_rank_fusion(rankings, k=60):\n    scores = {}\n    for ranking in rankings:\n        for rank, doc_id in enumerate(ranking, start=1):\n            scores[doc_id] = scores.get(doc_id, 0.0) + 1.0 / (k + rank)\n    return sorted(scores, key=lambda doc_id: scores[doc_id], reverse=True)\n\n\ndense_ranked = [\"doc_car_review\", \"doc_automobile_specs\", \"doc_sku_88214\", \"doc_engine_guide\"]\nsparse_ranked = [\"doc_sku_88214\", \"doc_engine_guide\", \"doc_car_review\", \"doc_error_code_e42\"]\n\nfused = reciprocal_rank_fusion([dense_ranked, sparse_ranked])\nprint(fused)\n# ['doc_car_review', 'doc_sku_88214', 'doc_engine_guide', 'doc_automobile_specs', 'doc_error_code_e42']\n```\n\nNotice that `doc_sku_88214` — only third in the dense-only ranking, exactly the kind of exact-token match dense embeddings struggle with — jumps to second place once its first-place sparse ranking is folded in. Meanwhile `doc_automobile_specs`, which ranked second in dense search alone, sinks toward the bottom because it never appears in the sparse list at all and so only ever accumulates score from one of the two rankings."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Averaging raw dense cosine scores with raw BM25 scores.** The two scores live on completely different, incomparable scales, so a naive average distorts the fused ranking rather than reflecting true relevance — this is exactly the problem RRF's rank-based approach sidesteps.\n\n**Evaluating hybrid search only on semantic queries.** If your test set never includes exact-match cases like SKUs or error codes, you can't tell whether the sparse half of the pipeline is pulling its weight at all.\n\n**Assuming hybrid always beats dense-only without measuring it.** Fusion parameters (like RRF's k, or a fusion weight) still need the same recall/precision evaluation as any other retrieval configuration — 'it's hybrid, so it must be better' is not a substitute for a benchmark.\n\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "vdb_hybrid_search_dense_and_sparse_quiz",
+        "questions": [
+          {
+            "question": "Dense embeddings tend to struggle with which kind of query?",
+            "options": [
+              "Exact tokens like SKUs or error codes that aren't well represented semantically",
+              "Queries phrased as full sentences",
+              "Queries in the same language as the documents",
+              "Very short queries with fewer than three words"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Rare exact tokens like SKUs or codes often aren't captured meaningfully by embedding space geometry, which is where sparse methods help.",
+            "id": "q1"
+          },
+          {
+            "question": "BM25-style sparse retrieval misses which kind of match that dense retrieval catches?",
+            "options": [
+              "Paraphrases and synonyms with no keyword overlap",
+              "Exact phrase matches",
+              "Numeric identifiers",
+              "Case-sensitive matches"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Sparse keyword methods score term overlap, so a paraphrase with different words entirely can score zero even when it's semantically identical.",
+            "id": "q2"
+          },
+          {
+            "question": "Reciprocal Rank Fusion (RRF) is used to",
+            "options": [
+              "Combine rankings from dense and sparse retrieval without needing their raw scores to be on the same scale",
+              "Replace the need for an embedding model",
+              "Convert sparse vectors into dense vectors",
+              "Filter results by tenant"
+            ],
+            "correctAnswer": 0,
+            "explanation": "RRF merges ranked lists based on rank position, sidestepping the problem that dense similarity scores and BM25 scores aren't directly comparable.",
+            "id": "q3"
+          },
+          {
+            "question": "Per the lesson, dense embeddings capture",
+            "options": [
+              "Semantic meaning, so synonyms like 'car' and 'automobile' land near each other in vector space",
+              "Only exact keyword overlap between query and document",
+              "The document's raw byte length",
+              "A ranked list of every document in the corpus"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson describes dense vectors as capturing semantic meaning, giving 'car' and 'automobile' as the canonical example of near-neighbor synonyms.",
+            "id": "q4"
+          },
+          {
+            "question": "Per the lesson, an ideal query set for evaluating hybrid search should specifically include",
+            "options": [
+              "Both semantic (paraphrase-style) queries and exact-match queries",
+              "Only queries with no correct answer, to test robustness",
+              "Only queries longer than 50 words",
+              "Only queries in a single fixed language"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson recommends evaluating hybrid search on a query set that covers both semantic and exact-match cases, since each retrieval mode covers different ground.",
+            "id": "q5"
+          },
+          {
+            "question": "In the reciprocal_rank_fusion function, what determines how much a single ranked list contributes to a document's fused score?",
+            "options": [
+              "1 / (k + rank) — so a better (lower-numbered) rank in that list contributes a larger amount",
+              "The document's raw cosine similarity score",
+              "Whether the document appears in every ranking or just one",
+              "The alphabetical position of the document's id"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Each appearance adds 1.0 / (k + rank) to the running score, so being ranked closer to first place in any list contributes more.",
+            "id": "q6"
+          },
+          {
+            "question": "In the code example, doc_sku_88214 ranks third in the dense list but first in the sparse list. After reciprocal_rank_fusion, where does it land?",
+            "options": [
+              "Near the top of the fused ranking (in fact second) — higher than its third-place dense-only rank",
+              "Unchanged in third place",
+              "Dropped from the results entirely",
+              "Last place, because it wasn't first in every individual list"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Its strong first-place sparse-side score combines with its dense-side score to push it to second overall, ahead of where dense-only ranking alone placed it.",
+            "id": "q7"
+          },
+          {
+            "question": "Per 'Common mistakes', why is averaging raw dense cosine scores with raw BM25 scores usually a bad idea?",
+            "options": [
+              "Because the two scores live on different, incomparable scales, so a naive average distorts the fused ranking rather than reflecting true relevance",
+              "Because BM25 scores are always higher than cosine scores",
+              "Because dense and sparse retrieval can never be combined in any way",
+              "Because averaging is computationally more expensive than RRF"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The mistakes section calls out scale-mismatch as exactly the problem RRF's rank-based fusion is designed to avoid.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "vdb_reranking_retrieved_results",
+      "title": "Reranking Retrieved Results",
+      "description": "A second, more expensive pass that fixes what fast approximate retrieval gets slightly wrong.",
+      "duration": 11,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain why a two-stage retrieve-then-rerank pipeline often beats retrieval alone."
+          },
+          {
+            "title": "🥇 Retrieval is optimized for recall, not precision",
+            "content": "The ANN and hybrid search covered so far are optimized to quickly find a good candidate set — say, the top 50 — that likely contains the true best matches, without necessarily ranking that set perfectly. It's built for speed at scale, which means some ranking precision is sacrificed."
+          },
+          {
+            "title": "🎯 A reranker refines the short list",
+            "content": "A reranker — often a cross-encoder model that looks at the query and each candidate document together, rather than comparing pre-computed vectors — re-scores just those 50 candidates far more precisely. Because it only runs on a small candidate set, its higher computational cost per comparison is affordable."
+          },
+          {
+            "title": "💰 Why not rerank everything?",
+            "content": "Cross-encoders are far too slow to run against millions of documents directly — that's exactly the exhaustive-search problem this whole course exists to avoid. The two-stage pattern — cheap broad retrieval, then expensive precise reranking on a short list — is the same 'coarse-then-fine' shape you saw in HNSW's layered graph search."
+          },
+          {
+            "title": "🔗 Where this connects",
+            "content": "This is the same idea the RAG course's retrieval-quality lesson gestured at: retrieval doesn't have to be the final ranking. Adding a reranking stage is one of the highest-leverage improvements you can make to a RAG pipeline's answer quality without touching the underlying vector index at all."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "A toy cross-encoder-style rerank function that re-scores a shortlist using a more expensive, query-and-document-together relevance function:\n\n```python\n# A tiny cross-encoder-style reranker (NOT production code).\n\ncandidates = [\n    {\"id\": \"doc1\", \"text\": \"vector databases store embeddings for similarity search\", \"ann_score\": 0.91},\n    {\"id\": \"doc2\", \"text\": \"reranking improves precision after initial retrieval\", \"ann_score\": 0.88},\n    {\"id\": \"doc3\", \"text\": \"cats are common household pets\", \"ann_score\": 0.85},\n    {\"id\": \"doc4\", \"text\": \"a cross-encoder scores a query and document together for relevance\", \"ann_score\": 0.80},\n]\n\n\ndef cheap_ann_rank(candidates):\n    return sorted(candidates, key=lambda c: c[\"ann_score\"], reverse=True)\n\n\ndef expensive_cross_encoder_score(query, text):\n    # Toy stand-in for a cross-encoder: count shared meaningful words between\n    # the query and the document. A real cross-encoder does this far more\n    # richly, but the key idea — looking at query and document TOGETHER — is\n    # the same.\n    query_words = set(query.lower().split())\n    text_words = set(text.lower().split())\n    return len(query_words & text_words) / len(query_words)\n\n\ndef rerank(query, candidates, top_n=50):\n    shortlist = cheap_ann_rank(candidates)[:top_n]\n    rescored = [\n        {**c, \"rerank_score\": expensive_cross_encoder_score(query, c[\"text\"])}\n        for c in shortlist\n    ]\n    return sorted(rescored, key=lambda c: c[\"rerank_score\"], reverse=True)\n\n\nquery = \"cross-encoder reranking for relevance\"\nfor c in rerank(query, candidates, top_n=4):\n    print(c[\"id\"], c[\"ann_score\"], round(c[\"rerank_score\"], 2))\n# doc4 0.8  0.75   <- lowest ann_score, but highest after reranking\n# doc1 0.91 0.25\n# doc2 0.88 0.25\n# doc3 0.85 0.0    <- second-highest ann_score, but shares no real words with the query\n```\n\n`cheap_ann_rank` stands in for fast approximate retrieval, and `rerank` only ever calls the expensive `expensive_cross_encoder_score` on that short list. Notice that `doc4` has the *lowest* `ann_score` of the four candidates yet ends up first after reranking, while `doc3` has the second-highest `ann_score` but drops to last — its text shares no real words with the query, which is exactly the kind of ranking mistake a reranker is meant to catch."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Running the cross-encoder over the full corpus instead of just the retrieved shortlist.** This defeats the entire point of the two-stage pattern — cross-encoders are too slow to use as a first-pass search over millions of documents, which is exactly why retrieval exists as a separate, cheaper stage.\n\n**Comparing rerank scores across different queries.** A cross-encoder's score is only meaningful for ordering candidates within one query's shortlist; it isn't calibrated to be comparable to the score another, unrelated query produced.\n\n**Assuming reranking automatically improves answer quality without measuring it.** Adding a second pipeline stage is not free — it adds latency — so its benefit should be verified the same way any retrieval change would be, not assumed just because it sounds more sophisticated.\n\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "vdb_reranking_retrieved_results_quiz",
+        "questions": [
+          {
+            "question": "Why is retrieval typically optimized for recall rather than final ranking precision?",
+            "options": [
+              "Because it must scan or approximate over the entire large dataset quickly, so some ranking precision is sacrificed for speed at scale",
+              "Because recall is easier to compute than precision",
+              "Because rerankers cannot use recall as a metric",
+              "Because retrieval never returns more than one result"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Fast large-scale retrieval trades some ranking precision for the speed needed to search millions of vectors.",
+            "id": "q1"
+          },
+          {
+            "question": "Why can a reranker afford to be more computationally expensive per comparison than the initial retrieval?",
+            "options": [
+              "Because it only runs on a small candidate set (e.g. the top 50), not the entire dataset",
+              "Because rerankers run before retrieval, not after",
+              "Because rerankers don't use neural networks",
+              "Because reranking always runs offline, never at query time"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Since reranking operates on a short list rather than the full corpus, its higher per-item cost is affordable.",
+            "id": "q2"
+          },
+          {
+            "question": "Adding a reranking stage to a RAG pipeline is notable because it",
+            "options": [
+              "Can meaningfully improve answer quality without changing the underlying vector index at all",
+              "Requires replacing the vector database entirely",
+              "Eliminates the need for an embedding model",
+              "Only works for sparse retrieval, never dense"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Reranking is a downstream refinement layered on top of whatever retrieval already returns — a high-leverage change independent of the index itself.",
+            "id": "q3"
+          },
+          {
+            "question": "Per the lesson, what does a cross-encoder reranker look at that a vector similarity comparison does not?",
+            "options": [
+              "The query and each candidate document together, rather than comparing separately pre-computed vectors",
+              "Only the document, never the query",
+              "Only metadata, never the document text",
+              "A compressed version of the vector produced by product quantization"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson describes a cross-encoder as looking at the query and each candidate together, unlike similarity search which compares pre-computed vectors.",
+            "id": "q4"
+          },
+          {
+            "question": "Per the lesson, the two-stage 'cheap broad retrieval, then expensive precise reranking' pattern has the same shape as which earlier technique in the curriculum?",
+            "options": [
+              "HNSW's layered, coarse-then-fine graph search",
+              "Product quantization's codebook compression",
+              "Multi-tenant namespace isolation",
+              "Reciprocal Rank Fusion"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly compares the retrieve-then-rerank pattern to the 'coarse-then-fine' shape of HNSW's layered graph search.",
+            "id": "q5"
+          },
+          {
+            "question": "In the toy rerank function, what is expensive_cross_encoder_score meant to approximate about a real cross-encoder?",
+            "options": [
+              "That relevance is judged by examining the query and document text together, rather than from a precomputed vector alone",
+              "That cross-encoders never look at the document's text",
+              "That cross-encoders are always faster than ANN search",
+              "That cross-encoders replace the need for a query entirely"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The comment in the code explains it's a toy stand-in that captures the 'query and document together' idea, even though real cross-encoders do this far more richly.",
+            "id": "q6"
+          },
+          {
+            "question": "In the code example, doc4 has the lowest ann_score (0.80) of the four candidates. After rerank() runs, where does it appear?",
+            "options": [
+              "First — its text shares the most words with the query, giving it the highest rerank_score",
+              "Last, unchanged from its ann_score-based position",
+              "It's dropped from the results because its ann_score was too low",
+              "Second, tied with doc1"
+            ],
+            "correctAnswer": 0,
+            "explanation": "expensive_cross_encoder_score gives doc4 the highest overlap with the query text, so after sorting by rerank_score it moves to first place.",
+            "id": "q7"
+          },
+          {
+            "question": "Per 'Common mistakes', why shouldn't a cross-encoder's rerank score be compared across different queries?",
+            "options": [
+              "Because the score is only meaningful for ordering candidates within one query's shortlist, not calibrated to be comparable across separate queries",
+              "Because cross-encoders produce a different score format for every query",
+              "Because rerank scores are always identical across all queries",
+              "Because comparing across queries would violate the tenant isolation boundary"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The mistakes section warns that rerank scores are useful for within-query ordering only, not as an absolute, cross-query relevance measure.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "vdb_query_patterns_beyond_top_k",
+      "title": "Query Patterns Beyond Top-K",
+      "description": "Nearest-neighbor search is the headline feature, but real systems lean on a few more query shapes too.",
+      "duration": 11,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Name at least two vector query patterns beyond plain top-k nearest neighbor search."
+          },
+          {
+            "title": "🎚️ Range and threshold queries",
+            "content": "Instead of 'give me the top 10 nearest,' a threshold query asks for 'every vector within similarity 0.8 of this one' — useful for deduplication, or for deciding whether a new item is a near-duplicate of anything already stored, rather than always wanting a fixed-size result set."
+          },
+          {
+            "title": "🎲 Diversity-aware retrieval (MMR)",
+            "content": "Maximal Marginal Relevance (MMR) re-ranks candidates to balance relevance against diversity, avoiding a top-10 list that's ten near-duplicate paragraphs saying the same thing. This matters directly for RAG: a diverse context window often helps an LLM more than a redundant one, even if the redundant one scored marginally higher on pure similarity."
+          },
+          {
+            "title": "🔀 Multi-vector and batch queries",
+            "content": "Real applications often need to search with several query vectors at once (batch queries, for throughput) or represent one item as multiple vectors — for example, one vector per paragraph of a long document, then aggregating scores at query time. Vector databases increasingly support both patterns natively rather than requiring you to loop over single queries."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "A small demonstration of multi-vector query aggregation (a document represented as several paragraph vectors) combined with a batch-query pattern:\n\n```python\nimport math\n\n# A tiny multi-vector aggregation + batch-query demo (NOT production code).\n\ndef distance(a, b):\n    return math.sqrt(sum((x - y) ** 2 for x, y in zip(a, b)))\n\n\n# One document represented as multiple paragraph-level vectors.\ndoc_paragraphs = {\n    \"report_intro\": [0.1, 0.2],\n    \"report_methods\": [0.9, 0.8],\n    \"report_results\": [0.5, 0.5],\n}\n\n\ndef multi_vector_score(query, paragraph_vectors, aggregate=\"max\"):\n    distances = [distance(query, v) for v in paragraph_vectors.values()]\n    if aggregate == \"max\":\n        # Smallest distance = the single best-matching paragraph \"wins\" for\n        # the whole document.\n        return min(distances)\n    if aggregate == \"mean\":\n        return sum(distances) / len(distances)\n    raise ValueError(f\"unknown aggregate: {aggregate}\")\n\n\ndef batch_query(queries, paragraph_vectors, aggregate=\"max\"):\n    # Run several queries against the same paragraph vectors in one pass,\n    # instead of looping through them one query at a time.\n    return [multi_vector_score(q, paragraph_vectors, aggregate) for q in queries]\n\n\nqueries = [[0.85, 0.75], [0.15, 0.15]]\nscores_max = batch_query(queries, doc_paragraphs, aggregate=\"max\")\nscores_mean = batch_query(queries, doc_paragraphs, aggregate=\"mean\")\n\nprint(\"max-aggregated scores:\", [round(s, 3) for s in scores_max])\nprint(\"mean-aggregated scores:\", [round(s, 3) for s in scores_mean])\n```\n\n`multi_vector_score` with `aggregate=\"max\"` takes the *smallest* distance across the document's paragraph vectors — so the whole document scores well as long as any single paragraph is a strong match, rather than requiring the whole document to match on average. `batch_query` runs the full list of `queries` through that scoring function in one call, the same throughput-minded pattern the lesson describes as an alternative to looping single queries one at a time."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Always requesting a fixed top-k when a threshold query fits better.** Forcing a fixed-size result set can silently truncate genuinely relevant matches or pad the results with low-similarity noise just to fill the quota.\n\n**Applying MMR diversity re-ranking without checking that it actually helps.** MMR trades some raw relevance for diversity; assuming that trade always pays off, rather than evaluating it against your actual RAG answer quality, can make results worse for queries where the top matches genuinely are the best answer.\n\n**Looping single queries in application code instead of using native multi-vector or batch query support.** This misses the throughput benefit the database can provide when handling many queries together, the same way inserting HNSW vectors one at a time misses the benefit of bulk loading.\n\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "vdb_query_patterns_beyond_top_k_quiz",
+        "questions": [
+          {
+            "question": "A threshold (range) query differs from top-k search in that it",
+            "options": [
+              "Returns all vectors within a similarity threshold rather than a fixed number of results",
+              "Only works with sparse vectors",
+              "Cannot use metadata filters",
+              "Requires no distance metric"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Threshold queries return a variable-size result set based on a similarity cutoff, useful for tasks like deduplication.",
+            "id": "q1"
+          },
+          {
+            "question": "Maximal Marginal Relevance (MMR) is used to",
+            "options": [
+              "Balance relevance against diversity so results aren't a set of near-duplicate items",
+              "Speed up index construction",
+              "Compress vectors for storage",
+              "Enforce tenant isolation"
+            ],
+            "correctAnswer": 0,
+            "explanation": "MMR re-ranks to reduce redundancy among top results, which matters for giving an LLM a richer, less repetitive context in RAG.",
+            "id": "q2"
+          },
+          {
+            "question": "Representing one long document as multiple vectors, one per paragraph, is an example of",
+            "options": [
+              "A multi-vector query pattern, aggregating scores across several vectors per item at query time",
+              "A threshold query",
+              "A namespace-per-tenant strategy",
+              "Product quantization"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Multi-vector representation lets a single logical item be searched at finer granularity, with scores combined afterward.",
+            "id": "q3"
+          },
+          {
+            "question": "Per the lesson, a threshold/range query is especially useful for",
+            "options": [
+              "Deduplication, or deciding whether a new item is a near-duplicate of something already stored",
+              "Sorting results alphabetically by document title",
+              "Guaranteeing exactly 10 results every time",
+              "Bypassing the need for any distance metric"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson gives deduplication and near-duplicate detection as the motivating use case for threshold queries.",
+            "id": "q4"
+          },
+          {
+            "question": "Per the lesson, why might a diverse (MMR-reranked) context window help an LLM more than a purely top-similarity one, even if the top-similarity one scores marginally higher?",
+            "options": [
+              "Because a set of near-duplicate results provides little additional information, while diverse results give the LLM more distinct information to draw from",
+              "Because MMR always returns more results than top-k search",
+              "Because diverse results are always more similar to the query",
+              "Because LLMs cannot process more than one similar passage at a time"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson notes a diverse context window often helps an LLM more than a redundant one, even when the redundant one scores marginally higher on pure similarity.",
+            "id": "q5"
+          },
+          {
+            "question": "In the code example, what does multi_vector_score do when aggregate='max'?",
+            "options": [
+              "Returns the smallest distance among the document's paragraph vectors, so the document scores well if any single paragraph matches well",
+              "Returns the largest distance among the document's paragraph vectors",
+              "Averages the distances of all paragraph vectors",
+              "Ignores the query entirely and returns a constant"
+            ],
+            "correctAnswer": 0,
+            "explanation": "With aggregate='max', the function returns min(distances) — the closest single paragraph determines the whole document's score.",
+            "id": "q6"
+          },
+          {
+            "question": "What is the purpose of the batch_query function in the code example?",
+            "options": [
+              "It runs several queries against the same paragraph vectors in one pass, rather than looping through single queries one at a time",
+              "It deletes paragraph vectors that are no longer needed",
+              "It trains a new embedding model on the queries",
+              "It converts multi-vector documents into single-vector documents"
+            ],
+            "correctAnswer": 0,
+            "explanation": "batch_query iterates over the queries list and scores each one, embodying the batch-query-for-throughput pattern described in the lesson.",
+            "id": "q7"
+          },
+          {
+            "question": "Per 'Common mistakes', what's the risk of looping single queries in application code instead of using a vector database's native batch or multi-vector query support?",
+            "options": [
+              "Missing the throughput benefit the database can provide when handling many queries together",
+              "The queries will return completely different, incorrect results",
+              "It will corrupt the paragraph vectors in the database",
+              "It will automatically disable MMR re-ranking"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The mistakes section frames this as a missed throughput opportunity, comparable to inserting HNSW vectors one at a time instead of bulk-loading.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

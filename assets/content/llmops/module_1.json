@@ -1,0 +1,575 @@
+{
+  "id": "llo_prompt_management",
+  "title": "Prompt Management",
+  "description": "Prompt registries and versioning, hardening prompt templates for production, A/B testing prompt changes, and managing prompts across environments and teams.",
+  "icon": "📝",
+  "color": "#6A1B9A",
+  "order": 1,
+  "estimatedHours": 5,
+  "difficulty": "intermediate",
+  "prerequisites": [
+    "llo_fundamentals"
+  ],
+  "lessons": [
+    {
+      "id": "llo_prompt_registries_and_versioning",
+      "title": "Prompt Registries and Versioning",
+      "description": "A prompt that changed in production with no record of it is exactly the classical MLOps reproducibility gap, just for the artifact that actually drives most of an LLM app's behavior.",
+      "duration": 13,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain what a prompt registry tracks and why prompts need this treatment distinct from a classical ML model registry."
+          },
+          {
+            "title": "📋 What a prompt registry tracks",
+            "content": "Mirroring the MLOps course's model registry directly: for each version of a prompt, what the exact prompt text/template was, when it was deployed, what evaluation results (per module 3) it achieved, and its current status (in testing, in production, retired) — the same reproducibility and single-source-of-truth benefits the MLOps course described for models, now applied to the prompt artifact specifically."
+          },
+          {
+            "title": "🔀 Why prompts need separate versioning from the model itself",
+            "content": "A single underlying model version might be used with many different prompts across different features of a product, and a single prompt might get updated many times without the underlying model ever changing — prompts and models version independently, which means a registry tracking only 'which model is deployed' (the MLOps course's registry) misses most of what actually determines an LLM feature's behavior day to day."
+          },
+          {
+            "title": "📝 Treating prompt changes like code changes",
+            "content": "Applying the same discipline the Agents and LangGraph courses recommended for other kinds of changes: a prompt change should go through review, be evaluated (module 3) before shipping, and be deployed via the same gradual-rollout strategies (canary, shadow) the MLOps course covered for models — a 'small' prompt tweak has caused real production regressions often enough that treating prompt changes with anything less than the rigor applied to code changes is a common and avoidable mistake."
+          },
+          {
+            "title": "🔗 Connecting a prompt version to everything downstream",
+            "content": "Just as the MLOps course's model registry ties a model version to its evaluation results and deployment history, a prompt registry entry should link forward to the tracing data (module 2) and evaluation results (module 3) associated with that specific prompt version — so a question like 'did this prompt version actually perform worse in production' has a traceable, evidence-based answer rather than relying on anecdote."
+          },
+          {
+            "title": "💻 A minimal prompt registry",
+            "content": "A prompt registry can be as simple as a small class that stores each version's text alongside its status and evaluation score, and exposes the current production version by lookup rather than by hardcoding a prompt string somewhere in application code:\n\n```python\nfrom dataclasses import dataclass, field\nfrom datetime import datetime\n\n\n@dataclass\nclass PromptVersion:\n    prompt_id: str\n    version: int\n    text: str\n    status: str = \"testing\"          # \"testing\" | \"production\" | \"retired\"\n    eval_score: float | None = None\n    deployed_at: datetime | None = None\n\n\nclass PromptRegistry:\n    def __init__(self):\n        self._versions: dict[str, list[PromptVersion]] = {}\n\n    def register_version(self, prompt_id: str, text: str) -> PromptVersion:\n        history = self._versions.setdefault(prompt_id, [])\n        pv = PromptVersion(prompt_id, version=len(history) + 1, text=text)\n        history.append(pv)\n        return pv\n\n    def record_eval(self, prompt_id: str, version: int, score: float) -> None:\n        self._get(prompt_id, version).eval_score = score\n\n    def promote_to_production(self, prompt_id: str, version: int) -> None:\n        for pv in self._versions[prompt_id]:\n            if pv.status == \"production\":\n                pv.status = \"retired\"\n        target = self._get(prompt_id, version)\n        target.status = \"production\"\n        target.deployed_at = datetime.utcnow()\n\n    def get_production_prompt(self, prompt_id: str) -> str:\n        for pv in self._versions[prompt_id]:\n            if pv.status == \"production\":\n                return pv.text\n        raise LookupError(f\"no production version for {prompt_id}\")\n\n    def _get(self, prompt_id: str, version: int) -> PromptVersion:\n        return next(v for v in self._versions[prompt_id] if v.version == version)\n```\n\nEvery version is retained rather than overwritten, `record_eval` links a version to its evaluation results the way the lesson describes, and `get_production_prompt` gives application code a single source of truth instead of a prompt string embedded directly in a request handler."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Editing a prompt string directly in application code.** This throws away exactly the version history, deployment timestamp, and evaluation link that a registry exists to provide, reintroducing the reproducibility gap the lesson opens with.\n\n**Treating a prompt tweak as too small to review or evaluate.** The lesson is explicit that 'small' prompt changes have caused real production regressions, so skipping the same review and evaluation gates used for code changes is a common and avoidable mistake, not a shortcut.\n\n**Letting a registry track only the model version, not the prompt version.** Because a model can be paired with many prompts and a prompt can change many times without the model changing, a registry that ignores prompt versioning misses most of what actually drives an LLM feature's day-to-day behavior."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "llo_prompt_registries_and_versioning_quiz",
+        "questions": [
+          {
+            "question": "What does a prompt registry track, mirroring the MLOps course's model registry?",
+            "options": [
+              "Only the name of whoever wrote the prompt, with no other detail",
+              "The exact prompt text/template for each version, when it was deployed, its evaluation results, and its current status",
+              "The GPU used to serve the model the prompt is used with",
+              "Nothing — prompt registries serve no useful purpose"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A prompt registry provides the same reproducibility and single-source-of-truth tracking for prompts that the MLOps course's model registry provides for trained models.",
+            "id": "q1"
+          },
+          {
+            "question": "Why do prompts need a versioning system separate from the underlying model's own version?",
+            "options": [
+              "Prompts and models always change together and are never independent",
+              "A single model version might be used with many different prompts, and a single prompt might be updated many times without the model changing, so they version independently",
+              "Prompts cannot actually be versioned at all",
+              "Model versioning already fully captures everything about prompt behavior"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since prompts and models change on independent schedules and a model registry alone wouldn't capture prompt-level changes, a dedicated prompt versioning system is necessary to track what's actually driving behavior.",
+            "id": "q2"
+          },
+          {
+            "question": "Why should a 'small' prompt tweak still go through review and evaluation before shipping?",
+            "options": [
+              "Small prompt changes can never actually affect production behavior",
+              "Small prompt changes have caused real production regressions often enough that skipping review/evaluation rigor is a common and avoidable mistake",
+              "Review is only necessary for changes to the underlying model, never for prompts",
+              "Evaluation gates should only apply to major architectural changes"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Treating prompt changes with the same rigor as code changes (review, evaluation, gradual rollout) catches regressions that an informal 'it's just a small tweak' mindset would miss.",
+            "id": "q3"
+          },
+          {
+            "question": "According to the lesson, what should a prompt registry entry link forward to?",
+            "options": [
+              "Nothing else — a registry entry should be a completely standalone record",
+              "The tracing data and evaluation results associated with that specific prompt version",
+              "Only the billing invoice for the API calls made with that prompt",
+              "The personal calendar of the engineer who wrote the prompt"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson describes linking a registry entry forward to tracing data (module 2) and evaluation results (module 3) so questions about a prompt version's real-world performance have traceable, evidence-based answers.",
+            "id": "q4"
+          },
+          {
+            "question": "Which deployment strategies does the lesson say should apply to prompt changes, just as they do to model changes in the MLOps course?",
+            "options": [
+              "Immediate full-traffic cutover with no monitoring",
+              "Gradual-rollout strategies such as canary and shadow deployment",
+              "Deploying only on Fridays to minimize risk",
+              "Manual deployment with no automated tooling of any kind"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson states prompt changes should be deployed via the same gradual-rollout strategies (canary, shadow) the MLOps course covered for models.",
+            "id": "q5"
+          },
+          {
+            "question": "In the `PromptRegistry` example, what does `promote_to_production` do to the previously active production version?",
+            "options": [
+              "It permanently deletes that version's record from the registry",
+              "It marks the previous production version's status as \"retired\" before marking the new version \"production\"",
+              "It leaves two versions simultaneously marked \"production\" with no distinction",
+              "It re-runs that version's evaluation score to zero"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The method loops through existing versions, sets any current \"production\" version to \"retired\", and only then marks the target version as \"production\" and stamps its deployment time.",
+            "id": "q6"
+          },
+          {
+            "question": "In the `PromptRegistry` example, what does `get_production_prompt` return, and why does that matter for application code?",
+            "options": [
+              "A random version's text, so application behavior is nondeterministic",
+              "The text of whichever version currently has status \"production\", giving application code a single source of truth instead of a hardcoded string",
+              "The very first version ever registered, regardless of current status",
+              "The version with the highest eval_score, ignoring deployment status entirely"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`get_production_prompt` scans for the version whose status is \"production\" and returns its text, which is exactly the single-source-of-truth lookup the lesson contrasts with editing a prompt string directly in application code.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does hardcoding a prompt string directly inside application code (instead of reading it from a registry) count as a mistake per this lesson?",
+            "options": [
+              "Because Python cannot store strings inside application code files",
+              "Because it discards the version history, deployment timestamp, and evaluation linkage that make a prompt change traceable and reviewable",
+              "Because application code always runs slower when strings are hardcoded",
+              "Because it is technically impossible to hardcode a prompt string"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Hardcoding a prompt string bypasses the registry entirely, losing the reproducibility, deployment history, and evaluation linkage the lesson identifies as the whole point of registering prompt versions.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "llo_prompt_templates_in_production",
+      "title": "Prompt Templates in Production",
+      "description": "The same LCEL/LangChain prompt-template concept from the LangGraph course, now with production concerns like environment-specific variation and dynamic content layered in.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Describe production-specific considerations for prompt templates beyond the basic template-composition concept from the LangGraph course."
+          },
+          {
+            "title": "🔗 Building on the LangGraph course's prompt templates",
+            "content": "The LangGraph course's LangChain-fundamentals module covered prompt templates as a way to separate the stable instructional wrapper from per-request variables. In production, this same template needs to handle real operational concerns: what happens when a variable is missing or malformed, what the fallback behavior is if a template rendering step fails, and how the template's output is validated before being sent to the model — production-hardening the same basic concept."
+          },
+          {
+            "title": "🌍 Environment-specific prompt variation",
+            "content": "A prompt might need slight variations across environments — a development environment might include extra debugging instructions or use a cheaper/faster model for iteration speed, while production uses the finalized prompt and model — and managing this without accidentally letting a development-only variant leak into production (or vice versa) is a real operational risk that a prompt registry (per the previous lesson) with clear environment tagging helps prevent."
+          },
+          {
+            "title": "📊 Dynamic content injection at scale",
+            "content": "Templates that inject retrieved context (per the RAG course), conversation history, or tool results (per the Agents course) need to handle production-scale realities: what happens when retrieved context is unusually large, or when conversation history has grown very long — connecting directly to the context-window-management concerns from the Agents course's memory module, now specifically in the context of a production prompt template that needs to handle this gracefully every single time, not just in the common case."
+          },
+          {
+            "title": "🧪 Testing templates, not just final rendered prompts",
+            "content": "Because a template can be combined with many different sets of variables in production, testing needs to cover the template's behavior across a realistic range of inputs (very short and very long variable values, missing optional fields, unusual characters) — not just checking that one example rendering looks correct, which is a much weaker test than verifying the template holds up across the actual range of production inputs it will encounter."
+          },
+          {
+            "title": "💻 Hardening a template-rendering function",
+            "content": "A production-hardened rendering function should validate required variables, apply a safe fallback for missing optional ones, and truncate injected content that would blow past the context window rather than failing outright:\n\n```python\nTEMPLATE = (\n    \"You are a support assistant.\\n\"\n    \"Context:\\n{context}\\n\"\n    \"User question: {question}\\n\"\n    \"Tone hint: {tone}\"\n)\n\nREQUIRED_VARS = {\"context\", \"question\"}\nMAX_CONTEXT_CHARS = 4000\n\n\ndef render_prompt(variables: dict) -> str:\n    missing = REQUIRED_VARS - variables.keys()\n    if missing:\n        raise ValueError(f\"missing required template variables: {missing}\")\n\n    context = variables[\"context\"]\n    if len(context) > MAX_CONTEXT_CHARS:\n        # Guard against retrieved context or long history blowing the\n        # context window, per the RAG/Agents course context-management point.\n        context = context[:MAX_CONTEXT_CHARS] + \"\\n[context truncated]\"\n\n    safe_vars = {\n        \"context\": context,\n        \"question\": variables[\"question\"],\n        \"tone\": variables.get(\"tone\", \"neutral\"),  # fallback for optional field\n    }\n    rendered = TEMPLATE.format(**safe_vars)\n    if not rendered.strip():\n        raise ValueError(\"template rendered to empty output\")\n    return rendered\n```\n\n`render_prompt` raises early on a genuinely missing required variable instead of silently rendering a broken prompt, falls back to a default for the optional `tone` field, and truncates oversized context so one unusually large retrieval result can't silently break every request."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Letting a template render silently with a missing or malformed variable.** Without an explicit check for required variables, a missing field produces a broken or nonsensical prompt instead of a clear, catchable error.\n\n**Only testing one example rendering of a template.** A single 'looks correct' example is a much weaker test than verifying behavior across the realistic range of production inputs — very long values, missing optional fields, unusual characters — that the template will actually encounter.\n\n**Failing to cap injected context or history length.** A template that assumes retrieved context or conversation history will always be reasonably sized will eventually receive an oversized input in production and either fail outright or silently exceed the model's context window."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "llo_prompt_templates_in_production_quiz",
+        "questions": [
+          {
+            "question": "What production concern does prompt-template hardening add beyond the basic template-composition concept from the LangGraph course?",
+            "options": [
+              "Nothing — templates work identically in development and production with no additional concerns",
+              "Handling missing or malformed variables, fallback behavior on rendering failure, and validating output before sending to the model",
+              "Templates cannot actually be reused across different environments",
+              "Production templates require a completely different syntax from development templates"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Production use requires handling edge cases (malformed input, rendering failures) that a basic development-time template composition doesn't need to worry about.",
+            "id": "q1"
+          },
+          {
+            "question": "Why is environment-specific prompt variation a real operational risk?",
+            "options": [
+              "Environment variation is never actually a risk in practice",
+              "A development-only prompt variant (e.g., with debugging instructions) could accidentally leak into production, or vice versa, without clear environment tagging via a registry",
+              "Prompts should never vary at all between environments under any circumstances",
+              "This risk only applies to classical ML models, not prompts"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Without clear tracking of which prompt variant belongs to which environment, there's a real risk of the wrong variant being used in the wrong place, which a well-tagged prompt registry helps prevent.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is testing a prompt template across a realistic range of inputs more valuable than checking one example rendering?",
+            "options": [
+              "A single example rendering is always sufficient to guarantee correctness",
+              "A template combined with production-scale variable ranges (very long values, missing fields, unusual characters) needs to hold up across all of them, not just a common-case example",
+              "Templates never actually encounter unusual or edge-case inputs in production",
+              "Testing templates is unnecessary since they're just static text"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since a template will be combined with a wide range of real production variable values, verifying it handles that full range is a much stronger and more useful test than checking a single typical rendering.",
+            "id": "q3"
+          },
+          {
+            "question": "Per the lesson, what production-scale realities must a template handle when injecting retrieved context or conversation history?",
+            "options": [
+              "None — retrieved context and history are always a fixed, small size",
+              "Unusually large retrieved context or very long conversation history, connecting to the Agents course's context-window-management concerns",
+              "Only the number of tool calls made, never the size of their output",
+              "The template should reject all dynamic content injection entirely"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson explicitly connects handling oversized retrieved context or long conversation history to the context-window-management concerns raised in the Agents course's memory module.",
+            "id": "q4"
+          },
+          {
+            "question": "What should a production template's fallback behavior address, according to the lesson?",
+            "options": [
+              "What happens if a variable is missing or malformed, and what to do if a rendering step itself fails",
+              "How to make the template render faster on every single call",
+              "Whether the template should be written in English or another language",
+              "How many GPUs are needed to serve the resulting prompt"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson names handling missing/malformed variables and rendering-step failures as the core fallback-behavior concerns that separate production templates from basic development-time ones.",
+            "id": "q5"
+          },
+          {
+            "question": "In the `render_prompt` example, what happens if the `variables` dict is missing the required `question` key?",
+            "options": [
+              "The function silently renders the prompt with an empty question field",
+              "The function raises a ValueError listing the missing required variable before any rendering happens",
+              "The function automatically fetches a default question from an external API",
+              "The function crashes with an unrelated KeyError deep inside string formatting"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`REQUIRED_VARS - variables.keys()` catches the missing `question` key and raises a clear ValueError naming it, before `TEMPLATE.format(...)` ever runs.",
+            "id": "q6"
+          },
+          {
+            "question": "In the `render_prompt` example, what happens when `context` exceeds `MAX_CONTEXT_CHARS`?",
+            "options": [
+              "The function raises an unrecoverable error and refuses to render anything",
+              "The context is truncated to the limit and a '[context truncated]' marker is appended, rather than failing the whole request",
+              "The entire variables dict is discarded and replaced with defaults",
+              "The function silently ignores the length limit and passes the full context through unchanged"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The function slices `context` down to `MAX_CONTEXT_CHARS` and appends a truncation marker, guarding against oversized retrieved context the way the lesson's context-window discussion recommends, instead of erroring out or ignoring the limit.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does the lesson consider it a mistake to only test one 'looks correct' rendering of a template, based on how `render_prompt` is written?",
+            "options": [
+              "Because a single test case can't reveal how the function behaves with missing required fields, oversized context, or absent optional fields like `tone`",
+              "Because Python does not allow more than one test to run against the same function",
+              "Because `render_prompt` is deterministic and always produces the exact same output for every input",
+              "Because template functions cannot be unit tested at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The function's real behavior — raising on missing required variables, truncating oversized context, defaulting an absent `tone` — only surfaces when tested across that range of inputs, not from a single happy-path example.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "llo_ab_testing_and_experimentation_with_prompts",
+      "title": "A/B Testing and Experimentation with Prompts",
+      "description": "Extending the deployment strategies from the MLOps course to a world where 'which version is better' is a genuinely harder question to answer.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Design a prompt A/B test and explain why the MLOps course's canary-deployment concept needs adaptation for prompt experimentation specifically."
+          },
+          {
+            "title": "🔀 A/B testing as an extension of canary deployment",
+            "content": "The MLOps course's canary deployment pattern — route a fraction of traffic to a new version, monitor, and expand if it looks healthy — applies directly to prompt versions, but with an important addition: rather than only watching for a new version looking broken (canary's typical framing), prompt A/B testing usually wants a genuine, statistically meaningful comparison of which version performs better, since prompt changes are often exploratory improvements rather than fixes for a known problem."
+          },
+          {
+            "title": "📊 What 'performs better' means for a prompt",
+            "content": "Building on the multi-dimensional evaluation from this course's fundamentals module: better could mean higher quality per the evaluation harness (module 3), better user engagement or task completion metrics if those are trackable, lower cost or latency, or some combination — deciding what actually constitutes 'better' before running the test, rather than after seeing the results, avoids the temptation to retroactively justify whichever version happened to look good on some metric chosen after the fact."
+          },
+          {
+            "title": "⏱️ Statistical considerations specific to LLM A/B tests",
+            "content": "Because LLM outputs are non-deterministic (the same prompt and input can produce somewhat different outputs across calls) and evaluation itself can be noisy (especially LLM-as-judge evaluation, covered in module 3), a prompt A/B test typically needs more samples to reach a confident conclusion than a simpler, more deterministic classical software A/B test might — running a test for too short a time or with too few samples risks concluding a difference is real when it's actually just noise."
+          },
+          {
+            "title": "🎯 Avoiding a common experimentation mistake",
+            "content": "Running many simultaneous prompt experiments without accounting for interactions between them (two different prompt changes tested at the same time, where the actual production outcome for a given user depends on which combination of experiments they happened to be in) can make results hard to interpret cleanly — being deliberate about how many concurrent experiments run, and how their interactions are handled, is worth planning for rather than discovering as a problem after results come back confusing."
+          },
+          {
+            "title": "💻 A simple prompt A/B assignment and tracking function",
+            "content": "A minimal `ab_test_prompt` function needs a stable way to assign a given user to a variant, and a way to record outcomes for later statistical comparison, rather than deciding a winner from a handful of anecdotal results:\n\n```python\nimport hashlib\nfrom collections import defaultdict\n\n# metric name -> variant -> list of recorded scores\n_results: dict[str, dict[str, list[float]]] = defaultdict(lambda: defaultdict(list))\n\n\ndef ab_test_prompt(user_id: str, variant_a: str, variant_b: str) -> tuple[str, str]:\n    \"\"\"Deterministically assign a user to a prompt variant.\n\n    Hashing the user id (rather than randomizing per call) means the same\n    user always sees the same variant, which the lesson's point about\n    deciding \"better\" up front depends on being consistent per-user.\n    \"\"\"\n    digest = hashlib.sha256(user_id.encode()).hexdigest()\n    variant_name = \"A\" if int(digest, 16) % 2 == 0 else \"B\"\n    prompt_text = variant_a if variant_name == \"A\" else variant_b\n    return variant_name, prompt_text\n\n\ndef record_outcome(metric: str, variant_name: str, score: float) -> None:\n    _results[metric][variant_name].append(score)\n\n\ndef sample_sizes(metric: str) -> dict[str, int]:\n    # Used to check we have enough samples before trusting a comparison,\n    # since LLM output noise means small sample sizes are unreliable.\n    return {name: len(scores) for name, scores in _results[metric].items()}\n```\n\n`ab_test_prompt` uses a hash of the user id so assignment is stable rather than re-randomized on every call, `record_outcome` accumulates scores per variant for the pre-decided metric instead of eyeballing a few responses, and `sample_sizes` makes it explicit when there aren't yet enough samples to draw a confident conclusion given LLM output noise."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Declaring a winner after only a handful of results.** Because LLM outputs are non-deterministic and LLM-as-judge evaluation can be noisy, a small sample size risks mistaking random variation for a genuine difference between variants.\n\n**Choosing the success metric after looking at the results.** Deciding what 'better' means only after seeing which variant looks good invites retroactively justifying whichever outcome happened to occur, rather than testing a real hypothesis.\n\n**Running many overlapping prompt experiments without tracking which combination each user saw.** Interactions between simultaneous experiments can make results hard to interpret cleanly if the combination of experiments a given user was in isn't tracked alongside their outcome."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "llo_ab_testing_and_experimentation_with_prompts_quiz",
+        "questions": [
+          {
+            "question": "How does prompt A/B testing extend the MLOps course's canary deployment concept?",
+            "options": [
+              "It doesn't extend it at all — they are unrelated concepts",
+              "It builds on canary's traffic-splitting approach but usually wants a genuine statistical comparison of which version performs better, not just detecting an obviously broken new version",
+              "A/B testing requires deploying to 100% of traffic immediately with no gradual rollout",
+              "Canary deployment cannot be applied to prompts under any circumstances"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Prompt A/B testing uses the same traffic-splitting infrastructure as canary deployment, but adds the goal of a genuine comparative measurement rather than just catching an obviously broken version.",
+            "id": "q1"
+          },
+          {
+            "question": "Why does deciding what 'better' means before running a prompt A/B test matter?",
+            "options": [
+              "It doesn't matter — any metric can be chosen after seeing results",
+              "Deciding upfront avoids the temptation to retroactively justify whichever version happens to look good on some metric chosen after the fact",
+              "Prompt A/B tests never actually need a definition of 'better'",
+              "Only cost should ever be used to judge a prompt A/B test"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Pre-committing to what counts as a meaningful improvement prevents post-hoc rationalization of results based on whatever metric happened to favor a particular version.",
+            "id": "q2"
+          },
+          {
+            "question": "Why do LLM prompt A/B tests typically need more samples than a simpler, deterministic software A/B test?",
+            "options": [
+              "LLM outputs are always perfectly deterministic, requiring no extra samples",
+              "LLM outputs are non-deterministic and evaluation itself can be noisy (especially LLM-as-judge), so more samples are needed to distinguish a real difference from noise",
+              "Sample size has no bearing on the reliability of an A/B test's conclusions",
+              "Fewer samples are actually needed for LLM-based A/B tests than for classical software ones"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The added noise from non-deterministic outputs and imperfect evaluation methods means a larger sample size is generally needed to reach a confident, reliable conclusion.",
+            "id": "q3"
+          },
+          {
+            "question": "Per the lesson, what can make results hard to interpret cleanly when many prompt experiments run at once?",
+            "options": [
+              "Running only one experiment at a time, which the lesson says is always too slow",
+              "Interactions between simultaneous experiments, where a user's outcome depends on which combination of experiments they happened to be in",
+              "The fact that canary deployment can never be combined with A/B testing",
+              "Evaluation harnesses becoming unavailable when more than one experiment runs"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson warns that uncoordinated concurrent experiments can interact, so a given user's outcome reflects a combination of treatments rather than one isolated change, muddying interpretation.",
+            "id": "q4"
+          },
+          {
+            "question": "According to the lesson, besides quality from the evaluation harness, what else might 'performs better' account for?",
+            "options": [
+              "Only the total number of lines of code in the prompt template",
+              "User engagement or task completion metrics, cost, or latency, or some combination of these",
+              "Nothing else — quality score is the only dimension that ever matters",
+              "The number of prompt versions currently stored in the registry"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson lists several possible dimensions of 'better' beyond raw quality score: engagement/task completion, cost, latency, or a combination of these, decided in advance.",
+            "id": "q5"
+          },
+          {
+            "question": "In the `ab_test_prompt` example, why is the user assigned a variant by hashing `user_id` rather than by randomizing on every call?",
+            "options": [
+              "Hashing is used purely to make the code run faster, with no effect on assignment behavior",
+              "So the same user is consistently assigned the same variant across calls, rather than being re-randomized and potentially seeing both variants",
+              "Because Python cannot generate random numbers inside a function",
+              "So that every user is always assigned to variant \"A\" regardless of their id"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Hashing the user id produces a stable, deterministic assignment per user, so a given user consistently experiences one variant rather than a different one on each call.",
+            "id": "q6"
+          },
+          {
+            "question": "What is the purpose of the `sample_sizes` function in the example code?",
+            "options": [
+              "To automatically declare a winning variant once any results exist",
+              "To report how many recorded scores exist per variant, so a comparison isn't trusted before enough samples have accumulated",
+              "To permanently delete recorded outcomes older than a fixed time window",
+              "To randomly reassign users to a different variant mid-experiment"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`sample_sizes` counts how many outcomes have been recorded for each variant under a given metric, which is exactly the check needed before trusting a comparison given LLM output noise.",
+            "id": "q7"
+          },
+          {
+            "question": "Which common mistake from the lesson does the `record_outcome`/`sample_sizes` pattern in the code directly help avoid?",
+            "options": [
+              "Declaring a winner after only a handful of results, by making sample counts visible before a comparison is trusted",
+              "Forgetting to write a prompt template in the first place",
+              "Accidentally deploying a development prompt variant to production",
+              "Using the wrong programming language for the registry"
+            ],
+            "correctAnswer": 0,
+            "explanation": "By tracking accumulated scores per variant and exposing per-variant sample counts, the code makes it possible to check that enough data exists before concluding one variant is genuinely better, directly addressing the 'declaring a winner too early' mistake.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "llo_managing_prompts_across_environments",
+      "title": "Managing Prompts Across Environments and Teams",
+      "description": "As an LLM product grows, keeping prompts consistent, discoverable, and safely editable across a whole team becomes its own operational challenge.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Describe the organizational and tooling practices that keep prompt management reliable as a team and product scale."
+          },
+          {
+            "title": "🔄 Promotion across environments",
+            "content": "Mirroring the MLOps course's model lifecycle stages (staging, production, archived): a prompt typically moves through a similar promotion path — developed and tested in a development environment, validated in staging against the evaluation harness (module 3), and only then promoted to production — with the registry (from earlier in this module) tracking exactly which stage each prompt version is currently in, the same explicit-stage-tracking benefit the MLOps course described for models."
+          },
+          {
+            "title": "👥 Who can change what",
+            "content": "As a team grows, uncontrolled prompt edits (anyone able to change a production prompt directly, with no review) become a real reliability risk, echoing the same 'treat prompt changes like code changes' principle from earlier in this module — access controls and required review for production prompt changes are the organizational analogue of the technical review process, and become more important precisely as more people are able to touch a shared prompt."
+          },
+          {
+            "title": "🗂️ Discoverability: avoiding duplicate or conflicting prompts",
+            "content": "Without a well-organized registry, it's easy for different team members or different parts of a growing product to independently create very similar prompts solving overlapping problems, with no one aware of the duplication — a searchable, well-documented prompt registry (with clear ownership and purpose for each prompt) prevents this kind of accidental duplication and makes it easier to reuse a prompt that's already been developed and evaluated rather than reinventing it."
+          },
+          {
+            "title": "🎯 Why this scales the payoff of everything earlier in this module",
+            "content": "Registries, versioning, and evaluation gates (covered so far in this module) provide real value even for a single developer working on one prompt — but the organizational practices in this lesson (environment promotion, access control, discoverability) are what make those same technical practices actually hold up as a team and product grow, which is exactly the point where informal, single-person prompt management practices tend to break down."
+          },
+          {
+            "title": "💻 Enforcing environment promotion in code",
+            "content": "A promotion function can enforce the staging path directly, refusing to move a version straight to production without first passing through staging and clearing the evaluation gate — turning the lifecycle rule into something the code guarantees rather than something a team has to remember:\n\n```python\nSTAGE_ORDER = [\"development\", \"staging\", \"production\"]\nMIN_EVAL_SCORE_FOR_PRODUCTION = 0.85\n\n\nclass PromotionError(Exception):\n    pass\n\n\ndef promote_prompt(version_record: dict, target_stage: str, approver: str) -> None:\n    current_stage = version_record[\"stage\"]\n    current_idx = STAGE_ORDER.index(current_stage)\n    target_idx = STAGE_ORDER.index(target_stage)\n\n    if target_idx != current_idx + 1:\n        # Blocks skipping straight from development to production.\n        raise PromotionError(\n            f\"cannot promote from {current_stage} directly to {target_stage}\"\n        )\n\n    if target_stage == \"production\":\n        score = version_record.get(\"eval_score\")\n        if score is None or score < MIN_EVAL_SCORE_FOR_PRODUCTION:\n            raise PromotionError(\"evaluation gate not met for production promotion\")\n        if approver == version_record.get(\"author\"):\n            # Enforces required review by someone other than the author.\n            raise PromotionError(\"production promotion requires a different approver\")\n\n    version_record[\"stage\"] = target_stage\n    version_record[\"approved_by\"] = approver\n```\n\n`promote_prompt` refuses to skip the staging step, blocks a production promotion whose evaluation score falls below the required gate, and rejects self-approval — turning the lesson's 'who can change what' review principle into an enforced check rather than an informal team norm."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Allowing a prompt to be promoted straight from development to production.** Skipping the staging validation step against the evaluation harness removes the safety check the lifecycle path is designed to provide.\n\n**Letting the author of a prompt change approve their own production promotion.** This defeats the purpose of required review, which the lesson identifies as increasingly important as more people can touch a shared production prompt.\n\n**Leaving prompts undocumented and hard to search.** Without clear ownership and purpose recorded per prompt, team members end up independently creating near-duplicate prompts for overlapping problems instead of reusing one that already exists and has been evaluated."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "llo_managing_prompts_across_environments_quiz",
+        "questions": [
+          {
+            "question": "What does the environment-promotion path for prompts mirror from the MLOps course?",
+            "options": [
+              "Nothing — prompt promotion is a completely unrelated concept",
+              "The model lifecycle stages (staging, production, archived), applying the same explicit-stage-tracking benefit to prompts via the registry",
+              "The feature-store concept from the MLOps course's data-versioning module",
+              "The rollback strategies from the MLOps course's final module"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Prompt promotion through development, staging, and production stages mirrors the MLOps course's explicit model lifecycle stage tracking, applied to the prompt artifact.",
+            "id": "q1"
+          },
+          {
+            "question": "Why do access controls and required review for production prompt changes matter more as a team grows?",
+            "options": [
+              "Access controls are never actually necessary regardless of team size",
+              "Uncontrolled prompt edits become a bigger reliability risk as more people can touch a shared production prompt with no review",
+              "Review processes only matter for classical ML model changes, never for prompts",
+              "Team size has no bearing on the risk of prompt-related production issues"
+            ],
+            "correctAnswer": 1,
+            "explanation": "As more people gain the ability to change a shared production prompt, the risk of an unreviewed, potentially harmful edit grows, making access control and review increasingly important.",
+            "id": "q2"
+          },
+          {
+            "question": "What problem does a well-organized, searchable prompt registry with clear ownership help prevent?",
+            "options": [
+              "It prevents evaluation harnesses from ever being needed",
+              "Different team members independently creating very similar prompts solving overlapping problems without awareness of the duplication",
+              "It eliminates the need for any environment promotion process",
+              "It has no relationship to team scaling issues at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Discoverability through a well-organized registry helps a growing team reuse existing, already-evaluated prompts rather than accidentally duplicating effort on overlapping problems.",
+            "id": "q3"
+          },
+          {
+            "question": "According to the lesson, at what point do informal, single-person prompt management practices tend to break down?",
+            "options": [
+              "They never break down regardless of team or product size",
+              "Exactly at the point where a team and product grow, which is why organizational practices like promotion, access control, and discoverability become necessary",
+              "Only once a company adopts a classical ML model registry",
+              "Immediately, even for a single developer working alone"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson states that registries, versioning, and evaluation gates already help a single developer, but organizational practices are what make those practices hold up as a team and product scale — which is where informal single-person habits break down.",
+            "id": "q4"
+          },
+          {
+            "question": "Per the lesson, what should the registry track about a prompt version as it moves through the promotion path?",
+            "options": [
+              "Nothing — the registry only needs to store the final production version",
+              "Exactly which stage (development, staging, production) each prompt version is currently in",
+              "Only the number of times the prompt has been edited, with no stage information",
+              "The registry plays no role in the promotion path at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson describes the registry as tracking exactly which lifecycle stage each prompt version is currently in, the same explicit-stage-tracking benefit described for models in the MLOps course.",
+            "id": "q5"
+          },
+          {
+            "question": "In the `promote_prompt` example, what happens if `target_stage` is \"production\" while `current_stage` is \"development\"?",
+            "options": [
+              "The promotion succeeds immediately since production is the ultimate goal",
+              "A PromotionError is raised because the target index isn't exactly one stage ahead of the current index, blocking a skip over staging",
+              "The function silently converts the target stage to \"staging\" instead",
+              "The function deletes the version record entirely"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Because `STAGE_ORDER.index(\"production\")` is not `current_idx + 1` when starting from \"development\", the check `target_idx != current_idx + 1` raises a PromotionError, blocking the skip.",
+            "id": "q6"
+          },
+          {
+            "question": "In the `promote_prompt` example, why does the function reject the call when `approver == version_record.get(\"author\")`?",
+            "options": [
+              "Because the function requires the approver's name to be alphabetically before the author's",
+              "Because it enforces that a production promotion be reviewed by someone other than the change's own author",
+              "Because self-approval causes a Python syntax error",
+              "Because the eval_score is recalculated differently for the author"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The self-approval check enforces the lesson's principle that production prompt changes require review by someone other than the person who made the change, rather than relying on an honor system.",
+            "id": "q7"
+          },
+          {
+            "question": "Which common mistake does the `promote_prompt` example's stage-order check (`target_idx != current_idx + 1`) directly prevent?",
+            "options": [
+              "Forgetting to record an evaluation score at all",
+              "Promoting a prompt straight from development to production, skipping the staging validation step",
+              "Using too many stages in the promotion pipeline",
+              "Storing prompt text in an unsupported file format"
+            ],
+            "correctAnswer": 1,
+            "explanation": "By requiring the target stage to be exactly one step ahead of the current stage, the check makes it impossible to jump directly from development to production, enforcing the staging validation the lesson calls for.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

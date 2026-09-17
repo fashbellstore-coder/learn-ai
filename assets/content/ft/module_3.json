@@ -1,0 +1,551 @@
+{
+  "id": "ft_preference_optimization",
+  "title": "Preference Optimization",
+  "description": "RLHF's reward-model-plus-RL pipeline, DPO's simpler direct alternative, and how to choose between them.",
+  "icon": "🎚️",
+  "color": "#FB8C00",
+  "order": 3,
+  "estimatedHours": 5,
+  "difficulty": "advanced",
+  "prerequisites": [
+    "ft_sft_practice"
+  ],
+  "lessons": [
+    {
+      "id": "ft_rlhf_pipeline_overview",
+      "title": "The RLHF Pipeline, End to End",
+      "description": "Reinforcement Learning from Human Feedback: the process that turns an instruction-following model into a genuinely helpful, well-behaved one.",
+      "duration": "13 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can describe the three stages of the classic RLHF pipeline and what each stage's inputs and outputs are."
+          },
+          {
+            "title": "🧠 Why go beyond SFT",
+            "content": "SFT teaches a model to imitate example responses, but it can't teach the model to prefer a better response over a worse-but-still-plausible one, because SFT only ever sees one 'correct' target per example. **RLHF** adds a mechanism for exactly that: learning from relative judgments (this response is better than that one) rather than absolute targets, which better matches how humans actually evaluate quality — it's often easier to say which of two answers is better than to write the single best possible answer from scratch."
+          },
+          {
+            "title": "🔢 Stage 1: SFT",
+            "content": "Start from a pretrained base model and run supervised fine-tuning on instruction-response pairs, exactly as covered in the previous module. This gives a reasonable starting policy that already follows instructions before preference tuning refines it further."
+          },
+          {
+            "title": "🏆 Stage 2: Reward modeling",
+            "content": "Collect pairs of responses to the same prompt, have human raters (or sometimes another model) indicate which one is better, and train a separate **reward model** to predict that preference — given a prompt and a response, output a scalar score estimating how 'good' a human would rate it. This reward model becomes a stand-in for expensive, slow human judgment that can be queried cheaply and instantly during the next stage."
+          },
+          {
+            "title": "🎮 Stage 3: RL optimization against the reward model",
+            "content": "Use reinforcement learning (classically **PPO** — Proximal Policy Optimization) to further adjust the SFT model so it generates responses that score higher according to the reward model, while a penalty term keeps it from drifting too far from the original SFT model (to avoid degenerate strategies that game the reward model without actually being good responses). The result is a model tuned toward what the reward model — and by extension, the human preferences it was trained on — considers a better response.\n\n```python\n# Conceptual RLHF loop, stage 3\nresponse = policy_model.generate(prompt)\nreward = reward_model.score(prompt, response)\nkl_penalty = kl_divergence(policy_model, sft_model, prompt)\nloss = -reward + beta * kl_penalty   # push reward up, stay close to SFT model\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Treating RLHF as a single step rather than a three-stage pipeline.** Skipping or under-investing in any one stage (a weak SFT start, sloppy reward model data, an untuned RL loop) degrades the whole pipeline's output.\n\n**Forgetting the KL penalty against the SFT model.** Without it, RL optimization can drift into degenerate outputs that score well on the reward model but aren't genuinely better responses.\n\n**Assuming the reward model is a perfect stand-in for human judgment forever.** It's trained on a snapshot of preferences and can be exploited or become stale as the policy shifts."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ft_rlhf_pipeline_overview_quiz",
+        "questions": [
+          {
+            "question": "What can RLHF teach that plain SFT alone cannot?",
+            "options": [
+              "How to tokenize input text",
+              "Relative preferences between multiple plausible responses, not just imitation of one target",
+              "How to run on a GPU",
+              "How to quantize a model"
+            ],
+            "correctAnswer": 1,
+            "explanation": "SFT only sees one correct target per example; RLHF's reward-model-plus-RL approach lets the model learn from relative comparisons between responses, closer to how humans actually judge quality.",
+            "id": "q1"
+          },
+          {
+            "question": "What does the reward model in RLHF predict?",
+            "options": [
+              "The next token in a sequence",
+              "A scalar score estimating how a human would rate a given response to a prompt",
+              "The exact GPU memory usage of a model",
+              "The LoRA rank to use"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The reward model is trained on human preference comparisons to output a score standing in for human judgment, so it can be queried cheaply during the RL stage.",
+            "id": "q2"
+          },
+          {
+            "question": "Why does RLHF's RL stage include a penalty for drifting too far from the original SFT model?",
+            "options": [
+              "To speed up training",
+              "To prevent the model from gaming the reward model with degenerate outputs that score well but aren't actually good responses",
+              "To reduce GPU memory usage",
+              "Because the reward model requires it technically to run at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Without a constraint, RL optimization can find ways to maximize reward model score that don't correspond to genuinely better responses — the penalty keeps the policy anchored to reasonable behavior.",
+            "id": "q3"
+          },
+          {
+            "question": "In this lesson's conceptual code example, what two quantities does the loss combine?",
+            "options": [
+              "The reward score and a KL-divergence penalty against the SFT model",
+              "The LoRA rank and the batch size",
+              "The tokenizer vocabulary size and the number of epochs",
+              "The dataset size and the number of GPUs used"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example shows loss = -reward + beta * kl_penalty, combining the reward signal with a KL penalty that keeps the policy close to the original SFT model.",
+            "id": "q4"
+          },
+          {
+            "question": "According to this lesson, what does Stage 1 (SFT) provide as a starting point for the rest of the RLHF pipeline?",
+            "options": [
+              "A reasonable starting policy that already follows instructions before preference tuning refines it further",
+              "A fully aligned, production-ready final model with no further stages needed",
+              "A trained reward model ready to use in Stage 3",
+              "A quantized version of the base model"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explains that Stage 1's SFT model gives a reasonable instruction-following starting point, which the later reward modeling and RL stages then refine.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does the lesson say it's often easier for humans to judge which of two responses is better than to write the single best response from scratch?",
+            "options": [
+              "Because relative comparison better matches how humans actually evaluate quality, compared to producing an absolute 'correct' target",
+              "Because writing a response from scratch is always faster than comparing two responses",
+              "Because humans are incapable of ever writing a high-quality response themselves",
+              "Because relative judgments and absolute targets are functionally identical tasks"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly states that relative preference judgments better match how people evaluate quality in practice than trying to author one single ideal answer.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson warn against treating RLHF as a single step rather than a three-stage pipeline?",
+            "options": [
+              "Because under-investing in any one stage (SFT, reward modeling, or RL tuning) degrades the whole pipeline's final output",
+              "Because RLHF only actually consists of a single stage with no further steps",
+              "Because each stage of RLHF operates completely independently with no effect on the others",
+              "Because skipping stages always improves the pipeline's final result"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is skipping or shortchanging one of the three stages, when each stage's quality affects the overall pipeline's success.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson caution against assuming the reward model is a perfect, permanent stand-in for human judgment?",
+            "options": [
+              "Because it's trained on a snapshot of preferences and can be exploited or become stale as the policy shifts during RL",
+              "Because the reward model is always exactly as accurate as human judgment at every point during training",
+              "Because reward models never actually need retraining or revisiting once created",
+              "Because reward hacking is impossible once a reward model has been trained"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is trusting the reward model indefinitely, when it can become exploitable or stale as the policy being optimized shifts away from its training distribution.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ft_reward_modeling",
+      "title": "Building a Reward Model",
+      "description": "A model whose only job is to predict which of two responses a human would prefer.",
+      "duration": "12 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain how a reward model is trained and what makes its preference data reliable or unreliable."
+          },
+          {
+            "title": "🏗️ Architecture and training objective",
+            "content": "A reward model is usually initialized from the same base (often the SFT model itself) with the language modeling head replaced by a scalar output head. It's trained on pairs of responses (chosen, rejected) for the same prompt, with a loss that pushes the score for the chosen response higher than the score for the rejected one — it never needs to predict an absolute 'true' score, only get the relative ordering right, which is a much easier and more reliably human-judgeable task.\n\n```python\n# Conceptual reward model loss (Bradley-Terry style)\nchosen_score = reward_model(prompt, chosen_response)\nrejected_score = reward_model(prompt, rejected_response)\nloss = -log_sigmoid(chosen_score - rejected_score)  # push chosen above rejected\n```"
+          },
+          {
+            "title": "👥 Where preference data comes from",
+            "content": "Human annotators are shown a prompt and two (or more) candidate responses and asked which is better, sometimes with guidelines around helpfulness, honesty, and harmlessness to make judgments more consistent across annotators. Increasingly, a strong existing LLM is also used to generate preference judgments at scale (sometimes called **RLAIF** — reinforcement learning from AI feedback), often combined with a smaller set of human-labeled examples used to validate that the AI judgments track human ones well enough to trust."
+          },
+          {
+            "title": "⚠️ Reward model failure modes",
+            "content": "Annotator disagreement and inconsistent guidelines can teach the reward model contradictory signals. **Reward hacking** — the policy model during RL finds outputs the reward model rates highly for reasons that don't reflect real quality (like excessive length, since longer answers are sometimes rated as more thorough regardless of actual content). **Distribution shift** — a reward model trained on one style of responses may score unfamiliar response styles unreliably, which becomes a real problem once the RL stage starts producing outputs quite different from its training distribution."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Allowing inconsistent annotation guidelines across raters.** Contradictory training signals produce a reward model with no coherent notion of quality.\n\n**Trusting RLAIF judgments without validating them against real human labels.** AI-generated preferences can drift from actual human preferences in ways that only checking against a human-labeled sample would reveal.\n\n**Not monitoring for reward hacking once RL optimization begins.** A reward model that looked fine in isolation can still be gamed once the policy starts generating outputs outside its training distribution."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ft_reward_modeling_quiz",
+        "questions": [
+          {
+            "question": "What does a reward model's training objective actually require it to get right?",
+            "options": [
+              "The exact absolute quality score of a response",
+              "The relative ordering — that a chosen response scores higher than a rejected one for the same prompt",
+              "The token-level probability of the next word",
+              "The GPU memory needed for the base model"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Reward models are trained on relative preference pairs and only need to rank the chosen response above the rejected one — an easier and more human-judgeable task than predicting an absolute score.",
+            "id": "q1"
+          },
+          {
+            "question": "What is RLAIF?",
+            "options": [
+              "A method for quantizing reward models",
+              "Using a strong existing LLM to generate preference judgments at scale, often validated against human labels",
+              "A type of LoRA adapter",
+              "A dataset deduplication technique"
+            ],
+            "correctAnswer": 1,
+            "explanation": "RLAIF (reinforcement learning from AI feedback) scales up preference data collection using AI-generated judgments, typically cross-checked against a smaller human-labeled set.",
+            "id": "q2"
+          },
+          {
+            "question": "What is 'reward hacking' in the RLHF context?",
+            "options": [
+              "The reward model being physically hacked by an attacker",
+              "The policy model learning to produce outputs that score highly on the reward model for reasons that don't reflect real quality",
+              "A technique for training reward models faster",
+              "A method for reducing dataset size"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Reward hacking is when RL optimization exploits quirks of the reward model (like rewarding length regardless of substance) rather than genuinely improving response quality.",
+            "id": "q3"
+          },
+          {
+            "question": "In this lesson's code example, what does the loss push the chosen_score to do relative to rejected_score?",
+            "options": [
+              "Increase, so the chosen response's score ends up higher than the rejected response's score",
+              "Decrease, so the chosen response's score ends up lower than the rejected response's score",
+              "Stay exactly equal to the rejected response's score",
+              "Become completely unrelated to the rejected response's score"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example shows a Bradley-Terry style loss that pushes chosen_score above rejected_score via -log_sigmoid(chosen_score - rejected_score).",
+            "id": "q4"
+          },
+          {
+            "question": "According to this lesson, what typically replaces the language modeling head when building a reward model from an SFT model?",
+            "options": [
+              "A scalar output head",
+              "An entirely new tokenizer",
+              "A second, duplicate language modeling head",
+              "A classification head with exactly 1000 categories"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explains that a reward model is usually the SFT model with its language modeling head replaced by a head that outputs a single scalar score.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does this lesson say distribution shift becomes a real problem once RL optimization begins?",
+            "options": [
+              "Because a reward model trained on one style of responses may score unfamiliar response styles unreliably, and RL can push the policy toward such unfamiliar styles",
+              "Because distribution shift only ever affects the SFT stage, never the reward model",
+              "Because RL optimization always keeps the policy's outputs identical to the reward model's training distribution",
+              "Because reward models are immune to any form of distribution shift by design"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explains that as RL optimization pushes the policy toward outputs different from what the reward model was trained on, the reward model's scoring can become unreliable.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson warn against allowing inconsistent annotation guidelines across raters?",
+            "options": [
+              "Because contradictory training signals produce a reward model with no coherent notion of quality",
+              "Because annotation guidelines have no effect on what a reward model actually learns",
+              "Because inconsistent guidelines always improve a reward model's ability to generalize",
+              "Because reward models never actually use human annotation data in the first place"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is allowing inconsistent guidelines, which teaches the reward model contradictory preferences instead of a coherent notion of quality.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson recommend validating RLAIF judgments against a human-labeled sample?",
+            "options": [
+              "Because AI-generated preferences can drift from actual human preferences in ways only a human-labeled check would reveal",
+              "Because RLAIF judgments are always identical to human judgments with no possible divergence",
+              "Because human validation is technically impossible once RLAIF is used",
+              "Because RLAIF eliminates the need for any human involvement whatsoever, including validation"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is trusting RLAIF without validation, since AI-generated preferences can diverge from real human preferences in ways only a human-labeled check surfaces.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ft_dpo_and_preference_data",
+      "title": "DPO: Skipping the Reward Model",
+      "description": "Direct Preference Optimization reformulates RLHF's objective so you can train directly on preference pairs, no separate reward model or RL loop required.",
+      "duration": "13 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain what DPO simplifies about the classic RLHF pipeline and why that made preference tuning much more accessible."
+          },
+          {
+            "title": "🧠 The key insight",
+            "content": "Classic RLHF requires training a separate reward model and then running an often-finicky RL optimization loop (PPO) against it — two extra moving parts, each with its own hyperparameters, instabilities, and infrastructure needs. **DPO**'s insight is that the same optimal-policy objective that RLHF's RL stage is implicitly solving for can be rewritten as a direct, closed-form loss over the preference pairs themselves — no reward model, no RL loop, no sampling from the policy during training. You just need (prompt, chosen response, rejected response) triples, and you optimize the policy directly with a supervised-learning-style loss that increases the relative likelihood of the chosen response over the rejected one.\n\n```python\n# Conceptual DPO loss\nlogratio_chosen = policy_logprob(chosen) - ref_logprob(chosen)\nlogratio_rejected = policy_logprob(rejected) - ref_logprob(rejected)\nloss = -log_sigmoid(beta * (logratio_chosen - logratio_rejected))\n```"
+          },
+          {
+            "title": "⚖️ Why this matters practically",
+            "content": "DPO removed a huge amount of infrastructure complexity and instability from preference tuning: no reward model to train and maintain separately, no RL-specific instabilities like reward hacking during rollout generation, and a training loop that looks much more like ordinary supervised fine-tuning, which existing tooling already handled well. This made preference tuning accessible to far more teams, and DPO or its close variants have become one of the more common ways to do preference optimization outside of the largest labs."
+          },
+          {
+            "title": "📦 What preference data for DPO looks like",
+            "content": "Same basic shape as reward model training data: a prompt, a chosen response, and a rejected response. Quality here matters just as much as it did for SFT data — pairs where the 'better' response isn't clearly better, or where the difference is about something irrelevant (like length) rather than the quality dimension you actually care about, will teach the model the wrong lesson just as reliably as a good pair teaches the right one."
+          },
+          {
+            "title": "🔀 DPO variants and relatives",
+            "content": "Since DPO's introduction, a family of related methods has emerged with different trade-offs — **ORPO** (which combines the SFT and preference stages into one), **KTO** (which can work with simpler thumbs-up/thumbs-down feedback instead of paired comparisons), and others. The core idea across all of them is the same: get the practical benefit of preference tuning without the operational overhead of a full RLHF pipeline."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming DPO requires no reference model at all.** DPO still compares against a frozen reference policy (typically the SFT model) — it just avoids a separate reward model and RL rollout loop.\n\n**Using low-quality or irrelevant-difference preference pairs.** DPO learns exactly what its data shows it, just like SFT — a pair that differs for the wrong reason teaches the wrong lesson.\n\n**Picking a DPO variant based on hype rather than what its data requirements actually fit.** ORPO, KTO, and DPO differ in what kind of feedback they need — matching that to what data you can realistically collect matters more than chasing the newest name."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ft_dpo_and_preference_data_quiz",
+        "questions": [
+          {
+            "question": "What does DPO eliminate compared to classic RLHF?",
+            "options": [
+              "The need for any preference data at all",
+              "The need for a separate reward model and an RL optimization loop",
+              "The need for a base pretrained model",
+              "The need for any evaluation after training"
+            ],
+            "correctAnswer": 1,
+            "explanation": "DPO reformulates the objective so preference pairs can directly train the policy with a supervised-style loss, removing the reward model and RL loop entirely.",
+            "id": "q1"
+          },
+          {
+            "question": "What does a typical DPO training example look like?",
+            "options": [
+              "A single (prompt, response) pair with a score",
+              "A (prompt, chosen response, rejected response) triple",
+              "Raw unlabeled text",
+              "A LoRA rank and learning rate configuration"
+            ],
+            "correctAnswer": 1,
+            "explanation": "DPO trains directly on preference triples: the prompt plus which of two responses is preferred, without needing a separate reward score.",
+            "id": "q2"
+          },
+          {
+            "question": "Why does data quality matter as much for DPO as it did for SFT?",
+            "options": [
+              "It doesn't — DPO is immune to bad data",
+              "Pairs where the 'better' response isn't genuinely better (or differs for irrelevant reasons like length) will teach the wrong lesson just as effectively as good pairs teach the right one",
+              "DPO doesn't use any training data",
+              "DPO only works with synthetic data"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Just like SFT, DPO learns exactly what its data shows it — low-quality or irrelevant-difference preference pairs actively teach the wrong signal.",
+            "id": "q3"
+          },
+          {
+            "question": "In this lesson's code example, what two log-probability ratios does the DPO loss compare?",
+            "options": [
+              "The policy-versus-reference log-probability ratio for the chosen response and for the rejected response",
+              "The training loss and the validation loss",
+              "The LoRA rank and the batch size",
+              "The reward model's score and the policy model's score"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example computes logratio_chosen and logratio_rejected (policy log-prob minus reference log-prob for each response) and compares them in the loss.",
+            "id": "q4"
+          },
+          {
+            "question": "According to this lesson, what does ORPO do differently from standard DPO?",
+            "options": [
+              "It combines the SFT and preference stages into one",
+              "It eliminates the need for any preference data whatsoever",
+              "It requires training a separate reward model, unlike DPO",
+              "It only works with image-based preference data"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly describes ORPO as combining the SFT and preference tuning stages into a single process, unlike the separate-stage approach of classic RLHF or plain DPO.",
+            "id": "q5"
+          },
+          {
+            "question": "According to this lesson, what kind of feedback can KTO work with, unlike standard paired-comparison DPO?",
+            "options": [
+              "Simpler thumbs-up/thumbs-down feedback instead of paired comparisons",
+              "Only feedback generated by a reward model",
+              "Only feedback collected through a full RL rollout loop",
+              "No feedback at all; KTO trains entirely unsupervised"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly names KTO as able to work with simpler thumbs-up/thumbs-down style feedback rather than requiring paired preference comparisons.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson warn against assuming DPO requires no reference model at all?",
+            "options": [
+              "Because DPO still compares against a frozen reference policy, typically the SFT model — it just avoids a separate reward model and RL rollout loop",
+              "Because DPO actually requires two separate reward models to function correctly",
+              "Because DPO eliminates every model besides the one being trained, including any reference",
+              "Because reference models are only used in classic PPO-based RLHF, never in DPO"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is thinking DPO drops all auxiliary models, when it still relies on a frozen reference policy for its log-probability ratio comparison.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson recommend matching a DPO variant to your actual data collection constraints rather than chasing the newest method?",
+            "options": [
+              "Because ORPO, KTO, and DPO differ in what kind of feedback they need, and matching that to realistically collectible data matters more than the method's novelty",
+              "Because every DPO variant requires the exact same type of feedback data with no differences",
+              "Because the newest DPO variant is always guaranteed to work best regardless of available data",
+              "Because feedback data format has no bearing on which preference optimization method is appropriate"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is picking a variant based on hype, when each method's differing data requirements should actually drive the choice.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ft_other_alignment_methods",
+      "title": "PPO, ORPO, and Choosing an Alignment Method",
+      "description": "A quick map of the alignment-method landscape and how to pick one for a real project.",
+      "duration": "12 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can compare PPO-based RLHF and DPO-family methods on complexity and give a reasonable recommendation for a typical team."
+          },
+          {
+            "title": "🎮 PPO-based RLHF: maximum flexibility, maximum complexity",
+            "content": "The classic approach remains the most flexible — since it optimizes against a learned reward model rather than a fixed preference dataset, it can in principle capture more nuanced trade-offs and adapt as the reward model improves. But it needs significantly more infrastructure: a separate reward model, careful RL hyperparameter tuning, and is more prone to instability and reward hacking. This complexity is a big part of why it's mostly used by teams with dedicated RL infrastructure and expertise."
+          },
+          {
+            "title": "🎯 DPO and relatives: simpler, more accessible",
+            "content": "DPO, ORPO, and similar methods trade some of that flexibility for dramatically simpler training — closer to ordinary supervised fine-tuning in terms of infrastructure and stability. For most teams doing preference tuning on top of an open or already-instruction-tuned model, this family is the more practical starting point, and in practice often gets very close to PPO-based results for many tasks."
+          },
+          {
+            "title": "🧭 A practical recommendation",
+            "content": "Unless there's a specific reason to need the extra flexibility of a learned, updatable reward model (for instance, a genuinely evolving notion of quality that a static preference dataset can't capture), start with DPO or a close variant. It's simpler to implement correctly, more stable to train, and the tooling ecosystem (much of it built on top of the same libraries covered in the Hugging Face course) has matured significantly around it.\n\n```python\n# A simplified decision heuristic\nif has_dedicated_rl_infra and needs_updatable_reward_signal:\n    method = \"PPO-based RLHF\"\nelse:\n    method = \"DPO (or ORPO / KTO)\"  # the practical default for most teams\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Reaching for full PPO-based RLHF by default 'because that's what the big labs do,'** without the infrastructure or team size to run it reliably.\n\n**Skipping preference tuning entirely and shipping an SFT-only model** when the actual complaint is about response quality nuance, not instruction-following — exactly the gap preference tuning is meant to close.\n\n**Not budgeting time for building a genuinely good preference dataset,** regardless of which method is chosen — the method matters less than the data quality feeding it."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ft_other_alignment_methods_quiz",
+        "questions": [
+          {
+            "question": "What is the main trade-off of PPO-based RLHF compared to DPO?",
+            "options": [
+              "PPO-based RLHF needs less data than DPO",
+              "PPO-based RLHF is more flexible via a learned reward model but needs much more infrastructure and is more prone to instability",
+              "PPO-based RLHF requires no preference data at all",
+              "There is no meaningful difference between the two"
+            ],
+            "correctAnswer": 1,
+            "explanation": "PPO-based RLHF can capture more nuance through an updatable reward model, but at the cost of significant extra infrastructure, tuning effort, and instability risk compared to DPO's simpler direct approach.",
+            "id": "q1"
+          },
+          {
+            "question": "What is a practical recommendation given in this lesson for most teams doing preference tuning?",
+            "options": [
+              "Always use full PPO-based RLHF regardless of team size",
+              "Start with DPO or a close variant unless there's a specific need for a learned, updatable reward model",
+              "Skip preference tuning entirely and rely only on SFT",
+              "Preference tuning is never worth doing"
+            ],
+            "correctAnswer": 1,
+            "explanation": "For most teams without dedicated RL infrastructure, DPO-family methods offer most of the practical benefit with far less operational complexity.",
+            "id": "q2"
+          },
+          {
+            "question": "What common mistake does this lesson warn against regardless of which alignment method is chosen?",
+            "options": [
+              "Using any preference data at all",
+              "Not budgeting time to build a genuinely good preference dataset, since data quality matters more than the method",
+              "Using DPO instead of PPO",
+              "Running an evaluation after training"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson emphasizes that data quality, not the specific algorithm, is usually the bigger factor in how well preference tuning actually works.",
+            "id": "q3"
+          },
+          {
+            "question": "In this lesson's decision heuristic code, under what condition would the heuristic choose PPO-based RLHF?",
+            "options": [
+              "When the team has dedicated RL infrastructure and needs an updatable reward signal",
+              "Whenever a team has any preference data at all, regardless of infrastructure",
+              "Only when the base model has fewer than one billion parameters",
+              "Only when no GPU is available for training"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example shows the heuristic choosing PPO-based RLHF specifically when both dedicated RL infrastructure exists and an updatable reward signal is genuinely needed.",
+            "id": "q4"
+          },
+          {
+            "question": "According to this lesson, what does DPO's tooling ecosystem largely build on?",
+            "options": [
+              "The same libraries covered in the Hugging Face course",
+              "A completely separate set of tools unrelated to anything covered earlier in the curriculum",
+              "Only proprietary tools available exclusively to large labs",
+              "Tools that require no Python programming at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly notes that DPO's mature tooling ecosystem is built largely on top of the same libraries introduced in the Hugging Face course.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does this lesson say PPO-based RLHF can in principle capture more nuanced trade-offs than DPO?",
+            "options": [
+              "Because it optimizes against a learned, updatable reward model rather than a fixed preference dataset",
+              "Because PPO-based RLHF requires no training data of any kind",
+              "Because DPO can only ever be trained on a single preference pair total",
+              "Because PPO-based RLHF is always simpler to implement than DPO"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explains that PPO's use of a learned reward model, which can adapt, gives it in-principle flexibility that a fixed preference dataset used directly by DPO doesn't have.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson warn against reaching for full PPO-based RLHF by default 'because that's what the big labs do'?",
+            "options": [
+              "Because doing so without the infrastructure or team size to run it reliably risks instability and wasted effort",
+              "Because PPO-based RLHF is actually simpler to run than DPO for any team regardless of size",
+              "Because large labs never actually use PPO-based RLHF in practice",
+              "Because infrastructure and team size have no bearing on whether PPO-based RLHF can be run reliably"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is defaulting to PPO-based RLHF without matching infrastructure, when its complexity is only manageable with the right team and tooling in place.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson warn against skipping preference tuning entirely when the actual complaint is about response quality nuance?",
+            "options": [
+              "Because that nuance gap is exactly what preference tuning is meant to close, and an SFT-only model won't address it",
+              "Because SFT alone always fully resolves any complaint about response quality nuance",
+              "Because preference tuning has no relationship to response quality nuance at all",
+              "Because instruction-following and quality nuance are the exact same concern with no distinction"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is shipping an SFT-only model for a quality-nuance complaint, when preference tuning specifically exists to address that exact gap.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

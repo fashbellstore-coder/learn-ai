@@ -1,0 +1,543 @@
+{
+  "id": "module_4",
+  "title": "Window Functions",
+  "description": "Compute rankings, running totals, and moving averages across rows without collapsing them, using OVER() and PARTITION BY",
+  "icon": "🪟",
+  "color": "#336791",
+  "order": 4,
+  "estimatedHours": 2,
+  "difficulty": "Advanced",
+  "prerequisites": [
+    "Subqueries & CTEs"
+  ],
+  "lessons": [
+    {
+      "id": "lesson_4_1",
+      "title": "Introduction to Window Functions",
+      "description": "Compute values across related rows without collapsing them into one row per group",
+      "duration": "14 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain what makes a window function different from GROUP BY, and write a basic OVER() query."
+          },
+          {
+            "title": "🪟 The problem GROUP BY can't solve",
+            "content": "`GROUP BY` is powerful, but it always **collapses** rows — you lose the individual rows and get one summary row per group. Sometimes you want the opposite: keep every row, but *also* attach a calculation based on its group. \"Show every order, along with that customer's total spend\" is exactly this kind of question — GROUP BY alone can't do it, because it would collapse the individual orders away."
+          },
+          {
+            "title": "🔭 OVER(): calculating across a window of rows",
+            "content": "A **window function** computes a value across a set of related rows — its \"window\" — without collapsing anything. You recognize one by the `OVER()` clause:\n\n```sql\nSELECT order_id, customer_id, total_amount,\n       SUM(total_amount) OVER (PARTITION BY customer_id) AS customer_total\nFROM orders;\n```\n\nEvery order row still appears individually, but each one also shows that **customer's overall total** next to it. `PARTITION BY customer_id` defines the window: \"calculate this per customer,\" the same idea as GROUP BY, but without collapsing rows."
+          },
+          {
+            "title": "🆚 Window functions vs. GROUP BY",
+            "content": "It helps to hold both side by side:\n\n• `GROUP BY` → one output row per group, original rows are gone\n• Window function with `OVER()` → one output row per **original** row, with a group-level calculation attached\n\nUse GROUP BY when you only want the summary. Use a window function when you want the detail rows *and* a summary value living alongside them."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "Expecting OVER() to reduce the row count the way GROUP BY does — it never does; the row count stays exactly the same. Forgetting PARTITION BY and getting a value computed across the entire table instead of per group, which is sometimes intended but often a mistake."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "quiz_lesson_4_1",
+        "questions": [
+          {
+            "question": "What's the fundamental difference between GROUP BY and a window function?",
+            "options": [
+              "They always produce identical results",
+              "GROUP BY collapses rows into one per group; a window function keeps every row and attaches a group-level value to each",
+              "Window functions can only be used with COUNT",
+              "GROUP BY is newer and window functions are being phased out"
+            ],
+            "correctAnswer": 1,
+            "explanation": "GROUP BY reduces many rows to one summary row per group. A window function (using OVER()) keeps all original rows and adds a computed column based on each row's group.",
+            "id": "q1"
+          },
+          {
+            "question": "In SUM(total_amount) OVER (PARTITION BY customer_id), what does PARTITION BY do?",
+            "options": [
+              "Deletes rows outside the partition",
+              "Defines the window — calculate the SUM separately per customer_id, without collapsing rows",
+              "Sorts the entire result set",
+              "Filters out NULL customer_id values"
+            ],
+            "correctAnswer": 1,
+            "explanation": "PARTITION BY splits the rows into groups (here, by customer_id) for the purpose of the window calculation — similar in spirit to GROUP BY, but the individual rows are still returned.",
+            "id": "q2"
+          },
+          {
+            "question": "You want every order row shown individually, plus each customer's running total attached to it. What should you use?",
+            "options": [
+              "Plain GROUP BY on customer_id",
+              "A window function with OVER (PARTITION BY customer_id)",
+              "DISTINCT customer_id",
+              "HAVING SUM(total_amount) > 0"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This exact scenario — keeping every detail row while attaching a group-level number — is precisely what window functions with OVER() and PARTITION BY are built for.",
+            "id": "q3"
+          },
+          {
+            "question": "What is the general syntax pattern for a window function?",
+            "options": [
+              "FUNCTION() GROUP BY column",
+              "FUNCTION() OVER (PARTITION BY ... ORDER BY ...)",
+              "FUNCTION() WHERE column = value",
+              "FUNCTION() HAVING column > value"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Window functions use the OVER() clause, optionally with PARTITION BY to define groups and ORDER BY to define row order within each group.",
+            "id": "q4"
+          },
+          {
+            "question": "If you omit PARTITION BY entirely in a window function, what's the effect?",
+            "options": [
+              "The query fails",
+              "The window function treats the entire result set as a single window",
+              "Only the first row is included",
+              "It behaves like GROUP BY"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Without PARTITION BY, the window function considers the whole result set as one big partition rather than splitting it into groups.",
+            "id": "q5"
+          },
+          {
+            "question": "Can you use a regular aggregate like AVG() as a window function?",
+            "options": [
+              "No, only COUNT can be a window function",
+              "Yes — AVG(...) OVER (...) computes the average per window while keeping every row",
+              "Only if PARTITION BY is omitted",
+              "Only in a subquery"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Most aggregate functions, including AVG, SUM, and COUNT, can be used as window functions by adding an OVER() clause.",
+            "id": "q6"
+          },
+          {
+            "question": "What's a key advantage of window functions over a self-join for comparing a row to its group's total?",
+            "options": [
+              "Window functions require no ORDER BY",
+              "Window functions typically need less code and can be more efficient than joining a table to its own aggregate",
+              "Self-joins are always faster",
+              "There is no advantage"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A window function computes the group-level value inline without needing to join the table back to a separate aggregated version of itself.",
+            "id": "q7"
+          },
+          {
+            "question": "Why do window functions preserve the original number of rows in the result?",
+            "options": [
+              "Because they run before the SELECT clause",
+              "Because they attach a computed value to each row rather than collapsing rows into groups",
+              "Because PARTITION BY deletes duplicate rows",
+              "They don't — row count always changes"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Unlike GROUP BY, which collapses rows, a window function computes a value per row's window and attaches it to that row without removing any rows.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "lesson_4_2",
+      "title": "Ranking Functions",
+      "description": "Rank rows within a group with ROW_NUMBER, RANK, and DENSE_RANK",
+      "duration": "13 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Use ROW_NUMBER, RANK, and DENSE_RANK to rank rows, and explain how they handle ties differently."
+          },
+          {
+            "title": "🥇 Numbering rows in order",
+            "content": "`ROW_NUMBER()` assigns a unique, increasing number to each row within a window, based on an `ORDER BY` inside the `OVER()` clause:\n\n```sql\nSELECT name, price, category,\n       ROW_NUMBER() OVER (PARTITION BY category ORDER BY price DESC) AS rank_in_category\nFROM products;\n```\n\nThis numbers products 1, 2, 3... from most to least expensive, **restarting at 1 for each category** because of `PARTITION BY category`. It's the classic pattern for \"top N per group.\""
+          },
+          {
+            "title": "🤝 RANK() and DENSE_RANK(): handling ties",
+            "content": "`ROW_NUMBER()` always gives out unique numbers, even if two rows are tied on price. `RANK()` and `DENSE_RANK()` handle ties differently:\n\n• `RANK()` — tied rows share the same rank, then the **next rank number is skipped** (1, 1, 3, 4...)\n• `DENSE_RANK()` — tied rows share the same rank, but **no rank is skipped** (1, 1, 2, 3...)\n\n```sql\nSELECT name, price,\n       RANK()       OVER (ORDER BY price DESC) AS rank_with_gaps,\n       DENSE_RANK() OVER (ORDER BY price DESC) AS rank_no_gaps\nFROM products;\n```"
+          },
+          {
+            "title": "🏆 Finding the top N per group",
+            "content": "A very common real-world pattern: \"the top 3 most expensive products in each category.\" Ranking functions make this easy — wrap the ranked query in a CTE, then filter:\n\n```sql\nWITH ranked AS (\n  SELECT name, category, price,\n         ROW_NUMBER() OVER (PARTITION BY category ORDER BY price DESC) AS rn\n  FROM products\n)\nSELECT name, category, price\nFROM ranked\nWHERE rn <= 3;\n```\n\nYou can't filter directly on a window function in `WHERE` — it has to happen in an outer query or CTE, which is exactly what this pattern does."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "Trying to write WHERE ROW_NUMBER() <= 3 directly — window functions can't be filtered in the same query's WHERE clause, only in an outer query or CTE. Forgetting ORDER BY inside OVER() for a ranking function — without it, the ranking is meaningless."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "quiz_lesson_4_2",
+        "questions": [
+          {
+            "question": "How does ROW_NUMBER() handle two rows with exactly the same price?",
+            "options": [
+              "It gives them the same number",
+              "It still gives each a unique, sequential number",
+              "It throws an error",
+              "It skips both rows"
+            ],
+            "correctAnswer": 1,
+            "explanation": "ROW_NUMBER() always produces unique, strictly increasing numbers, even when the ORDER BY column has ties — the tie is broken arbitrarily (or by an additional ORDER BY column, if given).",
+            "id": "q1"
+          },
+          {
+            "question": "If two products are tied for the top price, what do RANK() give them, and what happens to the next rank?",
+            "options": [
+              "Both get rank 1, and the next distinct price gets rank 2",
+              "Both get rank 1, and the next distinct price gets rank 3 — rank 2 is skipped",
+              "They get ranks 1 and 2 like ROW_NUMBER",
+              "RANK() cannot handle ties and errors out"
+            ],
+            "correctAnswer": 1,
+            "explanation": "RANK() gives tied rows the same rank, then skips ahead by the number of tied rows — so two rows tied for 1st means the next rank given out is 3, not 2.",
+            "id": "q2"
+          },
+          {
+            "question": "Why can't you write SELECT * FROM products WHERE ROW_NUMBER() OVER (...) <= 3?",
+            "options": [
+              "ROW_NUMBER() doesn't exist in SQL",
+              "Window functions can't be referenced directly in the same query's WHERE clause — they need to be wrapped in a CTE or subquery first",
+              "<= isn't a valid operator",
+              "PARTITION BY is required for this to work"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Window functions are computed after WHERE in SQL's logical processing order, so you can't filter on them there. The standard fix is to compute the ranking in a CTE, then filter in an outer query.",
+            "id": "q3"
+          },
+          {
+            "question": "What does DENSE_RANK() do differently from RANK() when there's a tie?",
+            "options": [
+              "It gives the tied rows different ranks",
+              "It doesn't skip the next rank number after a tie",
+              "It ignores ties entirely",
+              "It only works with PARTITION BY"
+            ],
+            "correctAnswer": 1,
+            "explanation": "DENSE_RANK() also gives tied rows the same rank, but unlike RANK(), it does not leave a gap — the next rank continues sequentially.",
+            "id": "q4"
+          },
+          {
+            "question": "Which ranking function guarantees no duplicate values and no gaps?",
+            "options": [
+              "RANK()",
+              "DENSE_RANK()",
+              "ROW_NUMBER()",
+              "PARTITION BY"
+            ],
+            "correctAnswer": 2,
+            "explanation": "ROW_NUMBER() always assigns a unique, sequential integer to every row regardless of ties, so there are never duplicates or gaps.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does ORDER BY matter inside a ranking function's OVER() clause?",
+            "options": [
+              "It doesn't matter for ranking functions",
+              "It defines the order used to assign ranks, e.g. highest price first",
+              "It only affects the final output order",
+              "It's required to use PARTITION BY"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Ranking functions need to know what order to rank by, so ORDER BY inside OVER() determines which row gets rank 1, 2, and so on.",
+            "id": "q6"
+          },
+          {
+            "question": "How would you find the top 3 highest-priced products per category using a ranking function?",
+            "options": [
+              "Use GROUP BY category with LIMIT 3",
+              "Rank rows with PARTITION BY category ORDER BY price DESC, then filter the rank column in an outer query",
+              "Use DISTINCT category",
+              "This isn't possible with SQL"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Partitioning by category and ordering by price descending assigns a per-category rank, which you then filter to <= 3 in an outer query or CTE.",
+            "id": "q7"
+          },
+          {
+            "question": "If you use RANK() and the first two rows tie for rank 1, what rank does the third distinct row get?",
+            "options": [
+              "2",
+              "3",
+              "1",
+              "It also gets rank 1"
+            ],
+            "correctAnswer": 1,
+            "explanation": "RANK() skips ranks equal to the number of ties, so after two rows tie for rank 1, the next distinct row gets rank 3.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "lesson_4_3",
+      "title": "Running Totals & Moving Averages",
+      "description": "Accumulate values row by row with a running total or a moving average",
+      "duration": "13 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Write a running total and understand how ORDER BY inside OVER() changes a window function's behavior."
+          },
+          {
+            "title": "📈 Running totals",
+            "content": "A **running total** adds up a value as you move down an ordered list — this quarter's balance, cumulative sales by date, and so on. Adding `ORDER BY` inside `OVER()` (without `PARTITION BY`, or combined with it) turns a window function into a running calculation instead of a whole-window one:\n\n```sql\nSELECT order_date, total_amount,\n       SUM(total_amount) OVER (ORDER BY order_date) AS running_total\nFROM orders\nORDER BY order_date;\n```\n\nInstead of summing *all* rows (like Lesson 1's example), `ORDER BY` inside `OVER()` makes each row's SUM include only the rows **up to and including itself** — that's what makes it \"running.\""
+          },
+          {
+            "title": "🧮 Combining PARTITION BY and ORDER BY",
+            "content": "The two clauses inside `OVER()` combine naturally: `PARTITION BY` picks the group, `ORDER BY` decides how far the running calculation has gotten within that group:\n\n```sql\nSELECT customer_id, order_date, total_amount,\n       SUM(total_amount) OVER (\n         PARTITION BY customer_id\n         ORDER BY order_date\n       ) AS running_total_per_customer\nFROM orders;\n```\n\nThis resets the running total back to zero for **each customer**, accumulating separately per person as their orders go by in date order."
+          },
+          {
+            "title": "📉 Moving averages",
+            "content": "A moving average smooths out a value using a fixed-size sliding window of nearby rows, instead of everything before it. That needs one more piece: a frame clause like `ROWS BETWEEN 2 PRECEDING AND CURRENT ROW`:\n\n```sql\nSELECT order_date, total_amount,\n       AVG(total_amount) OVER (\n         ORDER BY order_date\n         ROWS BETWEEN 2 PRECEDING AND CURRENT ROW\n       ) AS moving_avg_3\nFROM orders;\n```\n\nThis averages each row together with the **2 rows before it** — a 3-row moving average, a common technique for smoothing out noisy day-to-day numbers."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "Forgetting ORDER BY inside OVER() and getting a flat total instead of a running one. Confusing PARTITION BY (which group) with ORDER BY inside OVER() (how far the accumulation has progressed within that group) — they solve different problems and are often used together."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "quiz_lesson_4_3",
+        "questions": [
+          {
+            "question": "What changes when you add ORDER BY inside a SUM(...) OVER (...) clause?",
+            "options": [
+              "Nothing — ORDER BY is ignored inside OVER()",
+              "The SUM becomes a running total: each row's SUM includes only rows up to and including itself, in that order",
+              "It sorts the final result set",
+              "It causes an error, since SUM can't be combined with ORDER BY"
+            ],
+            "correctAnswer": 1,
+            "explanation": "ORDER BY inside OVER() changes the window from 'the whole partition' to 'rows up to this point, in this order' — turning a flat sum into a running total.",
+            "id": "q1"
+          },
+          {
+            "question": "In SUM(total_amount) OVER (PARTITION BY customer_id ORDER BY order_date), what does the running total do at the start of each new customer?",
+            "options": [
+              "It continues accumulating from the previous customer",
+              "It resets to zero and starts accumulating fresh for that customer",
+              "It always equals the customer's final total immediately",
+              "It errors, since PARTITION BY and ORDER BY can't be combined"
+            ],
+            "correctAnswer": 1,
+            "explanation": "PARTITION BY customer_id groups rows by customer, so the running total (driven by ORDER BY order_date) restarts from zero at the beginning of each customer's own rows.",
+            "id": "q2"
+          },
+          {
+            "question": "What does ROWS BETWEEN 2 PRECEDING AND CURRENT ROW define?",
+            "options": [
+              "The whole table as the window",
+              "A sliding 3-row window: the current row plus the 2 rows immediately before it",
+              "Only the current row",
+              "Every row after the current one"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This frame clause limits the window to exactly 3 rows — the 2 preceding the current row, plus the current row itself — which is what makes AVG(...) over it a moving average rather than a running one.",
+            "id": "q3"
+          },
+          {
+            "question": "What's required in the OVER() clause to compute a running total correctly?",
+            "options": [
+              "PARTITION BY only, no ORDER BY",
+              "ORDER BY, so the database knows the sequence to accumulate over",
+              "GROUP BY inside OVER()",
+              "Nothing extra beyond SUM()"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A running total depends on row order, so ORDER BY inside OVER() is essential to define which rows come 'before' the current one.",
+            "id": "q4"
+          },
+          {
+            "question": "What does a moving average typically use instead of an unbounded running total?",
+            "options": [
+              "The entire table as one window",
+              "A fixed-size sliding window, like the last 7 rows",
+              "PARTITION BY with no ORDER BY",
+              "GROUP BY on the date column"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A moving average uses a sliding window of a fixed number of rows (e.g. ROWS BETWEEN 6 PRECEDING AND CURRENT ROW) rather than accumulating everything from the start.",
+            "id": "q5"
+          },
+          {
+            "question": "What does 'UNBOUNDED PRECEDING' mean in a frame clause?",
+            "options": [
+              "Only the current row",
+              "The window starts from the very first row of the partition",
+              "The window starts from the last row",
+              "It's not valid SQL"
+            ],
+            "correctAnswer": 1,
+            "explanation": "UNBOUNDED PRECEDING means the window frame includes every row from the start of the partition up through the current row (or wherever the frame ends).",
+            "id": "q6"
+          },
+          {
+            "question": "Why would running totals reset per customer when PARTITION BY customer_id is used?",
+            "options": [
+              "It wouldn't reset — PARTITION BY has no effect on running totals",
+              "Each partition is treated as its own independent window, so the running total restarts for each new customer",
+              "ORDER BY forces a reset instead",
+              "Running totals only work without PARTITION BY"
+            ],
+            "correctAnswer": 1,
+            "explanation": "PARTITION BY splits the data into independent windows, so any running calculation like SUM() OVER() restarts fresh for each partition.",
+            "id": "q7"
+          },
+          {
+            "question": "What real business question does a 7-day moving average of sales typically help answer?",
+            "options": [
+              "The single best sales day ever",
+              "The general sales trend, smoothed out to reduce daily noise",
+              "The total number of customers",
+              "The exact inventory count"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A moving average smooths out day-to-day fluctuations so you can see the underlying trend rather than being distracted by noisy daily spikes and dips.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "lesson_4_4",
+      "title": "PARTITION BY in Practice",
+      "description": "Put ranking and running-total window functions together on a real report",
+      "duration": "12 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Combine ranking and running-total window functions in one query to answer a realistic multi-part question."
+          },
+          {
+            "title": "🧾 A realistic question",
+            "content": "\"For each customer, show every order with a running total of their spend so far, and flag their single largest order.\" This needs two different window functions in the same query — one for the running total, one for the ranking:\n\n```sql\nSELECT\n  customer_id,\n  order_date,\n  total_amount,\n  SUM(total_amount) OVER (\n    PARTITION BY customer_id ORDER BY order_date\n  ) AS running_total,\n  ROW_NUMBER() OVER (\n    PARTITION BY customer_id ORDER BY total_amount DESC\n  ) AS spend_rank\nFROM orders\nORDER BY customer_id, order_date;\n```\n\nNotice each window function has its **own** `OVER()` clause, and they can even order by different columns (`order_date` for the running total, `total_amount` for the ranking) while still partitioning by the same `customer_id`."
+          },
+          {
+            "title": "🎯 Isolating each customer's biggest order",
+            "content": "To get just \"each customer's single largest order,\" wrap the query above in a CTE and filter on the rank, using exactly the pattern from Lesson 2:\n\n```sql\nWITH ranked_orders AS (\n  SELECT customer_id, order_id, total_amount,\n         ROW_NUMBER() OVER (\n           PARTITION BY customer_id ORDER BY total_amount DESC\n         ) AS spend_rank\n  FROM orders\n)\nSELECT customer_id, order_id, total_amount\nFROM ranked_orders\nWHERE spend_rank = 1;\n```"
+          },
+          {
+            "title": "🗺️ How to approach any window function question",
+            "content": "When a question feels complex, break it into three questions:\n\n• What am I computing? (SUM, AVG, ROW_NUMBER, RANK...)\n• What group should it reset for? (`PARTITION BY`)\n• Does order matter — running total, ranking, or a plain per-group value? (`ORDER BY` inside `OVER()`, or leave it out)\n\nAnswering those three questions almost always tells you exactly which window function and clauses to reach for."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "Trying to cram a ranking and a running total into a single OVER() clause — each window function needs its own OVER(), even when they share the same PARTITION BY. Forgetting that a window function's result can't be filtered directly in WHERE, only after wrapping it in a CTE or subquery."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "quiz_lesson_4_4",
+        "questions": [
+          {
+            "question": "Can two different window functions in the same SELECT use different ORDER BY columns inside their OVER() clauses?",
+            "options": [
+              "No, all window functions in one query must share the same ORDER BY",
+              "Yes — each window function has its own independent OVER() clause, even if they share the same PARTITION BY",
+              "Only if they also share the same aggregate function",
+              "This requires a separate query for each one"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Each OVER() clause is independent. Two window functions in the same query can partition by the same column while ordering by entirely different columns, as shown with running_total (by order_date) and spend_rank (by total_amount).",
+            "id": "q1"
+          },
+          {
+            "question": "To find only each customer's single largest order using ROW_NUMBER(), what's the correct approach?",
+            "options": [
+              "Filter directly: WHERE ROW_NUMBER() OVER (...) = 1",
+              "Wrap the ranked query in a CTE, then filter WHERE spend_rank = 1 in the outer query",
+              "Use MAX(total_amount) with GROUP BY customer_id instead — it's equivalent and simpler here",
+              "This isn't possible with window functions"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since window functions can't be filtered in the same query's WHERE clause, the correct pattern is to compute the ranking in a CTE and filter on it in an outer query. (MAX + GROUP BY could get the max amount, but not the full order row alongside it as directly.)",
+            "id": "q2"
+          },
+          {
+            "question": "When deciding which window function to use, what does PARTITION BY answer?",
+            "options": [
+              "What value to compute",
+              "What group the calculation should reset for",
+              "Whether to sort the final output",
+              "Whether ties should be handled with RANK or DENSE_RANK"
+            ],
+            "correctAnswer": 1,
+            "explanation": "PARTITION BY defines the grouping boundary for the window calculation — which rows count as 'the same group' for that SUM, AVG, or ranking to apply within.",
+            "id": "q3"
+          },
+          {
+            "question": "Can PARTITION BY use multiple columns at once, like PARTITION BY region, category?",
+            "options": [
+              "No, only one column is allowed",
+              "Yes — the window resets for every unique combination of the listed columns",
+              "Only if ORDER BY is omitted",
+              "Only with ROW_NUMBER()"
+            ],
+            "correctAnswer": 1,
+            "explanation": "PARTITION BY can take multiple columns, and the window function then resets for each distinct combination of those column values.",
+            "id": "q4"
+          },
+          {
+            "question": "What's the effect of combining PARTITION BY with a ranking function versus using it with SUM()?",
+            "options": [
+              "There's no difference in behavior",
+              "PARTITION BY defines the grouping in both cases, but the function determines what's computed within that grouping — rank vs. total",
+              "SUM() ignores PARTITION BY",
+              "Ranking functions can't use PARTITION BY"
+            ],
+            "correctAnswer": 1,
+            "explanation": "PARTITION BY always defines the reset boundary for the window, but which function you pair it with (SUM, RANK, AVG, etc.) determines what value gets computed per row.",
+            "id": "q5"
+          },
+          {
+            "question": "How would you get, for each region, the percentage each product's sales contribute to that region's total?",
+            "options": [
+              "GROUP BY product only",
+              "sales / SUM(sales) OVER (PARTITION BY region)",
+              "This can't be computed in SQL",
+              "AVG(sales) OVER (PARTITION BY product)"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Dividing each row's sales by the region-level total (computed via SUM() OVER (PARTITION BY region)) gives that row's percentage contribution without collapsing any rows.",
+            "id": "q6"
+          },
+          {
+            "question": "Why might you use both PARTITION BY and ORDER BY together with LAG() or LEAD()?",
+            "options": [
+              "They can't be used together",
+              "To compare each row to the previous/next row within its own group, in a defined order",
+              "ORDER BY is required for LAG but PARTITION BY is not",
+              "LAG and LEAD ignore both clauses"
+            ],
+            "correctAnswer": 1,
+            "explanation": "PARTITION BY keeps LAG/LEAD comparisons within the right group (e.g. per customer), while ORDER BY defines what 'previous' or 'next' row actually means.",
+            "id": "q7"
+          },
+          {
+            "question": "What do LAG() and LEAD() let you access that plain aggregates cannot?",
+            "options": [
+              "The overall table average",
+              "The value from a preceding or following row, relative to the current row",
+              "Only the maximum value",
+              "The column names of the table"
+            ],
+            "correctAnswer": 1,
+            "explanation": "LAG() and LEAD() reach into a neighboring row (before or after, per ORDER BY) and return its value, something a simple aggregate can't do.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

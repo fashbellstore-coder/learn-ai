@@ -1,0 +1,565 @@
+{
+  "id": "vdb_fundamentals",
+  "title": "Vector Database Fundamentals",
+  "description": "What a vector database actually does, the ANN search it relies on, and how to start choosing one.",
+  "icon": "🧭",
+  "color": "#D32F2F",
+  "order": 0,
+  "estimatedHours": 3,
+  "difficulty": "beginner",
+  "prerequisites": [],
+  "lessons": [
+    {
+      "id": "vdb_what_is_a_vector_database",
+      "title": "What Is a Vector Database",
+      "description": "Why storing embeddings needs more than a Python list once you have more than a few thousand of them.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain what problem a vector database solves that a plain array of embeddings cannot, and name its three core jobs."
+          },
+          {
+            "title": "🔗 A recap of what's already been covered",
+            "content": "The Embeddings course showed you what an embedding is and even built a small in-memory vector index. This course picks up exactly there: what happens when 'small' becomes millions of vectors, updated continuously, queried by many users at once, with permissions attached."
+          },
+          {
+            "title": "📦 The three jobs of a vector database",
+            "content": "Store: keep millions to billions of high-dimensional vectors plus their metadata (the original text, a user ID, a timestamp) durably on disk, not just in RAM. Search: answer 'find me the k nearest vectors to this query' in milliseconds, which a brute-force scan cannot do at scale. Update: accept inserts, updates, and deletes continuously without rebuilding the whole index from scratch, because your documents keep changing."
+          },
+          {
+            "title": "⚠️ What it is not",
+            "content": "A vector database is not a replacement for your primary database. It typically does not enforce complex relational constraints, run multi-row transactions the way Postgres does, or serve as your system of record. Most production systems keep the source-of-truth documents in a regular database or object store and the vector database as a specialized search index alongside it — the same 'index vs. system of record' split you saw with search engines like Elasticsearch."
+          },
+          {
+            "title": "🧭 Where this fits",
+            "content": "Every RAG pipeline you built in the RAG course had a vector store step. This course goes deep on that one step: how it works internally, how to run it at scale, and how to keep it correct and secure in production."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "A toy comparison of a plain brute-force scan against a minimal bucketed \"index\" that only looks at part of the data:\n\n```python\nimport math\nimport time\n\n# A toy comparison: brute-force scan vs. a simple bucketed index (NOT production code).\n\ndef make_vector(seed):\n    # deterministic toy \"embedding\": just two numbers\n    return [math.sin(seed), math.cos(seed)]\n\n\nvectors = {f\"doc_{i}\": make_vector(i) for i in range(2000)}\n\n\ndef euclidean(a, b):\n    return math.sqrt(sum((x - y) ** 2 for x, y in zip(a, b)))\n\n\ndef brute_force_search(query, vectors, k=3):\n    # Store: a plain dict. Search: compare against EVERY vector (O(n)).\n    ranked = sorted(vectors.items(), key=lambda item: euclidean(query, item[1]))\n    return [name for name, _ in ranked[:k]]\n\n\n# A minimal \"index\": bucket vectors ahead of time by the sign of their\n# first coordinate, so search only has to scan one bucket instead of everything.\nbuckets = {\"pos\": [], \"neg\": []}\nfor name, vec in vectors.items():\n    bucket = \"pos\" if vec[0] >= 0 else \"neg\"\n    buckets[bucket].append((name, vec))\n\n\ndef bucketed_search(query, buckets, k=3):\n    # Store: still a dict, but organized ahead of time (the \"index\").\n    # Search: only scan the matching bucket, not the whole dataset.\n    bucket = \"pos\" if query[0] >= 0 else \"neg\"\n    ranked = sorted(buckets[bucket], key=lambda item: euclidean(query, item[1]))\n    return [name for name, _ in ranked[:k]]\n\n\nquery = make_vector(3.5)\nmatching_bucket = \"pos\" if query[0] >= 0 else \"neg\"\n\nexact = brute_force_search(query, vectors, k=3)\napprox = bucketed_search(query, buckets, k=3)\n\nprint(\"brute force:\", exact, f\"({len(vectors)} compared)\")\nprint(\"bucketed:   \", approx, f\"({len(buckets[matching_bucket])} compared)\")\n```\n\n`brute_force_search` compares the query against every single stored vector, while `bucketed_search` precomputes buckets ahead of time (a miniature \"index\") so it only has to scan the vectors in the matching bucket — the same store/search split described above, just shrunk down. Notice that `bucketed_search` can return a different, possibly worse, answer than `brute_force_search`, since a true nearest neighbor could be sitting in the other bucket — the exact trade this course keeps coming back to."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Treating the vector database as the system of record.** The lesson is explicit that most production systems keep the source-of-truth documents in a regular database or object store; pointing your primary application logic at the vector database as if it were that system of record risks losing guarantees it was never built to provide.\n\n**Assuming a Python list \"just scales\" because it works fine in a demo.** A brute-force scan over a few thousand vectors is instant, so the problem stays invisible until the dataset grows — by the time query latency becomes noticeable in production, the fix is a much bigger migration than it would have been from day one.\n\n**Forgetting that updates need to be continuous, not batch.** Rebuilding an entire index from scratch every time a document changes defeats the purpose of a vector database, whose whole job includes accepting inserts, updates, and deletes without a full rebuild.\n\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "vdb_what_is_a_vector_database_quiz",
+        "questions": [
+          {
+            "question": "A vector database's three core jobs are",
+            "options": [
+              "Store, search, and update vectors at scale",
+              "Train, fine-tune, and evaluate models",
+              "Tokenize, embed, and translate text",
+              "Route, cache, and rate-limit API calls"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Storing durably, searching fast, and updating continuously are exactly what a plain in-memory list can't do at scale.",
+            "id": "q1"
+          },
+          {
+            "question": "Why can't you just keep embeddings in a Python list once you have millions of them?",
+            "options": [
+              "Because a brute-force scan over millions of vectors is too slow for interactive queries, and it doesn't persist or update efficiently",
+              "Because Python lists cannot hold floating-point numbers",
+              "Because embeddings must always be stored in JSON",
+              "Because a list can only hold one embedding at a time"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The bottleneck is search latency at scale plus the need for durable, incremental storage — not a language limitation.",
+            "id": "q2"
+          },
+          {
+            "question": "What should a vector database generally NOT be used as?",
+            "options": [
+              "Your system of record with full relational transaction guarantees",
+              "A fast approximate nearest-neighbor index",
+              "A place to attach metadata to embeddings",
+              "A component in a RAG pipeline"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Most production systems keep the authoritative documents elsewhere and use the vector database purely as a specialized search index.",
+            "id": "q3"
+          },
+          {
+            "question": "Per the lesson, what role did the vector store play in the RAG pipelines built earlier in this curriculum?",
+            "options": [
+              "It was already the vector store step; this course goes deep on how that one step works internally, scales, and stays secure",
+              "RAG pipelines never used a vector store at all",
+              "It replaced the need for embeddings entirely",
+              "It was only used for storing user credentials"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The 'Where this fits' section says every RAG pipeline had a vector store step, and this course goes deep on exactly that step.",
+            "id": "q4"
+          },
+          {
+            "question": "The lesson compares the 'vector database as specialized index, not system of record' split to which other example from prior courses?",
+            "options": [
+              "Search engines like Elasticsearch",
+              "Spreadsheet software",
+              "Version control systems like Git",
+              "Container orchestration platforms"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The 'What it is not' section explicitly draws the same index-vs-system-of-record split you saw with search engines like Elasticsearch.",
+            "id": "q5"
+          },
+          {
+            "question": "In the toy comparison code, what determines which bucket a vector is placed into?",
+            "options": [
+              "The sign of its first coordinate (positive vs. negative)",
+              "Its alphabetical document name",
+              "A random coin flip at insert time",
+              "The order the vectors were created in"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The bucketing logic is `bucket = \"pos\" if vec[0] >= 0 else \"neg\"`, so it's based purely on the sign of the first coordinate.",
+            "id": "q6"
+          },
+          {
+            "question": "Why can bucketed_search return a different answer than brute_force_search in the toy example?",
+            "options": [
+              "Because it only scans vectors in the query's own bucket, so a true nearest neighbor sitting in the other bucket gets missed",
+              "Because bucketed_search uses a different distance formula than brute_force_search",
+              "Because bucketed_search always returns results in random order",
+              "Because brute_force_search ignores the query's coordinates"
+            ],
+            "correctAnswer": 0,
+            "explanation": "bucketed_search restricts its comparisons to a single bucket, so it can miss a true nearest neighbor that happens to land in the other bucket.",
+            "id": "q7"
+          },
+          {
+            "question": "Per 'Common mistakes', why is rebuilding the whole index from scratch on every update a problem?",
+            "options": [
+              "It defeats the purpose of a vector database's job of handling continuous inserts, updates, and deletes without a full rebuild",
+              "It is described as impossible to do in any vector database",
+              "It has no real downside, only a stylistic issue",
+              "It only affects search speed, never write speed"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The mistakes section ties this directly back to the 'update' job described earlier: accepting changes continuously, not via full rebuilds.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "vdb_approximate_nearest_neighbor_search",
+      "title": "Approximate Nearest Neighbor Search",
+      "description": "The core trick every vector database relies on: trading a little accuracy for a lot of speed.",
+      "duration": 13,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain why exact nearest-neighbor search doesn't scale, and what 'approximate' means in ANN search."
+          },
+          {
+            "title": "🐌 Exact search is O(n)",
+            "content": "Finding the true k nearest neighbors among n vectors means comparing your query to every single one — an O(n) scan. At a thousand vectors that's instant. At a hundred million vectors, that's seconds per query, which fails any interactive product."
+          },
+          {
+            "title": "⚡ The approximate nearest neighbor idea",
+            "content": "ANN algorithms build a data structure ahead of time (an 'index') that lets you skip most comparisons and still find neighbors that are almost always the true nearest ones — recall of 95-99% instead of 100%, in a fraction of the time. This is the same accuracy-for-speed trade you saw when the LLM Inference course discussed quantization: a small, controlled loss for a large practical gain."
+          },
+          {
+            "title": "🗺️ Two families worth knowing by name",
+            "content": "Graph-based methods like HNSW (Hierarchical Navigable Small World) build a graph where each vector connects to its neighbors and search 'walks' the graph toward the query. Partition-based methods like IVF (Inverted File Index) cluster vectors ahead of time and only search the clusters closest to the query. Both trade exhaustiveness for speed; the next two lessons look at each in more depth."
+          },
+          {
+            "title": "📏 Recall is the metric that matters",
+            "content": "Recall@k measures what fraction of the true top-k neighbors your approximate search actually returned. A vector database's tuning knobs almost always trade recall against latency — there is no free lunch, only a slider you get to set based on your product's tolerance for a wrong-ish answer."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "A toy illustration of exact vs. approximate search, and how recall is actually measured between the two:\n\n```python\nimport random\n\nrandom.seed(42)\n\n# A toy illustration of exact vs. approximate search and how \"recall\" is measured.\n\ndataset = list(range(10_000))\nrandom.shuffle(dataset)\n\n\ndef exact_nearest(query, dataset, k=5):\n    # Exact search: compare against every single vector. O(n).\n    return sorted(dataset, key=lambda v: abs(v - query))[:k]\n\n\ndef approximate_nearest(query, dataset, k=5, sample_size=200):\n    # Approximate search: only look at a random sample of the dataset,\n    # skipping most comparisons entirely (the \"index\" here is nothing\n    # fancier than \"don't look at everything\").\n    sample = random.sample(dataset, sample_size)\n    return sorted(sample, key=lambda v: abs(v - query))[:k]\n\n\ndef recall_at_k(approx_results, true_results):\n    true_set = set(true_results)\n    hits = sum(1 for r in approx_results if r in true_set)\n    return hits / len(true_results)\n\n\nqueries = [random.randint(0, 9_999) for _ in range(30)]\ntotal_recall = 0.0\nfor q in queries:\n    true_nn = exact_nearest(q, dataset, k=5)\n    approx_nn = approximate_nearest(q, dataset, k=5, sample_size=200)\n    total_recall += recall_at_k(approx_nn, true_nn)\n\nprint(f\"average recall@5 with sample_size=200: {total_recall / len(queries):.2f}\")\nprint(f\"vectors compared per query: exact={len(dataset)}, approximate=200\")\n```\n\n`exact_nearest` always scans the full dataset (n comparisons), while `approximate_nearest` only looks at a random sample of 200, so `recall_at_k` almost never reaches 1.0 — it measures exactly what fraction of the true top-k made it into that smaller sample. Notice the huge gap between vectors compared per query (10,000 vs. 200) for only a modest drop in recall, which is the whole trade this lesson describes."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Treating \"approximate\" as synonymous with \"unpredictable.\"** Real ANN indexes like HNSW and IVF aren't random guessing — they use structure (graphs, clusters) built specifically to find likely-correct neighbors, which is very different from the plain random sampling used in the toy example above.\n\n**Comparing recall@k values computed at different values of k.** recall@1 and recall@50 measure fundamentally different things, so quoting a recall number without saying which k it was measured at makes it meaningless to compare across systems or benchmarks.\n\n**Measuring recall against another approximate index instead of true exact search.** If your \"ground truth\" was itself computed approximately, your recall score tells you how well two approximations agree, not how close either one is to the true nearest neighbors.\n\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "vdb_approximate_nearest_neighbor_search_quiz",
+        "questions": [
+          {
+            "question": "What does 'approximate' mean in approximate nearest neighbor search?",
+            "options": [
+              "The search returns neighbors that are very likely, but not guaranteed, to be the true nearest ones, in exchange for much higher speed",
+              "The vectors themselves are stored with reduced precision",
+              "The search only works on a random sample of the data",
+              "The results change randomly every time you query"
+            ],
+            "correctAnswer": 0,
+            "explanation": "ANN trades a small, controlled chance of missing the true nearest neighbor for a large speedup versus exhaustive search.",
+            "id": "q1"
+          },
+          {
+            "question": "Why doesn't exact nearest-neighbor search scale to hundreds of millions of vectors?",
+            "options": [
+              "It requires comparing the query to every stored vector, which grows linearly with the dataset size and becomes too slow for interactive use",
+              "Exact search only works for vectors with fewer than 128 dimensions",
+              "Exact search cannot use metadata filters",
+              "Vector databases only support approximate search by design"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Exact search is an O(n) scan — at large n, the raw comparison time makes it impractical for real-time queries.",
+            "id": "q2"
+          },
+          {
+            "question": "Recall@k in vector search measures",
+            "options": [
+              "What fraction of the true top-k nearest neighbors the approximate search actually found",
+              "How fast the query executed",
+              "How many dimensions the embedding model uses",
+              "How much disk space the index consumes"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Recall@k is the accuracy metric that tells you how close your approximate index is to a perfect exhaustive search.",
+            "id": "q3"
+          },
+          {
+            "question": "According to the lesson, HNSW and IVF are described as which two families of ANN methods, respectively?",
+            "options": [
+              "Graph-based and partition-based",
+              "Tree-based and hash-based",
+              "Cloud-based and on-premise",
+              "Supervised and unsupervised"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson names HNSW as a graph-based method and IVF as a partition-based method, both trading exhaustiveness for speed.",
+            "id": "q4"
+          },
+          {
+            "question": "The lesson compares the ANN accuracy-for-speed trade to which other concept from a prior course?",
+            "options": [
+              "Quantization, as discussed in the LLM Inference course",
+              "Tokenization, as discussed in the Embeddings course",
+              "Prompt engineering, as discussed in the RAG course",
+              "Fine-tuning, as discussed in the Fine-Tuning course"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The 'approximate nearest neighbor idea' section explicitly likens this trade-off to the quantization trade-off from the LLM Inference course.",
+            "id": "q5"
+          },
+          {
+            "question": "In the code example, what is approximate_nearest's 'sample_size' parameter controlling?",
+            "options": [
+              "How many vectors from the dataset are randomly sampled and compared against the query, instead of scanning everything",
+              "How many queries are run in total",
+              "The random seed used for shuffling the dataset",
+              "The number of dimensions each vector has"
+            ],
+            "correctAnswer": 0,
+            "explanation": "sample_size sets how large the random.sample() drawn from the dataset is — that sample is all approximate_nearest ever compares against.",
+            "id": "q6"
+          },
+          {
+            "question": "Given the code, why does average recall@5 end up below 1.0 in the printed output?",
+            "options": [
+              "Because approximate_nearest only samples 200 of the 10,000 vectors, so some true nearest neighbors are likely excluded from the sample entirely",
+              "Because exact_nearest has a bug that returns the wrong neighbors",
+              "Because recall_at_k always rounds down to the nearest whole number",
+              "Because the random seed guarantees recall of exactly 0"
+            ],
+            "correctAnswer": 0,
+            "explanation": "With only 200 of 10,000 vectors sampled, it's likely that at least one true top-5 neighbor is missing from the sample, pulling recall below 1.0.",
+            "id": "q7"
+          },
+          {
+            "question": "Per 'Common mistakes', why is comparing recall@1 to recall@50 misleading?",
+            "options": [
+              "Because they measure fundamentally different things, so quoting one without specifying k makes cross-comparison meaningless",
+              "Because recall@50 cannot be computed for real datasets",
+              "Because recall@1 is always mathematically larger than recall@50",
+              "Because k values above 10 are not supported by any vector database"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The mistakes section warns that recall values at different k aren't directly comparable, so the k used must always be specified.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "vdb_distance_metrics_and_normalization",
+      "title": "Distance Metrics and Normalization",
+      "description": "Cosine, dot product, and Euclidean distance aren't interchangeable — picking the wrong one silently breaks search quality.",
+      "duration": 11,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Name the three common distance metrics used in vector search and explain when normalization matters."
+          },
+          {
+            "title": "📐 Three metrics you'll see everywhere",
+            "content": "Cosine similarity measures the angle between two vectors, ignoring their length — good when you only care about direction, like most text embeddings. Dot product measures both angle and magnitude — faster to compute, and equivalent to cosine similarity if vectors are pre-normalized to unit length. Euclidean (L2) distance measures straight-line distance — sensitive to magnitude, common for embeddings where scale carries meaning, like some image embeddings."
+          },
+          {
+            "title": "🧮 Why normalization matters",
+            "content": "Most text embedding models (including the ones you used in the Embeddings course) are trained so that cosine similarity is the intended comparison. If you normalize every vector to unit length before storing it, cosine similarity and dot product become mathematically equivalent, and dot product is cheaper to compute — that's why many production systems normalize at write time and use dot product at query time."
+          },
+          {
+            "title": "🚨 The silent failure mode",
+            "content": "Using the wrong metric doesn't throw an error — it just returns worse results with no obvious cause, similar to the silent 'wrong tokenizer' bugs you saw in the LLM course. If your embedding model's documentation says 'optimized for cosine similarity' and your vector database defaults to Euclidean, you'll get technically valid but semantically weaker results, and nothing in the logs will tell you why."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "Three distance/similarity functions side by side, plus a look at what normalization actually does to them:\n\n```python\nimport math\n\n# Three distance/similarity functions, plus a look at what normalization does.\n\ndef dot_product(a, b):\n    return sum(x * y for x, y in zip(a, b))\n\n\ndef magnitude(v):\n    return math.sqrt(sum(x * x for x in v))\n\n\ndef cosine_similarity(a, b):\n    return dot_product(a, b) / (magnitude(a) * magnitude(b))\n\n\ndef euclidean_distance(a, b):\n    return math.sqrt(sum((x - y) ** 2 for x, y in zip(a, b)))\n\n\ndef normalize(v):\n    m = magnitude(v)\n    return [x / m for x in v]\n\n\na = [3.0, 4.0]   # magnitude 5\nb = [6.0, 8.0]   # same direction as a, magnitude 10\nc = [4.0, 3.0]   # different direction, magnitude 5\n\nprint(\"cosine(a, b):   \", round(cosine_similarity(a, b), 4))    # same direction -> ~1.0\nprint(\"cosine(a, c):   \", round(cosine_similarity(a, c), 4))    # different direction -> < 1.0\nprint(\"dot(a, b):      \", round(dot_product(a, b), 4))          # large: magnitude inflates it\nprint(\"euclidean(a, b):\", round(euclidean_distance(a, b), 4))   # large: b is \"far\" in raw space\n\na_norm, b_norm = normalize(a), normalize(b)\nprint(\n    \"cosine(a, b) vs dot(normalized a, normalized b): equal ->\",\n    round(cosine_similarity(a, b), 4) == round(dot_product(a_norm, b_norm), 4),\n)\n```\n\n`cosine_similarity(a, b)` and `cosine_similarity(a, c)` show that cosine only cares about direction — `a` and `b` point the same way despite `b` being twice as long, so their cosine similarity is close to 1.0. Notice the final comparison: once both vectors are run through `normalize`, plain `dot_product` on the normalized vectors matches `cosine_similarity` on the originals exactly, which is the mathematical reason production systems normalize at write time and use the cheaper dot product at query time."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Mixing normalized and unnormalized vectors in the same index.** If some vectors were normalized at write time and others weren't (say, after a code change), dot product similarity between them silently stops meaning what you think it means, and nothing raises an error.\n\n**Assuming dot product and cosine similarity are always interchangeable.** They're only equivalent once every vector has been normalized to unit length — using raw dot product on unnormalized vectors lets magnitude dominate the ranking, quietly favoring longer vectors regardless of direction.\n\n**Picking a distance metric without checking what the embedding model was trained for.** An embedding model's documentation typically states which metric it was optimized for; defaulting to whatever the vector database ships with instead of matching the model can silently weaken every search result.\n\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "vdb_distance_metrics_and_normalization_quiz",
+        "questions": [
+          {
+            "question": "If vectors are normalized to unit length, cosine similarity and dot product become",
+            "options": [
+              "Mathematically equivalent, which is why many systems normalize at write time",
+              "Completely unrelated metrics",
+              "Only usable with Euclidean distance",
+              "Slower to compute than before"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Once magnitude is removed by normalization, dot product measures exactly the same angular similarity as cosine similarity, at lower computational cost.",
+            "id": "q1"
+          },
+          {
+            "question": "Why does using the wrong distance metric for your embedding model cause a 'silent' problem?",
+            "options": [
+              "Search still returns results and no error occurs, but relevance quietly degrades with no obvious cause",
+              "The vector database refuses to start",
+              "It causes an immediate crash on every query",
+              "It only affects write speed, not search quality"
+            ],
+            "correctAnswer": 0,
+            "explanation": "There's no error to alert you — just weaker, harder-to-diagnose relevance, much like other silent mismatches you've seen elsewhere in this curriculum.",
+            "id": "q2"
+          },
+          {
+            "question": "Euclidean (L2) distance differs from cosine similarity in that it",
+            "options": [
+              "Is sensitive to vector magnitude, not just direction",
+              "Cannot be computed for high-dimensional vectors",
+              "Only works with integer-valued vectors",
+              "Always produces the same ranking as cosine similarity"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Euclidean distance accounts for vector length as well as direction, so it can rank differently than a purely angle-based metric like cosine.",
+            "id": "q3"
+          },
+          {
+            "question": "According to the lesson, Euclidean (L2) distance is commonly used for which kind of embeddings?",
+            "options": [
+              "Some image embeddings, where scale carries meaning",
+              "All text embeddings, without exception",
+              "Only embeddings with fewer than 10 dimensions",
+              "Embeddings that have not yet been trained"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The 'Three metrics' section names Euclidean distance as common for embeddings like some image embeddings, where scale carries meaning.",
+            "id": "q4"
+          },
+          {
+            "question": "Per the lesson, which embeddings does the lesson give as a common example of ones trained for cosine similarity comparison?",
+            "options": [
+              "Most text embeddings, including the ones used in the Embeddings course",
+              "All image embeddings, without exception",
+              "Only embeddings stored in Euclidean space",
+              "Embeddings that have been product-quantized"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The 'Why normalization matters' section says most text embedding models, including those from the Embeddings course, are trained around cosine similarity.",
+            "id": "q5"
+          },
+          {
+            "question": "In the code example, what does the final printed comparison show?",
+            "options": [
+              "That dot product on normalized vectors gives the same result as cosine similarity on the original vectors",
+              "That Euclidean distance and cosine similarity always produce identical rankings",
+              "That normalization changes the direction of every vector",
+              "That dot product cannot be computed on normalized vectors"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The code checks that round(cosine_similarity(a, b), 4) == round(dot_product(a_norm, b_norm), 4), confirming the equivalence claimed in the lesson.",
+            "id": "q6"
+          },
+          {
+            "question": "Why do dot_product(a, b) and euclidean_distance(a, b) come out relatively large in the code, even though a and b point in the same direction?",
+            "options": [
+              "Because b has twice the magnitude of a, and both dot product and Euclidean distance are sensitive to magnitude, unlike cosine similarity",
+              "Because a and b are actually orthogonal vectors",
+              "Because the code contains a division-by-zero bug",
+              "Because dot_product and euclidean_distance always return the same value regardless of input"
+            ],
+            "correctAnswer": 0,
+            "explanation": "b = [6.0, 8.0] is twice the length of a = [3.0, 4.0]; magnitude-sensitive metrics like dot product and Euclidean distance reflect that extra length, while cosine similarity ignores it.",
+            "id": "q7"
+          },
+          {
+            "question": "Per 'Common mistakes', why is mixing normalized and unnormalized vectors in the same index dangerous?",
+            "options": [
+              "Because dot product between them silently stops reflecting true similarity, with no error to flag the problem",
+              "Because the vector database will refuse to accept unnormalized vectors",
+              "Because it doubles the storage required for every vector",
+              "Because it forces every query to use Euclidean distance instead"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The mistakes section explains that inconsistent normalization silently corrupts what dot product similarity means, without raising any error.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "vdb_choosing_a_vector_database",
+      "title": "Choosing a Vector Database",
+      "description": "A field guide to the decision, before you get attached to a specific product.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "List the questions that should drive a vector database choice, before comparing specific products by name."
+          },
+          {
+            "title": "❓ The questions that actually matter",
+            "content": "Scale: are you storing thousands of vectors or billions? Update pattern: mostly static, or constantly changing? Filtering needs: do you need complex metadata filters alongside vector search? Operational model: do you want to run and manage it yourself, or use a managed service? Ecosystem: does it need to live inside a database you already run, like Postgres?"
+          },
+          {
+            "title": "🏗️ Three broad categories",
+            "content": "Purpose-built vector databases (like Qdrant or Milvus) are optimized specifically for vector search at scale with rich filtering. Vector search as a feature of an existing database (like pgvector inside Postgres) trades some scale and speed for simplicity — one fewer system to run. Managed vector search services (like Pinecone) trade control and cost for operational simplicity. Module 4 looks at specific systems in this space in more depth."
+          },
+          {
+            "title": "🔮 Don't over-decide on day one",
+            "content": "For a prototype or a system with under a few hundred thousand vectors, the choice barely matters — even the in-memory index from the Embeddings course might be enough. The decision becomes consequential once you're past that scale, need multi-tenancy, or need production-grade uptime — which is exactly when the rest of this course's operational lessons become relevant."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "A toy scoring function that turns the lesson's requirement questions into a simple, explicit decision:\n\n```python\n# A toy scoring function over the requirements the lesson says actually matter.\n# NOT a real vendor comparison -- just illustrates how to turn requirements into a decision.\n\ncandidates = {\n    \"purpose_built\": {\n        \"max_scale\": 10_000_000_000, \"handles_updates\": True,\n        \"rich_filtering\": True, \"self_managed\": True,\n    },\n    \"pg_extension\": {\n        \"max_scale\": 5_000_000, \"handles_updates\": True,\n        \"rich_filtering\": True, \"self_managed\": True,\n    },\n    \"managed_service\": {\n        \"max_scale\": 10_000_000_000, \"handles_updates\": True,\n        \"rich_filtering\": True, \"self_managed\": False,\n    },\n}\n\n\ndef score_candidate(candidate, requirements):\n    score = 0\n    if candidate[\"max_scale\"] >= requirements[\"scale\"]:\n        score += 1\n    if candidate[\"handles_updates\"] or not requirements[\"frequent_updates\"]:\n        score += 1\n    if candidate[\"rich_filtering\"] or not requirements[\"needs_filtering\"]:\n        score += 1\n    if candidate[\"self_managed\"] == requirements[\"wants_self_managed\"]:\n        score += 1\n    return score\n\n\nrequirements = {\n    \"scale\": 2_000_000,\n    \"frequent_updates\": True,\n    \"needs_filtering\": True,\n    \"wants_self_managed\": True,\n}\n\nranked = sorted(\n    candidates.items(),\n    key=lambda item: score_candidate(item[1], requirements),\n    reverse=True,\n)\n\nfor name, attrs in ranked:\n    print(name, score_candidate(attrs, requirements))\n```\n\n`score_candidate` turns each of the lesson's questions — scale, update pattern, filtering needs, operational model — into one point apiece, so a candidate only wins by fitting the actual requirements, not by being the most famous name. Notice that `managed_service` can still lose a point here: its `self_managed` attribute doesn't match a requirement that explicitly wants `wants_self_managed=True`, even though it scores well on scale."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Picking a vector database by popularity or name recognition instead of requirements.** The lesson is explicit that scale, update pattern, filtering needs, and operational model should drive the decision — not which product is trending.\n\n**Over-engineering the choice for a prototype.** For a system with under a few hundred thousand vectors, agonizing over the \"perfect\" vector database wastes time that would be better spent validating the product idea, since even a simple in-memory index is often enough at that scale.\n\n**Ignoring the operational model until after committing.** Choosing a purpose-built database without asking who will run and maintain it can leave a small team accidentally responsible for operating a distributed system they didn't plan to manage.\n\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "vdb_choosing_a_vector_database_quiz",
+        "questions": [
+          {
+            "question": "Which question should come BEFORE comparing specific vector database products?",
+            "options": [
+              "What scale, update pattern, and filtering needs does the system actually have",
+              "Which vector database is most popular on social media",
+              "Which vector database was released most recently",
+              "Which vector database has the shortest name"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Requirements — scale, updates, filtering, operations — should drive the choice, not popularity or recency.",
+            "id": "q1"
+          },
+          {
+            "question": "pgvector represents which category of vector search solution?",
+            "options": [
+              "Vector search as a feature added to an existing database",
+              "A purpose-built standalone vector database",
+              "A fully managed vector search service",
+              "A vector search algorithm, not a product"
+            ],
+            "correctAnswer": 0,
+            "explanation": "pgvector adds vector search capability inside Postgres, trading some scale for the simplicity of one fewer system to operate.",
+            "id": "q2"
+          },
+          {
+            "question": "For a prototype with a few hundred thousand vectors, the choice of vector database",
+            "options": [
+              "Matters much less than it will once you're at production scale with multi-tenancy needs",
+              "Is the single most important architectural decision",
+              "Should always be a fully managed service",
+              "Should never use an in-memory index"
+            ],
+            "correctAnswer": 0,
+            "explanation": "At small scale, most reasonable choices work fine — the decision becomes consequential only once scale, tenancy, and uptime requirements grow.",
+            "id": "q3"
+          },
+          {
+            "question": "According to the lesson, what does the 'ecosystem' question ask about?",
+            "options": [
+              "Whether the vector search needs to live inside a database you already run, like Postgres",
+              "Whether the vector database has an active online community",
+              "Whether the vector database supports every programming language",
+              "Whether the vector database is open source"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The 'questions that actually matter' section defines the ecosystem question as whether it needs to live inside a database you already run, like Postgres.",
+            "id": "q4"
+          },
+          {
+            "question": "Which of the following is described as trading control and cost for operational simplicity?",
+            "options": [
+              "Managed vector search services, like Pinecone",
+              "Purpose-built vector databases, like Qdrant or Milvus",
+              "Vector search extensions of an existing database, like pgvector",
+              "The in-memory index from the Embeddings course"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The 'Three broad categories' section states that managed vector search services trade control and cost for operational simplicity.",
+            "id": "q5"
+          },
+          {
+            "question": "In the scoring code, what happens to a candidate's score if it fails to meet the required scale?",
+            "options": [
+              "It loses the point that would have been awarded for the scale check, since max_scale >= requirements['scale'] evaluates to False",
+              "The program raises an error and stops",
+              "Its score is automatically set to zero regardless of other factors",
+              "It gains an extra point as a penalty offset"
+            ],
+            "correctAnswer": 0,
+            "explanation": "score_candidate only adds a point when candidate['max_scale'] >= requirements['scale']; failing that check simply means one fewer point, nothing else.",
+            "id": "q6"
+          },
+          {
+            "question": "Per the code and its explanation, why can 'managed_service' still lose a point despite matching scale, updates, and filtering?",
+            "options": [
+              "Because its self_managed attribute (False) doesn't match the requirement wanting a self-managed system (True)",
+              "Because managed_service has a lower max_scale than the other candidates",
+              "Because managed_service does not support handles_updates",
+              "Because the code always ranks managed_service last regardless of its attributes"
+            ],
+            "correctAnswer": 0,
+            "explanation": "requirements['wants_self_managed'] is True while managed_service['self_managed'] is False, so the equality check for that point fails.",
+            "id": "q7"
+          },
+          {
+            "question": "Per 'Common mistakes', what's the risk of choosing a purpose-built vector database without considering the operational model first?",
+            "options": [
+              "A small team can end up unexpectedly responsible for running and maintaining a distributed system they didn't plan to operate",
+              "The vector database will refuse to accept any writes",
+              "Search results will always be inaccurate",
+              "The database will automatically convert itself into a managed service"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The mistakes section warns that skipping the operational-model question can leave a team stuck operating a distributed system they never intended to run themselves.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

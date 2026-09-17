@@ -1,0 +1,525 @@
+{
+  "id": "module_0",
+  "title": "RAG Fundamentals",
+  "description": "What RAG is and the problem it solves, the full pipeline from parsing to generation, grounding answers with citations, and why RAG remains valuable even as context windows grow.",
+  "icon": "📖",
+  "color": "#4CAF50",
+  "order": 0,
+  "estimatedHours": 2,
+  "difficulty": "Beginner",
+  "prerequisites": [],
+  "lessons": [
+    {
+      "id": "rag_what_is_rag",
+      "title": "What RAG Actually Is",
+      "description": "See RAG as retrieval feeding a frozen generator, not a new kind of model.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain what retrieval-augmented generation is and what problem it's designed to solve."
+          },
+          {
+            "title": "📚 A library card, not a bigger brain",
+            "content": "**Retrieval-Augmented Generation (RAG)** retrieves relevant passages from an external knowledge source (using the embedding-based search from the previous course) and inserts them into the prompt as context, so the model can generate an answer grounded in that retrieved material — rather than relying purely on whatever it happened to memorize during training."
+          },
+          {
+            "title": "🎯 Why not just fine-tune the model on the knowledge instead?",
+            "content": "The generative AI course covered hallucination as a fundamental limitation: a model's internal knowledge is a snapshot, frozen at training time, and it has no reliable way to say 'I don't know.' RAG sidesteps this by keeping the model frozen and making the *knowledge* updateable and inspectable — update the retrieved documents, and the model's answers reflect the change immediately, with no retraining required.\n\n```python\n# Conceptual RAG flow\nquery = \"What is our current refund policy?\"\nretrieved_docs = vector_search(embed(query), knowledge_base, k=3)\nprompt = build_prompt(query, retrieved_docs)\nanswer = generate(prompt)  # grounded in the actual retrieved policy text\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Treating RAG as a way to make a model 'smarter' in general.** RAG addresses a knowledge-grounding problem specifically — it doesn't improve the model's underlying reasoning ability.\n\n**Assuming RAG eliminates hallucination entirely.** It substantially reduces ungrounded fabrication by giving the model real material to work from, but the model can still misread or misrepresent the retrieved content — a concern picked up later in this course.\n\n**Confusing RAG with fine-tuning as interchangeable solutions.** They solve different problems: fine-tuning shapes behavior and style (from the Hugging Face course); RAG supplies current, specific, citable facts."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "rag_what_is_rag_quiz",
+        "questions": [
+          {
+            "question": "What does RAG add to the generation process that a plain LLM call doesn't have?",
+            "options": [
+              "A completely different, larger model architecture",
+              "Relevant passages retrieved from an external knowledge source, inserted into the prompt so generation is grounded in that specific retrieved material",
+              "A permanent change to the model's own trained weights",
+              "Nothing — RAG and a plain LLM call work identically"
+            ],
+            "correctAnswer": 1,
+            "explanation": "RAG's defining feature is retrieval: pulling in relevant external content and conditioning generation on it, rather than relying purely on what the model happened to learn during training.",
+            "id": "q1"
+          },
+          {
+            "question": "Why does RAG address the hallucination problem better than trying to encode all needed knowledge into the model's weights?",
+            "options": [
+              "RAG makes hallucination impossible under all circumstances",
+              "The model's internal knowledge is frozen at training time, while RAG keeps knowledge in an updateable, inspectable external source that can be changed immediately without retraining",
+              "RAG has no relationship to the hallucination problem at all",
+              "Model weights are always more current than any external knowledge source"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since a model's own knowledge is fixed at training time, RAG's approach of keeping facts external and updateable directly addresses the staleness and opacity that makes hallucination a hard problem to fix by retraining alone.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is it a mistake to treat RAG and fine-tuning as interchangeable solutions to the same problem?",
+            "options": [
+              "They are actually identical techniques with no meaningful difference",
+              "They solve different problems: fine-tuning shapes behavior, style, and task-specific skill, while RAG supplies current, specific, citable factual content — the right tool depends on which problem you actually have",
+              "Fine-tuning is always strictly better than RAG for every use case",
+              "RAG always requires fine-tuning as a prerequisite step"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Fine-tuning (from the Hugging Face course) is about adjusting how a model behaves or responds; RAG is about giving the model access to specific, current facts it wasn't trained on — conflating the two means reaching for the wrong tool for a given problem.",
+            "id": "q3"
+          },
+          {
+            "question": "What metaphor does this lesson use to describe what RAG gives a model, and what does that metaphor emphasize?",
+            "options": [
+              "A library card, not a bigger brain — emphasizing that RAG adds access to external knowledge rather than making the model itself more capable",
+              "A bigger brain, not a library card — emphasizing that RAG makes the model fundamentally smarter",
+              "A calculator, emphasizing that RAG only helps with numeric reasoning",
+              "A translator, emphasizing that RAG only helps with multilingual tasks"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's section title 'A library card, not a bigger brain' frames RAG as giving the model access to external material, not as a general upgrade to its own intelligence.",
+            "id": "q4"
+          },
+          {
+            "question": "In the lesson's conceptual code example, what three things does the RAG flow do in order?",
+            "options": [
+              "Embed the query, retrieve documents via vector search, then generate an answer using the retrieved context",
+              "Generate an answer first, then retrieve documents, then embed the query",
+              "Only retrieve documents, with no embedding or generation step at all",
+              "Fine-tune the model on the query before generating any answer"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example shows embedding the query, retrieving documents with vector_search, and then generating the answer with a prompt built from the retrieved docs, in that order.",
+            "id": "q5"
+          },
+          {
+            "question": "According to this lesson, what specific limitation of a model's internal knowledge does RAG sidestep?",
+            "options": [
+              "That internal knowledge is a snapshot frozen at training time with no reliable way to say 'I don't know'",
+              "That internal knowledge is always perfectly accurate and up to date",
+              "That internal knowledge can only be updated through additional retrieval calls",
+              "That internal knowledge has no relationship to hallucination at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson recalls the generative AI course's hallucination lesson: a model's internal knowledge is fixed at training time and it has no reliable way to signal uncertainty, which RAG addresses by keeping knowledge external and updateable.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson say fine-tuning and RAG are not interchangeable, even though both can incorporate new information?",
+            "options": [
+              "Fine-tuning shapes a model's behavior and style, while RAG supplies current, specific, citable facts — they address different kinds of problems",
+              "Fine-tuning and RAG are actually identical processes with no distinction",
+              "RAG always requires fine-tuning to be performed first",
+              "Fine-tuning can never incorporate any new information at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson distinguishes fine-tuning (from the Hugging Face course, shaping behavior and style) from RAG (supplying current, citable facts) as solving genuinely different problems.",
+            "id": "q7"
+          },
+          {
+            "question": "What happens to a RAG system's answers when the underlying retrieved documents are updated, according to this lesson?",
+            "options": [
+              "The model's answers reflect the change immediately, with no retraining required",
+              "The model must be completely retrained before it can use the updated documents",
+              "Updating documents has no effect on subsequent answers at all",
+              "The model ignores updated documents and continues using only its original training data"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly states that updating the retrieved documents changes the model's answers immediately, since the model itself stays frozen and only the external knowledge source changes.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "rag_pipeline_overview",
+      "title": "The RAG Pipeline: Parse, Chunk, Embed, Retrieve, Generate",
+      "description": "See the full sequence of stages a document goes through, end to end.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can name each stage of a RAG pipeline in order and describe what happens at each one."
+          },
+          {
+            "title": "🏗️ The full pipeline, stage by stage",
+            "content": "A production RAG system typically has two distinct phases. **Indexing time** (done once, or whenever source data changes): parse raw documents into clean text, chunk that text (from the LLM engineering course's chunking lesson, now applied specifically to RAG), embed each chunk (from the embeddings course), and store the embeddings in a vector index. **Query time** (done for every user question): embed the incoming query, retrieve the most relevant chunks, assemble them into a prompt alongside the question, and generate an answer.\n\n```python\n# Indexing time (once, or on data change):\nchunks = chunk_documents(parse(raw_documents))\nembeddings = [embed(chunk) for chunk in chunks]\nvector_index.add(embeddings, chunks)\n\n# Query time (every request):\nquery_embedding = embed(user_question)\nretrieved_chunks = vector_index.search(query_embedding, k=5)\nanswer = generate(build_prompt(user_question, retrieved_chunks))\n```"
+          },
+          {
+            "title": "🔀 Each stage is a place quality can be won or lost",
+            "content": "This is why RAG is genuinely a *system*, not a single API call — parsing errors, poor chunking, a mismatched embedding model, or weak retrieval at any single stage degrades the final answer, even if every other stage is done well. Debugging a bad RAG answer means checking each stage individually, not assuming the generation step is always the problem."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Treating RAG as 'just add a vector search before the prompt'.** That undersells the real engineering in parsing, chunking, and retrieval quality that determines whether the added context is actually useful.\n\n**Only ever debugging by tweaking the final prompt.** If retrieval is bringing back the wrong chunks, no amount of prompt engineering on the generation step will fix the underlying problem.\n\n**Conflating indexing-time and query-time concerns.** Indexing-time decisions (chunking, embedding model) are made once and are expensive to change later; query-time decisions (how many chunks to retrieve, how to assemble the prompt) can be iterated on much more cheaply."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "rag_pipeline_overview_quiz",
+        "questions": [
+          {
+            "question": "What is the key difference between the 'indexing time' and 'query time' phases of a RAG pipeline?",
+            "options": [
+              "They are the same phase and always happen together for every user question",
+              "Indexing time happens once (or on data change) to parse, chunk, embed, and store documents, while query time happens for every user question to embed the query, retrieve chunks, and generate an answer",
+              "Query time only happens once, while indexing time happens for every question",
+              "Indexing time never involves any embedding at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Indexing is the upfront (or periodic) work of preparing the knowledge base for search, while query time is the per-request work of actually answering a specific question using that prepared index — a genuinely different cadence and cost profile for each.",
+            "id": "q1"
+          },
+          {
+            "question": "Why is RAG considered a full system rather than a single API call?",
+            "options": [
+              "RAG is actually just one simple API call with no other components",
+              "Multiple distinct stages (parsing, chunking, embedding, retrieval, generation) each affect final answer quality, so a problem at any single stage can degrade the result even if every other stage works well",
+              "Only the generation stage matters; all other stages have no effect on quality",
+              "RAG systems never have more than one processing stage"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since quality can be won or lost at each of several distinct stages — not just at the final generation step — a RAG system is genuinely a multi-stage pipeline, and treating it as just one API call misses where problems actually tend to originate.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is only debugging a poor RAG answer by tweaking the final prompt often insufficient?",
+            "options": [
+              "The final prompt is always the sole source of any quality problem in a RAG system",
+              "If retrieval is bringing back the wrong or irrelevant chunks, no amount of prompt engineering at the generation step can fix an underlying problem that occurred earlier in the pipeline",
+              "Prompt tweaking always fixes every possible RAG quality issue",
+              "Retrieval quality has no bearing on the quality of the final generated answer"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since the generation step can only work with whatever context retrieval actually supplied, a retrieval problem (wrong chunks, missing information) needs to be fixed at its source — no amount of clever prompting can compensate for context that was never actually relevant in the first place.",
+            "id": "q3"
+          },
+          {
+            "question": "In this lesson's description, what work happens specifically at 'indexing time'?",
+            "options": [
+              "Parsing raw documents, chunking the text, embedding each chunk, and storing embeddings in a vector index",
+              "Only generating the final answer for a user's question",
+              "Only embedding the user's incoming query",
+              "Retrieving the most relevant chunks for a specific question"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson defines indexing time as the phase done once (or when data changes) that covers parsing, chunking, embedding, and storing in a vector index.",
+            "id": "q4"
+          },
+          {
+            "question": "According to this lesson, what happens at 'query time', which runs for every user question?",
+            "options": [
+              "Embedding the incoming query, retrieving relevant chunks, assembling a prompt, and generating an answer",
+              "Re-parsing every source document from scratch",
+              "Re-chunking the entire knowledge base",
+              "Choosing a completely new embedding model"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson states that query time is the per-request work: embedding the question, retrieving chunks, assembling them into a prompt, and generating the answer.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does this lesson say debugging a bad RAG answer means checking each stage individually?",
+            "options": [
+              "Because parsing errors, poor chunking, a mismatched embedding model, or weak retrieval at any single stage can degrade the final answer even if every other stage works well",
+              "Because the generation step is always the sole cause of any quality problem",
+              "Because every stage in a RAG pipeline always performs identically regardless of input",
+              "Because individual stages can never actually be checked separately"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explains that since quality can be won or lost at any stage, isolating which stage actually failed is necessary rather than assuming the problem is always in generation.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson warn against conflating indexing-time and query-time concerns?",
+            "options": [
+              "Indexing-time decisions like chunking and embedding model are expensive to change later, while query-time decisions like how many chunks to retrieve can be iterated on much more cheaply",
+              "Indexing-time and query-time decisions are always equally cheap to change",
+              "Query-time decisions are permanent once made, while indexing-time decisions can be freely adjusted",
+              "There is no meaningful difference between the two phases at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is conflating the two: indexing-time choices are costly to revisit, while query-time choices offer much cheaper iteration.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson call treating RAG as 'just add a vector search before the prompt' a common mistake?",
+            "options": [
+              "Because it undersells the real engineering effort in parsing, chunking, and retrieval quality that determines whether the added context is actually useful",
+              "Because vector search is completely unnecessary in any RAG pipeline",
+              "Because this description is actually a fully accurate summary of everything RAG requires",
+              "Because parsing and chunking have no bearing on retrieval quality"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is oversimplifying RAG this way, when in fact the surrounding engineering (parsing, chunking, retrieval quality) is what actually determines whether the system works well.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "rag_grounding_and_citations",
+      "title": "Grounding and Citations",
+      "description": "Make a RAG system's answers verifiable, not just plausible.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain what 'grounding' means in a RAG context and why citations are a genuine product requirement, not a nice-to-have."
+          },
+          {
+            "title": "🔗 An answer tied to its source",
+            "content": "A **grounded** answer is one that's actually supported by the retrieved context, rather than the model drifting into its own unsupported claims mid-generation. **Citations** — pointing to exactly which retrieved passage supports a given claim — turn a plausible-sounding answer into a verifiable one, letting a user (or an automated check) confirm the answer actually traces back to a real source."
+          },
+          {
+            "title": "📝 Prompting for citations explicitly",
+            "content": "Just like any other structured output requirement from the LLM engineering course, getting reliable citations means asking for them explicitly and in a specific format, rather than hoping the model naturally mentions sources — and, ideally, validating that a cited passage actually contains what the answer claims it does.\n\n```python\nprompt = (\n    \"Answer the question using only the provided context. \"\n    \"After each claim, cite the source in the format [Source N]. \"\n    \"If the context doesn't contain the answer, say so explicitly.\\n\\n\"\n    f\"Context:\\n{retrieved_chunks}\\n\\nQuestion: {question}\"\n)\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Trusting a citation without verifying it actually supports the claim.** A model can cite a source that doesn't actually contain the stated information — this is exactly the kind of structured-output claim that benefits from validation, not blind trust.\n\n**Not instructing the model on what to do when the context doesn't contain the answer.** Without explicit instruction, a model may fill the gap with unsupported, hallucinated content rather than admitting the retrieved context was insufficient.\n\n**Treating citations as a cosmetic feature rather than a core reliability mechanism.** For any application where users need to trust or verify an answer, citations are what make the system's output actually auditable, not just persuasive-sounding."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "rag_grounding_and_citations_quiz",
+        "questions": [
+          {
+            "question": "What does it mean for a RAG answer to be 'grounded'?",
+            "options": [
+              "The answer is written in a formal, professional tone",
+              "The answer is actually supported by the retrieved context, rather than the model drifting into unsupported claims of its own during generation",
+              "The answer contains no code examples",
+              "The answer is shorter than a fixed word count"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Grounding means the generated answer traces back to and is supported by the actual retrieved material, rather than being the model's own unsupported assertion dressed up as though it came from the source documents.",
+            "id": "q1"
+          },
+          {
+            "question": "Why should citations be explicitly requested in a specific format, rather than assumed to appear naturally?",
+            "options": [
+              "Citations always appear automatically with no prompting needed",
+              "Just like any other structured output requirement, reliable citation formatting requires an explicit instruction and format specification, rather than hoping the model naturally includes sources",
+              "Citation format has no effect on whether a model includes sources",
+              "Explicit instructions actually prevent a model from including any citations at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This echoes the LLM engineering course's lesson on structured output as a contract — reliably getting a specific citation format requires explicitly specifying it, not assuming the model will spontaneously produce it in a consistent, usable form.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is it risky to trust a model-generated citation without verifying it actually supports the claim it's attached to?",
+            "options": [
+              "Model-generated citations are always guaranteed to be accurate",
+              "A model can cite a source that doesn't actually contain the stated information, so blindly trusting the citation without verification risks treating an unsupported or misattributed claim as verified",
+              "Citations cannot be verified by any means once generated",
+              "Verification is unnecessary since citations are purely decorative"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since a citation is itself a form of model-generated output, it can be wrong or misattributed just like any other claim — treating it as automatically trustworthy without checking undermines the entire point of using citations for verifiability.",
+            "id": "q3"
+          },
+          {
+            "question": "In this lesson's example prompt, what specific format is the model asked to use for citing sources?",
+            "options": [
+              "[Source N] after each claim",
+              "A footnote at the very end of the entire response only",
+              "No specific format is requested at all",
+              "A separate document listing all sources used"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's example prompt explicitly instructs: 'After each claim, cite the source in the format [Source N].'",
+            "id": "q4"
+          },
+          {
+            "question": "According to this lesson's example prompt, what should the model do if the context doesn't contain the answer?",
+            "options": [
+              "Say so explicitly, rather than guessing",
+              "Generate the most plausible-sounding answer it can from general knowledge",
+              "Refuse to respond to the question at all",
+              "Repeat the question back without any answer"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's example prompt explicitly instructs the model to say explicitly when the context doesn't contain the answer, rather than guessing.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does this lesson connect citation requests to the LLM engineering course's structured output lessons?",
+            "options": [
+              "Because reliably getting citations requires an explicit format request, just like any other structured output contract, rather than hoping the model naturally includes sources",
+              "Because structured output has no relationship to citations at all",
+              "Because citations can only ever be produced without any explicit prompting",
+              "Because the LLM engineering course never discussed structured output"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson draws this parallel directly: citations are 'just like any other structured output requirement' — they need explicit instruction and format specification to be reliable.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson recommend validating that a cited passage actually contains what the answer claims?",
+            "options": [
+              "Because a model can cite a source that doesn't actually contain the stated information, so citations shouldn't be blindly trusted",
+              "Because citations are always guaranteed to be accurate once generated",
+              "Because validation is unnecessary since citations are purely cosmetic",
+              "Because cited passages can never be checked against the answer's claims"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is trusting a citation without verifying it, since a model-generated citation can be wrong or misattributed just like any other output.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson describe citations as a 'core reliability mechanism' rather than a cosmetic feature?",
+            "options": [
+              "Because for applications where users need to trust or verify an answer, citations are what make the system's output actually auditable, not just persuasive-sounding",
+              "Because citations only affect how visually appealing an answer looks",
+              "Because citations have no effect on whether an answer can be trusted or verified",
+              "Because reliability has no connection to whether an answer can be traced to a source"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is treating citations as cosmetic, when in fact they're what makes an answer auditable rather than merely plausible-sounding.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "rag_vs_long_context",
+      "title": "RAG vs. Long Context: When Retrieval Still Wins",
+      "description": "Understand why bigger context windows haven't made RAG obsolete.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain why RAG remains valuable even as models support increasingly large context windows."
+          },
+          {
+            "title": "❓ 'Why not just put everything in the context?'",
+            "content": "As context windows have grown (from the transformers and LLM engineering courses), it's reasonable to ask whether retrieval is still necessary — why not just stuff the entire knowledge base into the prompt every time? For a genuinely small knowledge base, this can work. But it breaks down for real-world scale and cost."
+          },
+          {
+            "title": "💰 Cost, latency, and the 'lost in the middle' problem, together",
+            "content": "Sending a huge amount of context on every single query is expensive and slow (from the LLM engineering course's token-economics module) even when it technically fits, and the 'lost in the middle' effect means a model doesn't reliably attend to everything in a very large context anyway — retrieval's whole purpose is to surface only the *relevant* material, keeping the context focused and the cost proportional to what's actually needed for a given query, rather than the size of the entire knowledge base.\n\n```python\n# Conceptual: naive \"stuff everything\" vs. retrieval\n# stuff everything: send the entire 500-page knowledge base, every query\n#   -> huge cost and latency per query, regardless of what's actually asked\n# RAG: retrieve only the 3-5 most relevant chunks for THIS specific query\n#   -> cost scales with actual relevance, not total knowledge base size\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming a large enough context window makes retrieval unnecessary.** Context window size and retrieval quality/relevance address different concerns — a bigger window doesn't guarantee the model reliably uses everything inside it well.\n\n**Ignoring the cost multiplier of sending the same huge context on every query.** Even if quality were unaffected, the cost and latency implications of doing this at real query volume are usually decisive on their own.\n\n**Assuming RAG and long context are mutually exclusive.** Many real systems use both together — retrieval to narrow down to the most relevant material, with a moderately large context window to comfortably hold that retrieved material once selected."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "rag_vs_long_context_quiz",
+        "questions": [
+          {
+            "question": "Why doesn't a very large context window make retrieval-based approaches unnecessary?",
+            "options": [
+              "Large context windows completely eliminate any need for retrieval in every case",
+              "Sending a huge amount of context on every query is expensive and slow, and the 'lost in the middle' effect means the model doesn't reliably attend to everything even when it technically fits",
+              "Context window size has no relationship to cost or attention reliability",
+              "Retrieval and context window size are entirely unrelated concepts"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Even a technically large-enough context window doesn't solve the cost, latency, and reliable-attention problems — retrieval's job of surfacing only what's actually relevant remains valuable regardless of how much a model's context window can theoretically hold.",
+            "id": "q1"
+          },
+          {
+            "question": "How does retrieval keep cost more proportional to what a query actually needs, compared to stuffing the entire knowledge base into every prompt?",
+            "options": [
+              "Retrieval and stuffing the entire knowledge base always cost exactly the same amount",
+              "Retrieval sends only the most relevant chunks for a specific query, so cost scales with actual relevance rather than the size of the entire knowledge base being sent on every single request",
+              "Stuffing the entire knowledge base is always cheaper than retrieval",
+              "Cost has no relationship to how much context is included in a prompt"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since token usage directly drives cost (from the LLM engineering course), sending only a handful of relevant retrieved chunks instead of an entire knowledge base keeps per-query cost tied to actual need rather than total available knowledge.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is it a mistake to think of RAG and long-context models as mutually exclusive approaches?",
+            "options": [
+              "They can never be used together under any circumstances",
+              "Many real systems combine both — using retrieval to narrow down to the most relevant material, then relying on a moderately large context window to comfortably hold that retrieved material once selected",
+              "Long-context models make it impossible to use any form of retrieval",
+              "RAG systems never use context windows at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "These aren't competing alternatives — retrieval's narrowing function and a context window's capacity to hold what's retrieved are complementary, and combining them is a common, practical real-world pattern rather than an either-or choice.",
+            "id": "q3"
+          },
+          {
+            "question": "According to this lesson, for what kind of knowledge base can stuffing everything into the context actually work?",
+            "options": [
+              "A genuinely small knowledge base",
+              "Any knowledge base, regardless of size",
+              "Only knowledge bases with no textual content at all",
+              "Only knowledge bases stored exclusively in a vector database"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly notes that stuffing the entire knowledge base into the prompt 'can work' for a genuinely small knowledge base, but breaks down at real-world scale and cost.",
+            "id": "q4"
+          },
+          {
+            "question": "In this lesson's conceptual code comparison, what is the stated consequence of the 'stuff everything' approach?",
+            "options": [
+              "Huge cost and latency per query, regardless of what's actually asked",
+              "Zero cost regardless of knowledge base size",
+              "Better answer quality than retrieval in every case",
+              "No difference in cost compared to retrieval-based approaches"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's conceptual code example explicitly states that stuffing everything into every query causes 'huge cost and latency per query, regardless of what's actually asked.'",
+            "id": "q5"
+          },
+          {
+            "question": "Why does this lesson say the 'lost in the middle' effect matters even when a large context window technically fits everything?",
+            "options": [
+              "Because a model doesn't reliably attend to everything in a very large context even when it technically fits",
+              "Because 'lost in the middle' only affects small context windows, never large ones",
+              "Because context window size guarantees uniform attention to all included content",
+              "Because 'lost in the middle' has no relationship to context window size at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explains that even when content technically fits in the context, the model doesn't reliably attend to everything in a very large context, which is exactly what the 'lost in the middle' effect describes.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson warn against assuming a large enough context window makes retrieval unnecessary?",
+            "options": [
+              "Because context window size and retrieval quality/relevance address different concerns, and a bigger window doesn't guarantee the model reliably uses everything inside it well",
+              "Because context window size and retrieval relevance are always identical concerns",
+              "Because retrieval only matters for models with very small context windows",
+              "Because a large context window automatically improves retrieval relevance"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is assuming window size alone solves the problem retrieval solves, when the two actually address distinct concerns.",
+            "id": "q7"
+          },
+          {
+            "question": "How does this lesson describe combining RAG with long-context models in practice?",
+            "options": [
+              "Many real systems use both together — retrieval narrows down to relevant material, and a moderately large context window comfortably holds that material once selected",
+              "RAG and long-context models are always mutually exclusive and can never be combined",
+              "Long-context models entirely replace the need for any retrieval step",
+              "Combining both approaches always doubles the total cost with no benefit"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is assuming RAG and long context are mutually exclusive, when many real systems combine both to good effect.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

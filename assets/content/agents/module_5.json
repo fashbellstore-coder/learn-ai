@@ -1,0 +1,559 @@
+{
+  "id": "agent_reliability",
+  "title": "Building Reliable Agents",
+  "description": "Guardrails and safety boundaries, evaluating agents beyond just their final answer, common agent failure modes, and what running agents in production actually requires.",
+  "icon": "🛡️",
+  "color": "#E91E63",
+  "order": 5,
+  "estimatedHours": 5,
+  "difficulty": "advanced",
+  "prerequisites": [
+    "agent_multi_agent_systems"
+  ],
+  "lessons": [
+    {
+      "id": "agent_guardrails_and_safety_boundaries",
+      "title": "Guardrails and Safety Boundaries",
+      "description": "An agent that can take real actions needs real limits on what it's allowed to do, enforced outside the model itself.",
+      "duration": "13 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "List the main categories of agent guardrails and explain why they must be enforced outside the model's own judgment."
+          },
+          {
+            "title": "🔒 Why guardrails can't just be a prompt instruction",
+            "content": "Telling a model in its system prompt 'never delete production data' is a reasonable first layer, but it's not a real safety boundary — a sufficiently unusual input, a chain of reasoning that convinces the model an exception applies, or a subtle prompt injection (a hidden instruction embedded in retrieved content or tool output) can all cause a purely prompt-based instruction to fail. Real guardrails are enforced in code, outside the model's control, so no reasoning failure on the model's part can bypass them."
+          },
+          {
+            "title": "🎯 Permission scoping",
+            "content": "Give the agent's tools only the access they strictly need for the task — a database tool with read-only credentials when the task never requires writes, a file tool scoped to a specific directory rather than the whole filesystem. This follows the general security principle of least privilege: even if the model decides to do something it shouldn't, the underlying permissions structurally prevent it from succeeding.\n\n```python\n# Structural enforcement, not a prompt request\ndb_tool = DatabaseTool(credentials=READ_ONLY_CREDS)   # writes fail regardless of intent\nfile_tool = FileTool(scoped_to=\"/data/reports/\")       # can't touch anything outside this dir\n```"
+          },
+          {
+            "title": "✅ Approval gates for high-stakes actions",
+            "content": "For actions that are irreversible, costly, or sensitive (sending an email to a customer, executing a financial transaction, deleting data), require an explicit human approval step before the action executes — connecting directly to the state-persistence-for-pausing pattern covered in the memory module. The agent proposes the action and its reasoning, a human reviews and approves or rejects it, and only then does it actually execute."
+          },
+          {
+            "title": "🚧 Rate limits and action budgets",
+            "content": "Caps on how many times a particular sensitive action can be taken within a given time window or a given task run, independent of the max-iteration stopping condition — this limits the blast radius of a misbehaving agent even if it hasn't technically exceeded its overall step budget, catching a narrower and more specific kind of runaway behavior."
+          },
+          {
+            "title": "🕵️ Input and output filtering",
+            "content": "Screening inputs (including tool results and retrieved content, not just direct user input) for prompt injection attempts, and screening the agent's proposed actions or outputs against policy before they're allowed through — an additional layer that doesn't rely on the agent's own judgment recognizing when something's wrong."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Treating a system-prompt instruction as a sufficient safety boundary on its own.** This lesson opens with exactly this failure mode — prompt instructions are a reasonable first layer, not a substitute for enforcement in code.\n\n**Scoping permissions generously 'just in case a tool needs it later.'** Least privilege only works if the scope actually reflects what the current task needs — pre-emptively broad access defeats the structural protection permission scoping is meant to provide.\n\n**Only screening direct user input for prompt injection, not tool results or retrieved content.** A hidden instruction can arrive through a search result or a document just as easily as through what the user typed — filtering only one channel leaves the other wide open."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "agent_guardrails_and_safety_boundaries_quiz",
+        "questions": [
+          {
+            "question": "Why isn't a system prompt instruction like 'never delete production data' considered a real safety boundary on its own?",
+            "options": [
+              "System prompts are never read by the model",
+              "Unusual inputs, convincing reasoning chains, or prompt injection can cause a purely prompt-based instruction to fail, since it's not enforced outside the model's judgment",
+              "Prompt instructions always work perfectly with no exceptions",
+              "It's technically impossible to write such an instruction"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A prompt instruction relies entirely on the model correctly following it every time — real guardrails need to be enforced in code, structurally, so no reasoning failure can bypass them.",
+            "id": "q1"
+          },
+          {
+            "question": "What does permission scoping (like giving a tool read-only credentials) protect against?",
+            "options": [
+              "It has no security benefit at all",
+              "Even if the model decides to attempt something it shouldn't, the underlying permissions structurally prevent it from succeeding",
+              "It prevents the agent from using any tools",
+              "It only matters for agents with no guardrails at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Following least-privilege principles means that even a model that reasons its way into a bad decision can't actually execute it if the permissions don't allow it, providing a structural rather than behavioral safeguard.",
+            "id": "q2"
+          },
+          {
+            "question": "What connects approval gates for high-stakes actions to the memory and state module?",
+            "options": [
+              "Approval gates require deleting all agent memory",
+              "Requiring a pause for human approval relies on the same state-persistence pattern used to pause and resume agent tasks",
+              "Approval gates and memory are unrelated concepts",
+              "Approval gates eliminate the need for any state at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Waiting for human approval means pausing the agent's execution and persisting its state until approval is granted — exactly the pause-and-resume pattern covered in the memory module.",
+            "id": "q3"
+          },
+          {
+            "question": "In this lesson's code example, what specifically prevents db_tool from performing a write, regardless of what the model decides?",
+            "options": [
+              "The tool is configured with READ_ONLY_CREDS, a structural permission constraint",
+              "A comment in the system prompt telling the model not to write",
+              "The model's own internal judgment about whether a write is appropriate",
+              "A random check that only sometimes blocks writes"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example shows db_tool constructed with READ_ONLY_CREDS, meaning write attempts fail at the credential level regardless of what the model reasons its way into requesting.",
+            "id": "q4"
+          },
+          {
+            "question": "In this lesson's code example, what does scoped_to=\"/data/reports/\" accomplish for file_tool?",
+            "options": [
+              "It structurally prevents the tool from touching anything outside that specific directory",
+              "It grants the tool unrestricted access to the entire filesystem",
+              "It deletes every file currently in that directory",
+              "It has no actual effect on what the tool can access"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example scopes file_tool to a specific directory, illustrating least-privilege permission scoping that limits what the tool can reach regardless of the model's requests.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does this lesson describe rate limits and action budgets as 'independent of the max-iteration stopping condition'?",
+            "options": [
+              "Because they cap a specific sensitive action's frequency, catching a narrower kind of runaway behavior even if the agent hasn't exceeded its overall step budget",
+              "Because rate limits always replace the need for a max-iteration cap entirely",
+              "Because action budgets and max-iteration caps are actually the exact same mechanism",
+              "Because rate limits only apply once an agent has already exceeded its step budget"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explains that action budgets specifically limit how often a sensitive action can be taken, which is a narrower and separate safeguard from the overall step-count cap.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson warn against treating a system-prompt instruction as a sufficient safety boundary on its own?",
+            "options": [
+              "Because prompt instructions are a reasonable first layer, not a substitute for enforcement in code, as the lesson opens by explaining",
+              "Because system prompts are technically incapable of containing any safety-related instructions",
+              "Because code-based enforcement is always unnecessary once a prompt instruction exists",
+              "Because prompt instructions and code-based guardrails provide identical levels of protection"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is exactly the failure mode it opens with — relying on a prompt instruction alone, when real enforcement needs to happen outside the model's own judgment.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson caution against scoping permissions generously 'just in case a tool needs it later'?",
+            "options": [
+              "Because least privilege only works if the scope actually reflects what the current task needs — pre-emptively broad access defeats that structural protection",
+              "Because generous permission scoping always improves an agent's task performance",
+              "Because permissions can never actually be adjusted once initially granted",
+              "Because least-privilege scoping is only relevant for read-only tools, never for tools with broader access"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is over-provisioning access preemptively, which undermines the entire point of least privilege: permissions that structurally prevent unwanted actions regardless of what the model decides.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "agent_evaluating_agents",
+      "title": "Evaluating Agents",
+      "description": "An agent's final answer being right isn't the whole story — how it got there matters just as much for anything you'll trust in production.",
+      "duration": "13 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Design a multi-dimensional evaluation approach for an agent that goes beyond just checking the final answer."
+          },
+          {
+            "title": "🎯 Outcome evaluation: did it get the right final result?",
+            "content": "The most obvious check — compare the agent's final answer or completed action against a known-correct outcome or a rubric, similar to the task-specific evaluation approaches covered in the Fine-Tuning course's evaluation lesson. Necessary, but not sufficient on its own: an agent can arrive at a correct final answer through an unreliable or unsafe process that happened to work out this time."
+          },
+          {
+            "title": "🛤️ Trajectory evaluation: did it get there the right way?",
+            "content": "Examining the actual sequence of thoughts, tool calls, and observations the agent took — did it use the right tools, in a sensible order, without unnecessary or risky detours? This matters because a process that's inefficient, took unnecessary risks, or got the right answer somewhat by luck is a much bigger concern in production than the same outcome reached cleanly and efficiently, even though outcome-only evaluation can't tell the difference.\n\n```python\ndef trajectory_score(trajectory, reference_tools):\n    used = {step.tool for step in trajectory}\n    unnecessary = used - reference_tools\n    return len(unnecessary) == 0 and len(trajectory) <= len(reference_tools) * 2\n```"
+          },
+          {
+            "title": "🔧 Component-level evaluation",
+            "content": "Testing individual pieces in isolation rather than only end to end: tool selection accuracy (from the tool-use module), whether the reasoning at each step is sound, whether handoffs in a multi-agent system carry the right information. This isolates exactly which part of a complex system is responsible when an end-to-end evaluation shows a failure, rather than leaving you to guess."
+          },
+          {
+            "title": "📊 Building a realistic evaluation set",
+            "content": "- Real, or realistically representative, tasks — not just the easy cases the agent obviously handles well.\n- Enough variety to cover the actual range of situations expected in production, including edge cases and failure-prone scenarios discovered from real usage over time.\n- Clear rubrics or reference trajectories/outcomes to compare against, so evaluation results are comparable across different agent versions as the system evolves."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Shipping an agent based on outcome evaluation alone.** A correct final answer can hide an inefficient, risky, or lucky process — this lesson's whole premise is that outcome checks alone can't distinguish a reliable process from one that happened to work this time.\n\n**Building an evaluation set only from easy, obviously-handled cases.** An evaluation suite that never includes the edge cases the agent actually struggles with will keep reporting good scores right up until production traffic exposes the gap.\n\n**Skipping component-level evaluation and only ever measuring end to end.** When an end-to-end score drops, a system with no component-level tests gives no way to tell whether the cause was tool selection, reasoning quality, or a handoff — leaving you to guess exactly where the earlier lesson on multi-agent tracing warned against."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "agent_evaluating_agents_quiz",
+        "questions": [
+          {
+            "question": "Why isn't checking only the final outcome sufficient to evaluate an agent?",
+            "options": [
+              "Outcomes are never measurable for agents",
+              "An agent can reach a correct final answer through an unreliable or unsafe process that happened to work out this particular time",
+              "Final outcomes are always wrong for agents",
+              "Outcome evaluation requires no reference answer"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A correct-looking result can mask an inefficient, risky, or lucky process — trajectory evaluation is needed to catch that gap that outcome-only checks can't see.",
+            "id": "q1"
+          },
+          {
+            "question": "What does trajectory evaluation examine that outcome evaluation does not?",
+            "options": [
+              "Only the final answer's correctness",
+              "The actual sequence of thoughts, tool calls, and observations the agent took to reach its result",
+              "The agent's training data",
+              "The model's parameter count"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Trajectory evaluation looks at the process — whether the right tools were used sensibly and without unnecessary risk — which outcome evaluation alone cannot assess.",
+            "id": "q2"
+          },
+          {
+            "question": "What benefit does component-level evaluation (like testing tool selection accuracy in isolation) provide?",
+            "options": [
+              "It replaces the need for any end-to-end evaluation",
+              "It isolates exactly which part of a complex system is responsible for a failure, rather than only seeing an end-to-end failure with no further insight",
+              "It only works for single-agent systems, never multi-agent ones",
+              "It eliminates the need for a realistic evaluation set"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Testing pieces individually pinpoints where in a complex pipeline a problem originates, complementing the broader picture that end-to-end evaluation alone provides.",
+            "id": "q3"
+          },
+          {
+            "question": "In this lesson's trajectory_score code example, what two conditions must both hold for the function to return True?",
+            "options": [
+              "No unnecessary tools were used, and the trajectory length is within twice the reference tool count",
+              "The trajectory must be exactly one step long",
+              "The agent must have used every single available tool at least once",
+              "The reference_tools set must be empty"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example returns len(unnecessary) == 0 and len(trajectory) <= len(reference_tools) * 2, requiring both no unnecessary tools and a reasonably bounded trajectory length.",
+            "id": "q4"
+          },
+          {
+            "question": "In this lesson's trajectory_score code example, what does the unnecessary variable represent?",
+            "options": [
+              "Tools that were used in the trajectory but are not part of the reference_tools set",
+              "Tools that exist in reference_tools but were never used",
+              "The total number of steps in the trajectory",
+              "A list of every tool available in the entire system"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example computes unnecessary as used - reference_tools, the set difference identifying tools used that weren't expected according to the reference.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does this lesson say a process that 'got the right answer somewhat by luck' is a bigger concern in production than the same outcome reached cleanly?",
+            "options": [
+              "Because outcome-only evaluation can't tell the difference, meaning an unreliable process could keep looking fine right up until it eventually fails",
+              "Because lucky outcomes are always immediately obvious from the final answer alone",
+              "Because production systems never actually encounter the same task twice",
+              "Because a lucky process is always slower than a clean, efficient one"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explains that outcome evaluation can't distinguish a reliably good process from one that got lucky this time, which is exactly why trajectory evaluation matters for anything trusted in production.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson warn against building an evaluation set only from easy, obviously-handled cases?",
+            "options": [
+              "Because an evaluation suite that never includes the edge cases the agent actually struggles with will keep reporting good scores right up until production traffic exposes the gap",
+              "Because easy cases are always representative of the full range of production traffic",
+              "Because edge cases can never actually be identified or collected in advance",
+              "Because evaluation sets built from easy cases always catch every real production failure"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is skewing the evaluation set toward easy cases, which produces misleadingly good scores that don't reflect how the agent handles the harder situations it will actually face.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson caution against skipping component-level evaluation and only ever measuring end to end?",
+            "options": [
+              "Because when an end-to-end score drops, a system with no component-level tests gives no way to tell whether the cause was tool selection, reasoning, or a handoff",
+              "Because component-level evaluation is only relevant for systems that use no tools at all",
+              "Because end-to-end evaluation always pinpoints the exact cause of any failure on its own",
+              "Because component-level and end-to-end evaluation always produce identical results"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is relying solely on end-to-end scores, which flag that something is wrong without isolating which specific component actually caused it.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "agent_common_agent_failure_modes",
+      "title": "Common Agent Failure Modes",
+      "description": "A tour of the ways agents go wrong in practice — most of them quiet, not dramatic.",
+      "duration": "12 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Recognize the most common categories of agent failure and connect each one to the lesson in this course that addresses it."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Loops and non-termination.** Getting stuck retrying, oscillating between actions, or never converging on a stopping point — addressed by the stopping-conditions lesson's max-iterations, timeout, and loop-detection safeguards, and by the multi-agent module's coordination-loop safeguards for the equivalent problem between agents.\n\n**Wrong tool, or right tool with wrong arguments.** Selecting an unsuitable tool for the situation, or selecting the right tool but with malformed or incorrect arguments — addressed by the tool-design and tool-selection-at-scale lessons in the tool-use module, and caught in practice by the argument-validation and component-level evaluation approaches covered since.\n\n**Losing track of the goal over a long task.** Drifting from the original objective as context grows, especially without good context management — addressed by the memory and context-window-management lessons, which exist precisely to keep the actually-relevant information available across a long-running task.\n\n**Silent failure and false confidence.** Reporting success (or providing a confident answer) when the task actually failed or produced an incomplete result — addressed by the tool-failure-handling lesson's emphasis on surfacing errors and empty results honestly, and by the fail-safely principle of returning an honest partial result rather than a fabricated success.\n\n**Runaway cost and latency.** An agent that technically completes but took far more steps, tool calls, or agent-to-agent rounds than the task warranted — addressed by rate limits and action budgets from the guardrails lesson, and by choosing simpler architectures (a chain, RAG, a single agent instead of multi-agent) when the task doesn't actually need the extra complexity, per the when-to-use-an-agent and why-multiple-agents lessons."
+          },
+          {
+            "title": "✅ The throughline",
+            "content": "Nearly every failure mode in this list is one this course already built a specific defense against — which is the real point: reliable agents aren't the product of a single clever trick, they're the product of consistently applying stopping conditions, good tool design, context management, honest failure reporting, guardrails, and real evaluation, together.\n\n```python\n# Reliability isn't one trick — it's several safeguards, layered\nagent = Agent(\n    max_steps=25,                 # stopping-conditions lesson\n    tools=narrowly_scoped_tools,  # tool-design lesson\n    context_strategy=\"summarize\", # context-window-management lesson\n    guardrails=[read_only_db, approval_gate_for_sends],  # guardrails lesson\n    eval_suite=trajectory_and_outcome_tests,             # evaluating-agents lesson\n)\n```"
+          },
+          {
+            "title": "⚠️ Applying this consistently, not just once",
+            "content": "**Fixing one failure mode and assuming the agent is now reliable.** The throughline of this lesson is that reliability is cumulative — patching loops without also addressing silent failure, say, leaves a real gap the next production incident will find.\n\n**Treating a quiet, silent failure as less urgent than a dramatic crash.** A crash is at least visible; a confidently wrong 'success' can go unnoticed far longer and do more damage before anyone realizes something's off.\n\n**Reaching for a new technique before checking whether an existing lesson's safeguard already covers the failure being seen.** Nearly every common failure mode already has a specific, known mitigation covered earlier in this course — the fix is usually applying it consistently, not inventing something new."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "agent_common_agent_failure_modes_quiz",
+        "questions": [
+          {
+            "question": "Which lesson's safeguards most directly address an agent getting stuck in a retry loop?",
+            "options": [
+              "The tool-design lesson",
+              "The stopping-conditions lesson (max-iterations, timeouts, loop-detection)",
+              "The long-term memory lesson",
+              "The orchestration-patterns lesson"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Loops and non-termination are exactly the failure mode the stopping-conditions lesson's external safeguards were designed to prevent.",
+            "id": "q1"
+          },
+          {
+            "question": "What failure mode does 'reporting success when the task actually failed' represent, and what addresses it?",
+            "options": [
+              "A tool-selection failure, addressed by narrow tool scoping",
+              "Silent failure and false confidence, addressed by the tool-failure-handling lesson's emphasis on surfacing errors honestly",
+              "A multi-agent coordination loop, addressed by max-rounds limits",
+              "A context-window overflow, addressed by summarization"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This is the silent-failure pattern the tool-failure-handling lesson specifically warns against — the fix is honest reporting of failures and empty results rather than fabricated success.",
+            "id": "q2"
+          },
+          {
+            "question": "What is the overall throughline this lesson draws across all the failure modes listed?",
+            "options": [
+              "Agent reliability comes from one single clever trick",
+              "Agent reliability comes from consistently applying the safeguards covered throughout this course together, not from any one technique alone",
+              "Failure modes are unavoidable and nothing can be done about them",
+              "Only guardrails matter; other lessons in this course are unrelated to reliability"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson's point is that reliability is cumulative — stopping conditions, tool design, memory management, honest failure handling, guardrails, and evaluation all work together rather than any single mechanism being sufficient alone.",
+            "id": "q3"
+          },
+          {
+            "question": "In this lesson's Agent(...) code example, which parameter directly reflects the guardrails lesson?",
+            "options": [
+              "guardrails=[read_only_db, approval_gate_for_sends]",
+              "max_steps=25",
+              "context_strategy=\"summarize\"",
+              "eval_suite=trajectory_and_outcome_tests"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example labels guardrails=[...] as coming from the guardrails lesson, alongside max_steps from stopping-conditions, context_strategy from context-window-management, and eval_suite from evaluating-agents.",
+            "id": "q4"
+          },
+          {
+            "question": "In this lesson's code example, which parameter reflects the evaluating-agents lesson specifically?",
+            "options": [
+              "eval_suite=trajectory_and_outcome_tests",
+              "tools=narrowly_scoped_tools",
+              "max_steps=25",
+              "guardrails=[read_only_db, approval_gate_for_sends]"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example explicitly comments eval_suite=trajectory_and_outcome_tests as coming from the evaluating-agents lesson, combining trajectory and outcome checks as that lesson recommends.",
+            "id": "q5"
+          },
+          {
+            "question": "According to this lesson, what addresses 'losing track of the goal over a long task'?",
+            "options": [
+              "The memory and context-window-management lessons, which keep relevant information available across a long-running task",
+              "Only the guardrails lesson, with no connection to memory management",
+              "Only the tool-design lesson, since goal-drift is a tool-selection problem",
+              "Nothing in this course directly addresses this failure mode"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly attributes this failure mode's mitigation to the memory and context-window-management lessons, which exist precisely to keep relevant information accessible over long tasks.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson warn against fixing one failure mode and assuming the agent is now reliable?",
+            "options": [
+              "Because reliability is cumulative, and patching one issue (like loops) without addressing others (like silent failure) leaves a real gap",
+              "Because fixing any single failure mode always automatically fixes every other one as well",
+              "Because failure modes are entirely independent and fixing one has no relationship to the others' presence",
+              "Because a single fix always constitutes complete reliability regardless of what else remains unaddressed"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is treating one fix as sufficient, when the throughline of the lesson is that reliability comes from applying multiple safeguards together, not any single one in isolation.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson caution against treating a quiet, silent failure as less urgent than a dramatic crash?",
+            "options": [
+              "Because a confidently wrong 'success' can go unnoticed far longer and do more damage before anyone realizes something's off, unlike a visible crash",
+              "Because silent failures are always immediately obvious to anyone monitoring the system",
+              "Because dramatic crashes are actually harder to detect than silent failures",
+              "Because silent failures never actually cause any real damage in production"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is underestimating silent failure's urgency, when its lack of visibility is precisely what makes it more dangerous than an obvious crash that gets noticed immediately.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "agent_agents_in_production",
+      "title": "Agents in Production",
+      "description": "Shipping an agent is the beginning of an operational commitment, not the end of a project.",
+      "duration": "12 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Describe what ongoing operational work a production agent requires beyond the initial build."
+          },
+          {
+            "title": "📊 Monitoring and observability",
+            "content": "Logging full trajectories (not just final outcomes) for production runs, so failures can be traced back to the specific step and decision that caused them — directly building on the tracing practices from the multi-agent failure-modes lesson, but just as necessary for single-agent systems. Tracking operational metrics over time: success rate, average steps per task, cost per task, and failure categories, to catch degradation before it becomes a widespread user-facing problem."
+          },
+          {
+            "title": "🚨 Alerting on the failure modes that matter",
+            "content": "Setting concrete thresholds for the failure categories covered in this module — an unusual spike in max-iteration timeouts, a jump in guardrail-triggered rejections, degraded outcome-evaluation scores on a continuously-sampled subset of production traffic — so a developing problem surfaces quickly rather than being discovered only when users start complaining.\n\n```python\nif metrics.timeout_rate_last_hour > baseline.timeout_rate * 2:\n    alert(\"timeout rate has doubled\")\nif metrics.guardrail_rejections_last_hour > baseline.guardrail_rejections * 3:\n    alert(\"unusual spike in guardrail-triggered rejections\")\n```"
+          },
+          {
+            "title": "🔄 Continuous evaluation against drifting production traffic",
+            "content": "Just as the Fine-Tuning course covered production traffic drifting from training and evaluation data over time, an agent's production inputs drift too — new task types, new edge cases, changes in what tools or data look like. A held-out evaluation set built early can go stale; periodically refreshing it with real, recent production examples keeps evaluation results meaningful rather than measuring performance on an increasingly unrepresentative sample."
+          },
+          {
+            "title": "🔧 Iterating safely",
+            "content": "Changes to an agent's prompt, tools, or orchestration pattern should go through the same evaluation (outcome, trajectory, and component-level) before being shipped as any other production change, with a way to compare a new version against the current one on the same evaluation set rather than judging changes by anecdote. Guardrails, approval gates, and rate limits should be treated as part of the system under version control, not configured once and forgotten."
+          },
+          {
+            "title": "🎯 Closing the loop",
+            "content": "The most effective production agent systems have a real feedback loop: production monitoring surfaces failure patterns → those patterns inform new evaluation cases and, where relevant, new guardrails → improvements are tested against evaluation before shipping → monitoring continues on the updated system. This loop is what turns a working agent prototype into a system that keeps getting more reliable over time, rather than slowly drifting out of sync with the real conditions it's actually operating in."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Logging only final outcomes and skipping full trajectories in production.** Without step-by-step traces, a production failure is exactly as hard to diagnose as the multi-agent tracing lesson warned against, even for a single-agent system.\n\n**Letting a held-out evaluation set go stale.** An evaluation set built once at launch measures performance against conditions that no longer match production traffic — periodic refreshing is what keeps evaluation results actually meaningful.\n\n**Shipping prompt, tool, or orchestration changes without running them through the same evaluation as the current version.** A change judged by anecdote instead of a side-by-side comparison on the same evaluation set can look like an improvement while quietly regressing on cases nobody happened to check."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "agent_agents_in_production_quiz",
+        "questions": [
+          {
+            "question": "Why is logging full trajectories (not just final outcomes) valuable for a production agent?",
+            "options": [
+              "Trajectories are never useful once an agent is deployed",
+              "It lets failures be traced back to the specific step and decision that caused them, rather than only seeing that something went wrong",
+              "Logging trajectories eliminates the need for any guardrails",
+              "Only successful runs need to be logged"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Full trajectory logs give the visibility needed to diagnose exactly where and why a failure occurred, extending the same tracing principle from the multi-agent module to production operations generally.",
+            "id": "q1"
+          },
+          {
+            "question": "Why does a held-out evaluation set need to be periodically refreshed with real production examples?",
+            "options": [
+              "Evaluation sets never need to change once built",
+              "Production traffic drifts over time (new task types, edge cases), so a static evaluation set can become an increasingly unrepresentative measure of real performance",
+              "Refreshing the evaluation set is required by law",
+              "It has no effect on evaluation accuracy"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Just as fine-tuning evaluation can go stale as production traffic drifts, an agent's evaluation set needs refreshing with recent real examples to stay meaningful.",
+            "id": "q2"
+          },
+          {
+            "question": "What does the 'closing the loop' feedback pattern for production agents describe?",
+            "options": [
+              "A one-time build process with no further iteration",
+              "Production monitoring surfacing failure patterns that inform new evaluation cases and guardrails, tested before shipping, with monitoring continuing afterward",
+              "Ignoring production data entirely once an agent is deployed",
+              "Replacing the agent with a new one every time a failure is found"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This continuous feedback loop between monitoring, evaluation, and iteration is what allows a production agent system to keep improving rather than gradually drifting out of sync with real operating conditions.",
+            "id": "q3"
+          },
+          {
+            "question": "In this lesson's alerting code example, what triggers the first alert?",
+            "options": [
+              "The timeout rate over the last hour exceeding twice the baseline timeout rate",
+              "Any single timeout occurring, regardless of the overall rate",
+              "The guardrail rejection count dropping to exactly zero",
+              "The total number of production users exceeding a fixed threshold"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example fires the first alert specifically when metrics.timeout_rate_last_hour exceeds baseline.timeout_rate * 2, an unusual spike rather than any single occurrence.",
+            "id": "q4"
+          },
+          {
+            "question": "In this lesson's alerting code example, what does the second condition check for?",
+            "options": [
+              "Guardrail-triggered rejections in the last hour exceeding three times the baseline rate",
+              "The complete absence of any guardrail rejections",
+              "A drop in the number of available tools",
+              "The agent's context window reaching its maximum size"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example checks metrics.guardrail_rejections_last_hour > baseline.guardrail_rejections * 3, flagging an unusual spike in guardrail-triggered rejections specifically.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does this lesson say guardrails, approval gates, and rate limits should be treated as part of the system under version control?",
+            "options": [
+              "Because they should not be configured once and forgotten — like other safety-relevant system behavior, changes to them need the same tracked, deliberate process as other changes",
+              "Because guardrails never actually need to change once initially configured",
+              "Because version control is only relevant to an agent's prompt text, not its safety mechanisms",
+              "Because rate limits and approval gates are automatically updated without any developer involvement"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly recommends treating these safety mechanisms as versioned, deliberately-managed parts of the system rather than a one-time setup that's never revisited.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson warn against logging only final outcomes and skipping full trajectories in production?",
+            "options": [
+              "Because without step-by-step traces, a production failure is exactly as hard to diagnose as the multi-agent tracing lesson warned against, even for a single-agent system",
+              "Because final-outcome logging is always sufficient for diagnosing any kind of failure",
+              "Because trajectory logging is only relevant for multi-agent systems, never single-agent ones",
+              "Because logging trajectories has no bearing on how quickly a failure can be diagnosed"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake extends the multi-agent tracing lesson's point to production monitoring generally: without trajectory-level logs, diagnosing exactly where a failure occurred is much harder.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson caution against shipping agent changes without running them through the same evaluation as the current version?",
+            "options": [
+              "Because a change judged by anecdote instead of a side-by-side comparison can look like an improvement while quietly regressing on cases nobody happened to check",
+              "Because evaluation is only necessary for the very first version of an agent, never for subsequent updates",
+              "Because anecdotal judgment always produces more reliable conclusions than a systematic evaluation comparison",
+              "Because prompt, tool, and orchestration changes never actually affect an agent's real-world performance"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is skipping systematic before/after evaluation, which is specifically what catches a regression that anecdotal judgment on a handful of examples would miss.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

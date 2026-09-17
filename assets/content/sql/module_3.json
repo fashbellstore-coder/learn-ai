@@ -1,0 +1,543 @@
+{
+  "id": "module_3",
+  "title": "Subqueries & CTEs",
+  "description": "Nest queries inside queries, write correlated subqueries, name steps with WITH, and save queries as views",
+  "icon": "🪆",
+  "color": "#336791",
+  "order": 3,
+  "estimatedHours": 2,
+  "difficulty": "Intermediate",
+  "prerequisites": [
+    "Joining Tables"
+  ],
+  "lessons": [
+    {
+      "id": "lesson_3_1",
+      "title": "Subqueries",
+      "description": "Use a query's result as the input to another query",
+      "duration": "13 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Write a subquery inside WHERE or FROM to answer a question that needs a two-step lookup."
+          },
+          {
+            "title": "🪆 A query inside a query",
+            "content": "A **subquery** is a `SELECT` nested inside another query, usually to compute a value or a list the outer query needs. It runs first, and its result gets used by the outer query:\n\n```sql\nSELECT name, price\nFROM products\nWHERE price > (SELECT AVG(price) FROM products);\n```\n\nThe inner query computes the average price once; the outer query then finds every product priced above that average. Notice the subquery is wrapped in parentheses — that's required."
+          },
+          {
+            "title": "📋 Subqueries returning a list, with IN",
+            "content": "A subquery can also return a whole list of values, which pairs naturally with `IN`:\n\n```sql\nSELECT name\nFROM customers\nWHERE customer_id IN (\n  SELECT customer_id FROM orders WHERE total_amount > 500\n);\n```\n\nThis finds customers who have placed at least one order over $500 — the inner query builds the list of qualifying customer IDs, and the outer query filters against it."
+          },
+          {
+            "title": "🪑 Subqueries in FROM",
+            "content": "A subquery can also stand in for a table, when you need to query the *result* of another query:\n\n```sql\nSELECT category, avg_price\nFROM (\n  SELECT category, AVG(price) AS avg_price\n  FROM products\n  GROUP BY category\n) AS category_averages\nWHERE avg_price > 50;\n```\n\nHere the inner query builds a small summary table on the fly, and the outer query treats it just like any other table — it even needs an alias (`AS category_averages`), same as a real table would."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "Forgetting the parentheses around a subquery. Using = with a subquery that can return more than one row (that requires IN, not =). Forgetting to alias a subquery used in FROM — most databases require it."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "quiz_lesson_3_1",
+        "questions": [
+          {
+            "question": "What does WHERE price > (SELECT AVG(price) FROM products) find?",
+            "options": [
+              "Products priced exactly at the average",
+              "Products priced above the average price across all products",
+              "The single most expensive product",
+              "An error, since subqueries can't be used in WHERE"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The subquery computes one number — the average price — and the outer query keeps only products priced higher than that.",
+            "id": "q1"
+          },
+          {
+            "question": "Why does the customers-who-spent-over-$500 example use IN instead of =?",
+            "options": [
+              "IN is required whenever a subquery is used",
+              "The subquery can return multiple customer_id values, and = only compares against a single value",
+              "= doesn't work with numbers",
+              "IN is just a stylistic preference with no functional difference"
+            ],
+            "correctAnswer": 1,
+            "explanation": "= expects exactly one value on each side. Since multiple customers could have orders over $500, the subquery can return a list — which needs IN to check membership.",
+            "id": "q2"
+          },
+          {
+            "question": "When a subquery is used in FROM, what must it have?",
+            "options": [
+              "Nothing extra — it works exactly like a table reference",
+              "An alias, since the outer query needs a name to refer to it by",
+              "A LIMIT clause",
+              "At least one JOIN inside it"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A subquery in FROM produces an unnamed result set, so SQL requires an alias (like AS category_averages) so the outer query can reference it.",
+            "id": "q3"
+          },
+          {
+            "question": "Where can a subquery legally appear in a SQL statement?",
+            "options": [
+              "Only in WHERE",
+              "Only in SELECT",
+              "In WHERE, FROM, or SELECT, depending on what it returns",
+              "Only after ORDER BY"
+            ],
+            "correctAnswer": 2,
+            "explanation": "Subqueries can appear in WHERE (as a filter), FROM (as a derived table), or SELECT (as a scalar value) — where you put it depends on what you need it to produce.",
+            "id": "q4"
+          },
+          {
+            "question": "What must a scalar subquery (used in SELECT or with =) return?",
+            "options": [
+              "Multiple rows and columns",
+              "Exactly one row and one column",
+              "At least two rows",
+              "Nothing — it's optional"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A scalar subquery must resolve to a single value, so it needs to return exactly one row and one column, or the database raises an error.",
+            "id": "q5"
+          },
+          {
+            "question": "What happens if a subquery used with = unexpectedly returns more than one row?",
+            "options": [
+              "The database picks the first row silently",
+              "The query raises a runtime error",
+              "It's automatically converted to IN",
+              "All rows are averaged together"
+            ],
+            "correctAnswer": 1,
+            "explanation": "= expects a single value, so if the subquery returns multiple rows, most databases raise an error rather than guessing which one to use.",
+            "id": "q6"
+          },
+          {
+            "question": "Why is a subquery in FROM sometimes called a 'derived table'?",
+            "options": [
+              "Because it modifies the original table",
+              "Because its result is treated like a temporary table the outer query can select from",
+              "Because it must be indexed",
+              "Because it deletes rows"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A subquery in FROM produces a result set that the outer query treats exactly like any other table — hence 'derived table'.",
+            "id": "q7"
+          },
+          {
+            "question": "Which is generally easier to read: a deeply nested subquery or breaking the logic into named CTEs?",
+            "options": [
+              "Deeply nested subqueries are always easier",
+              "There's no readability difference",
+              "Named CTEs, since each step gets a clear label",
+              "Neither can be read by humans"
+            ],
+            "correctAnswer": 2,
+            "explanation": "Naming each step as a CTE lets you read a query top-to-bottom in plain steps, instead of untangling nested parentheses inside-out.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "lesson_3_2",
+      "title": "Correlated Subqueries",
+      "description": "Write a subquery that re-runs once per row of the outer query, using that row's own values",
+      "duration": "13 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain what makes a subquery correlated, and write one that compares each row to its own group."
+          },
+          {
+            "title": "🔄 A subquery that depends on the outer row",
+            "content": "The subqueries in the last lesson ran once, independently. A **correlated subquery** is different — it references a column from the outer query, so it effectively re-runs once *for every row* the outer query considers:\n\n```sql\nSELECT o.order_id, o.customer_id, o.total_amount\nFROM orders AS o\nWHERE o.total_amount > (\n  SELECT AVG(total_amount)\n  FROM orders\n  WHERE customer_id = o.customer_id   -- refers to the outer row!\n);\n```\n\nThis finds orders that are **above that specific customer's own average** — not the store-wide average. Because the inner query references `o.customer_id` from the outer row, it computes a different average for every customer."
+          },
+          {
+            "title": "🆚 Correlated vs. plain subqueries",
+            "content": "The distinction matters for both meaning and performance:\n\n• A **plain subquery** runs once, produces a fixed value or list, and the outer query uses it\n• A **correlated subquery** re-evaluates for each outer row, because it references that row's data\n\nCorrelated subqueries are more powerful — they can express \"compare this row to its own group\" — but they can also be slower on large tables, since the inner query conceptually runs many times."
+          },
+          {
+            "title": "✅ EXISTS: checking for at least one match",
+            "content": "`EXISTS` is a common companion to correlated subqueries — it checks whether the inner query returns *any* row at all, without caring what the row contains:\n\n```sql\nSELECT c.name\nFROM customers AS c\nWHERE EXISTS (\n  SELECT 1 FROM orders AS o WHERE o.customer_id = c.customer_id\n);\n```\n\nThis finds customers with at least one order — similar to the LEFT JOIN + IS NOT NULL pattern from the joins module, but expressed as a subquery instead."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "Writing a correlated subquery when a simple JOIN + GROUP BY would answer the same question more clearly and often faster. Not noticing a subquery is correlated (missed the outer column reference), leading to confusion about why it's slow on a large table."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "quiz_lesson_3_2",
+        "questions": [
+          {
+            "question": "What makes a subquery 'correlated'?",
+            "options": [
+              "It uses the AVG function",
+              "It references a column from the outer query, so it conceptually re-runs per outer row",
+              "It's written in a FROM clause",
+              "It always returns exactly one row"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A correlated subquery references the outer query's current row (like o.customer_id), which means its result can differ for each row the outer query processes.",
+            "id": "q1"
+          },
+          {
+            "question": "In the correlated subquery example, what does the inner query compute for each order?",
+            "options": [
+              "The store-wide average order amount",
+              "That specific customer's own average order amount",
+              "The number of orders total",
+              "The most recent order date"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Because the inner query filters WHERE customer_id = o.customer_id, it computes the average total_amount only for that one customer — a different value per customer.",
+            "id": "q2"
+          },
+          {
+            "question": "What does EXISTS check for?",
+            "options": [
+              "That the subquery returns a specific value",
+              "Whether the subquery returns at least one row, regardless of its content",
+              "That a column is NOT NULL",
+              "That two tables have matching column names"
+            ],
+            "correctAnswer": 1,
+            "explanation": "EXISTS only cares whether the inner query produces any rows at all — it's a yes/no check for \"does at least one match exist\", commonly used with correlated subqueries.",
+            "id": "q3"
+          },
+          {
+            "question": "Why can correlated subqueries be slower than uncorrelated ones on large tables?",
+            "options": [
+              "They can't use indexes at all",
+              "They may conceptually re-execute once per outer row instead of once total",
+              "They always return more rows",
+              "They require a JOIN"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Because a correlated subquery depends on the outer row's value, the database may need to evaluate it once per outer row rather than just once, which can be costly on large tables.",
+            "id": "q4"
+          },
+          {
+            "question": "What's the difference between EXISTS and IN when checking for related rows?",
+            "options": [
+              "They are identical in every case",
+              "EXISTS only checks for row presence and can stop at the first match; IN compares against a full list of values",
+              "IN is always faster",
+              "EXISTS requires a correlated subquery, IN never does"
+            ],
+            "correctAnswer": 1,
+            "explanation": "EXISTS just asks 'is there at least one matching row?' and can short-circuit, while IN compares the outer value against a full set of returned values.",
+            "id": "q5"
+          },
+          {
+            "question": "What does NOT EXISTS let you find?",
+            "options": [
+              "Rows where the subquery returns any result",
+              "Rows where the correlated subquery returns no matching rows",
+              "All rows in the outer table",
+              "Only NULL rows"
+            ],
+            "correctAnswer": 1,
+            "explanation": "NOT EXISTS is the inverse of EXISTS — it keeps outer rows for which the correlated subquery finds zero matching rows.",
+            "id": "q6"
+          },
+          {
+            "question": "In a correlated subquery, what makes the inner query dependent on the outer query?",
+            "options": [
+              "It uses a JOIN keyword",
+              "It references a column from the outer query's current row",
+              "It contains an aggregate function",
+              "It has an ORDER BY clause"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Correlation happens when the inner query references a column from the outer row currently being evaluated, tying the two together.",
+            "id": "q7"
+          },
+          {
+            "question": "Can a correlated subquery be rewritten using a JOIN in many cases?",
+            "options": [
+              "Never — they solve unrelated problems",
+              "Often yes, and the JOIN version may run faster since databases can optimize joins more directly",
+              "Only if it uses EXISTS",
+              "Only for DELETE statements"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Many correlated subquery patterns have an equivalent JOIN formulation, and query planners often optimize joins more efficiently than row-by-row correlated execution.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "lesson_3_3",
+      "title": "Common Table Expressions (WITH)",
+      "description": "Name a subquery up front with WITH to make long queries readable",
+      "duration": "12 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Rewrite a nested subquery as a named CTE using WITH, and chain multiple CTEs together."
+          },
+          {
+            "title": "📛 Giving a subquery a name",
+            "content": "A **Common Table Expression** (CTE) lets you define a subquery once, up front, with a name — then reference that name later in the query as if it were a real table. It's written with `WITH`:\n\n```sql\nWITH category_averages AS (\n  SELECT category, AVG(price) AS avg_price\n  FROM products\n  GROUP BY category\n)\nSELECT category, avg_price\nFROM category_averages\nWHERE avg_price > 50;\n```\n\nThis is exactly the same result as the FROM-subquery example from two lessons ago — but reads top-to-bottom instead of inside-out, which gets much easier to follow as queries grow."
+          },
+          {
+            "title": "🧱 Chaining multiple CTEs",
+            "content": "You can define several CTEs in one query, each one able to reference the ones defined before it — useful for breaking a complex report into readable steps:\n\n```sql\nWITH big_spenders AS (\n  SELECT customer_id, SUM(total_amount) AS total_spent\n  FROM orders\n  GROUP BY customer_id\n  HAVING SUM(total_amount) > 200\n),\nbig_spender_details AS (\n  SELECT c.name, bs.total_spent\n  FROM big_spenders AS bs\n  JOIN customers AS c ON bs.customer_id = c.customer_id\n)\nSELECT * FROM big_spender_details ORDER BY total_spent DESC;\n```\n\nEach CTE reads like a labeled step: first find the big spenders, then attach their names, then present the result."
+          },
+          {
+            "title": "💡 Why prefer CTEs over nested subqueries",
+            "content": "As queries grow, nested nested subqueries (a subquery inside a subquery inside a subquery) become hard to read from the inside out. CTEs solve this by naming each step and letting you read a query **top to bottom, like a recipe** — this is usually the single biggest readability upgrade you can make to a complex query."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "Forgetting the comma between multiple CTEs in the same WITH clause. Naming a CTE the same as a real table, which can be confusing even though it's technically allowed."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "quiz_lesson_3_3",
+        "questions": [
+          {
+            "question": "What does a CTE (WITH ... AS (...)) let you do?",
+            "options": [
+              "Permanently create a new table in the database",
+              "Name a subquery so it can be referenced later in the same query, like a temporary named result",
+              "Rename an existing column",
+              "Delete rows from a table"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A CTE defines a named, temporary result set that exists only for the duration of that one query — it doesn't persist in the database.",
+            "id": "q1"
+          },
+          {
+            "question": "Why are CTEs often easier to read than deeply nested subqueries?",
+            "options": [
+              "They run faster in every database",
+              "They let you read the query top-to-bottom as a sequence of named steps, instead of inside-out",
+              "They eliminate the need for JOIN",
+              "They automatically remove duplicate rows"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Nested subqueries have to be read from the innermost query outward, which gets hard to follow. CTEs give each step a name and let the query read in a natural top-to-bottom order.",
+            "id": "q2"
+          },
+          {
+            "question": "In the chained-CTE example, what does big_spender_details reference?",
+            "options": [
+              "The raw orders table directly",
+              "The big_spenders CTE defined earlier in the same WITH clause",
+              "A completely separate query",
+              "Nothing — it's independent of big_spenders"
+            ],
+            "correctAnswer": 1,
+            "explanation": "CTEs defined later in the same WITH clause can reference CTEs defined earlier, letting you build a multi-step chain of named intermediate results.",
+            "id": "q3"
+          },
+          {
+            "question": "Does a CTE persist after the query that defines it finishes?",
+            "options": [
+              "Yes, permanently, like a table",
+              "No — it only exists for the duration of that single query",
+              "Yes, until the database restarts",
+              "Only if explicitly saved"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A CTE is scoped to the single statement that defines it; once that query finishes, the CTE is gone.",
+            "id": "q4"
+          },
+          {
+            "question": "Can you reference an earlier CTE from a later CTE in the same WITH clause?",
+            "options": [
+              "No, CTEs can't reference each other",
+              "Yes — a later CTE can build on an earlier one, letting you chain steps",
+              "Only if they have the same name",
+              "Only in a subquery, never a CTE"
+            ],
+            "correctAnswer": 1,
+            "explanation": "CTEs can be chained: a later CTE in the same WITH clause can select from an earlier one, letting you build up a multi-step transformation.",
+            "id": "q5"
+          },
+          {
+            "question": "What is a recursive CTE typically used for?",
+            "options": [
+              "Formatting query output",
+              "Working with hierarchical or graph-like data, such as an org chart or category tree",
+              "Only counting rows",
+              "Encrypting data"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Recursive CTEs repeatedly reference themselves to walk hierarchical structures like org charts, folder trees, or bill-of-materials data.",
+            "id": "q6"
+          },
+          {
+            "question": "How does a CTE differ from a temporary table created with CREATE TEMP TABLE?",
+            "options": [
+              "They are exactly the same thing",
+              "A CTE is defined inline and scoped to one query; a temp table persists across multiple statements in a session",
+              "CTEs can only hold numbers",
+              "Temp tables can't be queried with SELECT"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A CTE only exists within the query where it's written, while a temp table sticks around across multiple statements until dropped or the session ends.",
+            "id": "q7"
+          },
+          {
+            "question": "What's a practical reason to use a CTE instead of just adding another JOIN?",
+            "options": [
+              "CTEs are required by SQL standard for any JOIN",
+              "When the intermediate result involves aggregation or filtering that's clearer as a separate named step",
+              "CTEs eliminate the need for WHERE",
+              "There's no difference"
+            ],
+            "correctAnswer": 1,
+            "explanation": "When an intermediate step needs its own grouping, filtering, or calculation, giving it a name as a CTE keeps the overall query understandable instead of piling logic into one JOIN.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "lesson_3_4",
+      "title": "Views",
+      "description": "Save a query as a reusable virtual table",
+      "duration": "10 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain what a view is, create one, and query it like a regular table."
+          },
+          {
+            "title": "🪟 A saved query you can reuse",
+            "content": "A **view** is a query saved under a name in the database, so anyone can query it later just like a real table — but it doesn't store its own copy of the data. Every time you query a view, the underlying query runs fresh against the real tables.\n\n```sql\nCREATE VIEW customer_spending AS\nSELECT c.customer_id, c.name, SUM(o.total_amount) AS total_spent\nFROM customers AS c\nLEFT JOIN orders AS o ON c.customer_id = o.customer_id\nGROUP BY c.customer_id, c.name;\n```\n\nNow, anyone can simply run `SELECT * FROM customer_spending WHERE total_spent > 500;` without needing to know or repeat the join and grouping logic."
+          },
+          {
+            "title": "🆚 Views vs. CTEs",
+            "content": "Both name a query for reuse, but at different scopes:\n\n• A **CTE** exists only inside the one query it's defined in\n• A **view** is saved in the database and can be reused by any future query, by anyone with access\n\nThink of a CTE as a local variable for one query, and a view as a shared, named query the whole team can rely on."
+          },
+          {
+            "title": "💡 Why views are useful",
+            "content": "Views are especially handy for:\n\n• Hiding complex joins behind a simple name, so others don't need to re-derive the logic\n• Presenting a consistent, agreed-upon definition of something like \"active customers\" everywhere it's used\n• Restricting which columns or rows someone sees, without touching the underlying tables"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "Expecting a view to be faster than the original query — it isn't, since it re-runs the same underlying logic every time. Forgetting that a view reflects live data, not a frozen snapshot from when it was created."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "quiz_lesson_3_4",
+        "questions": [
+          {
+            "question": "What does a view actually store?",
+            "options": [
+              "A permanent copy of the query's results, frozen at creation time",
+              "The query itself — it re-runs against the real tables every time the view is queried",
+              "Nothing; it's purely documentation",
+              "A compressed version of the underlying tables"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A view stores the query definition, not a data snapshot. Every time you SELECT from a view, the saved query runs fresh against the current data.",
+            "id": "q1"
+          },
+          {
+            "question": "What's the key difference in scope between a CTE and a view?",
+            "options": [
+              "There is no difference",
+              "A CTE only exists within the single query that defines it; a view is saved and reusable by any future query",
+              "Views can only be used once, CTEs can be reused forever",
+              "CTEs require admin permissions, views don't"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A CTE is local to the one WITH...query it's part of. A view is a persistent, named object in the database that any query can reference later.",
+            "id": "q2"
+          },
+          {
+            "question": "Why might a team create a customer_spending view instead of repeating the join+GROUP BY everywhere?",
+            "options": [
+              "Views run instantly with no computation",
+              "It gives everyone one agreed-upon, reusable definition instead of each person re-deriving the same logic",
+              "It's required by SQL syntax",
+              "It automatically updates the underlying tables"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A view centralizes a query's logic under one name, so everyone queries the same well-defined thing instead of subtly different copies of similar logic scattered across many queries.",
+            "id": "q3"
+          },
+          {
+            "question": "If the underlying table changes, does a view reflect those changes the next time it's queried?",
+            "options": [
+              "No, views are frozen snapshots",
+              "Yes, since a view re-runs its defining query against current data every time",
+              "Only after manually refreshing the view",
+              "Only for numeric columns"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A standard view stores only the query definition, not the data, so it always reflects the current state of the underlying tables when queried.",
+            "id": "q4"
+          },
+          {
+            "question": "What's one reason to create a view around a complex join?",
+            "options": [
+              "It permanently speeds up all future queries",
+              "It hides the complexity so other users can query a simple, consistent name",
+              "It's required before you can use GROUP BY",
+              "It automatically creates indexes"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A view lets you package a complex join or calculation behind a simple, reusable name so other users don't need to re-derive that logic themselves.",
+            "id": "q5"
+          },
+          {
+            "question": "Can you typically query a view the same way you'd query a regular table?",
+            "options": [
+              "No, views need special syntax",
+              "Yes — you can SELECT from a view just like a table, with WHERE, JOIN, etc.",
+              "Only with INSERT statements",
+              "Only if it has no WHERE clause"
+            ],
+            "correctAnswer": 1,
+            "explanation": "From the querying side, a view behaves like a regular table: you can SELECT, filter, and join against it normally.",
+            "id": "q6"
+          },
+          {
+            "question": "What is a materialized view, in contrast to a regular view?",
+            "options": [
+              "Exactly the same as a regular view",
+              "A view whose results are physically stored and must be refreshed periodically, trading freshness for speed",
+              "A view that can never be queried",
+              "A view limited to one column"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A materialized view stores its computed result physically on disk rather than recomputing it every time, which is faster to read but needs periodic refreshing to stay current.",
+            "id": "q7"
+          },
+          {
+            "question": "Why might exposing a view instead of the raw tables help with security or simplicity?",
+            "options": [
+              "Views can't be created by regular users",
+              "A view can expose only specific columns or rows, hiding sensitive or irrelevant data from consumers",
+              "Views automatically encrypt all data",
+              "There is no benefit"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A view can select only the columns and rows a consumer needs, so it can restrict what's visible without changing permissions on the underlying tables.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

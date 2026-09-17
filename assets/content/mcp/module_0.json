@@ -1,0 +1,573 @@
+{
+  "id": "mcp_fundamentals",
+  "title": "MCP Fundamentals",
+  "description": "What MCP is and the integration problem it solves, its client-server architecture, JSON-RPC as its wire protocol, and how it relates to the tool-calling mechanics covered earlier in this curriculum.",
+  "icon": "🔌",
+  "color": "#673AB7",
+  "order": 0,
+  "estimatedHours": 5,
+  "difficulty": "beginner",
+  "prerequisites": [],
+  "lessons": [
+    {
+      "id": "mcp_what_is_mcp",
+      "title": "What Is MCP, and Why Does It Exist?",
+      "description": "Before MCP, every AI application wrote its own custom glue code for every tool, database, and data source it wanted to connect to.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain the problem MCP (Model Context Protocol) solves and describe the **USB-C analogy** for what it standardizes."
+          },
+          {
+            "title": "🔌 The problem: N applications × M integrations",
+            "content": "Before a common standard, every AI application that wanted to connect to, say, a GitHub repo, a database, and a filesystem had to write three separate pieces of **custom integration code** — and every other AI application wanting the same three connections had to write its own three pieces too, completely unable to reuse the first application's work. This is the classic **'N times M' integration problem**: N applications, M tools, N×M pieces of custom glue code, each maintained separately."
+          },
+          {
+            "title": "🔗 The USB-C analogy",
+            "content": "Before USB-C, connecting a device to a laptop meant a different, incompatible port and cable for nearly every device type. USB-C standardized the physical and electrical interface, so any USB-C device works with any USB-C port, regardless of who made either one. MCP aims to do the same thing for connecting AI applications to external tools and data: a **standard protocol** that any MCP-compatible application can speak to any MCP-compatible server, regardless of who built either end."
+          },
+          {
+            "title": "🧩 What MCP actually standardizes",
+            "content": "- A common way for a server to **describe** what tools, data (**resources**), and prompt templates it offers.\n- A common **protocol** (built on JSON-RPC, covered in a later lesson this module) for a client to discover and invoke those offerings.\n- A common set of **transport options** (stdio, HTTP, covered in module 2) for how the client and server actually communicate.\n\nNone of this replaces the LLM's own tool-calling mechanics from the LLM Engineering and Agents courses — MCP standardizes how tools get connected to an application, while the model still decides when and how to call them exactly as covered in those earlier courses."
+          },
+          {
+            "title": "🎯 Why this matters practically",
+            "content": "An MCP server built once (say, a GitHub integration) can be used by any MCP-compatible application, not just the one that happened to build it — and an application that speaks MCP can use any MCP server, not just ones it built custom code for. This turns the **N×M** integration problem into an **N+M** one: each application implements MCP once, each tool/data source implements an MCP server once, and everything just works together, which is the same standardization benefit USB-C provides for physical connections."
+          },
+          {
+            "title": "💻 Seeing the shift in code",
+            "content": "```python\n# Before MCP: each app writes its own glue code per tool (N x M)\nclass ChatApp:\n    def connect_github(self): ...   # custom code\n    def connect_database(self): ...  # custom code\n    def connect_filesystem(self): ... # custom code\n\nclass IDEAssistant:\n    def connect_github(self): ...   # duplicated custom code\n    def connect_database(self): ...  # duplicated custom code\n    def connect_filesystem(self): ... # duplicated custom code\n\n# After MCP: each app implements ONE client, each tool ONE server (N + M)\nclass ChatApp(MCPHost):\n    def connect(self, server_url):\n        self.client.connect(server_url)  # works with ANY MCP server\n\n# github_server, database_server, filesystem_server each built once,\n# used by ChatApp, IDEAssistant, and anything else that speaks MCP\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming MCP replaces the model's tool-calling logic.** It doesn't — MCP only standardizes how a tool gets connected to an application; the model still decides when and how to call it exactly as in the LLM Engineering and Agents courses.\n\n**Treating MCP as just another API wrapper.** The point isn't a nicer API for one integration — it's that one server implementation becomes usable by *any* MCP-compatible application, which is the N×M-to-N+M shift.\n\n**Underestimating the N×M problem because 'we only have two integrations.'** The benefit compounds precisely as the number of applications and tools grows — the pain of custom glue code is easy to dismiss early and expensive to fix later."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "mcp_what_is_mcp_quiz",
+        "questions": [
+          {
+            "question": "What integration problem does MCP aim to solve?",
+            "options": [
+              "The problem of models being too large to run locally",
+              "The N×M integration problem, where every AI application needs custom glue code for every tool or data source it connects to",
+              "The problem of choosing which programming language to use",
+              "The problem of GPU memory allocation during training"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Without a standard, every application-to-tool connection needs its own custom code, multiplying effort as both the number of applications and tools grow — MCP standardizes this into a common protocol both sides can implement once.",
+            "id": "q1"
+          },
+          {
+            "question": "What does the USB-C analogy capture about what MCP standardizes?",
+            "options": [
+              "That MCP requires specific physical hardware",
+              "That MCP provides a common interface so any compatible application can connect to any compatible server, regardless of who built either",
+              "That MCP is only relevant to hardware manufacturers",
+              "That MCP replaces the need for any protocol at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Just as USB-C standardized a physical connector so any device works with any compatible port, MCP standardizes how AI applications and external tools/data connect, independent of who built either end.",
+            "id": "q2"
+          },
+          {
+            "question": "Does MCP replace the LLM's own tool-calling decision-making covered in the LLM Engineering and Agents courses?",
+            "options": [
+              "Yes, MCP entirely replaces the model's tool-calling mechanics",
+              "No, MCP standardizes how tools get connected to an application; the model still decides when and how to call them as covered in those earlier courses",
+              "MCP only works with models that have no tool-calling capability",
+              "MCP and tool-calling are unrelated concepts"
+            ],
+            "correctAnswer": 1,
+            "explanation": "MCP is about standardizing the connection and discovery layer between an application and external tools/data — the model's own decision of when and how to call a tool remains exactly as covered in the LLM Engineering and Agents courses.",
+            "id": "q3"
+          },
+          {
+            "question": "In the N×M problem, what do N and M each represent?",
+            "options": [
+              "N is the number of tools and M is the number of programming languages",
+              "N is the number of applications and M is the number of tools/data sources each wants to connect to",
+              "N and M both represent the number of servers a single application must run",
+              "N is the number of users and M is the number of servers"
+            ],
+            "correctAnswer": 1,
+            "explanation": "N applications each independently integrating with M tools produces N×M separate pieces of custom glue code — the exact combinatorial cost MCP is designed to collapse.",
+            "id": "q4"
+          },
+          {
+            "question": "According to the code example contrasting before and after MCP, what changes about how ChatApp and IDEAssistant connect to tools?",
+            "options": [
+              "Nothing changes — both approaches require identical custom code",
+              "Before MCP, each app duplicates custom connection code per tool; after MCP, each app implements one client that works with any MCP server",
+              "After MCP, applications can no longer connect to more than one tool",
+              "Before MCP, tools could only be used by one application at a time"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The example shows duplicated per-tool glue code in each app pre-MCP, collapsing to a single reusable client implementation once both sides speak MCP.",
+            "id": "q5"
+          },
+          {
+            "question": "What are the three things MCP standardizes, per this lesson?",
+            "options": [
+              "Programming languages, operating systems, and hardware",
+              "How a server describes its tools/resources/prompts, the protocol for discovery and invocation, and the transport options for communication",
+              "Only the visual design of AI chat interfaces",
+              "The specific LLM provider an application must use"
+            ],
+            "correctAnswer": 1,
+            "explanation": "MCP standardizes description format, the discovery/invocation protocol (built on JSON-RPC), and transport options — not the model's own tool-calling decisions.",
+            "id": "q6"
+          },
+          {
+            "question": "Why is 'MCP is just a nicer API wrapper' listed as a mistaken framing?",
+            "options": [
+              "Because MCP has nothing to do with APIs at all",
+              "Because the real benefit is that one server implementation becomes usable by any MCP-compatible application, not just a cleaner interface for one integration",
+              "Because APIs are always superior to protocols",
+              "Because MCP servers cannot be called via any kind of interface"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The N×M-to-N+M reusability benefit — not interface aesthetics — is the actual point of standardizing on MCP.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does the lesson warn against dismissing the N×M problem when an application only has a couple of integrations today?",
+            "options": [
+              "Because N×M costs are irrelevant regardless of scale",
+              "Because the pain of custom glue code compounds as the number of applications and tools grows, making it expensive to fix later if ignored early",
+              "Because having few integrations means MCP cannot be used at all",
+              "Because the USB-C analogy only applies to large-scale systems"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The combinatorial nature of N×M means the cost that looks small today can become substantial as either N or M grows, which is exactly the growth pattern MCP is designed to avoid.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "mcp_client_server_architecture",
+      "title": "The MCP Client-Server Architecture",
+      "description": "MCP defines two roles — host application, and server — with a client component in between speaking a shared protocol.",
+      "duration": 13,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Name the main components in MCP's architecture and describe what each one is responsible for."
+          },
+          {
+            "title": "🖥️ The host application",
+            "content": "The AI application itself — a chat assistant, an IDE, an agent framework — that wants to use external tools and data. The **host** is what a user actually interacts with, and it's where the LLM calls and the overall application logic (much of it covered in the Agents and LangGraph courses) live."
+          },
+          {
+            "title": "🔌 The MCP client",
+            "content": "A component, typically living inside the host application, that manages the connection to **one specific MCP server** — handling the protocol details (the JSON-RPC messages covered next lesson) so the rest of the host application doesn't need to deal with those details directly. A host application connecting to multiple MCP servers typically runs one client instance per server connection."
+          },
+          {
+            "title": "🗄️ The MCP server",
+            "content": "A separate process or service that exposes **tools**, **resources**, and **prompts** (covered in depth in the next module) according to the MCP specification — this is the thing that actually knows how to, say, query a specific database, or read files from a specific filesystem, or call a specific external API, wrapped behind the standard MCP interface so any MCP client can use it without needing to know those implementation details."
+          },
+          {
+            "title": "🔀 Why this separation matters",
+            "content": "Because the host/client side and the server side only need to agree on the MCP protocol itself, either side can be built, updated, or replaced independently — a server can be written in a completely different language than the host application, and a host application can add a new MCP server connection without needing anything from that server's implementation beyond it correctly speaking MCP. This is the direct architectural payoff of the standardization described in the previous lesson."
+          },
+          {
+            "title": "💻 The three roles in code shape",
+            "content": "```python\nclass HostApplication:          # e.g. a chat assistant\n    def __init__(self):\n        self.clients = {}       # one MCPClient per connected server\n\n    def connect_server(self, name, server_url):\n        self.clients[name] = MCPClient(server_url)\n\nclass MCPClient:                # lives inside the host\n    def __init__(self, server_url):\n        self.server_url = server_url\n\n    def call_tool(self, name, args):\n        # handles JSON-RPC details, talks to exactly one server\n        return self._send_request(\"tools/call\", {\"name\": name, \"arguments\": args})\n\n# MCPServer is a separate process — could be Python, Node, Go, anything —\n# as long as it correctly speaks the MCP protocol back to the client.\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Conflating the host and the client.** The host is the whole application (chat UI, agent loop, business logic); the client is a narrower component inside it that manages one server connection — treating them as interchangeable makes architecture diagrams and debugging confusing.\n\n**Assuming one client can manage many servers.** The typical pattern is one client instance per server connection, not one client juggling several servers' protocol state at once.\n\n**Coupling host logic to a specific server's implementation details.** Doing so throws away the exact benefit — independent development and replacement of either side — that motivated the client-server split in the first place."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "mcp_client_server_architecture_quiz",
+        "questions": [
+          {
+            "question": "What is the host application's role in MCP's architecture?",
+            "options": [
+              "It's the external tool being connected to",
+              "It's the AI application itself — where the user interacts and the overall application logic and LLM calls live",
+              "It's a low-level network transport protocol",
+              "It's a database used only for storing MCP messages"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The host is the actual application a user works with (a chat assistant, an IDE, an agent framework), which wants to make use of external tools and data via MCP.",
+            "id": "q1"
+          },
+          {
+            "question": "What does an MCP client manage?",
+            "options": [
+              "The entire host application's user interface",
+              "The connection to one specific MCP server, handling protocol details so the rest of the host doesn't need to",
+              "The training of the underlying LLM",
+              "The physical hardware running the server"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A client is typically a component within the host that manages one server connection, dealing with protocol specifics like JSON-RPC messaging on behalf of the rest of the application.",
+            "id": "q2"
+          },
+          {
+            "question": "Why does separating host/client from server matter architecturally?",
+            "options": [
+              "It doesn't matter — tighter coupling would work identically",
+              "Either side can be built, updated, or replaced independently as long as both correctly speak the MCP protocol",
+              "It requires both sides to be written in the same programming language",
+              "It prevents any host from connecting to more than one server"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since both sides only need to agree on the protocol itself, independent development and replacement of either side becomes possible — the same benefit standardization generally provides.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, why does HostApplication keep a dictionary of MCPClient instances keyed by server name?",
+            "options": [
+              "Because a host can only ever connect to a single server",
+              "Because the typical pattern is one client instance per connected server, so the host tracks each connection separately",
+              "Because dictionaries are required by the JSON-RPC specification",
+              "Because MCPClient objects cannot be reused across method calls"
+            ],
+            "correctAnswer": 1,
+            "explanation": "One client instance per server connection is the typical architecture — the dictionary reflects that each server gets its own dedicated client managing its protocol state.",
+            "id": "q4"
+          },
+          {
+            "question": "According to this lesson, can an MCP server be written in a completely different programming language than the host application?",
+            "options": [
+              "No, both sides must always use the same language",
+              "Yes, since both sides only need to agree on speaking the MCP protocol correctly, not on implementation language",
+              "Only if the server uses the stdio transport",
+              "Only for servers with fewer than three tools"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Because the architecture only requires agreement on the protocol itself, language and implementation choices on either side are independent.",
+            "id": "q5"
+          },
+          {
+            "question": "What is the practical risk of conflating the 'host' and the 'client' as the same thing?",
+            "options": [
+              "There is no risk — they are in fact identical",
+              "It makes architecture and debugging confusing, since the host is the whole application while the client is a narrower component managing one server connection",
+              "It causes the MCP protocol itself to stop working",
+              "It prevents the host from ever running any application logic"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Keeping the concepts distinct (whole application vs. one connection-management component) keeps reasoning about where a bug or responsibility lives clear.",
+            "id": "q6"
+          },
+          {
+            "question": "Why would coupling host application logic tightly to one specific server's internal implementation details be a mistake?",
+            "options": [
+              "It would actually improve performance with no downside",
+              "It undermines the independent-development-and-replacement benefit that the client-server separation is specifically designed to provide",
+              "MCP explicitly forbids any host from knowing about server internals as a matter of protocol enforcement",
+              "It would make the host incompatible with JSON-RPC"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The whole point of the architectural split is that either side can change independently — tight coupling to implementation details defeats that purpose even if the protocol itself still technically works.",
+            "id": "q7"
+          },
+          {
+            "question": "What does the MCP server in the code example actually know how to do that the client does not?",
+            "options": [
+              "Nothing — the client and server have identical responsibilities",
+              "The server knows the actual implementation details, like how to query a specific database or call a specific external API, wrapped behind the standard MCP interface",
+              "The server only manages the user interface",
+              "The server is responsible for the LLM's own reasoning steps"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The server owns the actual domain-specific implementation (database queries, filesystem access, external API calls); the client just manages the standardized connection to it.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "mcp_json_rpc_as_the_wire_protocol",
+      "title": "JSON-RPC: The Message Format Underneath MCP",
+      "description": "MCP doesn't invent a new wire format from scratch — it builds on JSON-RPC, an established, simple standard for structured requests and responses.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Describe the basic shape of a JSON-RPC request and response, and explain why MCP builds on an existing standard rather than a custom format."
+          },
+          {
+            "title": "📨 What JSON-RPC provides",
+            "content": "A simple, well-established convention for structuring remote procedure calls as JSON: a request names a **method** and provides **parameters**, and a response returns either a **result** or an **error**, each tagged with an identifier that matches the response back to its originating request. This is a much older and simpler standard than MCP itself — MCP uses it as the underlying message format rather than reinventing message structuring from scratch."
+          },
+          {
+            "title": "🧾 A basic request-response shape",
+            "content": "A request might specify a method name (like `tools/call` for invoking a specific MCP tool) plus parameters (which tool, with what arguments). The corresponding response carries either the result of that call or an error object describing what went wrong, tagged with the same identifier as the request so the client can match it to the right pending call, especially important when multiple requests might be in flight at once."
+          },
+          {
+            "title": "🎯 Why build on an existing standard rather than inventing a new one",
+            "content": "JSON-RPC is simple, well-understood, and has existing tooling and libraries across many programming languages already — building MCP on top of it means implementers don't need to learn or build support for a completely novel wire format, they just need to learn what specific methods and parameter shapes MCP defines on top of the JSON-RPC foundation. This mirrors the general engineering principle of building on proven standards rather than reinventing infrastructure that already works well."
+          },
+          {
+            "title": "🔗 What MCP adds on top of plain JSON-RPC",
+            "content": "JSON-RPC alone just defines message structure — it says nothing about what methods should exist or what they mean. MCP's actual specification defines the specific **methods** (for discovering tools, invoking them, listing resources, and so on, covered throughout this course) and the semantics around them — MCP is best understood as JSON-RPC plus a specific, standardized vocabulary of methods and message shapes for the tool/resource/prompt use case."
+          },
+          {
+            "title": "💻 A request and response, side by side",
+            "content": "```python\n# Request: client -> server, invoking a tool\nrequest = {\n    \"jsonrpc\": \"2.0\",\n    \"id\": 42,\n    \"method\": \"tools/call\",\n    \"params\": {\"name\": \"search_docs\", \"arguments\": {\"query\": \"refunds\"}},\n}\n\n# Response: server -> client, matched by the same id\nresponse = {\n    \"jsonrpc\": \"2.0\",\n    \"id\": 42,\n    \"result\": {\"content\": [{\"type\": \"text\", \"text\": \"3 matching docs found...\"}]},\n}\n\n# An error response uses the same id but an \"error\" field instead of \"result\"\nerror_response = {\"jsonrpc\": \"2.0\", \"id\": 42, \"error\": {\"code\": -32602, \"message\": \"invalid arguments\"}}\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming MCP invented its own wire format.** It didn't — MCP is JSON-RPC plus a standardized vocabulary of methods; confusing the two makes debugging protocol issues harder than it needs to be.\n\n**Ignoring the request/response id when handling multiple in-flight calls.** If a client fires off several requests before responses return, mismatching an id to the wrong pending call produces confusing, hard-to-trace bugs.\n\n**Treating an error response as if it were a successful result.** A response with an `error` field is not a result to parse as data — it needs its own explicit handling path, exactly like an exception in ordinary code."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "mcp_json_rpc_as_the_wire_protocol_quiz",
+        "questions": [
+          {
+            "question": "What does a JSON-RPC request typically specify?",
+            "options": [
+              "Only a raw text string with no structure",
+              "A method name and parameters, tagged with an identifier that matches the eventual response",
+              "The exact GPU used to process the request",
+              "A complete copy of the server's source code"
+            ],
+            "correctAnswer": 1,
+            "explanation": "JSON-RPC structures a remote call as a method name plus parameters, with an identifier used to match the response back to the correct request.",
+            "id": "q1"
+          },
+          {
+            "question": "Why does MCP build on JSON-RPC rather than inventing a completely new wire format?",
+            "options": [
+              "JSON-RPC is a brand new, unproven standard",
+              "JSON-RPC is simple, well-understood, and already has tooling and library support across many languages",
+              "MCP is required by law to use JSON-RPC specifically",
+              "JSON-RPC eliminates the need for any client or server"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Building on an existing, proven, simple standard means implementers don't need to build support for a totally novel message format, only learn MCP's specific methods layered on top.",
+            "id": "q2"
+          },
+          {
+            "question": "What does MCP add on top of plain JSON-RPC?",
+            "options": [
+              "Nothing — MCP is identical to JSON-RPC with a different name",
+              "A specific, standardized vocabulary of methods and message shapes for discovering and invoking tools, resources, and prompts",
+              "A requirement that all messages use XML instead of JSON",
+              "A guarantee that a server has zero possible errors"
+            ],
+            "correctAnswer": 1,
+            "explanation": "JSON-RPC only defines message structure in general; MCP layers a specific set of methods and semantics on top of that structure for the tool/resource/prompt domain.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, what field ties the response back to its originating request?",
+            "options": [
+              "The \"method\" field",
+              "The \"id\" field, which matches between the request and its response",
+              "The \"jsonrpc\" version field",
+              "The \"arguments\" field inside params"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The shared id (42 in the example) is what lets the client match an incoming response to the specific pending request it belongs to.",
+            "id": "q4"
+          },
+          {
+            "question": "How does an error response differ in shape from a successful result response, per the code example?",
+            "options": [
+              "An error response omits the \"id\" field entirely",
+              "An error response carries an \"error\" field instead of a \"result\" field, while keeping the same \"id\"",
+              "Error responses use a completely different protocol than JSON-RPC",
+              "There is no structural difference between the two"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Both use the same envelope and matching id, but a result carries a \"result\" field while an error carries an \"error\" field describing what went wrong.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does the request's \"method\" field (like tools/call) matter specifically to MCP rather than JSON-RPC generally?",
+            "options": [
+              "JSON-RPC requires every method to be named \"tools/call\"",
+              "The specific method names and their meanings (like tools/call for invoking a tool) are part of MCP's own vocabulary layered on top of generic JSON-RPC structure",
+              "Method names are irrelevant to how MCP functions",
+              "JSON-RPC forbids naming methods with slashes"
+            ],
+            "correctAnswer": 1,
+            "explanation": "JSON-RPC just says a request has a method and params; which specific method names exist and what they mean is exactly the vocabulary MCP defines on top.",
+            "id": "q6"
+          },
+          {
+            "question": "Why is mismatching a response's id to the wrong pending request a serious bug, especially when multiple requests are in flight?",
+            "options": [
+              "It isn't a real risk since JSON-RPC forbids concurrent requests",
+              "It can silently deliver the wrong result to the wrong caller, producing confusing and hard-to-trace behavior",
+              "JSON-RPC automatically detects and corrects any id mismatch",
+              "ids are purely cosmetic and never actually used for matching"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The id is the only mechanism tying a response to its request; mishandling it when several calls are in flight at once can silently swap results between callers.",
+            "id": "q7"
+          },
+          {
+            "question": "Why should an error response never be parsed as if it were successful result data?",
+            "options": [
+              "Because error responses are always empty",
+              "Because it carries an \"error\" field describing what went wrong and needs its own explicit handling path, similar to an exception",
+              "Because JSON-RPC does not support errors at all",
+              "Because error responses use a different id format that cannot be matched"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Treating an error payload as if it were valid result data would mean silently proceeding on failed calls — errors need dedicated handling, just like exceptions in ordinary code.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "mcp_vs_plain_tool_calling",
+      "title": "MCP vs. Plain Tool-Calling: What Changes and What Doesn't",
+      "description": "MCP doesn't change how an LLM decides to call a tool — it changes how that tool got connected to the application in the first place.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Distinguish what MCP standardizes from what remains exactly the same as the tool-calling mechanics covered in the LLM Engineering and Agents courses."
+          },
+          {
+            "title": "🔄 What stays the same",
+            "content": "- The LLM still emits a structured tool-call request, exactly as covered in the LLM Engineering course's tool-calling lesson and the Agents course's tool-calling-mechanics lesson.\n- The model still decides **which** tool to call and with what arguments based on tool names and descriptions, following the exact tool-design principles from the Agents course's tool-use module.\n\nNone of the LLM-facing mechanics of tool-calling change because a tool happens to be served via MCP rather than defined directly in application code."
+          },
+          {
+            "title": "🔌 What MCP changes",
+            "content": "Without MCP, a developer wanting to give an agent access to, say, a GitHub integration would need to write custom code implementing that specific integration and wiring it into their specific application's tool-calling setup. With MCP, that same GitHub integration can be built once as an MCP server, and any MCP-compatible application can connect to it and expose its tools to their model, without writing custom integration code for that specific tool — the 'plumbing' between 'a tool exists' and 'my application's model can call it' is what MCP standardizes."
+          },
+          {
+            "title": "📦 Where tool definitions actually come from",
+            "content": "In a plain tool-calling setup, tool definitions (names, descriptions, parameter schemas — following the tool-design principles from the Agents course) are typically defined directly in application code. With MCP, those same kinds of tool definitions are defined by the **MCP server** and **discovered dynamically** by the client (covered in depth in module 3) — the definitions themselves still need the same careful design (clear names, unambiguous descriptions, well-typed parameters) regardless of which side ends up defining them."
+          },
+          {
+            "title": "🎯 A practical way to think about it",
+            "content": "MCP is an integration and discovery layer that sits between 'a tool or data source exists somewhere' and 'my agent's tool-calling loop can use it' — it doesn't replace or change the agent loop, tool-calling format, or tool-design principles covered in earlier courses, it changes where tool definitions come from and how portable they are across different applications."
+          },
+          {
+            "title": "💻 Same tool-calling loop, different tool source",
+            "content": "```python\n# Plain tool-calling: tool defined directly in application code\ntools = [{\"name\": \"search_docs\", \"description\": \"...\", \"parameters\": {...}}]\nresponse = llm.call(messages, tools=tools)   # model decides to call search_docs\n\n# MCP-based: tool definition discovered dynamically from a server\nmcp_tools = mcp_client.list_tools()          # discovered, not hardcoded\nresponse = llm.call(messages, tools=mcp_tools)  # identical call shape to the model\n\n# Either way, once the model emits a tool_call, the same routing/execution\n# logic from the Agents course handles it -- MCP only changed where\n# `tools` came from.\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming MCP tools need special-case handling in the agent loop.** By the time a tool reaches `llm.call(..., tools=...)`, an MCP-discovered tool and a hardcoded one are indistinguishable — writing separate logic paths for each is unnecessary complexity.\n\n**Neglecting tool-design quality because 'the server defines it, not me.'** Whether a tool definition comes from application code or an MCP server, it still needs the same clear names, unambiguous descriptions, and well-typed parameters — MCP doesn't lower that bar.\n\n**Believing MCP changes the tool-calling format itself.** It doesn't — the LLM API's tool-calling shape from the LLM Engineering course is completely unchanged; only where the tool list comes from is different."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "mcp_vs_plain_tool_calling_quiz",
+        "questions": [
+          {
+            "question": "Does MCP change how an LLM decides which tool to call and with what arguments?",
+            "options": [
+              "Yes, MCP introduces a completely new tool-calling mechanism for the LLM",
+              "No, the LLM's tool-calling mechanics stay exactly as covered in the LLM Engineering and Agents courses — MCP changes how tools get connected to the application",
+              "MCP eliminates the need for the LLM to decide anything about tool calls",
+              "MCP only works with models that don't support tool-calling"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The model-facing mechanics of emitting a structured tool-call request and deciding which tool to use remain unchanged — MCP standardizes the integration and discovery layer beneath that, not the LLM's own decision process.",
+            "id": "q1"
+          },
+          {
+            "question": "What does a developer avoid needing to write when using an existing MCP server for a tool like a GitHub integration?",
+            "options": [
+              "The LLM's system prompt entirely",
+              "Custom integration code specific to their application for that particular tool",
+              "Any code whatsoever, including their own application logic",
+              "A state schema for their agent"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since the MCP server already implements the integration in a standard, discoverable way, the developer's application just needs to speak MCP rather than writing bespoke glue code for that specific tool.",
+            "id": "q2"
+          },
+          {
+            "question": "Where do tool definitions (names, descriptions, parameter schemas) come from in an MCP-based setup, compared to plain tool-calling?",
+            "options": [
+              "MCP eliminates the need for tool definitions entirely",
+              "They're defined by the MCP server and discovered dynamically by the client, rather than being hardcoded directly in the application's own code",
+              "Tool definitions must be manually retyped into every application separately",
+              "MCP servers cannot define parameter schemas"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Rather than living directly in application code, tool definitions live in the MCP server and are discovered by clients dynamically — though the same careful tool-design principles from the Agents course still apply to how those definitions are written.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, what is the key structural difference between the plain tool-calling call and the MCP-based call to llm.call()?",
+            "options": [
+              "The MCP-based call uses a fundamentally different LLM API",
+              "Only where the `tools` list came from (hardcoded vs. mcp_client.list_tools()) — the call shape to the model is otherwise identical",
+              "The MCP-based call cannot include a tools argument at all",
+              "The plain tool-calling version does not use an LLM at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The example deliberately shows the llm.call(...) invocation as identical in both cases — only the origin of the `tools` list changes, illustrating that MCP doesn't alter the model-facing call shape.",
+            "id": "q4"
+          },
+          {
+            "question": "Why is writing separate handling logic for MCP-discovered tools versus hardcoded tools considered a mistake?",
+            "options": [
+              "Because MCP tools cannot be executed by any orchestration code",
+              "Because by the time a tool reaches the tool-calling call, an MCP-discovered tool and a hardcoded tool are indistinguishable, making separate logic paths unnecessary complexity",
+              "Because hardcoded tools are always deprecated once MCP is introduced",
+              "Because the Agents course forbids using more than one tool source"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since both kinds of tools converge to the same shape by the time they reach the model and the routing logic, treating them specially adds needless complexity without functional benefit.",
+            "id": "q5"
+          },
+          {
+            "question": "Why doesn't MCP lower the bar for tool-design quality, according to this lesson?",
+            "options": [
+              "Because MCP servers automatically guarantee well-designed tools",
+              "Because whether a tool comes from application code or an MCP server, it still needs the same clear names, descriptions, and well-typed parameters from the Agents course's tool-design principles",
+              "Because tool design is irrelevant once a tool is discovered rather than hardcoded",
+              "Because MCP servers are not allowed to define parameter schemas"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The source of a tool definition doesn't change what makes it usable to a model — clarity and specificity in naming, description, and parameters matter identically either way.",
+            "id": "q6"
+          },
+          {
+            "question": "What is the 'plumbing' that this lesson says MCP specifically standardizes?",
+            "options": [
+              "The plumbing between the model's internal weights and its output tokens",
+              "The plumbing between 'a tool or data source exists somewhere' and 'my agent's tool-calling loop can use it'",
+              "The plumbing between two different LLM providers' APIs",
+              "The plumbing between a user's keyboard input and the chat interface"
+            ],
+            "correctAnswer": 1,
+            "explanation": "MCP is framed as an integration and discovery layer connecting an existing tool/data source to an application's tool-calling loop, not a change to the loop or the model's decision-making itself.",
+            "id": "q7"
+          },
+          {
+            "question": "Why is it a mistake to believe MCP changes the LLM API's tool-calling format itself?",
+            "options": [
+              "Because there is no such thing as a tool-calling format in LLM APIs",
+              "Because the tool-calling format from the LLM Engineering course is unchanged by MCP — only the source of the tool list differs",
+              "Because MCP requires a completely new LLM API for every provider",
+              "Because tool-calling formats are randomly generated per request"
+            ],
+            "correctAnswer": 1,
+            "explanation": "MCP operates beneath the tool-calling format, standardizing how tool definitions are discovered and connected — the format itself, as covered in the LLM Engineering course, stays the same.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

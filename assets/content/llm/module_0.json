@@ -1,0 +1,397 @@
+{
+  "id": "module_0",
+  "title": "System Prompts, Roles & Structured Contracts",
+  "description": "The system/user/assistant role structure, how to write an effective system prompt, treating structured output as a strict contract, and managing conversation state across turns.",
+  "icon": "📜",
+  "color": "#7E57C2",
+  "order": 0,
+  "estimatedHours": 2,
+  "difficulty": "Beginner",
+  "prerequisites": [],
+  "lessons": [
+    {
+      "id": "llme_roles_messages",
+      "title": "System, User, and Assistant: The Three Roles",
+      "description": "Understand the message-role structure every LLM API call is built on.",
+      "duration": "7 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain what the system, user, and assistant roles each contribute to a conversation."
+          },
+          {
+            "title": "🎭 Three roles, one conversation",
+            "content": "Every call to a chat-style LLM API is built from a list of role-tagged messages: **system** (instructions and policy, set once, usually invisible to the end user), **user** (what the actual person typed), and **assistant** (the model's own previous replies, included so it can see the conversation history it's continuing).\n\n```python\nmessages = [\n    {\"role\": \"system\", \"content\": \"You are a concise, friendly support assistant.\"},\n    {\"role\": \"user\", \"content\": \"How do I reset my password?\"},\n    {\"role\": \"assistant\", \"content\": \"Go to Settings > Security > Reset Password.\"},\n    {\"role\": \"user\", \"content\": \"What if I don't have access to my email?\"},\n]\n```"
+          },
+          {
+            "title": "🔁 Why history has to be resent every time",
+            "content": "The model itself has no memory between API calls — each call is stateless. The full conversation history is resent as part of the messages list every single time, which connects directly to the token-budget concerns from the transformers and generative AI courses: a long conversation gets more expensive and eventually risks hitting context limits, covered later in this module."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Putting end-user-facing instructions in the system role expecting the user to see them.** The system message is typically invisible to the person chatting; it's policy for the model, not a message to display.\n\n**Forgetting to include prior assistant turns in a multi-turn conversation.** Without them, the model has no memory of what it already said and can contradict itself.\n\n**Treating the roles as decorative labels rather than something the model was specifically trained to treat differently.** Models are trained to weigh system instructions differently from user requests — the distinction has real behavioral effect, not just organizational convenience."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "llme_roles_messages_quiz",
+        "questions": [
+          {
+            "question": "What is the typical purpose of the 'system' role in a chat-style LLM API call?",
+            "options": [
+              "It contains what the end user actually typed",
+              "It sets instructions and policy for the model, usually invisible to the end user, established once at the start of the conversation",
+              "It only contains the model's previous replies",
+              "It has no functional difference from the user role"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The system role is where policy and behavioral instructions live — tone, constraints, persona — typically set once and not shown to the end user, distinct from what the user actually says.",
+            "id": "q1"
+          },
+          {
+            "question": "Why must the full conversation history be resent with every API call to a chat model?",
+            "options": [
+              "It doesn't need to be resent; the model remembers previous calls automatically",
+              "The model itself is stateless between calls, so the full message history has to be included each time for the model to have access to the conversation so far",
+              "Resending history is optional and has no effect on the model's responses",
+              "Only the very first message ever needs to be sent"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since the model has no built-in memory across separate API calls, the entire relevant conversation history — system, prior user turns, and prior assistant turns — must be included in each new request for continuity.",
+            "id": "q2"
+          },
+          {
+            "question": "Why does it matter that models are specifically trained to treat the system role differently from the user role?",
+            "options": [
+              "It doesn't matter — all roles are treated identically as plain text",
+              "Because of that training, the system role instructions genuinely carry different behavioral weight than user messages, rather than being just an organizational label with no functional effect",
+              "Only the user role has any effect on the model's behavior",
+              "The assistant role is the only one that affects the model's future output"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The role structure isn't just for human readability — models are trained to weigh system-role content as policy-level instruction distinct from user requests, giving the role distinction genuine behavioral consequence.",
+            "id": "q3"
+          },
+          {
+            "question": "In the example message list from this lesson, which role contains what the actual end user typed?",
+            "options": [
+              "The user role",
+              "The system role",
+              "The assistant role",
+              "There is no role for the end user's input"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's example shows the user role holding the actual text the person typed, distinct from the system role's policy and the assistant role's prior replies.",
+            "id": "q4"
+          },
+          {
+            "question": "Why does the lesson include the assistant's own previous replies in the messages list?",
+            "options": [
+              "So the model can see the conversation history it's continuing, since it has no memory between calls",
+              "Because the assistant role is required by the API even if empty",
+              "So the user can edit the assistant's past replies before sending",
+              "Because assistant messages are converted into system messages automatically"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Previous assistant replies are included precisely because the model itself has no memory between calls — without them, it would have no way to know what it already said in the conversation.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is putting end-user-facing instructions in the system role a common mistake, according to this lesson?",
+            "options": [
+              "Because the system message is typically invisible to the person chatting; it's policy for the model, not something meant to be displayed",
+              "Because the system role is always shown directly to the user by every API",
+              "Because system messages are limited to exactly one sentence",
+              "Because only the assistant role can contain instructions"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson warns that the system role is generally not shown to the end user, so instructions meant for the person to actually see and read don't belong there.",
+            "id": "q6"
+          },
+          {
+            "question": "What happens if prior assistant turns are forgotten when building a multi-turn conversation, per this lesson?",
+            "options": [
+              "The model has no memory of what it already said and can contradict itself",
+              "The model automatically recalls its past replies from a separate memory store",
+              "Nothing changes; the conversation continues exactly the same way",
+              "The user role silently takes over the assistant's missing content"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson lists this as a common mistake: without prior assistant turns included, the model has no way to know what it already told the user, risking contradictions.",
+            "id": "q7"
+          },
+          {
+            "question": "According to this lesson, why do the system, user, and assistant roles have more than just organizational significance?",
+            "options": [
+              "Because models are trained to weigh system instructions differently from user requests, giving the role distinction real behavioral effect",
+              "Because the roles are purely cosmetic labels with no effect on model behavior",
+              "Because only the user role has any influence on the model's output",
+              "Because roles only matter when tool calling is involved"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly states that treating the roles as merely decorative is a mistake — models are trained to treat system-role content differently, so the distinction carries genuine behavioral weight.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "llme_structured_output_contracts",
+      "title": "Structured Output as a Contract, Not a Suggestion",
+      "description": "Apply the constrained decoding concept from an application-engineering perspective.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain why treating an LLM's output format as a strict contract changes how you build around it."
+          },
+          {
+            "title": "🤝 Downstream code needs a guarantee, not a best effort",
+            "content": "The generative AI course covered constrained decoding as a technique; here, the engineering question is: your downstream code (a database write, a UI render, another function call) needs the LLM's output to reliably match an expected shape. A best-effort text response that's usually well-formatted JSON isn't good enough for code that will crash or silently misbehave on the exceptions."
+          },
+          {
+            "title": "🧾 Schema-first design",
+            "content": "Define the exact schema you need first (field names, types, required vs. optional), then use structured-output features (JSON mode, function-calling-style schemas, or constrained decoding) to enforce it, and validate the result programmatically before using it downstream — never trust unvalidated model output the same way you wouldn't trust unvalidated user input.\n\n```python\nfrom pydantic import BaseModel\n\nclass TicketSummary(BaseModel):\n    category: str\n    priority: int  # 1-5\n    one_line_summary: str\n\n# Parse and validate the model's output against this schema\n# before it's ever used by downstream code\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Skipping validation because the model 'usually' gets it right.** 'Usually' isn't a guarantee — validate every time, especially for anything feeding an automated pipeline.\n\n**Treating a schema violation as a crash instead of a handled case.** Plan a fallback path (retry, default value, human escalation) for when validation fails, rather than letting it take down the whole pipeline.\n\n**Over-engineering the schema for a simple use case.** Match schema complexity to what downstream code actually needs — a schema with 20 fields for a task that uses 3 of them adds unnecessary failure surface."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "llme_structured_output_contracts_quiz",
+        "questions": [
+          {
+            "question": "Why is a 'best-effort' text response that's usually well-formatted JSON not sufficient for production downstream code?",
+            "options": [
+              "Best-effort responses are always perfectly reliable in practice",
+              "Downstream code that expects a specific structure will crash or silently misbehave on the exceptions where the output doesn't match, so a strict guarantee matters more than a good average case",
+              "JSON formatting has no relevance to downstream code at all",
+              "Downstream code never actually depends on the exact shape of LLM output"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Code that expects a specific data shape needs reliability on every call, not just most of the time — the exceptions where formatting slips are exactly what cause crashes or silent bugs in an automated pipeline.",
+            "id": "q1"
+          },
+          {
+            "question": "What does 'schema-first design' mean in the context of LLM structured output?",
+            "options": [
+              "Writing the prompt first and hoping a reasonable structure emerges naturally",
+              "Defining the exact expected schema (field names, types, required/optional) up front, then using structured-output features to enforce it and validating the result against that schema",
+              "Never using any schema at all, to maximize flexibility",
+              "Schema-first design only applies to database systems, not LLM applications"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Schema-first design means deciding what shape you need before generating anything, then enforcing and validating against that definition — rather than generating first and hoping the result happens to be usable.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is it important to have a fallback path for when output validation fails, rather than letting it crash the pipeline?",
+            "options": [
+              "Validation never actually fails in practice, so a fallback is unnecessary",
+              "A validation failure is an expected, handleable case (like a retry, default value, or escalation), and treating it as a full pipeline crash creates unnecessary fragility",
+              "Fallback paths make a system less reliable, not more",
+              "Crashing the pipeline is always the correct response to any validation failure"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since output can occasionally fail to match a schema even with structured-output techniques, planning a graceful fallback (retry, default, escalation) keeps the system resilient instead of letting a single formatting slip take down the whole pipeline.",
+            "id": "q3"
+          },
+          {
+            "question": "In this lesson's example, what tool is used to define and validate the expected schema for the model's output?",
+            "options": [
+              "A Pydantic BaseModel",
+              "A raw regular expression",
+              "A manually written string parser with no schema",
+              "An unstructured free-text template"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example uses a Pydantic BaseModel (TicketSummary) to define the exact expected fields and types, which the model's output is then validated against.",
+            "id": "q4"
+          },
+          {
+            "question": "According to this lesson, how should you treat unvalidated model output compared to unvalidated user input?",
+            "options": [
+              "The same way — never trust unvalidated model output any more than you'd trust unvalidated user input",
+              "Model output should always be trusted completely without validation",
+              "User input needs validation but model output never does",
+              "Validation is only needed for tool-call arguments, not general structured output"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson draws a direct parallel: unvalidated model output deserves the same skepticism and validation discipline as unvalidated user input before it's used downstream.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does the lesson warn against skipping validation because the model 'usually' produces correct output?",
+            "options": [
+              "Because 'usually' isn't a guarantee, and validation matters especially for anything feeding an automated pipeline",
+              "Because the model always produces perfectly valid output with no exceptions",
+              "Because validation is only relevant for text generation, not structured output",
+              "Because skipping validation always improves pipeline reliability"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly states that 'usually' correct isn't sufficient for a pipeline — validating every time protects against the exceptions where the model's output doesn't match the expected shape.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does the lesson advise against over-engineering a schema for a simple use case?",
+            "options": [
+              "Because schema complexity should match what downstream code actually needs — an overly complex schema for a simple task adds unnecessary failure surface",
+              "Because simple schemas are always technically invalid",
+              "Because more fields in a schema always improve reliability",
+              "Because Pydantic cannot support schemas with more than a few fields"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is building an overly complex schema (e.g. 20 fields) for a task that only needs a handful, which needlessly adds more ways for validation to fail.",
+            "id": "q7"
+          },
+          {
+            "question": "What kind of fallback options does this lesson recommend when structured-output validation fails?",
+            "options": [
+              "A retry, a default value, or human escalation, rather than letting the failure crash the whole pipeline",
+              "There is no recommended fallback; validation failures should always be ignored",
+              "The only acceptable fallback is stopping the application entirely",
+              "Fallbacks are unnecessary since validation never actually fails"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson recommends planning a handled fallback path — retry, default value, or escalation — for validation failures, rather than treating a schema violation as an unhandled crash.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "llme_conversation_state",
+      "title": "Managing Conversation State Across Turns",
+      "description": "Handle multi-turn conversations correctly as they grow over time.",
+      "duration": "7 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can describe how conversation state is maintained across turns and what has to be managed as it grows."
+          },
+          {
+            "title": "📚 State lives in your application, not the model",
+            "content": "Since the model itself is stateless (from the first lesson), your *application* is responsible for storing and managing conversation state — typically the running list of messages — and deciding what to include on each new call. This is a genuine engineering responsibility, not something the LLM API handles for you automatically."
+          },
+          {
+            "title": "✂️ Growing conversations need active management",
+            "content": "As a conversation grows, simply appending every new message forever eventually hits context window and cost limits (from the transformers and generative AI courses). Real applications need a strategy: truncating old turns, summarizing earlier parts of the conversation into a condensed form, or retrieving only the most relevant prior context rather than all of it.\n\n```python\n# Conceptual: a simple truncation strategy\ndef build_context(system_prompt, history, max_turns=10):\n    return [system_prompt] + history[-max_turns:]\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Appending every message forever with no limit.** This works fine in a demo and then breaks (or gets expensive) in real, longer-running usage.\n\n**Summarizing too aggressively and losing important early context.** A summary that drops a detail the user references later ('like I mentioned earlier...') creates a confusing user experience.\n\n**Storing conversation state insecurely or without considering data retention policy.** Conversation history often contains sensitive user information and needs the same data-handling care as any other user data."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "llme_conversation_state_quiz",
+        "questions": [
+          {
+            "question": "Why is managing conversation state a responsibility of the application rather than something the LLM handles automatically?",
+            "options": [
+              "The LLM automatically remembers all past conversations across every call",
+              "The model itself is stateless between calls, so the application must store and decide what conversation history to include in each new request",
+              "Conversation state management is not actually necessary for any LLM application",
+              "Only the very first message in a conversation needs to be tracked"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since each API call to the model is independent and stateless, it's entirely up to the calling application to maintain, store, and decide what history to resend — a genuine engineering task, not an automatic model feature.",
+            "id": "q1"
+          },
+          {
+            "question": "Why can't a real application simply append every new message to the conversation forever with no limit?",
+            "options": [
+              "There is no actual limit; conversations can grow indefinitely with no consequence",
+              "A conversation that grows without bound eventually hits context window limits and increasing per-call cost, both covered in earlier courses",
+              "Appending messages has no relationship to cost or context limits",
+              "Applications are only ever used for single-turn conversations"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Every additional message adds tokens to what must be resent on each call, and unbounded growth eventually collides with context window limits and rising cost — exactly the token-budget concerns raised in the transformers and generative AI courses.",
+            "id": "q2"
+          },
+          {
+            "question": "What is a risk of summarizing earlier parts of a long conversation too aggressively?",
+            "options": [
+              "Summarization has no downsides and should always be maximized",
+              "An overly aggressive summary can drop details the user later references, creating a confusing experience when the assistant seems to have 'forgotten' something specific",
+              "Summarization always improves conversation quality with no tradeoff",
+              "Summaries are never used in real conversation management strategies"
+            ],
+            "correctAnswer": 1,
+            "explanation": "If a summary compresses away specific details, a user who later refers back to something specific ('like I mentioned earlier') can find the assistant appears to have lost that context — a real UX cost of over-aggressive summarization.",
+            "id": "q3"
+          },
+          {
+            "question": "In the conceptual truncation strategy shown in this lesson, what does the build_context function keep from the conversation history?",
+            "options": [
+              "Only the most recent max_turns messages, combined with the system prompt",
+              "The entire unbounded history regardless of length",
+              "Only the very first message ever sent",
+              "A random sample of messages from the whole conversation"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example shows a simple truncation strategy that keeps the system prompt plus only the last max_turns entries of history, rather than the full unbounded conversation.",
+            "id": "q4"
+          },
+          {
+            "question": "Besides truncation, what other strategies does this lesson mention for managing a growing conversation?",
+            "options": [
+              "Summarizing earlier parts of the conversation, or retrieving only the most relevant prior context",
+              "Deleting the system prompt after the first turn",
+              "Always sending the complete, unaltered history regardless of length",
+              "Switching to a completely different API for every new turn"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson lists summarizing earlier parts of a conversation into condensed form, or retrieving only the most relevant prior context, as additional strategies alongside truncation.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does the lesson flag storing conversation state insecurely as a common mistake?",
+            "options": [
+              "Because conversation history often contains sensitive user information and needs the same data-handling care as any other user data",
+              "Because conversation state is never sensitive and requires no special handling",
+              "Because only system prompts need secure storage, never user messages",
+              "Because storing conversation history is always illegal regardless of method"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly warns that conversation history can contain sensitive information, so it needs the same careful handling and consideration of data retention policy as any other user data.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson describe appending every message forever as working fine in a demo but breaking in real usage?",
+            "options": [
+              "Because it eventually hits context window and cost limits once conversations grow long enough in real, longer-running usage",
+              "Because demos and production environments have identical scaling behavior",
+              "Because appending messages has no relationship to context window limits",
+              "Because only production systems have a context window, not demos"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson notes that unlimited appending works in a short demo conversation but eventually collides with real context window and cost limits once usage grows longer in production.",
+            "id": "q7"
+          },
+          {
+            "question": "Why is application-level state management described as a 'genuine engineering responsibility' in this lesson?",
+            "options": [
+              "Because the model itself is stateless, so the application must handle storing and deciding what history to include on each call",
+              "Because the LLM API automatically manages all conversation state without any application involvement",
+              "Because state management is entirely optional and has no effect on functionality",
+              "Because only the model provider is responsible for conversation state, never the developer"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Since the model has no built-in memory across calls, the lesson emphasizes that it's squarely the calling application's job to store and manage what conversation state gets included in each new request.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

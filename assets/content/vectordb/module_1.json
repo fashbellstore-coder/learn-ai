@@ -1,0 +1,563 @@
+{
+  "id": "vdb_indexing_algorithms",
+  "title": "Indexing Algorithms",
+  "description": "HNSW and IVF-PQ in depth, and how to benchmark the recall/latency trade-off they both expose.",
+  "icon": "🕸️",
+  "color": "#D32F2F",
+  "order": 1,
+  "estimatedHours": 4,
+  "difficulty": "intermediate",
+  "prerequisites": [
+    "vdb_fundamentals"
+  ],
+  "lessons": [
+    {
+      "id": "vdb_hnsw_in_depth",
+      "title": "HNSW in Depth",
+      "description": "The graph-based algorithm behind most modern vector databases.",
+      "duration": 13,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Describe how HNSW organizes vectors into layers and explain what the ef parameter controls."
+          },
+          {
+            "title": "🏙️ A small-world graph, layer by layer",
+            "content": "HNSW (Hierarchical Navigable Small World) builds several layers of a graph. The top layer has few nodes and long-range connections, like an interstate highway system; lower layers have more nodes and shorter connections, like local streets. A search starts at the top layer, quickly narrows to the right neighborhood, then descends layer by layer to refine the answer with local, precise steps."
+          },
+          {
+            "title": "🎛️ The ef parameter",
+            "content": "ef (or ef_search) controls how many candidate nodes are explored at each layer during search. A higher ef explores more candidates, improving recall at the cost of latency; a lower ef is faster but risks missing true neighbors. This is the single most important knob most engineers tune when deploying HNSW, and it should be set based on a recall benchmark, not a guess."
+          },
+          {
+            "title": "🏗️ Build-time cost",
+            "content": "HNSW's speed at query time comes at a build-time cost: constructing the graph is slower than simpler index types, and inserting a new vector means finding its place in the graph. This is why bulk-loading a large corpus once, upfront, is usually faster than inserting vectors one at a time in a loop."
+          },
+          {
+            "title": "🔧 Where you've seen this pattern before",
+            "content": "Choosing ef to trade recall for latency is the same shape of decision as choosing top-k in RAG retrieval, or choosing decoding temperature in the LLM course — a single knob that trades one desirable property for another, tuned against real data rather than intuition."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "A tiny, illustrative HNSW-style search, using plain dicts to stand in for the graph:\n\n```python\n# A tiny, illustrative HNSW-style search (NOT production code).\n# Two layers: layer1 is sparse/long-range, layer0 is dense/local.\n\ngraph = {\n    \"layer1\": {\n        \"A\": [\"D\"],\n        \"D\": [\"A\", \"H\"],\n        \"H\": [\"D\"],\n    },\n    \"layer0\": {\n        \"A\": [\"B\", \"D\"],\n        \"B\": [\"A\", \"C\"],\n        \"C\": [\"B\", \"D\"],\n        \"D\": [\"A\", \"C\", \"E\", \"H\"],\n        \"E\": [\"D\", \"F\"],\n        \"F\": [\"E\", \"G\"],\n        \"G\": [\"F\", \"H\"],\n        \"H\": [\"D\", \"G\"],\n    },\n}\n\npositions = {\"A\": 0, \"B\": 1, \"C\": 2, \"D\": 3, \"E\": 4, \"F\": 5, \"G\": 6, \"H\": 7}\n\n\ndef distance(node, query):\n    return abs(positions[node] - query)\n\n\ndef greedy_search(layer, start, query, ef=1):\n    \"\"\"Explore up to `ef` candidates, always stepping to the closest one found.\"\"\"\n    current = start\n    visited = {current}\n    improved = True\n    while improved:\n        improved = False\n        candidates = sorted(graph[layer][current], key=lambda n: distance(n, query))[:ef]\n        for neighbor in candidates:\n            if neighbor not in visited and distance(neighbor, query) < distance(current, query):\n                current = neighbor\n                improved = True\n        visited.add(current)\n    return current\n\n\ndef hnsw_search(query, ef=1):\n    entry = greedy_search(\"layer1\", \"A\", query, ef=ef)\n    return greedy_search(\"layer0\", entry, query, ef=ef)\n\n\nprint(hnsw_search(query=6, ef=1))  # descends layer1, then refines within layer0\n```\n\n`hnsw_search` always enters through the fixed node `\"A\"` on the sparse `layer1`, uses it to jump toward the right neighborhood, and only then switches to the denser `layer0` graph to refine the answer step by step. Notice that raising `ef` simply widens how many neighbors `greedy_search` is allowed to compare at each step before committing to a move."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Confusing ef_construction with ef_search.** ef_construction shapes the graph's quality at build time, while ef_search controls how many candidates are explored per layer at query time. Tuning only one while assuming it fixes problems caused by the other leads to confusing benchmark results.\n\n**Bulk-loading vectors one at a time inside a request-handling loop.** Each single insert must walk the graph to find where the new vector belongs, so pushing millions of vectors through the same code path used for live single-item inserts is far slower than a dedicated bulk-build step.\n\n**Treating ef as one global constant for every query.** Different queries, tenants, or endpoints can tolerate different recall/latency tradeoffs; hardcoding a single ef value for the whole service leaves easy wins on the table.\n\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "vdb_hnsw_in_depth_quiz",
+        "questions": [
+          {
+            "question": "In HNSW, the top layer of the graph is designed to have",
+            "options": [
+              "Few nodes and long-range connections, enabling fast coarse navigation",
+              "Every vector in the dataset",
+              "Only vectors added in the last hour",
+              "No connections at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The top layer acts like a highway system — sparse, long-range links that quickly get search into the right neighborhood before descending to finer layers.",
+            "id": "q1"
+          },
+          {
+            "question": "Increasing the ef (ef_search) parameter in HNSW generally",
+            "options": [
+              "Improves recall at the cost of higher query latency",
+              "Decreases memory usage",
+              "Has no effect on search quality",
+              "Only affects index build time, never search"
+            ],
+            "correctAnswer": 0,
+            "explanation": "ef controls how many candidates are explored per layer during search — more exploration means better recall but slower queries.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is bulk-loading vectors upfront often faster than inserting them one at a time?",
+            "options": [
+              "Because inserting into an HNSW graph one vector at a time repeatedly pays the cost of finding each new vector's place in the graph",
+              "Because HNSW cannot accept single-vector inserts at all",
+              "Because bulk loading skips distance computation entirely",
+              "Because single inserts always corrupt the index"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Each insert requires graph traversal to place the new vector correctly; batching amortizes overhead compared to many individual inserts.",
+            "id": "q3"
+          },
+          {
+            "question": "The lesson compares choosing ef in HNSW to which other tuning decisions elsewhere in the curriculum?",
+            "options": [
+              "Choosing top-k in RAG retrieval and decoding temperature in the LLM course",
+              "Choosing a database vendor",
+              "Choosing a programming language",
+              "Choosing an office location"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson frames ef as the same shape of decision as top-k in RAG or decoding temperature in the LLM course — a single knob traded off against real data.",
+            "id": "q4"
+          },
+          {
+            "question": "Per the lesson, how should the ef parameter be set in practice?",
+            "options": [
+              "Based on a recall benchmark, not a guess",
+              "By always maximizing it regardless of latency",
+              "It should never be changed from its default",
+              "By copying whatever value a competitor uses"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly says ef should be set based on a recall benchmark, since it is the most important knob engineers tune when deploying HNSW.",
+            "id": "q5"
+          },
+          {
+            "question": "In the toy hnsw_search example, why does the search run on 'layer1' before 'layer0'?",
+            "options": [
+              "To quickly find an entry point/neighborhood using the sparse, long-range graph before refining in the denser layer",
+              "Because layer0 does not contain the query's true neighbor",
+              "Because layer1 is searched only when layer0 fails",
+              "There is no meaningful reason — the order is arbitrary"
+            ],
+            "correctAnswer": 0,
+            "explanation": "greedy_search on layer1 mirrors the real HNSW idea of using the sparse top layer for fast coarse navigation before descending to layer0 for local refinement.",
+            "id": "q6"
+          },
+          {
+            "question": "In the toy graph code, which node does hnsw_search always start its layer1 search from?",
+            "options": [
+              "\"A\"",
+              "\"H\"",
+              "\"G\"",
+              "A randomly chosen node each call"
+            ],
+            "correctAnswer": 0,
+            "explanation": "hnsw_search calls greedy_search(\"layer1\", \"A\", query, ef=ef) — \"A\" is the fixed starting node passed into the top-layer search.",
+            "id": "q7"
+          },
+          {
+            "question": "Per the 'Common mistakes' section, why is confusing ef_construction with ef_search a problem?",
+            "options": [
+              "Because they control different things — build-time graph quality versus query-time candidate exploration — so tuning one doesn't fix issues caused by the other",
+              "Because ef_construction and ef_search are actually the same parameter under different names",
+              "Because ef_construction has no effect on the index at all",
+              "Because ef_search can only be set once, at index creation time"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's mistakes section notes these two parameters govern different phases (build vs. query), so mixing them up leads to confusing benchmark results.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "vdb_ivf_and_product_quantization",
+      "title": "IVF and Product Quantization",
+      "description": "The cluster-and-compress approach many large-scale vector databases use alongside or instead of HNSW.",
+      "duration": 13,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain how IVF narrows the search space with clustering, and what product quantization compresses."
+          },
+          {
+            "title": "🗂️ IVF: search only the relevant clusters",
+            "content": "Inverted File Index (IVF) first clusters all vectors (commonly with k-means) into a fixed number of buckets. At query time, it only searches the handful of clusters closest to the query vector, skipping the rest entirely — trading some recall (a true neighbor might sit in a cluster you didn't search) for a big speedup."
+          },
+          {
+            "title": "🗜️ Product quantization compresses the vectors themselves",
+            "content": "Product quantization (PQ) splits each vector into sub-vectors and represents each sub-vector with a small code from a learned codebook, dramatically shrinking memory footprint — often 8-16x smaller — at the cost of some precision in distance calculations. IVF and PQ are frequently combined (IVF-PQ) so you get both a smaller search space and a smaller memory footprint."
+          },
+          {
+            "title": "⚖️ IVF-PQ vs. HNSW",
+            "content": "HNSW generally gives better recall for a given latency, but uses more memory since it stores the full graph and vectors. IVF-PQ uses far less memory thanks to quantization, making it attractive at billion-scale, where fitting everything in RAM as HNSW would require is not realistic. The choice mirrors a trade-off you've now seen repeatedly across this curriculum: quality versus resource cost, tuned to your actual constraints."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "A tiny 1-D-style simulation of IVF cluster assignment plus a very simplified product-quantization step:\n\n```python\nimport math\n\n# A tiny IVF + product-quantization simulation (NOT production code).\n\nvectors = {\n    \"v1\": [0.0, 0.1],\n    \"v2\": [0.05, 0.0],\n    \"v3\": [5.0, 5.1],\n    \"v4\": [5.2, 4.9],\n    \"v5\": [10.0, 10.2],\n    \"v6\": [9.8, 10.1],\n}\n\ncentroids = {\n    \"c0\": [0.0, 0.0],\n    \"c1\": [5.0, 5.0],\n    \"c2\": [10.0, 10.0],\n}\n\n\ndef euclidean(a, b):\n    return math.sqrt(sum((x - y) ** 2 for x, y in zip(a, b)))\n\n\ndef assign_to_cluster(vector, centroids):\n    return min(centroids, key=lambda c: euclidean(vector, centroids[c]))\n\n\ninverted_lists = {c: [] for c in centroids}\nfor name, vec in vectors.items():\n    cluster = assign_to_cluster(vec, centroids)\n    inverted_lists[cluster].append(name)\n\n\ndef pq_code(vector, codebook):\n    # Represent the vector by the id of its closest codebook entry.\n    return min(codebook, key=lambda code: euclidean(vector, codebook[code]))\n\n\ncodebook = {0: [0.0, 0.0], 1: [5.0, 5.0], 2: [10.0, 10.0]}\ncompressed = {name: pq_code(vec, codebook) for name, vec in vectors.items()}\n\n\ndef ivf_search(query, nprobe=1):\n    ranked_clusters = sorted(centroids, key=lambda c: euclidean(query, centroids[c]))[:nprobe]\n    candidates = [v for c in ranked_clusters for v in inverted_lists[c]]\n    return candidates\n\n\nprint(inverted_lists)                     # which vectors landed in each cluster\nprint(compressed)                         # each vector replaced by one small integer code\nprint(ivf_search([9.5, 9.9], nprobe=1))   # only searches the nearest cluster's members\n```\n\n`assign_to_cluster` is the IVF step: it buckets every vector under its nearest centroid, and `ivf_search` only ever looks inside the `nprobe` closest buckets. `pq_code` is a stand-in for product quantization: it throws away the original coordinates and keeps only a tiny integer id, which is exactly the kind of compression that makes IVF-PQ so memory-efficient at scale."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Choosing the number of clusters (nlist) arbitrarily.** Too few clusters means each one is huge and searching it barely narrows anything down; too many makes clusters small and noisy to train well. A common rule of thumb is to scale nlist roughly with the square root of the dataset size, then validate with a benchmark.\n\n**Assuming nprobe=1 is enough because the query's own cluster 'should' contain its nearest neighbor.** A true nearest neighbor can sit just across a cluster boundary, in a different cluster than the query itself, so searching only one cluster silently drops those matches.\n\n**Treating post-quantization distances as exact.** PQ replaces vectors with small codebook codes, so distance calculations after compression are approximations. Assuming they're exact hides a systematic recall loss that should be measured on a benchmark, not assumed away.\n\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "vdb_ivf_and_product_quantization_quiz",
+        "questions": [
+          {
+            "question": "What does IVF do at query time to speed up search?",
+            "options": [
+              "It searches only the clusters closest to the query vector, skipping the rest of the dataset entirely",
+              "It re-clusters the entire dataset on every query",
+              "It converts the query into a SQL statement",
+              "It always searches 100% of the vectors, just faster"
+            ],
+            "correctAnswer": 0,
+            "explanation": "IVF narrows the search to a small number of relevant clusters, which is where its speedup comes from — at some cost to recall.",
+            "id": "q1"
+          },
+          {
+            "question": "Product quantization primarily reduces",
+            "options": [
+              "The memory footprint needed to store vectors, at some cost to distance-calculation precision",
+              "The number of dimensions the embedding model produces",
+              "The number of API calls needed to embed text",
+              "The time it takes to train the embedding model"
+            ],
+            "correctAnswer": 0,
+            "explanation": "PQ compresses each vector into small codebook codes, shrinking memory dramatically while introducing some approximation.",
+            "id": "q2"
+          },
+          {
+            "question": "Why might IVF-PQ be preferred over HNSW at billion-vector scale?",
+            "options": [
+              "Its compressed representation uses far less memory, which matters when the full HNSW graph and vectors wouldn't fit in RAM",
+              "IVF-PQ always has perfect recall",
+              "HNSW cannot be used with more than a million vectors",
+              "IVF-PQ requires no clustering step"
+            ],
+            "correctAnswer": 0,
+            "explanation": "At extreme scale, memory footprint often becomes the binding constraint, and IVF-PQ's compression addresses that directly.",
+            "id": "q3"
+          },
+          {
+            "question": "Per the lesson, what advantage does HNSW generally have over IVF-PQ?",
+            "options": [
+              "Better recall for a given latency",
+              "Lower memory usage at every scale",
+              "It requires no build-time cost at all",
+              "It cannot be combined with any other technique"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson states HNSW generally gives better recall for a given latency, though it costs more memory than IVF-PQ.",
+            "id": "q4"
+          },
+          {
+            "question": "According to the lesson, what do you get by combining IVF with PQ (IVF-PQ)?",
+            "options": [
+              "Both a smaller search space (from IVF) and a smaller memory footprint (from PQ)",
+              "Perfect recall with zero latency cost",
+              "A graph-based index identical to HNSW",
+              "The elimination of the clustering step entirely"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explains IVF and PQ are frequently combined so you get IVF's smaller search space together with PQ's smaller memory footprint.",
+            "id": "q5"
+          },
+          {
+            "question": "In the toy IVF simulation, what does assign_to_cluster do?",
+            "options": [
+              "Finds the centroid closest to a given vector and returns that cluster's id",
+              "Deletes the vector from the dataset",
+              "Trains a new codebook from scratch",
+              "Computes the average of all vectors in the dataset"
+            ],
+            "correctAnswer": 0,
+            "explanation": "assign_to_cluster uses min(...) over centroids keyed by euclidean distance, returning the id of the nearest centroid — the core IVF bucketing step.",
+            "id": "q6"
+          },
+          {
+            "question": "In the code, what happens to ivf_search's candidate set if nprobe is raised from 1 to a higher number?",
+            "options": [
+              "It searches more clusters, so it returns more candidate vectors drawn from a wider set of buckets",
+              "It stops searching entirely",
+              "It automatically retrains the codebook",
+              "It has no effect on the results returned"
+            ],
+            "correctAnswer": 0,
+            "explanation": "ranked_clusters takes the nprobe closest centroids, so a larger nprobe includes more clusters' vectors in the returned candidates list.",
+            "id": "q7"
+          },
+          {
+            "question": "Per 'Common mistakes', why can nprobe=1 miss a query's true nearest neighbor?",
+            "options": [
+              "Because a true neighbor can lie in a cluster adjacent to the query's assigned cluster, near the boundary between them",
+              "Because nprobe=1 disables distance calculations entirely",
+              "Because IVF requires nprobe to be at least equal to nlist",
+              "Because cluster assignment is random, not distance-based"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The mistakes section explains that boundary-adjacent neighbors can end up in a different cluster than the query, so searching only one cluster can silently miss them.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "vdb_recall_vs_latency_tradeoffs",
+      "title": "Recall vs. Latency Tradeoffs",
+      "description": "Every ANN index exposes some version of this dial. Here's how to reason about where to set it.",
+      "duration": 11,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Design a simple process for choosing an index's recall/latency operating point for a real product."
+          },
+          {
+            "title": "📊 Start with a labeled benchmark, not a guess",
+            "content": "Build a small evaluation set of queries with known correct nearest neighbors (you can compute these with brute-force search on a sample). Measure recall@k and p99 latency across a range of settings — ef in HNSW, number of clusters searched (nprobe) in IVF — and plot the curve. This is the same 'build a small eval set before you can compare configurations' discipline the RAG and LLMOps courses insisted on."
+          },
+          {
+            "title": "🎯 Pick the point your product actually needs",
+            "content": "A user-facing search box where a slightly-off result costs nothing might tolerate recall@10 around 90% for the sake of very low latency. A fraud-detection similarity match, where missing the true nearest neighbor has real cost, should push recall higher even if that means more latency budget. There is no universally 'correct' operating point — only the one that matches your product's tolerance for being wrong."
+          },
+          {
+            "title": "🔁 Re-benchmark when data changes",
+            "content": "The right recall/latency setting for 100,000 vectors may not hold at 10 million — cluster sizes, graph density, and hardware caching behavior all shift. Treat this the way you'd treat any other ML pipeline's config: something to be re-validated after major changes in data scale, not something set once and forgotten."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "A toy simulation of a recall/latency tradeoff curve, using a made-up 'search_effort' parameter that stands in for ef or nprobe:\n\n```python\nimport random\n\nrandom.seed(0)\n\n\ndef brute_force_neighbors(query, dataset, k):\n    return sorted(dataset, key=lambda v: abs(v - query))[:k]\n\n\ndef approx_search(query, dataset, k, search_effort):\n    # Toy stand-in for an ANN index: a larger `search_effort` scans more of\n    # the dataset before returning, similar to how a higher ef or nprobe\n    # explores more candidates in a real index.\n    scanned = dataset[:search_effort]\n    return sorted(scanned, key=lambda v: abs(v - query))[:k]\n\n\ndef recall_at_k(approx_results, true_results):\n    true_set = set(true_results)\n    hits = sum(1 for r in approx_results if r in true_set)\n    return hits / len(true_results)\n\n\ndataset = list(range(1000))\nrandom.shuffle(dataset)\nqueries = [random.randint(0, 999) for _ in range(20)]\n\nfor search_effort in [10, 50, 100, 500, 1000]:\n    total_recall = 0.0\n    total_latency = 0.0\n    for q in queries:\n        true_nn = brute_force_neighbors(q, dataset, k=5)\n        approx_nn = approx_search(q, dataset, k=5, search_effort=search_effort)\n        total_recall += recall_at_k(approx_nn, true_nn)\n        total_latency += search_effort  # toy stand-in for query cost\n\n    avg_recall = total_recall / len(queries)\n    avg_latency = total_latency / len(queries)\n    print(f\"effort={search_effort:5d}  recall@5={avg_recall:.2f}  avg_latency~{avg_latency:.0f}\")\n```\n\n`search_effort` plays the same role ef and nprobe play in real indexes: as it climbs from 10 toward 1000, `approx_search` scans more of the shuffled dataset, so `avg_recall` climbs toward 1.0 while the toy `avg_latency` stand-in climbs right along with it — the same tradeoff curve the lesson describes benchmarking for real indexes."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Computing recall against an approximate 'ground truth' instead of true brute-force results.** If your baseline itself came from another ANN index, your recall numbers measure agreement between two approximations, not actual accuracy.\n\n**Benchmarking with too few queries or too small a k.** A handful of test queries produces a noisy, unreliable recall estimate that can swing wildly between runs and doesn't represent real traffic.\n\n**Picking one operating point once and never revisiting it.** Recall/latency curves shift as data grows or hardware changes, so a setting chosen months ago on a smaller dataset may no longer reflect reality.\n\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "vdb_recall_vs_latency_tradeoffs_quiz",
+        "questions": [
+          {
+            "question": "The right way to choose settings like ef or nprobe is to",
+            "options": [
+              "Benchmark recall@k and latency on a labeled evaluation set across a range of settings",
+              "Always use the library's default settings",
+              "Choose the highest possible value for maximum recall regardless of latency",
+              "Guess based on how the last project configured it"
+            ],
+            "correctAnswer": 0,
+            "explanation": "A concrete, measured recall/latency curve — not intuition or defaults — is what lets you pick a setting that matches your product's actual needs.",
+            "id": "q1"
+          },
+          {
+            "question": "Why might a fraud-detection similarity system tolerate more latency than a user-facing search box?",
+            "options": [
+              "Because missing a true nearest neighbor has real cost there, justifying a higher-recall, slower configuration",
+              "Because fraud detection systems don't use vector search",
+              "Because latency doesn't matter for any backend system",
+              "Because user-facing search boxes always need perfect recall"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The acceptable trade-off depends on the cost of being wrong, which differs sharply between these two use cases.",
+            "id": "q2"
+          },
+          {
+            "question": "Why should recall/latency settings be re-benchmarked as data scale changes?",
+            "options": [
+              "Because index behavior (cluster sizes, graph density, caching) shifts with scale, so an old setting may no longer hit the same recall or latency",
+              "Because vector database licenses expire based on data volume",
+              "Because embeddings change format as datasets grow",
+              "Because re-benchmarking is required by every vector database vendor's terms of service"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The operating characteristics of ANN indexes are scale-dependent, so a setting validated at one size isn't guaranteed to hold at another.",
+            "id": "q3"
+          },
+          {
+            "question": "Per the lesson, how do you obtain the 'known correct nearest neighbors' for an evaluation set?",
+            "options": [
+              "Compute them with brute-force search on a sample",
+              "Ask users to manually label them",
+              "Use whatever the ANN index itself returns",
+              "They come pre-labeled with every embedding model"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson says the evaluation set's known correct neighbors can be computed with brute-force search on a sample.",
+            "id": "q4"
+          },
+          {
+            "question": "What does the lesson say ultimately determines whether recall@10 around 90% is an acceptable operating point?",
+            "options": [
+              "Whether the product's tolerance for a slightly-off result makes that latency/recall tradeoff acceptable",
+              "Whether 90% is above some universal industry standard",
+              "Whether the index is HNSW or IVF-PQ",
+              "Whether the dataset has fewer than 100,000 vectors"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson states there is no universally 'correct' operating point — only the one that matches your product's tolerance for being wrong.",
+            "id": "q5"
+          },
+          {
+            "question": "In the code example, what role does the search_effort parameter play?",
+            "options": [
+              "It's a toy stand-in for a tunable parameter like ef or nprobe, controlling how much of the dataset approx_search scans",
+              "It sets the random seed for the simulation",
+              "It determines how many queries are generated",
+              "It has no effect on the function's behavior"
+            ],
+            "correctAnswer": 0,
+            "explanation": "approx_search uses search_effort to decide how many entries of the shuffled dataset to scan before ranking, mirroring how ef/nprobe control candidate exploration.",
+            "id": "q6"
+          },
+          {
+            "question": "Based on the code's structure, as search_effort increases from 10 to 1000, what generally happens to avg_recall in the printed results?",
+            "options": [
+              "It rises, approaching 1.0, because approx_search scans a larger fraction of the shuffled dataset",
+              "It stays exactly 0.0 regardless of search_effort",
+              "It decreases as search_effort increases",
+              "It becomes undefined once search_effort exceeds 100"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Since approx_search scans dataset[:search_effort], a larger search_effort covers more of the shuffled dataset and is more likely to include the true nearest neighbors, raising recall.",
+            "id": "q7"
+          },
+          {
+            "question": "Per 'Common mistakes', why is benchmarking with too few queries a problem?",
+            "options": [
+              "It produces a noisy, unreliable recall estimate that doesn't represent real traffic",
+              "It makes the benchmark run too slowly to be useful",
+              "It causes the index to be rebuilt unnecessarily",
+              "It has no real downside, only a stylistic issue"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The mistakes section notes that too few test queries yields a noisy estimate that can swing wildly between runs.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "vdb_benchmarking_vector_search",
+      "title": "Benchmarking Vector Search",
+      "description": "Turning 'search feels slow' or 'results feel off' into numbers you can act on.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Set up a repeatable benchmark that reports recall, latency percentiles, and throughput for a vector search configuration."
+          },
+          {
+            "title": "📏 The three numbers that matter",
+            "content": "Recall@k (from the last lesson) tells you accuracy. Latency percentiles — especially p50 and p99, not just the average — tell you the user experience, since a slow tail affects real users even when the average looks fine. Throughput (queries per second the index can sustain) tells you whether it will hold up under real traffic, not just a single test query."
+          },
+          {
+            "title": "🧪 Build it like any other eval harness",
+            "content": "This should feel familiar: a fixed set of test queries, a way to compute ground truth for comparison, and a script that runs the same queries against different configurations and reports the three numbers above — the same eval-harness discipline from the RAG and Fine-Tuning courses, just applied to a different layer of the stack."
+          },
+          {
+            "title": "📈 Benchmark under realistic conditions",
+            "content": "Test with realistic vector counts, realistic concurrent query load, and — critically — with metadata filters applied if your production queries use them, since filtered search can behave very differently from unfiltered search. A benchmark on 10,000 unfiltered vectors tells you very little about production behavior with 50 million vectors and tenant filters."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "A small benchmark harness structure that times queries and computes recall against a brute-force ground truth:\n\n```python\nimport time\nimport random\n\nrandom.seed(1)\n\n\ndef brute_force_ground_truth(query, dataset, k):\n    return sorted(dataset, key=lambda v: abs(v - query))[:k]\n\n\ndef fake_index_search(query, dataset, k, delay=0.0001):\n    # Stands in for a real ANN call: a tiny artificial delay plus a result\n    # computed the same way, just to give the harness something to time.\n    time.sleep(delay)\n    ranked = sorted(dataset, key=lambda v: abs(v - query))\n    return ranked[:k]\n\n\ndef recall_at_k(results, ground_truth):\n    gt = set(ground_truth)\n    return sum(1 for r in results if r in gt) / len(ground_truth)\n\n\ndef run_benchmark(dataset, queries, k=5):\n    latencies = []\n    recalls = []\n    for q in queries:\n        truth = brute_force_ground_truth(q, dataset, k)\n\n        start = time.perf_counter()\n        results = fake_index_search(q, dataset, k)\n        elapsed_ms = (time.perf_counter() - start) * 1000\n\n        latencies.append(elapsed_ms)\n        recalls.append(recall_at_k(results, truth))\n\n    latencies.sort()\n    n = len(latencies)\n    p50 = latencies[n // 2]\n    p99 = latencies[min(n - 1, int(n * 0.99))]\n    throughput = n / (sum(latencies) / 1000)  # queries per second\n\n    return {\n        \"avg_recall\": sum(recalls) / n,\n        \"p50_ms\": p50,\n        \"p99_ms\": p99,\n        \"throughput_qps\": throughput,\n    }\n\n\ndataset = list(range(2000))\nqueries = [random.randint(0, 1999) for _ in range(50)]\n\nreport = run_benchmark(dataset, queries, k=5)\nprint(report)\n```\n\n`run_benchmark` mirrors the lesson's three numbers directly: `recalls` tracks accuracy per query, `latencies` (sorted, then indexed at the 50th and 99th percentile positions) gives p50_ms and p99_ms, and `throughput` divides the query count by total time spent to estimate queries-per-second. Notice that `truth` is always computed fresh with brute force, never reused from a previous approximate result."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Timing only a single warm-cache run.** The first query against cold caches can look very different from the hundredth; measuring only one warmed-up pass can hide real-world cold-start latency.\n\n**Reporting only average latency instead of percentiles.** The average can look perfectly fine while a meaningful share of queries sit in a slow tail that real users actually experience — that's exactly what p99 is for.\n\n**Benchmarking without the metadata filters production queries actually use.** Filtered search can behave very differently from unfiltered search, so a benchmark that ignores filters can report numbers that don't hold up in production.\n\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "vdb_benchmarking_vector_search_quiz",
+        "questions": [
+          {
+            "question": "Why look at p99 latency instead of just average latency when benchmarking vector search?",
+            "options": [
+              "Because the tail of the distribution reflects real user pain even when the average looks acceptable",
+              "Because p99 is always lower than the average",
+              "Because average latency cannot be computed for vector search",
+              "Because p99 measures throughput, not latency"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Averages can hide a slow tail that a meaningful fraction of real queries experience — p99 surfaces that.",
+            "id": "q1"
+          },
+          {
+            "question": "A vector search benchmark should ideally include",
+            "options": [
+              "Realistic vector counts, concurrent load, and any metadata filters production queries actually use",
+              "Only a single query run once with no filters",
+              "Only the fastest possible hardware regardless of production setup",
+              "Only recall, never latency or throughput"
+            ],
+            "correctAnswer": 0,
+            "explanation": "A benchmark that doesn't match production conditions — including filters — can give a misleadingly rosy picture.",
+            "id": "q2"
+          },
+          {
+            "question": "What three metrics together give a complete picture of vector search performance?",
+            "options": [
+              "Recall, latency percentiles, and throughput",
+              "Only the number of dimensions and the model name",
+              "Only cost per query",
+              "Only index build time"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Accuracy (recall), user experience (latency), and capacity (throughput) together describe how a configuration will actually perform in production.",
+            "id": "q3"
+          },
+          {
+            "question": "Per the lesson, what should a vector search benchmark harness reuse from the discipline taught in the RAG and Fine-Tuning courses?",
+            "options": [
+              "A fixed set of test queries, a way to compute ground truth, and a script that compares configurations",
+              "The exact same embedding model used in those courses",
+              "The same cloud provider used in those courses",
+              "Nothing — vector search benchmarking is described as entirely unrelated"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly says this eval-harness discipline is the same one from the RAG and Fine-Tuning courses, just applied to a different layer of the stack.",
+            "id": "q4"
+          },
+          {
+            "question": "Why might a benchmark on 10,000 unfiltered vectors fail to predict production behavior?",
+            "options": [
+              "Because production may run at far larger scale with metadata filters applied, which can behave very differently from unfiltered search",
+              "Because 10,000 vectors is always too many for any benchmark",
+              "Because unfiltered search is always faster than filtered search in every system",
+              "Because benchmarks can only be run on production data, never smaller samples"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson warns that a small, unfiltered benchmark tells you very little about production behavior at real scale with tenant filters applied.",
+            "id": "q5"
+          },
+          {
+            "question": "In run_benchmark, what is p99_ms computing?",
+            "options": [
+              "An approximation of the 99th-percentile query latency, read from the sorted list of per-query latencies",
+              "The total time spent across all queries combined",
+              "The average recall across all queries",
+              "The number of queries per second the system sustained"
+            ],
+            "correctAnswer": 0,
+            "explanation": "latencies is sorted and then indexed near the 99% position (int(n * 0.99)) to approximate the p99 latency value.",
+            "id": "q6"
+          },
+          {
+            "question": "What does throughput_qps represent in the benchmark harness?",
+            "options": [
+              "The number of queries the setup could sustain per second, computed from the total latency spent",
+              "The number of vectors stored in the dataset",
+              "The recall achieved on the hardest query",
+              "The number of clusters searched per query"
+            ],
+            "correctAnswer": 0,
+            "explanation": "throughput is computed as n / (sum(latencies) / 1000) — the query count divided by total elapsed seconds, i.e. queries per second.",
+            "id": "q7"
+          },
+          {
+            "question": "Per 'Common mistakes', why is reporting only average latency misleading?",
+            "options": [
+              "Because it can hide a slow tail that a meaningful share of queries actually experience, which p99 is meant to surface",
+              "Because average latency is always exactly zero for vector search",
+              "Because it makes the benchmark run faster than it should",
+              "Because averages cannot be computed from a list of numbers"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The mistakes section states the average can look fine while a real slow tail of queries goes unnoticed — exactly what percentile metrics like p99 are meant to catch.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

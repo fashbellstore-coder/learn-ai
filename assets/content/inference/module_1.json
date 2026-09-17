@@ -1,0 +1,563 @@
+{
+  "id": "inf_kv_cache",
+  "title": "The KV Cache",
+  "description": "Why context is memory-expensive, PagedAttention, GQA/MQA, and KV cache quantization.",
+  "icon": "🗃️",
+  "color": "#F9A825",
+  "order": 1,
+  "estimatedHours": 4,
+  "difficulty": "intermediate",
+  "prerequisites": [
+    "inf_fundamentals"
+  ],
+  "lessons": [
+    {
+      "id": "inf_why_context_is_expensive",
+      "title": "Why Context Is Expensive",
+      "description": "The KV cache is the reason 'just raise max context length' can quietly bankrupt your serving budget.",
+      "duration": 13,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain what the KV cache stores and why its memory footprint grows with context length and concurrency."
+          },
+          {
+            "title": "🗒️ What gets cached, and why",
+            "content": "During decode, recomputing the key (K) and value (V) projections for every previous token at every new step would be wasteful — so the model caches them instead, appending only the new token's K/V each step. This is what makes decode fast at all; without it, every new token would require reprocessing the entire conversation from scratch."
+          },
+          {
+            "title": "📈 Memory grows with tokens times concurrency",
+            "content": "Cache size scales with sequence length, number of layers, number of attention heads, and — critically — the number of concurrent requests being served at once. A model comfortably serving 10 short conversations can run out of memory serving 10 long ones, or 100 short ones, well before compute becomes the bottleneck."
+          },
+          {
+            "title": "💥 The OOM at 4pm",
+            "content": "'Just raise max_model_len' sounds like a one-line config change, but it directly multiplies KV cache memory requirements, and can push a previously stable serving deployment into out-of-memory failures under real concurrent load — exactly the kind of change that looks harmless in a quick test and fails only once real traffic arrives."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "A small function estimating KV cache memory as a function of sequence length, model shape, precision, and concurrency:\n\n```python\ndef kv_cache_bytes(seq_len, num_layers, num_heads, head_dim, dtype_bytes=2, batch_size=1):\n    \"\"\"Approximate KV cache memory footprint, in bytes.\n\n    Each layer caches one K tensor and one V tensor, each shaped\n    (batch_size, num_heads, seq_len, head_dim) elements.\n    \"\"\"\n    elements_per_tensor = batch_size * num_heads * seq_len * head_dim\n    tensors_per_layer = 2  # one K tensor, one V tensor\n    total_elements = elements_per_tensor * tensors_per_layer * num_layers\n    return total_elements * dtype_bytes\n\n\ndef format_gb(num_bytes):\n    return num_bytes / (1024 ** 3)\n\n\nnum_layers, num_heads, head_dim = 32, 32, 128  # roughly a 7B-class model\n\nconfigs = [\n    (\"short chat, 1 request\", 2_000, 1),\n    (\"long doc, 1 request\", 32_000, 1),\n    (\"long doc, 10 concurrent\", 32_000, 10),\n    (\"long doc, 100 concurrent\", 32_000, 100),\n]\n\nfor label, seq_len, batch_size in configs:\n    size = kv_cache_bytes(seq_len, num_layers, num_heads, head_dim, dtype_bytes=2, batch_size=batch_size)\n    print(f\"{label:26s} seq_len={seq_len:6d} batch={batch_size:4d} -> {format_gb(size):8.2f} GB\")\n```\n\nNotice that `kv_cache_bytes` multiplies `seq_len`, `num_layers`, `num_heads`, and `batch_size` together — quadrupling any one of them roughly quadruples the total, and raising several at once (like `max_model_len` together with concurrent request count) multiplies their effects rather than adding them, which is exactly how a config change that looked harmless in isolation turns into the 4pm outage."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Estimating memory needs from model parameter count alone.** Two models with the same number of parameters can need very different amounts of KV cache memory if they differ in layer count, head count, or head dimension — cache size follows the attention architecture, not raw parameter count.\n\n**Treating max_model_len as a purely compute-side setting.** It's easy to reason about a longer context window only in terms of extra tokens to process, but it directly multiplies the KV cache memory required per request — the same multiplier applies whether or not any given request actually uses the full length.\n\n**Sizing capacity for the average conversation instead of worst-case concurrency.** A deployment that comfortably handles typical traffic can still run out of memory the moment several long-context requests land at once, because it's the sum of concurrently active caches that has to fit in memory, not just one conversation at a time.\n\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "inf_why_context_is_expensive_quiz",
+        "questions": [
+          {
+            "question": "What does the KV cache store, and why does it exist?",
+            "options": [
+              "Cached key/value projections from previous tokens, avoiding the need to recompute them at every decode step",
+              "A cache of previously generated user prompts, for deduplication",
+              "A cache of tokenizer vocabulary lookups",
+              "A copy of the model's weights for faster loading"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Caching K/V from prior tokens avoids reprocessing the entire sequence at every single decode step, which is what makes autoregressive generation tractable at all.",
+            "id": "q1"
+          },
+          {
+            "question": "KV cache memory usage grows with which factors?",
+            "options": [
+              "Sequence length, number of layers and attention heads, and number of concurrent requests",
+              "Only the total number of parameters in the model",
+              "Only the choice of programming language used to serve the model",
+              "Only the disk space available on the server"
+            ],
+            "correctAnswer": 0,
+            "explanation": "All of sequence length, model architecture depth/width, and concurrency multiply into the total KV cache memory footprint.",
+            "id": "q2"
+          },
+          {
+            "question": "Why can raising max_model_len unexpectedly cause out-of-memory failures under real traffic?",
+            "options": [
+              "Because it directly multiplies the KV cache memory required per request, which compounds with concurrent request volume",
+              "Because max_model_len only affects the tokenizer, not memory",
+              "Because longer context always reduces memory usage",
+              "Because raising max_model_len disables the KV cache entirely"
+            ],
+            "correctAnswer": 0,
+            "explanation": "A seemingly simple config change can push total KV cache memory demand past what's available once real concurrent traffic is added to the mix.",
+            "id": "q3"
+          },
+          {
+            "question": "Per the '📈 Memory grows with tokens times concurrency' section, why can a model that comfortably serves 10 short conversations run out of memory serving 100 short ones?",
+            "options": [
+              "Because cache size scales with the number of concurrent requests being served at once, not just with any single conversation's length",
+              "Because short conversations use more memory per token than long ones",
+              "Because the model automatically increases max_model_len as traffic grows",
+              "Because concurrency has no effect on KV cache memory, only compute"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson states cache size scales with concurrency as well as sequence length, so enough simultaneous short conversations can exhaust memory just as long ones can.",
+            "id": "q4"
+          },
+          {
+            "question": "Per the '💥 The OOM at 4pm' section, why does raising max_model_len look like a harmless change in a quick test?",
+            "options": [
+              "Because its memory impact only becomes visible once real concurrent load multiplies the extra per-request cache cost",
+              "Because max_model_len has no real effect on memory in any scenario",
+              "Because quick tests always simulate full production concurrency",
+              "Because the KV cache is disabled during testing"
+            ],
+            "correctAnswer": 0,
+            "explanation": "A single-request test won't reveal the compounding effect of concurrency, so the same change can pass testing and still cause an outage under real traffic.",
+            "id": "q5"
+          },
+          {
+            "question": "In the kv_cache_bytes function, what do the 'two tensors per layer' represent?",
+            "options": [
+              "One cached K tensor and one cached V tensor for that layer",
+              "Two separate copies of the model's weights",
+              "Two different attention heads sharing memory",
+              "Two batches of concurrent requests"
+            ],
+            "correctAnswer": 0,
+            "explanation": "tensors_per_layer is set to 2 because each layer caches exactly one K tensor and one V tensor.",
+            "id": "q6"
+          },
+          {
+            "question": "In the code example, what does raising batch_size from 1 to 10 (with everything else fixed) do to the value returned by kv_cache_bytes?",
+            "options": [
+              "It multiplies the result by roughly 10x, since batch_size scales elements_per_tensor linearly",
+              "It has no effect on the result",
+              "It divides the result by 10",
+              "It only affects format_gb, not kv_cache_bytes"
+            ],
+            "correctAnswer": 0,
+            "explanation": "elements_per_tensor is computed as batch_size * num_heads * seq_len * head_dim, so batch_size (concurrent requests) scales the total linearly, matching the 'long doc, 10 concurrent' row growing roughly 10x over the single-request row.",
+            "id": "q7"
+          },
+          {
+            "question": "Per 'Common mistakes', why is sizing capacity for the average conversation instead of worst-case concurrency a mistake?",
+            "options": [
+              "Because the memory that must fit at once is the sum of all concurrently active caches, not just a typical single conversation",
+              "Because average conversation length is always longer than worst-case length",
+              "Because worst-case concurrency never actually occurs in production",
+              "Because KV cache memory does not depend on concurrency at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The mistakes section explains that a deployment sized for typical traffic can still run out of memory the moment several long-context requests land simultaneously, since concurrent caches sum together.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "inf_paged_attention",
+      "title": "PagedAttention",
+      "description": "Borrowing an idea from operating systems to stop KV cache memory from being wasted on fragmentation.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain the memory fragmentation problem PagedAttention solves and the analogy it's built on."
+          },
+          {
+            "title": "🧩 The fragmentation problem",
+            "content": "A naive KV cache implementation reserves one large contiguous memory block per request, sized for the maximum possible sequence length — even if the actual conversation is much shorter. This wastes huge amounts of memory to fragmentation and unused reserved space, especially when many requests have very different actual lengths."
+          },
+          {
+            "title": "📖 Borrowing virtual memory from operating systems",
+            "content": "PagedAttention treats the KV cache like an operating system treats virtual memory: it breaks the cache into small, fixed-size 'pages' that can be allocated non-contiguously and shared or reused across requests as needed, rather than reserving one large block upfront per request."
+          },
+          {
+            "title": "💡 Why this matters in practice",
+            "content": "This dramatically improves memory utilization — you can serve far more concurrent requests on the same hardware — and is the core innovation behind serving engines like vLLM, which the Serving Frameworks module covers directly. It also enables efficient sharing of KV cache pages between requests that share a common prefix, like a shared system prompt."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "A toy paged-memory allocator: fixed-size blocks handed out to sequences on demand from a shared pool:\n\n```python\nBLOCK_SIZE = 4  # tokens per block, kept tiny for illustration\n\n\nclass PagedKVCache:\n    \"\"\"A toy paged allocator: fixed-size blocks handed out to sequences on demand.\"\"\"\n\n    def __init__(self, num_blocks, block_size=BLOCK_SIZE):\n        self.block_size = block_size\n        self.free_blocks = list(range(num_blocks))\n        self.block_tables = {}  # sequence_id -> list of allocated block ids\n\n    def append_token(self, sequence_id, token_index):\n        table = self.block_tables.setdefault(sequence_id, [])\n        needs_new_block = token_index % self.block_size == 0\n        if needs_new_block:\n            if not self.free_blocks:\n                raise MemoryError(\"out of blocks\")\n            table.append(self.free_blocks.pop())\n        return table\n\n    def free_sequence(self, sequence_id):\n        for block in self.block_tables.pop(sequence_id, []):\n            self.free_blocks.append(block)\n\n\ncache = PagedKVCache(num_blocks=6)\n\n# A short request and a long request share the same pool of blocks.\nfor i in range(10):\n    cache.append_token(\"short_request\", i)\n\nfor i in range(3):\n    cache.append_token(\"long_request\", i)\n\nprint(\"short_request blocks:\", cache.block_tables[\"short_request\"])\nprint(\"long_request blocks:\", cache.block_tables[\"long_request\"])\nprint(\"free blocks remaining:\", cache.free_blocks)\n\ncache.free_sequence(\"short_request\")\nprint(\"free blocks after freeing short_request:\", cache.free_blocks)\n```\n\nNotice that `append_token` only grabs a new block when the current one fills up (every `block_size` tokens), so `short_request` and `long_request` interleave their block allocations from the same shared `free_blocks` pool instead of each reserving a maximum-length block upfront. `free_sequence` returns exactly the blocks a finished request was using back to the pool, ready for reuse by the next request — the same page-reuse idea that lets two sequences share pages for a common prefix."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming PagedAttention avoids ever running out of memory.** It reduces fragmentation and waste, not the total amount of memory available — a paged system can still exhaust its block pool under enough concurrent long sequences, it just wastes far less along the way.\n\n**Confusing PagedAttention with paging data out to disk.** The 'paging' here is about how memory is organized and addressed — small, fixed-size, reusable chunks — not about swapping data to slower storage the way OS disk paging sometimes implies.\n\n**Picking a block size without considering internal fragmentation.** Very large blocks waste memory when a sequence's actual length doesn't divide evenly into the block size; very small blocks add more bookkeeping (larger block tables) per sequence. Real systems tune this rather than picking an extreme.\n\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "inf_paged_attention_quiz",
+        "questions": [
+          {
+            "question": "What problem does PagedAttention primarily solve?",
+            "options": [
+              "Memory fragmentation and waste from reserving large contiguous KV cache blocks sized for worst-case sequence length",
+              "Slow tokenization of input prompts",
+              "Inaccurate attention score computation",
+              "Inability to run multiple models on one GPU"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Naive KV cache allocation wastes memory reserving space that often goes unused; PagedAttention addresses this fragmentation directly.",
+            "id": "q1"
+          },
+          {
+            "question": "PagedAttention is inspired by which concept from operating systems?",
+            "options": [
+              "Virtual memory paging — allocating in small, non-contiguous, reusable pages rather than one large fixed block",
+              "Process scheduling priorities",
+              "File system permissions",
+              "Network socket buffering"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The analogy to OS virtual memory paging is exactly how PagedAttention avoids the fragmentation of large contiguous allocations.",
+            "id": "q2"
+          },
+          {
+            "question": "One practical benefit of PagedAttention beyond reducing fragmentation is",
+            "options": [
+              "Enabling efficient sharing of KV cache pages between requests with a common prefix, like a shared system prompt",
+              "Eliminating the need for a GPU entirely",
+              "Making the model's outputs deterministic",
+              "Removing the need for a tokenizer"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Because pages can be shared and reused, requests sharing a prefix (like an identical system prompt) can avoid redundant cache storage.",
+            "id": "q3"
+          },
+          {
+            "question": "Per the '📖 Borrowing virtual memory from operating systems' section, what specifically does PagedAttention borrow from OS virtual memory?",
+            "options": [
+              "Breaking memory into small, fixed-size pages that can be allocated non-contiguously and shared or reused, instead of one large upfront block",
+              "The idea of swapping data out to disk when memory runs low",
+              "The concept of process priority scheduling",
+              "The use of file permissions to restrict memory access"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly frames PagedAttention as breaking the cache into small, fixed-size, non-contiguous, reusable pages, mirroring how an OS handles virtual memory paging.",
+            "id": "q4"
+          },
+          {
+            "question": "Per the '💡 Why this matters in practice' section, which serving engine is named as built on this core innovation?",
+            "options": [
+              "vLLM",
+              "PyTorch",
+              "TensorFlow",
+              "Kubernetes"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson states PagedAttention is the core innovation behind serving engines like vLLM, which the Serving Frameworks module covers directly.",
+            "id": "q5"
+          },
+          {
+            "question": "In the toy PagedKVCache class, when does append_token allocate a new block for a sequence?",
+            "options": [
+              "When the token index is a multiple of block_size, meaning the current block is full",
+              "On every single call, regardless of token index",
+              "Only when free_blocks is empty",
+              "Only the very first time a sequence is seen, never again"
+            ],
+            "correctAnswer": 0,
+            "explanation": "needs_new_block is True exactly when token_index % self.block_size == 0, i.e. whenever the current block has just filled up.",
+            "id": "q6"
+          },
+          {
+            "question": "In the code example, with BLOCK_SIZE=4 and 10 tokens appended for 'short_request' (token indices 0 through 9), how many blocks does it end up using?",
+            "options": [
+              "3 blocks",
+              "10 blocks",
+              "1 block",
+              "6 blocks"
+            ],
+            "correctAnswer": 0,
+            "explanation": "A new block is allocated at token_index 0, 4, and 8 (each a multiple of block_size=4), so short_request ends up holding exactly 3 blocks.",
+            "id": "q7"
+          },
+          {
+            "question": "Per 'Common mistakes', why is it wrong to say PagedAttention avoids ever running out of memory?",
+            "options": [
+              "Because it reduces fragmentation and waste, but the shared block pool can still be exhausted under enough concurrent long sequences",
+              "Because PagedAttention actually increases total memory usage compared to naive allocation",
+              "Because PagedAttention only works when there is exactly one active request",
+              "Because block pools are unlimited in size by design"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The mistakes section clarifies that PagedAttention cuts waste, not the hard ceiling on available memory — the block pool is still finite and can still run out.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "inf_gqa_and_mqa",
+      "title": "GQA and MQA",
+      "description": "Shrinking the KV cache at the architecture level, before it's even allocated.",
+      "duration": 11,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain how grouped-query and multi-query attention reduce KV cache size compared to standard multi-head attention."
+          },
+          {
+            "title": "🧠 Standard multi-head attention's cost",
+            "content": "In standard multi-head attention, every attention head has its own separate K and V projections, meaning the KV cache must store a full set of K/V vectors per head. More heads means more cache, directly multiplying the memory problem from two lessons ago."
+          },
+          {
+            "title": "🤏 Multi-Query Attention (MQA)",
+            "content": "MQA has every query head share a single set of K/V projections instead of each head having its own — dramatically shrinking the KV cache (often by the number of heads) at some cost to model quality, since the heads lose some of their independent representational capacity."
+          },
+          {
+            "title": "🎚️ Grouped-Query Attention (GQA): a middle ground",
+            "content": "GQA groups query heads into a handful of groups, each sharing one K/V projection — a tunable middle point between full multi-head attention's quality and MQA's memory savings. Many modern production LLMs use GQA specifically because it recovers most of the quality lost by MQA while still meaningfully shrinking the cache."
+          },
+          {
+            "title": "🔗 An architecture decision with an inference-time payoff",
+            "content": "This is a case where a choice made at model design time — back in the Deep Learning and Transformers courses' attention lessons — has a direct, measurable payoff at serving time. It's worth remembering when comparing two similarly-sized models: their attention architecture can make one meaningfully cheaper to serve than the other."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "A small function comparing KV cache size under MHA, GQA, and MQA given a number of shared K/V groups:\n\n```python\ndef kv_cache_elements(seq_len, num_layers, num_kv_groups, head_dim):\n    \"\"\"Number of K (or V) elements cached, for a given attention variant.\n\n    num_kv_groups is the number of *distinct* K/V projections:\n      - MHA:  num_kv_groups == num_query_heads    (every head has its own K/V)\n      - GQA:  1 < num_kv_groups < num_query_heads (heads share K/V within groups)\n      - MQA:  num_kv_groups == 1                  (every head shares one K/V)\n    \"\"\"\n    return seq_len * num_layers * num_kv_groups * head_dim\n\n\nseq_len, num_layers, head_dim = 8_000, 32, 128\nnum_query_heads = 32  # unchanged across all three variants below\n\nvariants = {\n    \"MHA  (32 KV heads)\": 32,\n    \"GQA  (8 KV groups)\": 8,\n    \"GQA  (4 KV groups)\": 4,\n    \"MQA  (1 KV head)\":   1,\n}\n\nmha_elements = kv_cache_elements(seq_len, num_layers, 32, head_dim)\n\nfor label, num_kv_groups in variants.items():\n    elements = kv_cache_elements(seq_len, num_layers, num_kv_groups, head_dim)\n    shrink_factor = mha_elements / elements\n    print(f\"{label:22s} -> {elements:12,d} elements  ({shrink_factor:.1f}x smaller than MHA)\")\n```\n\nNotice that `kv_cache_elements` only depends on `num_kv_groups`, not on `num_query_heads` — the query heads still all exist and still attend, but they no longer each need their own cached K/V, so shrinking `num_kv_groups` from 32 (MHA) down to 8 or 4 (GQA) or 1 (MQA) shrinks the cache by exactly that same factor."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming num_query_heads must shrink along with the KV cache.** GQA and MQA reduce the number of separate K/V projections, not the number of query heads — the model still computes attention with the full set of query heads, just against a smaller set of shared keys and values.\n\n**Assuming quality loss scales linearly with how much the cache shrinks.** Going from MHA to a few GQA groups often recovers most of the quality lost by going all the way to MQA, even though the cache-size reduction isn't linear in the same way — the relationship between group count and quality is not a straight line.\n\n**Comparing two similarly-sized models' serving cost by parameter count alone.** As the lesson notes, attention architecture (MHA vs. GQA vs. MQA, and how many KV groups) can make one model meaningfully cheaper to serve than another of the same size, so parameter count alone doesn't tell you the real inference cost.\n\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "inf_gqa_and_mqa_quiz",
+        "questions": [
+          {
+            "question": "Why does standard multi-head attention require more KV cache than GQA or MQA?",
+            "options": [
+              "Because every attention head has its own separate K/V projections, each needing its own cache storage",
+              "Because standard attention doesn't use a KV cache at all",
+              "Because multi-head attention only works during training",
+              "Because it requires more attention heads than GQA by definition"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Each head's independent K/V projections in standard multi-head attention multiply the total cache size compared to shared-projection approaches.",
+            "id": "q1"
+          },
+          {
+            "question": "What does Multi-Query Attention (MQA) trade for its large KV cache savings?",
+            "options": [
+              "Some model quality, since heads lose independent K/V representational capacity",
+              "Nothing — MQA has no downsides compared to standard attention",
+              "Training speed only, with no effect on inference",
+              "The ability to run on GPUs at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Sharing a single K/V projection across all heads saves memory substantially but can reduce the model's representational richness compared to full multi-head attention.",
+            "id": "q2"
+          },
+          {
+            "question": "Grouped-Query Attention (GQA) is best described as",
+            "options": [
+              "A tunable middle ground between full multi-head attention's quality and MQA's memory savings",
+              "Identical to standard multi-head attention in every respect",
+              "A technique only usable during training, never inference",
+              "A method for compressing model weights, unrelated to the KV cache"
+            ],
+            "correctAnswer": 0,
+            "explanation": "GQA groups heads to share K/V projections in a way that recovers much of MQA's memory savings while retaining more of multi-head attention's quality.",
+            "id": "q3"
+          },
+          {
+            "question": "Per the '🧠 Standard multi-head attention's cost' section, what does having more attention heads directly do in standard multi-head attention?",
+            "options": [
+              "It directly multiplies the amount of KV cache memory required, since each head needs its own stored K/V vectors",
+              "It reduces the KV cache needed, since heads share memory automatically",
+              "It has no effect on memory, only on compute",
+              "It reduces the number of layers needed"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson states more heads means more cache in standard multi-head attention, directly multiplying the memory problem discussed in the prior lesson.",
+            "id": "q4"
+          },
+          {
+            "question": "Per the '🔗 An architecture decision with an inference-time payoff' section, when is the choice between MHA, GQA, and MQA actually made?",
+            "options": [
+              "At model design time, with the payoff realized later at serving time",
+              "At serving time, by the person deploying the model",
+              "It is decided automatically at every inference request",
+              "It cannot be changed once a serving engine like vLLM is chosen"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson describes this as a choice made at model design time — in the Deep Learning and Transformers courses' attention lessons — that pays off directly at serving time.",
+            "id": "q5"
+          },
+          {
+            "question": "In the code example, what does num_kv_groups equal to 1 represent?",
+            "options": [
+              "Multi-Query Attention (MQA), where every query head shares one K/V projection",
+              "Standard multi-head attention (MHA)",
+              "A model with only one attention layer",
+              "A model with no attention heads at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The code's docstring and variants dict map num_kv_groups == 1 to MQA, matching the lesson's definition of every head sharing a single K/V projection.",
+            "id": "q6"
+          },
+          {
+            "question": "In the code example, with num_query_heads=32, what shrink_factor does the 'GQA (8 KV groups)' variant achieve relative to MHA?",
+            "options": [
+              "4.0x smaller",
+              "8.0x smaller",
+              "32.0x smaller",
+              "2.0x smaller"
+            ],
+            "correctAnswer": 0,
+            "explanation": "shrink_factor is mha_elements / elements, and since kv_cache_elements scales linearly with num_kv_groups, going from 32 groups (MHA) to 8 groups yields 32/8 = 4.0x.",
+            "id": "q7"
+          },
+          {
+            "question": "Per 'Common mistakes', why is it wrong to assume num_query_heads must shrink along with the KV cache under GQA or MQA?",
+            "options": [
+              "Because GQA and MQA reduce the number of separate K/V projections while the number of query heads stays the same",
+              "Because GQA and MQA actually increase the number of query heads",
+              "Because query heads and K/V projections are always equal by definition in every attention variant",
+              "Because the number of query heads is unrelated to attention entirely"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The mistakes section clarifies that GQA/MQA shrink the number of distinct K/V projections, not the number of query heads, which remains unchanged.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "inf_quantizing_the_kv_cache",
+      "title": "Quantizing the KV Cache",
+      "description": "The same quantization idea from the Fine-Tuning course, applied to a different piece of memory.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain what KV cache quantization trades away, and why it's a separate decision from quantizing model weights."
+          },
+          {
+            "title": "🗜️ A second place to apply quantization",
+            "content": "The Fine-Tuning course covered quantizing model weights to reduce memory (INT8, INT4). The KV cache is a completely separate pool of memory that can also be quantized — stored at lower precision (e.g. FP8 or INT8 instead of FP16) — independent of whatever precision the weights themselves use."
+          },
+          {
+            "title": "📉 What's traded away",
+            "content": "Lower-precision KV cache values introduce small numerical errors into the attention computation, which can subtly affect output quality, especially over very long contexts where small errors can compound across many attention steps. This needs to be validated with the same quality benchmarks used elsewhere in this curriculum, not assumed to be free."
+          },
+          {
+            "title": "💾 Why it's worth considering separately from weight quantization",
+            "content": "Because the KV cache — not the weights — is often the memory bottleneck for long-context, high-concurrency serving, quantizing it can free up substantially more room for concurrent requests than quantizing weights alone would, making it a distinct lever worth evaluating on its own merits."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "A toy quantize/dequantize pass applied to a cached K vector, showing the memory tradeoff and the error it introduces:\n\n```python\ndef quantize_int8(values):\n    \"\"\"Quantize a list of floats to int8 codes plus a shared scale factor.\"\"\"\n    max_abs = max(abs(v) for v in values) or 1e-8\n    scale = max_abs / 127\n    codes = [round(v / scale) for v in values]\n    codes = [max(-127, min(127, c)) for c in codes]\n    return codes, scale\n\n\ndef dequantize_int8(codes, scale):\n    return [c * scale for c in codes]\n\n\n# A tiny cached K vector, at full FP16-style precision (2 bytes/value here).\ncached_k_vector = [0.12, -0.87, 0.45, 1.30, -0.02, 0.99]\n\ncodes, scale = quantize_int8(cached_k_vector)\nreconstructed = dequantize_int8(codes, scale)\nerrors = [abs(a - b) for a, b in zip(cached_k_vector, reconstructed)]\n\nfp16_bytes = len(cached_k_vector) * 2   # 2 bytes per value at FP16\nint8_bytes = len(codes) * 1 + 4         # 1 byte per code, plus one float32 scale\n\nprint(\"original: \", cached_k_vector)\nprint(\"codes:    \", codes, \"scale:\", round(scale, 5))\nprint(\"recovered:\", [round(v, 3) for v in reconstructed])\nprint(\"max error:\", round(max(errors), 4))\nprint(f\"fp16 bytes={fp16_bytes}  int8 bytes={int8_bytes}  saved={fp16_bytes - int8_bytes} bytes\")\n```\n\nFor this tiny 6-value example the int8 version only saves a couple of bytes, because the one-time `scale` factor eats into the savings — but for a real KV cache tensor with thousands of values, that fixed per-tensor overhead becomes negligible and the savings approach the full reduction the lesson describes (FP8/INT8 versus FP16). Notice also that `errors` is never zero — quantization is lossy, which is exactly the tradeoff the '📉 What's traded away' section is about."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming dequantized values exactly match the originals.** Quantization is lossy by construction — dequantize_int8 recovers an approximation, not the original float, and the resulting errors are exactly the kind of small numerical error the lesson says can compound over long contexts.\n\n**Ignoring the per-tensor overhead of storing the scale factor.** A quantized tensor needs its scale stored alongside the codes; for very small tensors (like the 6-value example above) that overhead can eat into most of the theoretical savings, so the win is largest on the large tensors a real KV cache actually contains.\n\n**Assuming KV cache quantization requires also quantizing the model's weights.** As the lesson states, these are two separate pools of memory — a team can quantize the KV cache while leaving weights at full precision, or vice versa, based on wherever the actual bottleneck is.\n\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "inf_quantizing_the_kv_cache_quiz",
+        "questions": [
+          {
+            "question": "How does KV cache quantization differ from weight quantization, even though both reduce precision?",
+            "options": [
+              "They apply to two separate pools of memory and can be decided independently of each other",
+              "They are the exact same operation applied twice",
+              "KV cache quantization requires retraining the model, while weight quantization does not",
+              "Weight quantization always requires KV cache quantization to work"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Weights and KV cache are distinct memory pools; each can be quantized (or not) independently based on where the actual bottleneck lies.",
+            "id": "q1"
+          },
+          {
+            "question": "Why might KV cache quantization particularly need quality validation over long contexts?",
+            "options": [
+              "Because small numerical errors introduced by lower precision can compound across many attention steps in a long sequence",
+              "Because long contexts never use the KV cache",
+              "Because quantization only affects the first token generated",
+              "Because long contexts automatically fix any quantization error"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Precision loss accumulating over many steps of attention is a realistic risk specifically for long sequences, making evaluation important rather than optional.",
+            "id": "q2"
+          },
+          {
+            "question": "Why might quantizing the KV cache free up more room for concurrency than quantizing weights alone?",
+            "options": [
+              "Because in long-context, high-concurrency serving, the KV cache — not the weights — is often the actual memory bottleneck",
+              "Because weights cannot be quantized under any circumstances",
+              "Because the KV cache is always larger than the model weights regardless of context length",
+              "Because quantizing weights has no effect on memory at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "When KV cache is the binding constraint, addressing it directly yields a bigger practical win than optimizing a different part of memory.",
+            "id": "q3"
+          },
+          {
+            "question": "Per the '🗜️ A second place to apply quantization' section, what precision might a quantized KV cache be stored at instead of FP16?",
+            "options": [
+              "FP8 or INT8",
+              "FP32 or FP64",
+              "A custom format unique to the KV cache with no standard name",
+              "The same precision as the tokenizer's vocabulary table"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson gives FP8 or INT8 as example lower-precision formats a quantized KV cache might be stored at, instead of FP16.",
+            "id": "q4"
+          },
+          {
+            "question": "Per the '📉 What's traded away' section, against what should the effect of KV cache quantization on output quality be validated?",
+            "options": [
+              "The same quality benchmarks used elsewhere in the curriculum",
+              "A single manual spot-check of one output",
+              "Nothing — it should be assumed to be free",
+              "Only the model's training loss curve"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson is explicit that this needs to be validated with the same quality benchmarks used elsewhere in the curriculum, not assumed to be free.",
+            "id": "q5"
+          },
+          {
+            "question": "In the code example, what does the codes list represent?",
+            "options": [
+              "The int8-scaled, rounded representation of each value in cached_k_vector",
+              "The original floating-point values, unchanged",
+              "The list of error values between original and reconstructed vectors",
+              "The number of bytes saved by quantization"
+            ],
+            "correctAnswer": 0,
+            "explanation": "codes is built by rounding each value divided by scale and clamping to the int8 range — it's the quantized integer representation of cached_k_vector.",
+            "id": "q6"
+          },
+          {
+            "question": "In the code example, what do the extra 4 bytes in int8_bytes = len(codes) * 1 + 4 account for?",
+            "options": [
+              "Storing the float32 scale factor needed to dequantize the codes back to approximate floats",
+              "An extra hidden value appended to cached_k_vector",
+              "Padding required by the print statement",
+              "The size of the errors list"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The +4 represents one float32 scale value stored per tensor alongside the 1-byte-per-value int8 codes, which is required to reconstruct approximate original values via dequantize_int8.",
+            "id": "q7"
+          },
+          {
+            "question": "Per 'Common mistakes', why can quantization overhead be especially costly for a very small tensor like the 6-value example?",
+            "options": [
+              "Because the fixed per-tensor scale-factor overhead is a larger fraction of a small tensor's total size, eating into most of the theoretical savings",
+              "Because small tensors cannot be quantized at all",
+              "Because small tensors always have larger numerical errors than large ones",
+              "Because the scale factor must be recomputed once per value in a small tensor"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The mistakes section explains that the scale factor's overhead is fixed per tensor, so it matters much less on large real KV cache tensors than on a tiny illustrative example.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,567 @@
+{
+  "id": "swe_testing",
+  "title": "Testing & Quality",
+  "description": "Unit, integration, and end-to-end tests, test-driven development, mocking and test doubles, and testing ML-adjacent code.",
+  "icon": "🧪",
+  "color": "#1565C0",
+  "order": 4,
+  "estimatedHours": 4,
+  "difficulty": "advanced",
+  "prerequisites": [
+    "swe_system_design"
+  ],
+  "lessons": [
+    {
+      "id": "swe_unit_integration_and_end_to_end_tests",
+      "title": "Unit, Integration, and End-to-End Tests",
+      "description": "The difference between the three levels of testing, and why a healthy suite needs more of the former than the latter.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain the difference between unit, integration, and end-to-end tests, and why a healthy suite needs more of the former than the latter."
+          },
+          {
+            "title": "🔬 Unit tests: one function, in isolation",
+            "content": "A **unit test** exercises a single function or class in isolation — no database, no network, no filesystem. It's fast (milliseconds), and when it fails, the failure points at almost exactly one place: the function under test.\n\nBecause unit tests don't touch real infrastructure, they structurally can't catch bugs in how pieces *fit together* — a function can pass every unit test in isolation and still break the moment it's wired up to a real database with real constraints."
+          },
+          {
+            "title": "🔗 Integration tests: components working together",
+            "content": "An **integration test** exercises two or more real components together — your code talking to an actual (often test) database, or two internal services actually communicating. It catches the class of bug that unit tests structurally miss: mismatched assumptions between components, like a function that works perfectly against a mocked database but breaks against the real one's actual constraints or return types."
+          },
+          {
+            "title": "🎬 End-to-end tests: the whole system, as a user would use it",
+            "content": "An **end-to-end (e2e) test** drives the system the way a real user would — through the UI, or through the public API, exercising the full stack from front to back. It's the slowest kind of test and the one most likely to be flaky (failing intermittently for reasons unrelated to a real bug), but it's the only kind that verifies the whole thing actually works together, end to end, the way a user would experience it."
+          },
+          {
+            "title": "📐 The testing pyramid",
+            "content": "These three levels are usually drawn as a pyramid: **many** fast, cheap unit tests at the base, **fewer** integration tests in the middle, and **very few** slow, expensive e2e tests at the top. The shape matters: an *inverted* pyramid — mostly e2e tests, few unit tests — means the suite is slow, flaky, and gives poor feedback about exactly what broke, even though it technically \"covers\" a lot of behavior."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "Here's the same discount function tested at two of the three levels, showing what each level actually checks and how fast it runs.\n\n```python\nimport time\n\n# --- The code under test ---\n\ndef apply_discount(price_cents, discount_pct):\n    if not 0 <= discount_pct <= 100:\n        raise ValueError(\"discount_pct must be between 0 and 100\")\n    return round(price_cents * (1 - discount_pct / 100))\n\nclass FakeOrderDB:\n    \"\"\"A tiny stand-in for a real database, used by the integration-style test.\"\"\"\n    def __init__(self):\n        self.orders = {}\n    def save_order(self, order_id, total_cents):\n        self.orders[order_id] = total_cents\n    def get_total(self, order_id):\n        return self.orders[order_id]\n\n# --- Unit test: apply_discount alone, no other component involved ---\n\nstart = time.perf_counter()\nassert apply_discount(10000, 20) == 8000\nassert apply_discount(10000, 0) == 10000\nunit_elapsed = time.perf_counter() - start\nprint(f\"unit test passed in {unit_elapsed * 1000:.3f}ms\")\n\n# --- Integration-style test: apply_discount + a (fake) database together ---\n\ndb = FakeOrderDB()\ntotal = apply_discount(10000, 20)\ndb.save_order(\"order-1\", total)\nassert db.get_total(\"order-1\") == 8000\nprint(\"integration test passed: discount + storage agree\")\n```\n\nThe unit test checks `apply_discount` completely in isolation — no other moving part is involved, and it runs in a fraction of a millisecond. The integration-style test adds a second component (`FakeOrderDB`) and checks that the two work together correctly: the discounted total that `apply_discount` computes is exactly what comes back out of `db.get_total`. Neither test drives the system the way a real user would — that's what an e2e test, hitting a real UI or API, is for."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Writing e2e tests for logic that a unit test could check in milliseconds.** If a bug can be caught by testing one function in isolation, testing it through the full UI instead is slower, flakier, and harder to debug for no extra benefit.\n\n**Assuming 100% unit test coverage means the system works.** Unit tests can't catch integration bugs by design — they don't touch the real components that integration bugs live between.\n\n**Letting the pyramid invert without noticing.** A suite that grows mostly by adding e2e tests, because they're the easiest to write against a working UI, quietly becomes slow and flaky over time even as its test count climbs.\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "swe_unit_integration_and_end_to_end_tests_quiz",
+        "questions": [
+          {
+            "question": "What does a unit test exercise?",
+            "options": [
+              "The whole system through the UI",
+              "A single function or class in isolation",
+              "Two services communicating over a network",
+              "A user's full workflow"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A unit test exercises a single function or class in isolation, without touching a real database, network, or filesystem.",
+            "id": "q1"
+          },
+          {
+            "question": "Why do suites need many unit tests but only a few end-to-end tests?",
+            "options": [
+              "Because end-to-end tests are more accurate and should be avoided",
+              "Because unit tests are fast and pinpoint failures precisely, while e2e tests are slow and more prone to flakiness",
+              "Because unit tests are harder to write",
+              "Because e2e tests can't be automated"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The testing pyramid places many fast, cheap unit tests at the base and very few slow, flaky e2e tests at the top, because that shape gives fast, precise feedback while still verifying the whole system occasionally end to end.",
+            "id": "q2"
+          },
+          {
+            "question": "What is the consequence of an inverted testing pyramid (mostly e2e tests, few unit tests)?",
+            "options": [
+              "The suite becomes faster and more reliable",
+              "The suite becomes slow and flaky and gives poor feedback about exactly what broke",
+              "Unit tests become unnecessary",
+              "Nothing changes — pyramid shape doesn't matter"
+            ],
+            "correctAnswer": 1,
+            "explanation": "An inverted pyramid means the suite relies mostly on slow, flaky e2e tests instead of fast, precise unit tests, so it becomes slow and flaky overall and gives poor feedback about exactly what broke.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, what does the unit test check that the integration-style test does not add?",
+            "options": [
+              "Nothing extra — they check the same thing",
+              "The unit test checks apply_discount completely alone, with no other component (like FakeOrderDB) involved",
+              "The unit test checks the database, and the integration test doesn't",
+              "The unit test is slower than the integration test"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The unit test calls only `apply_discount` in isolation, while the integration-style test additionally involves `FakeOrderDB` to check that the discount calculation and storage work correctly together.",
+            "id": "q4"
+          },
+          {
+            "question": "What does `db.get_total(\"order-1\")` return in the integration-style test, and why?",
+            "options": [
+              "10000, because no discount was applied",
+              "8000, because apply_discount(10000, 20) computed 8000 before it was saved",
+              "An error, because order-1 doesn't exist",
+              "0, because FakeOrderDB starts empty"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`total = apply_discount(10000, 20)` computes 8000, which is then saved under \"order-1\" via `db.save_order`, so `db.get_total(\"order-1\")` returns 8000.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is writing an e2e test for logic a unit test could catch called a common mistake?",
+            "options": [
+              "Because e2e tests are always wrong",
+              "Because it's slower, flakier, and harder to debug than a unit test that could catch the same bug in milliseconds",
+              "Because e2e tests cannot check business logic",
+              "Because unit tests are deprecated"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson explains that if a bug can be caught by testing one function in isolation, testing it through the full UI instead adds slowness and flakiness with no additional benefit.",
+            "id": "q6"
+          },
+          {
+            "question": "Why can't 100% unit test coverage guarantee the system works, according to the lesson?",
+            "options": [
+              "Because unit tests are unreliable by nature",
+              "Because unit tests structurally can't catch bugs in how components integrate, since they don't touch the real components involved",
+              "Because coverage tools are inaccurate",
+              "Because 100% coverage is impossible to achieve"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Unit tests isolate a single function or class from other components, so by design they can't catch the mismatched-assumptions bugs that only show up when real components interact — that's specifically what integration tests are for.",
+            "id": "q7"
+          },
+          {
+            "question": "Why might a testing pyramid invert without the team noticing?",
+            "options": [
+              "Because unit tests silently delete themselves over time",
+              "Because e2e tests are easiest to write against a working UI, so a suite can grow mostly by adding them without a deliberate decision",
+              "Because integration tests are banned in most codebases",
+              "Because pyramids naturally invert after one year"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson notes that e2e tests are the easiest to add against a working UI, so a suite's test count can climb mostly through e2e additions, quietly making the suite slow and flaky even as it appears to grow healthily.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "swe_test_driven_development",
+      "title": "Test-Driven Development",
+      "description": "The red-green-refactor cycle, and why writing the test first can change the design of the code.",
+      "duration": 11,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain the red-green-refactor cycle and why writing the test first can change the design of the code."
+          },
+          {
+            "title": "🔴🟢🔁 Red, green, refactor",
+            "content": "**Test-driven development (TDD)** follows a short, repeating cycle:\n\n1. **Red** — write a test for behavior that doesn't exist yet, and watch it fail. \"Red\" confirms the test is actually testing something (a test that passes before the code exists isn't testing anything).\n2. **Green** — write the minimum code needed to make the test pass. Not the most elegant code, not the most complete code — just enough to turn the test green.\n3. **Refactor** — now that the behavior is locked in by a passing test, clean up the implementation without changing what it does. The test suite is what makes this safe: if a refactor breaks something, the test catches it immediately."
+          },
+          {
+            "title": "🎯 Why writing the test first changes the design",
+            "content": "Writing the test first forces you to use the function or class *as a caller would*, before you've written any implementation to bias your thinking. This tends to produce simpler, more testable interfaces — because if a test is awkward to write, that's usually a sign the interface itself is awkward, not just that the test is hard. Writing tests after the fact tends to test whatever the implementation already does, rather than surfacing design problems in the interface itself."
+          },
+          {
+            "title": "⚖️ TDD is a discipline, not a religious requirement",
+            "content": "TDD is a tool, not a law. It's most valuable when the desired behavior is reasonably well understood up front — implementing a known algorithm, a well-specified API endpoint, a bug fix with a clear reproduction case. It's less natural for genuinely exploratory work, like prototyping a UI or experimenting with an approach you're not sure will work at all — in that case, writing throwaway code first to explore, then writing tests once the shape of the solution is clearer, is a completely reasonable choice."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "Here's the red-green-refactor cycle actually walked through for a small function, including the refactor step that a locked-in test makes safe.\n\n```python\n# --- Step 1: RED — write the test first, against code that doesn't exist yet ---\n\ndef test_word_count():\n    assert word_count(\"the quick brown fox\") == 4\n    assert word_count(\"\") == 0\n    assert word_count(\"one\") == 1\n\n# At this point, calling test_word_count() would raise NameError: word_count is not defined.\n# That failure IS the red step -- it confirms the test exercises something real.\n\n# --- Step 2: GREEN — the simplest implementation that passes ---\n\ndef word_count(text):\n    if text == \"\":\n        return 0\n    return len(text.split(\" \"))\n\ntest_word_count()\nprint(\"green: all assertions passed with the simple implementation\")\n\n# --- Step 3: REFACTOR — clean up the implementation, test still passes ---\n\ndef word_count(text):\n    return len(text.split())  # split() with no args also handles extra whitespace correctly\n\ntest_word_count()\nassert word_count(\"  many   spaces   here  \") == 3  # the refactor is actually an improvement\nprint(\"green after refactor: cleaner implementation, same passing test\")\n```\n\nThe first `word_count` implementation is deliberately minimal — just enough to turn the three assertions green. The refactor step swaps `text.split(\" \")` for `text.split()`, which is both cleaner and more correct (it collapses repeated whitespace instead of producing empty strings between consecutive spaces), and `test_word_count()` still passing afterward is exactly what makes that refactor safe to trust."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Writing the implementation, then writing a test that just confirms what it already does.** This isn't TDD — it skips the red step entirely and loses the design-pressure benefit of writing the test first.\n\n**Treating TDD as mandatory for every single line of code, including exploratory work.** Forcing TDD onto a prototype you expect to throw away adds process overhead without the payoff TDD is meant to provide.\n\n**Writing a \"green\" implementation that's more than the minimum needed.** Overbuilding during the green step defeats the point of the cycle — extra behavior added before there's a test for it is untested by construction.\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "swe_test_driven_development_quiz",
+        "questions": [
+          {
+            "question": "What does \"red\" mean in the red-green-refactor cycle?",
+            "options": [
+              "The code has a syntax error",
+              "A test is written for behavior that doesn't exist yet, and it fails",
+              "The test suite is deleted",
+              "The refactor step broke something"
+            ],
+            "correctAnswer": 1,
+            "explanation": "\"Red\" is the first step: writing a test for behavior that doesn't exist yet and watching it fail, which confirms the test is actually testing something real.",
+            "id": "q1"
+          },
+          {
+            "question": "Why does writing the test first tend to improve the design of the interface being tested?",
+            "options": [
+              "Because tests are always simpler than implementations",
+              "Because it forces you to use the function as a caller would before any implementation biases your thinking, so an awkward test usually reveals an awkward interface",
+              "Because it's required by most style guides",
+              "Because it eliminates the need for code review"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Writing the test first means you write against the interface as a caller before you've built an implementation to anchor your thinking, and difficulty writing that test tends to expose a genuinely awkward interface rather than just a hard test.",
+            "id": "q2"
+          },
+          {
+            "question": "According to the lesson, is TDD meant to apply to every line of code written, including exploratory work?",
+            "options": [
+              "Yes, TDD is a strict requirement with no exceptions",
+              "No — it's most valuable for well-understood behavior, and less natural for genuinely exploratory work like prototyping",
+              "No, TDD should never be used",
+              "Yes, but only for bug fixes"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson explicitly frames TDD as a discipline rather than a religious requirement, most valuable when behavior is well understood up front, and less natural for exploratory work like UI prototyping.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, what would happen if `test_word_count()` were called before `word_count` is defined?",
+            "options": [
+              "It would silently pass",
+              "It would raise a NameError, which is the red step",
+              "It would return 0",
+              "It would raise a SyntaxError"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The code comments explicitly note that calling `test_word_count()` before `word_count` exists raises `NameError: word_count is not defined`, which is exactly the red-step failure that confirms the test exercises something real.",
+            "id": "q4"
+          },
+          {
+            "question": "What does the refactor step change about `word_count`, and why is it an improvement?",
+            "options": [
+              "It adds error handling for empty strings, fixing a crash",
+              "It changes `text.split(\" \")` to `text.split()`, which also correctly handles repeated whitespace",
+              "It changes the function to count characters instead of words",
+              "It removes the need for any tests"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The refactor swaps `text.split(\" \")` for `text.split()`, and the added assertion on `\"  many   spaces   here  \"` shows this correctly collapses repeated whitespace, which the original implementation would have handled incorrectly.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is writing an implementation first and then a test that just confirms it not really TDD?",
+            "options": [
+              "Because tests must always be written in a separate file",
+              "Because it skips the red step entirely and loses the design-pressure benefit of writing the test before the implementation",
+              "Because it's technically impossible to do",
+              "Because it violates unit testing rules"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson identifies this as a common mistake because it never produces a failing (\"red\") test against nonexistent behavior, so it forfeits the design pressure that comes from writing the test as a caller before any implementation exists.",
+            "id": "q6"
+          },
+          {
+            "question": "Why is forcing TDD onto exploratory prototype work flagged as a mistake?",
+            "options": [
+              "Because prototypes cannot be tested at all",
+              "Because it adds process overhead without the payoff TDD is meant to provide, when the shape of the solution isn't known yet",
+              "Because TDD only works with certain programming languages",
+              "Because exploratory work never contains bugs"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson explains TDD is less natural when you don't yet know the shape of the solution, so forcing the red-green-refactor discipline onto genuinely exploratory work adds overhead without a real payoff.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does overbuilding during the \"green\" step defeat the point of the TDD cycle?",
+            "options": [
+              "Because extra behavior added before a test exists for it is untested by construction",
+              "Because green-step code always has more bugs than red-step code",
+              "Because the refactor step becomes impossible",
+              "Because it makes the test suite run slower"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's common mistakes note that the green step should add only the minimum needed to pass the current test — any extra behavior added at that point has no test driving it, so it's untested by construction.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "swe_mocking_and_test_doubles",
+      "title": "Mocking and Test Doubles",
+      "description": "Stubs, mocks, and fakes, and why mocking LLM calls is usually preferable in unit tests.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Distinguish stubs, mocks, and fakes, and explain why mocking LLM calls is usually preferable in unit tests."
+          },
+          {
+            "title": "🎭 What a test double is",
+            "content": "A **test double** is a stand-in object used in place of a real dependency during a test — a fake database, a fake API client, a fake payment processor. The point is to isolate the code under test from the real, often slow, expensive, or nondeterministic thing it normally depends on."
+          },
+          {
+            "title": "🏷️ A few common flavors",
+            "content": "- A **stub** returns canned, pre-programmed answers to specific calls, with no verification of how it was used — it exists purely to feed the code under test some input.\n- A **mock** goes further: it also records how it was called, so the test can assert things like \"this function was called exactly once, with these arguments.\"\n- A **fake** is a lightweight but genuinely working implementation — an in-memory dictionary standing in for a real database, for instance. It behaves correctly, just not at production scale or with production persistence."
+          },
+          {
+            "title": "🎲 Why this matters specifically for AI applications",
+            "content": "Calling a real LLM API in a unit test is slow, costs money, and — critically — is nondeterministic: the same prompt can produce a different response each time, which makes a test that asserts on the exact output flaky by construction. Mocking the LLM call — replacing it with a stub that returns a fixed, known response — lets you test everything *around* the call (how the prompt gets built, how the response gets parsed, what happens on an error) deterministically and for free."
+          },
+          {
+            "title": "⚠️ The risk of over-mocking",
+            "content": "Mocking has a cost: the more of the real system a test replaces with doubles, the less that test actually proves. A test that mocks everything except a single line of glue code can pass even when the real system, wired together for real, is completely broken. This is exactly why integration and end-to-end tests still matter alongside heavily-mocked unit tests — mocking buys speed and determinism, but it can't substitute for eventually checking that the real pieces still fit together."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "Here's a stub, a mock, and a fake all used against the same piece of code, showing what each one actually checks.\n\n```python\n# --- The code under test: calls an LLM, then processes the result ---\n\ndef summarize(llm_client, text):\n    response = llm_client.complete(f\"Summarize: {text}\")\n    return response.strip().rstrip(\".\") + \".\"\n\n# --- Stub: canned answer, no verification of how it was called ---\n\nclass StubLLM:\n    def complete(self, prompt):\n        return \"This is a short summary\"\n\nresult = summarize(StubLLM(), \"a long article...\")\nassert result == \"This is a short summary.\"\nprint(\"stub test passed:\", result)\n\n# --- Mock: also records how it was called ---\n\nclass MockLLM:\n    def __init__(self):\n        self.calls = []\n    def complete(self, prompt):\n        self.calls.append(prompt)\n        return \"Mocked summary\"\n\nmock = MockLLM()\nsummarize(mock, \"another article\")\nassert len(mock.calls) == 1\nassert \"another article\" in mock.calls[0]\nprint(\"mock test passed: called once, with the expected text in the prompt\")\n\n# --- Fake: a genuinely working in-memory cache, standing in for a real one ---\n\nclass FakeCache:\n    def __init__(self):\n        self._data = {}\n    def get(self, key):\n        return self._data.get(key)\n    def set(self, key, value):\n        self._data[key] = value\n\ncache = FakeCache()\ncache.set(\"summary:1\", \"cached result\")\nassert cache.get(\"summary:1\") == \"cached result\"\nprint(\"fake test passed: real get/set behavior, just in memory\")\n```\n\n`StubLLM` only ever returns its one canned string, no matter what `summarize` passes in — it can't tell you anything about *how* `summarize` called it. `MockLLM` fixes that by recording every prompt into `self.calls`, which is what lets the test assert the exact prompt text. `FakeCache` isn't programmed with canned answers at all — its `get`/`set` genuinely work, just against an in-memory dict instead of a real cache server."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Asserting on the exact output of a real LLM call in a unit test.** The same prompt can legitimately produce different wording each time, so this kind of test is flaky by construction, not by accident.\n\n**Over-mocking until the test proves almost nothing.** A test that replaces every real dependency with a double can pass while the actual wired-together system is broken — some level of integration testing is still required.\n\n**Using a mock when a stub would do.** Recording and asserting on call details adds test complexity; if the test doesn't actually need to verify *how* something was called, a simpler stub is easier to read and maintain.\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "swe_mocking_and_test_doubles_quiz",
+        "questions": [
+          {
+            "question": "What is the key difference between a stub and a mock?",
+            "options": [
+              "A stub is faster than a mock",
+              "A mock records how it was called and can be asserted against, while a stub just returns canned answers",
+              "A stub only works with databases",
+              "There is no meaningful difference"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A stub returns pre-programmed answers with no record-keeping, while a mock additionally records how it was called so the test can assert on call count and arguments.",
+            "id": "q1"
+          },
+          {
+            "question": "Why is mocking an LLM call usually preferable to calling the real API in a unit test?",
+            "options": [
+              "Because LLM APIs don't support automated testing at all",
+              "Because real LLM calls are slow, cost money, and are nondeterministic, making exact-output assertions flaky by construction",
+              "Because mocked LLMs are always more accurate",
+              "Because unit tests are not allowed to call any external service under any framework"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson explains that real LLM calls are slow, cost money, and can produce different output for the same prompt, so mocking the call lets the surrounding logic be tested deterministically and for free.",
+            "id": "q2"
+          },
+          {
+            "question": "What is the risk of over-mocking, according to the lesson?",
+            "options": [
+              "Tests run too slowly",
+              "A test that mocks nearly everything can pass even when the real, wired-together system is broken",
+              "Mocks always cause test failures",
+              "Over-mocking makes code impossible to refactor"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson warns that the more of the real system a test replaces with doubles, the less that test actually proves, so a heavily-mocked test can pass while the real system is broken — which is why integration/e2e tests still matter.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, what does `StubLLM.complete` return, regardless of the prompt passed in?",
+            "options": [
+              "A different response each time",
+              "Always the fixed string \"This is a short summary\"",
+              "The prompt itself, unchanged",
+              "An empty string"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`StubLLM.complete` is hardcoded to always return `\"This is a short summary\"` no matter what prompt it receives — it has no logic that depends on the input.",
+            "id": "q4"
+          },
+          {
+            "question": "What does the mock test specifically verify that the stub test cannot?",
+            "options": [
+              "That summarize() runs faster with a mock",
+              "That llm_client.complete was called exactly once, and that the expected text appeared in the prompt it was called with",
+              "That the LLM produces grammatically correct output",
+              "That the fake cache stores data correctly"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Because `MockLLM` records every prompt into `self.calls`, the test can assert `len(mock.calls) == 1` and check the prompt's contents — verifications a `StubLLM`, which records nothing, cannot support.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is asserting on the exact output text of a real LLM call flaky \"by construction\" rather than by accident?",
+            "options": [
+              "Because LLM APIs are always down",
+              "Because the same prompt can legitimately produce different wording on different calls, so exact-output assertions are inherently unreliable, not just occasionally buggy",
+              "Because assertions are deprecated in modern testing frameworks",
+              "Because LLMs cannot process the same prompt twice"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson specifically distinguishes this from ordinary flakiness: nondeterministic output is an inherent property of real LLM calls, so an exact-output assertion is unreliable by the nature of what it's testing, not because of some fixable bug.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does over-mocking undermine what a test proves, according to the lesson?",
+            "options": [
+              "Because mocks are always implemented incorrectly",
+              "Because replacing more of the real system with doubles means the test increasingly checks the doubles' behavior rather than the real system's",
+              "Because mocks run slower than real dependencies",
+              "Because Python doesn't support mocking well"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson states that the more of the real system a test replaces with doubles, the less it actually proves about the real system, since a test built almost entirely of doubles can pass even when the genuine, wired-together system fails.",
+            "id": "q7"
+          },
+          {
+            "question": "Why might using a mock when a stub would do be considered a mistake?",
+            "options": [
+              "Because mocks are always slower to execute",
+              "Because it adds unnecessary test complexity when the test doesn't actually need to verify how something was called",
+              "Because mocks cannot return any value",
+              "Because stubs are deprecated"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson notes that recording and asserting on call details adds complexity, so if a test doesn't need to check how a dependency was called, a simpler stub is easier to read and maintain.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "swe_testing_ml_adjacent_code",
+      "title": "Testing ML-Adjacent Code",
+      "description": "What traditional tests handle well in an AI system, what they can't verify, and why both testing disciplines are needed.",
+      "duration": 13,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Distinguish what traditional tests handle well in an AI system from what they structurally can't verify, and explain why both testing disciplines are needed together."
+          },
+          {
+            "title": "✅ What traditional tests handle well",
+            "content": "Most of an AI-powered application is still ordinary, deterministic software: parsing input, building a prompt from a template, calling an API, retrying on failure, parsing the response into a structured object, routing the result to the right place. All of that is exactly the kind of code traditional unit and integration tests are built for — deterministic logic with a single correct answer per input, which is what `assert result == expected` is designed to check."
+          },
+          {
+            "title": "❌ What traditional tests structurally can't verify",
+            "content": "The model's actual output is different. A well-behaved LLM can phrase a correct summary in dozens of valid ways — there's no single string that counts as \"the\" correct answer, so `assert result == expected` doesn't make sense for testing whether an output is *good*. This isn't a gap in test tooling that better tools will eventually close — it's a structural mismatch between what traditional testing checks (exact, deterministic correctness) and what model quality actually is (a matter of degree, judged against criteria like relevance, faithfulness to the source, or tone)."
+          },
+          {
+            "title": "🤝 The two testing disciplines work together, not instead of each other",
+            "content": "This is exactly why the Eval & Security course exists as a separate, dedicated topic: evaluating model output quality needs different tools entirely — scoring rubrics, LLM-as-judge techniques, human evaluation, statistical thresholds over many examples instead of one exact match. Traditional testing verifies the deterministic scaffolding around the model is correct; evaluation verifies the model's actual output is good. A production AI system needs both — neither one covers what the other is for."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "Here's the split made concrete: a deterministic prompt-building function that a normal `assert` can verify exactly, next to a model-quality check that can only ever be a heuristic, not an exact match.\n\n```python\n# --- Deterministic scaffolding: a traditional test handles this fine ---\n\ndef build_prompt(question, context):\n    return f\"Context: {context}\\n\\nQuestion: {question}\\n\\nAnswer concisely.\"\n\nprompt = build_prompt(\"What is the capital of France?\", \"France is a country in Europe.\")\nassert prompt == (\n    \"Context: France is a country in Europe.\\n\\n\"\n    \"Question: What is the capital of France?\\n\\n\"\n    \"Answer concisely.\"\n)\nprint(\"deterministic test passed: prompt built exactly as expected\")\n\n# --- Model output: no single 'correct' string, so exact match doesn't apply ---\n\ncandidate_responses = [\n    \"Paris is the capital of France.\",\n    \"The capital of France is Paris.\",\n    \"France's capital city is Paris, located on the Seine.\",\n]\n\ndef mentions_expected_answer(response, expected_fact):\n    \"\"\"A heuristic check, not exact match -- this is a taste of what evaluation looks like.\"\"\"\n    return expected_fact.lower() in response.lower()\n\nfor response in candidate_responses:\n    ok = mentions_expected_answer(response, \"Paris\")\n    print(f\"{ok}: {response!r}\")\n# All three are valid, correct answers with completely different exact text --\n# assert response == \"Paris is the capital of France.\" would wrongly fail two of them.\n```\n\n`build_prompt` has exactly one correct output for a given input, so the `assert prompt == ...` line is a completely ordinary, exact test. The three `candidate_responses` are all correct answers to the same question, worded three different ways — an exact-match assert would fail two out of three genuinely good responses, which is precisely why `mentions_expected_answer` checks for the right *content* instead of exact text, foreshadowing the kind of heuristic and statistical checks real evaluation relies on."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Writing `assert response == expected_text` against real model output.** This fails valid, well-formed responses just because their exact wording differs, and it will flake even when the model is behaving correctly.\n\n**Concluding that model output \"can't be tested\" and skipping evaluation entirely.** The right response to \"exact match doesn't work\" is to use evaluation techniques designed for this problem (covered in the Eval & Security course), not to give up on checking output quality altogether.\n\n**Applying deterministic testing standards to inherently non-deterministic output, or vice versa.** Holding the prompt-building code to a fuzzy \"seems about right\" standard is just as wrong as holding the model's phrasing to an exact-match standard — each kind of code needs the testing approach that actually matches what it is.\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "swe_testing_ml_adjacent_code_quiz",
+        "questions": [
+          {
+            "question": "What kind of code in an AI-powered application do traditional unit and integration tests handle well?",
+            "options": [
+              "The model's exact wording",
+              "Deterministic scaffolding logic, like parsing input, building prompts, and routing results",
+              "Nothing — traditional tests are useless for AI applications",
+              "Only the UI layer"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson identifies deterministic logic — parsing, prompt construction, retries, response routing — as exactly what traditional unit and integration tests are built for, since it has a single correct answer per input.",
+            "id": "q1"
+          },
+          {
+            "question": "Why can't `assert result == expected` be used to test whether a model's output is good?",
+            "options": [
+              "Because assert statements are deprecated",
+              "Because a well-behaved model can produce many differently-worded but equally correct outputs, so there's no single correct string",
+              "Because model output is always wrong",
+              "Because Python doesn't support string comparison"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson explains this is a structural mismatch: model quality is a matter of degree judged against criteria like relevance or faithfulness, not a single exact string, so exact-match assertions don't apply.",
+            "id": "q2"
+          },
+          {
+            "question": "According to the lesson, which course covers the techniques needed to evaluate model output quality?",
+            "options": [
+              "System Design Basics",
+              "The Eval & Security course",
+              "Data Structures Every Engineer Needs",
+              "Clean Code Foundations"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson explicitly points to the Eval & Security course as where scoring rubrics, LLM-as-judge techniques, human evaluation, and statistical thresholds are covered.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, why does `assert prompt == (...)` work correctly for `build_prompt` but a similar assert would fail for `candidate_responses`?",
+            "options": [
+              "Because build_prompt is buggy",
+              "Because build_prompt is deterministic with exactly one correct output, while the candidate responses are multiple differently-worded but equally valid answers",
+              "Because assert only works on short strings",
+              "Because candidate_responses contains errors"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`build_prompt` always produces the same exact string for the same inputs, so an exact-match assert is appropriate; the three candidate responses are all correct but worded differently, so an exact-match assert would incorrectly fail valid answers.",
+            "id": "q4"
+          },
+          {
+            "question": "What would happen if `assert response == \"Paris is the capital of France.\"` were run against all three `candidate_responses`?",
+            "options": [
+              "All three would pass",
+              "Two of the three would fail, even though all three are correct answers",
+              "All three would fail",
+              "It would raise a TypeError"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Only the first candidate response exactly matches that string; the second and third are worded differently, so an exact-match assert would incorrectly fail two genuinely correct responses — exactly the problem the lesson describes.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is `mentions_expected_answer` described as only \"a taste\" of real evaluation rather than a full solution?",
+            "options": [
+              "Because it's written in Python",
+              "Because it's a simple heuristic (substring match), while real evaluation typically needs more sophisticated techniques like scoring rubrics or LLM-as-judge",
+              "Because it doesn't run correctly",
+              "Because it only works for questions about France"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The code comment frames `mentions_expected_answer` as a heuristic check foreshadowing real evaluation, not the full toolkit — genuine evaluation uses more sophisticated techniques covered in the Eval & Security course.",
+            "id": "q6"
+          },
+          {
+            "question": "Why is concluding that model output \"can't be tested\" and skipping evaluation entirely called a mistake?",
+            "options": [
+              "Because model output actually can be tested with exact-match asserts after all",
+              "Because the right response to exact-match not working is to use evaluation techniques designed for this problem, not to stop checking quality altogether",
+              "Because skipping evaluation always causes a crash",
+              "Because evaluation is optional in production systems"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson's common mistakes explicitly warn against giving up on output-quality checks just because exact-match testing doesn't apply — the fix is to use the evaluation techniques built for this exact problem.",
+            "id": "q7"
+          },
+          {
+            "question": "Why is holding prompt-building code to a fuzzy \"seems about right\" standard also called a mistake?",
+            "options": [
+              "Because prompt-building code should never be tested",
+              "Because deterministic code has one correct output and should be held to an exact-match standard, just as model output shouldn't be held to one",
+              "Because fuzzy standards are always more accurate",
+              "Because prompt-building code changes constantly"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson frames this as a mismatch in the other direction: deterministic scaffolding code has a single correct output and deserves exact-match testing, so applying a vague standard to it is just as wrong as demanding exact match from non-deterministic model output.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

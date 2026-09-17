@@ -1,0 +1,543 @@
+{
+  "id": "module_1",
+  "title": "Building the Transformer Block",
+  "description": "Assemble the complete Transformer block: positional encoding to restore order, residual connections and layer normalization for stable deep training, the feed-forward sublayer, and how it all fits together.",
+  "icon": "🧱",
+  "color": "#00BCD4",
+  "order": 1,
+  "estimatedHours": 2,
+  "difficulty": "Intermediate",
+  "prerequisites": [
+    "module_0"
+  ],
+  "lessons": [
+    {
+      "id": "tf_positional_encoding",
+      "title": "Positional Encoding",
+      "description": "Learn how Transformers inject word order back into a mechanism that otherwise has no built-in sense of position.",
+      "duration": "9 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain why Transformers need positional encoding and how it's typically added to the input."
+          },
+          {
+            "title": "🤷 The problem: self-attention has no sense of order",
+            "content": "Look back at the scaled dot-product attention formula: it computes relevance based purely on the *content* of queries and keys — nothing about it inherently knows which word came first, second, or last in the sequence. Unlike an RNN, which processes words strictly in order, self-attention treats the sequence more like an unordered set — mathematically, shuffling the input words would produce the exact same set of pairwise relevance computations. But word order clearly matters for meaning (recall the NLP course's \"dog bit man\" vs. \"man bit dog\" example) — so this information needs to be added back in some way."
+          },
+          {
+            "title": "📍 The fix: adding a position signal to each embedding",
+            "content": "**Positional encoding** adds information about each token's position directly into its embedding, before self-attention is applied — giving the model a way to distinguish \"word in position 1\" from \"the same word in position 5.\"\n\n```python\n# Conceptual\n# final_input = token_embedding + positional_encoding\n```\n\nThe original Transformer paper used a fixed mathematical formula based on sine and cosine waves at different frequencies, generating a unique pattern of values for each position — chosen partly because it lets the model potentially generalize to sequence lengths not seen during training."
+          },
+          {
+            "title": "🎓 A learned alternative",
+            "content": "An alternative approach, used by some models (including early versions of BERT and GPT), simply **learns** a separate embedding vector for each position, exactly like a word gets a learned embedding, treating \"position 5\" as its own thing to be learned rather than computed by a fixed formula. This is simpler to implement, though it typically can't generalize as well beyond sequence lengths seen during training, since a specific position number that never appeared in training has no learned embedding at all."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming self-attention has some inherent sense of word order.** It genuinely doesn't — positional encoding is a necessary, deliberate addition, not an optional nice-to-have.\n\n**Confusing positional encoding with the token embeddings themselves.** They're typically combined (often simply added together) to produce the actual input to the Transformer — position and content are represented together, but they come from two conceptually distinct sources.\n\n**Assuming there's only one \"correct\" way to encode position.** As later lessons in this course cover, several different approaches (fixed sinusoidal, learned, and more modern alternatives like RoPE) have been developed, each with different tradeoffs."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "tf_positional_encoding_quiz",
+        "questions": [
+          {
+            "question": "Why does self-attention need positional encoding, unlike an RNN?",
+            "options": [
+              "Self-attention cannot process more than one word without positional encoding",
+              "Self-attention computes relevance based purely on content, with no inherent sense of word order — unlike an RNN, which processes words sequentially and naturally has order built in",
+              "RNNs also require positional encoding, so there's no real difference",
+              "Positional encoding is only needed for very short sequences"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since self-attention's relevance computation depends only on the content of queries and keys, shuffling the input words would produce the same pairwise relevance scores — order has to be explicitly reintroduced, unlike an RNN which processes tokens in sequence by design.",
+            "id": "q1"
+          },
+          {
+            "question": "How is positional encoding typically combined with token embeddings?",
+            "options": [
+              "It replaces the token embedding entirely",
+              "It's typically added directly to the token embedding, so the final input represents both content and position together",
+              "It's stored completely separately and never actually used by the model",
+              "Positional encoding is applied only after the entire Transformer has finished processing"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Positional encoding is generated per position and added to the corresponding token's embedding, so the resulting combined vector carries information about both what the token is and where it appears in the sequence.",
+            "id": "q2"
+          },
+          {
+            "question": "What is a potential drawback of using learned positional embeddings instead of a fixed sinusoidal formula?",
+            "options": [
+              "Learned embeddings are always less accurate",
+              "Learned embeddings typically can't generalize as well to sequence lengths not seen during training, since an unseen position has no learned embedding at all",
+              "Learned embeddings cannot be used with self-attention",
+              "There is no real tradeoff between the two approaches"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since learned positional embeddings are trained specifically for positions seen during training, a position number that never appeared (like a much longer sequence than any training example) has no meaningful learned embedding — a fixed formula-based approach can extend more naturally to new lengths.",
+            "id": "q3"
+          },
+          {
+            "question": "Why does self-attention, unlike an RNN, need an explicit mechanism to represent word order?",
+            "options": [
+              "Self-attention cannot process sequences of more than one word",
+              "Self-attention computes relevance based purely on content, so shuffling the input would produce the same pairwise relevance computations",
+              "RNNs also lack any sense of word order",
+              "Word order does not matter for meaning in any language"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Self-attention's relevance computation depends only on the content of queries and keys, so without an explicit positional signal, shuffling the input words would produce identical pairwise relevance scores — order must be added back in.",
+            "id": "q4"
+          },
+          {
+            "question": "What mathematical functions did the original Transformer paper use to compute fixed positional encodings?",
+            "options": [
+              "Logarithms and exponentials",
+              "Sine and cosine waves at different frequencies",
+              "Random number generation with no formula",
+              "Simple integer counting from 1 to the sequence length"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The original Transformer paper used a fixed formula based on sine and cosine waves at different frequencies to generate a unique positional pattern for each position.",
+            "id": "q5"
+          },
+          {
+            "question": "What is a key potential benefit of the fixed sinusoidal positional encoding approach mentioned in this lesson?",
+            "options": [
+              "It requires no computation at all",
+              "It may let the model generalize to sequence lengths not seen during training",
+              "It always outperforms every learned alternative on every task",
+              "It removes the need for token embeddings entirely"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The fixed sinusoidal formula was chosen partly because it can potentially let the model generalize to sequence lengths beyond what it saw during training, unlike some learned alternatives.",
+            "id": "q6"
+          },
+          {
+            "question": "How do learned positional embeddings, used by some models like early BERT and GPT versions, work?",
+            "options": [
+              "They use the exact same sine/cosine formula as the original Transformer",
+              "A separate embedding vector is learned for each position, exactly like a word gets a learned embedding",
+              "They require no training of any kind",
+              "Positional information is entirely omitted from the model"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Learned positional embeddings simply learn a separate embedding vector for each position during training, treating each position number as its own thing to learn, similar to how word embeddings are learned.",
+            "id": "q7"
+          },
+          {
+            "question": "What is a drawback of learned positional embeddings compared to the fixed sinusoidal approach?",
+            "options": [
+              "Learned embeddings are always more computationally expensive",
+              "They typically can't generalize as well to sequence lengths not seen during training, since an unseen position has no learned embedding",
+              "Learned embeddings cannot be combined with token embeddings at all",
+              "There is no meaningful drawback whatsoever"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since learned positional embeddings are trained only for the specific positions seen during training, a position number never encountered in training (like an unusually long sequence) has no meaningful learned representation.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "tf_residuals_layernorm",
+      "title": "Residual Connections and Layer Normalization",
+      "description": "Learn the two supporting techniques that make it practical to stack many Transformer layers deep.",
+      "duration": "9 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain why residual connections and layer normalization are used throughout the Transformer architecture."
+          },
+          {
+            "title": "🔁 Residual connections: a familiar idea from computer vision",
+            "content": "Recall ResNet's skip connections from the computer vision course: shortcuts that let information (and gradients) bypass layers directly, helping very deep networks train effectively. Transformers use the exact same idea throughout: each sublayer's output is added to its own input, rather than completely replacing it.\n\n```\n# Conceptual residual connection around a sublayer\noutput = sublayer(input) + input\n```\n\nJust as in ResNet, this gives gradients a more direct path back through many stacked layers during backpropagation, which is essential for training the many-layers-deep Transformer stacks used in practice."
+          },
+          {
+            "title": "📏 Layer normalization: keeping values well-behaved",
+            "content": "Recall batch normalization from the deep learning course, which normalizes activations using statistics computed across a mini-batch. **Layer normalization** is a related but distinct technique — instead of normalizing across the batch, it normalizes across the *features* of a single example, independent of batch size or other examples.\n\nThis distinction matters practically: layer normalization doesn't depend on batch statistics, making it well-suited to sequence models where batch composition and sequence length can vary, and it's the standard normalization choice throughout Transformer architectures."
+          },
+          {
+            "title": "🏗️ How they combine in a Transformer sublayer",
+            "content": "```\n# Conceptual structure of one Transformer sublayer\noutput = LayerNorm(input + Sublayer(input))\n# where Sublayer is either self-attention or the feed-forward layer (next lesson)\n```\n\nThis specific combination — residual connection plus layer normalization, wrapped around each individual sublayer — is applied consistently throughout the entire Transformer architecture, and is a major reason very deep Transformer stacks (many layers) can be trained effectively and stably."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Confusing layer normalization with batch normalization.** They solve a related problem (keeping activations well-scaled) but normalize across different dimensions (features of one example vs. a mini-batch) — this distinction is exactly why layer norm suits sequence models better.\n\n**Underestimating how essential residual connections are for Transformer depth.** Without them, training the many-layer-deep stacks used in real Transformer models would face serious difficulties, directly echoing the vanishing gradient problem from the deep learning course.\n\n**Treating this as a minor implementation detail.** These two techniques, applied consistently throughout the architecture, are a significant part of what makes training very deep Transformer models practical and stable at all."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "tf_residuals_layernorm_quiz",
+        "questions": [
+          {
+            "question": "What do residual connections in a Transformer do, echoing an idea from the computer vision course?",
+            "options": [
+              "They remove the need for any self-attention layers",
+              "They add a sublayer's output to its own input, providing a shortcut that helps gradients flow through many stacked layers during training, just like ResNet's skip connections",
+              "They convert text tokens directly into images",
+              "They eliminate the need for positional encoding"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Just as ResNet's skip connections let information bypass layers directly to help train very deep CNNs, Transformer residual connections add each sublayer's output back to its input, giving gradients a more direct path through many stacked Transformer layers.",
+            "id": "q1"
+          },
+          {
+            "question": "How does layer normalization differ from the batch normalization covered in the deep learning course?",
+            "options": [
+              "They are identical techniques with different names",
+              "Layer normalization normalizes across the features of a single example, independent of batch composition, while batch normalization normalizes using statistics computed across a mini-batch",
+              "Layer normalization can only be used with images, not text",
+              "Batch normalization is never actually used in deep learning"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The key difference is what's being normalized across — layer norm operates per-example across its own features, making it independent of batch size or composition, which is why it suits sequence models (with variable batch/sequence characteristics) better than batch norm.",
+            "id": "q2"
+          },
+          {
+            "question": "Why are residual connections considered essential for training very deep Transformer stacks?",
+            "options": [
+              "They have no real effect on training and are purely a stylistic choice",
+              "Without them, training many stacked layers would face serious difficulties, echoing the vanishing gradient problem from the deep learning course that ResNet's skip connections were designed to solve",
+              "They only matter for very short sequences",
+              "Residual connections replace the need for self-attention entirely"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The same core problem that motivated ResNet's skip connections in computer vision — difficulty training very deep stacks due to gradient issues — applies to deep Transformer stacks as well, which is why residual connections are used consistently throughout the architecture.",
+            "id": "q3"
+          },
+          {
+            "question": "What earlier architecture from the computer vision course does this lesson compare residual connections to?",
+            "options": [
+              "Vision Transformers",
+              "ResNet's skip connections",
+              "AlexNet's pooling layers",
+              "YOLO's detection heads"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This lesson draws a direct comparison to ResNet's skip connections from the computer vision course, which let information bypass layers directly to help train very deep networks.",
+            "id": "q4"
+          },
+          {
+            "question": "In the conceptual formula for a residual connection given in this lesson, what is added to a sublayer's output?",
+            "options": [
+              "The sublayer's output is left completely unchanged, with nothing added",
+              "The sublayer's own input",
+              "A randomly generated noise vector",
+              "The output of a completely different, unrelated sublayer"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The residual connection formula is output = sublayer(input) + input — the sublayer's output is added back to its own input rather than replacing it entirely.",
+            "id": "q5"
+          },
+          {
+            "question": "What does layer normalization normalize across, in contrast to batch normalization?",
+            "options": [
+              "Layer norm normalizes across a mini-batch, exactly like batch norm",
+              "Layer norm normalizes across the features of a single example, independent of batch composition",
+              "Layer norm and batch norm normalize across identical dimensions",
+              "Layer norm normalizes across an entire dataset at once"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Layer normalization normalizes across the features of a single example rather than across a mini-batch, making it independent of batch size or composition — unlike batch normalization from the deep learning course.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does layer normalization suit sequence models particularly well, according to this lesson?",
+            "options": [
+              "It requires a fixed, unchanging batch size at all times",
+              "It doesn't depend on batch statistics, making it well suited to sequence models where batch composition and sequence length can vary",
+              "It can only be applied to image data",
+              "It eliminates the need for any residual connections"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since layer normalization doesn't rely on statistics computed across a batch, it handles the variable batch composition and sequence lengths common in sequence models more naturally than batch normalization.",
+            "id": "q7"
+          },
+          {
+            "question": "What is the conceptual formula given in this lesson for combining a residual connection with layer normalization around a sublayer?",
+            "options": [
+              "Sublayer(LayerNorm(input))",
+              "LayerNorm(input + Sublayer(input))",
+              "input - Sublayer(LayerNorm(input))",
+              "LayerNorm(input) alone, with no residual connection"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson gives LayerNorm(input + Sublayer(input)) as the standard structure — the residual connection is added first, then layer normalization is applied to the result.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "tf_feedforward",
+      "title": "The Feed-Forward Sublayer",
+      "description": "Learn about the other essential piece of a Transformer block, working alongside self-attention.",
+      "duration": "7 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can describe the feed-forward sublayer's role within a Transformer block."
+          },
+          {
+            "title": "🧩 A Transformer block has two main sublayers",
+            "content": "Each Transformer block (or \"layer\") consists of two main sublayers, each wrapped in the residual-connection-plus-layer-norm pattern from the previous lesson: the **self-attention sublayer** (module 0) and a **feed-forward sublayer** — a comparatively simple, fully-connected network."
+          },
+          {
+            "title": "🔢 What the feed-forward sublayer actually does",
+            "content": "The feed-forward sublayer is a small, standard fully-connected network (recall these from the deep learning course) applied **independently and identically to each position** in the sequence — unlike self-attention, it doesn't mix information *between* different positions at all; it just transforms each position's representation on its own, using the exact same learned weights at every position.\n\n```python\n# Conceptual: applied independently at every position\n# def feed_forward(x):\n#     return linear2(relu(linear1(x)))\n# — the same linear1, linear2 weights are reused at every sequence position\n```\n\nTypically, the hidden layer inside this feed-forward network is considerably wider than the token embedding dimension itself, giving the block extra capacity to transform each position's representation."
+          },
+          {
+            "title": "🤝 Why both pieces are needed together",
+            "content": "Self-attention handles mixing information *between* positions — figuring out which other words are relevant to this one. The feed-forward sublayer then processes *each* position's resulting representation further, independently. Together, a Transformer block alternates between these two very different kinds of operations: mix across positions (attention), then transform each position independently (feed-forward) — repeated across many stacked layers, gradually building increasingly rich, sophisticated representations."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming the feed-forward sublayer mixes information across positions, like self-attention does.** It explicitly does not — it's applied identically and independently to each position, with no interaction between different positions within this particular sublayer.\n\n**Underestimating the feed-forward sublayer's contribution.** Despite conceptually being the \"simpler\" of the two sublayers, it typically contains a substantial share of a Transformer model's total learnable parameters, given its wider hidden layer.\n\n**Forgetting the residual connection and layer norm wrap around this sublayer too.** Exactly the same pattern from the previous lesson (`LayerNorm(input + Sublayer(input))`) applies to the feed-forward sublayer, just as it does to self-attention."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "tf_feedforward_quiz",
+        "questions": [
+          {
+            "question": "How is the feed-forward sublayer applied across a sequence, in contrast to self-attention?",
+            "options": [
+              "It mixes information across all positions simultaneously, exactly like self-attention",
+              "It's applied independently and identically to each position, using the same learned weights, without mixing information between different positions",
+              "It only processes the very first token in the sequence",
+              "It requires a completely separate set of weights for every single position"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Unlike self-attention, which explicitly relates different positions to each other, the feed-forward sublayer transforms each position's representation on its own, applying the exact same learned weights at every position independently.",
+            "id": "q1"
+          },
+          {
+            "question": "What are the two main sublayers within a single Transformer block?",
+            "options": [
+              "Convolution and pooling",
+              "Self-attention and a feed-forward network",
+              "Encoding and decoding",
+              "Tokenization and embedding"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Each Transformer block combines a self-attention sublayer (which mixes information across positions) with a feed-forward sublayer (which independently transforms each position), both wrapped in residual connections and layer normalization.",
+            "id": "q2"
+          },
+          {
+            "question": "Why do self-attention and the feed-forward sublayer need to work together within a Transformer block?",
+            "options": [
+              "They perform the exact same function and including both is redundant",
+              "Self-attention mixes information between positions, while the feed-forward sublayer further transforms each position's representation independently — together they build increasingly rich representations across stacked layers",
+              "Only the feed-forward sublayer actually contributes to the model's learning",
+              "Self-attention alone is always sufficient without any feed-forward component"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The two sublayers serve complementary roles: self-attention handles relating different positions to each other, while the feed-forward sublayer processes each position's resulting representation further — alternating between these across many layers builds up sophisticated representations.",
+            "id": "q3"
+          },
+          {
+            "question": "What are the two main sublayers that make up a single Transformer block, according to this lesson?",
+            "options": [
+              "Convolution and pooling",
+              "Self-attention and a feed-forward sublayer",
+              "Encoder and decoder",
+              "Tokenization and embedding"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Each Transformer block consists of a self-attention sublayer and a feed-forward sublayer, each wrapped in the residual-connection-plus-layer-norm pattern from the previous lesson.",
+            "id": "q4"
+          },
+          {
+            "question": "How is the feed-forward sublayer applied across the positions in a sequence?",
+            "options": [
+              "It mixes information across all positions, exactly like self-attention",
+              "It is applied independently and identically to each position, using the same learned weights at every position",
+              "It only processes the last position in the sequence",
+              "A completely separate set of weights is learned for every individual position"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Unlike self-attention, the feed-forward sublayer transforms each position's representation on its own, reusing the exact same learned weights (linear1, linear2) at every position independently.",
+            "id": "q5"
+          },
+          {
+            "question": "Compared to the token embedding dimension, how is the hidden layer inside the feed-forward sublayer typically sized?",
+            "options": [
+              "It is always exactly the same size as the embedding dimension",
+              "It is typically considerably wider than the embedding dimension, giving the block extra transformation capacity",
+              "It is always smaller than the embedding dimension",
+              "The feed-forward sublayer has no hidden layer at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The feed-forward sublayer's hidden layer is typically considerably wider than the token embedding dimension, giving it extra capacity to transform each position's representation.",
+            "id": "q6"
+          },
+          {
+            "question": "What is a common misconception about the feed-forward sublayer's share of a Transformer model's total parameters?",
+            "options": [
+              "That it always has zero learnable parameters",
+              "That it contributes only a negligible number of parameters, when in practice it often holds a substantial share, given its wider hidden layer",
+              "That it contains more parameters than every other component combined, always",
+              "That its parameter count is unrelated to its hidden layer width"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Despite being conceptually the 'simpler' sublayer, the feed-forward sublayer typically contains a substantial share of a Transformer model's total learnable parameters because of its wider hidden layer.",
+            "id": "q7"
+          },
+          {
+            "question": "Does the residual-connection-plus-layer-norm pattern from the previous lesson also apply to the feed-forward sublayer?",
+            "options": [
+              "No, that pattern only applies to self-attention",
+              "Yes, the exact same LayerNorm(input + Sublayer(input)) pattern wraps the feed-forward sublayer too",
+              "The feed-forward sublayer uses a completely different, unrelated normalization scheme",
+              "Residual connections are only used once, at the very end of the whole model"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The same residual-connection-plus-layer-norm pattern established for self-attention also wraps the feed-forward sublayer, applying LayerNorm(input + Sublayer(input)) consistently to both sublayers.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "tf_transformer_block",
+      "title": "Putting a Transformer Block Together",
+      "description": "Assemble every piece from this module into the complete, standard Transformer block used throughout the architecture.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can describe the complete structure of a standard Transformer block, piece by piece."
+          },
+          {
+            "title": "🧱 The complete block, step by step",
+            "content": "```\nInput: token embeddings + positional encoding (previous lesson)\n\n1. Multi-head self-attention (module 0)\n2. Residual connection + layer normalization (this module)\n3. Feed-forward sublayer (this module)\n4. Residual connection + layer normalization (this module)\n\nOutput: a new representation for each position, ready for\n        the next block (or the final output layer)\n```\n\nEvery single piece covered in modules 0 and 1 comes together here into one repeatable, stackable unit."
+          },
+          {
+            "title": "📚 Stacking blocks to build a full model",
+            "content": "A complete Transformer model stacks many of these identical blocks (structurally identical, though each has its own independently learned weights) on top of each other — the original Transformer paper used 6 encoder and 6 decoder blocks; modern large language models often stack dozens or more.\n\n```python\n# Conceptual: stacking N identical Transformer blocks\n# x = token_embeddings + positional_encoding\n# for _ in range(num_layers):\n#     x = transformer_block(x)\n# final_output = x\n```\n\nEach successive block can build on the increasingly rich, contextual representations produced by the blocks before it — similar in spirit to how a CNN's stacked layers (computer vision course) build from simple to complex features, though here it's through repeated attention and transformation, not spatial convolution."
+          },
+          {
+            "title": "🎯 Why this design has proven so effective",
+            "content": "This block design is genuinely elegant: it combines a mechanism for relating any two positions directly (self-attention), a mechanism for further per-position transformation (feed-forward), and the training stability tools (residuals, layer norm) needed to stack it very deep — all while being highly parallelizable across positions during training, unlike RNNs' inherently sequential processing. This combination of expressiveness, trainability, and parallelizability is a major reason the Transformer architecture became so dominant."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Thinking of a Transformer block as a single, monolithic operation.** It's a specific, deliberate combination of several distinct pieces (attention, feed-forward, residuals, layer norm) — understanding each piece's individual role makes the whole design much clearer.\n\n**Assuming every stacked block shares the same weights.** Each block has its own independently learned parameters — the *structure* is repeated identically, but the specific learned weights differ from block to block.\n\n**Forgetting positional encoding is added once, at the very beginning.** It's not re-applied at every block — position information, once added to the initial input, propagates forward through the residual connections in every subsequent block."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "tf_transformer_block_quiz",
+        "questions": [
+          {
+            "question": "What is the correct order of operations within a standard Transformer block?",
+            "options": [
+              "Feed-forward sublayer, then self-attention, with no normalization at all",
+              "Multi-head self-attention, then residual+layer norm, then the feed-forward sublayer, then another residual+layer norm",
+              "Positional encoding is recomputed at every single block",
+              "Layer normalization happens only once, at the very end of the entire model"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A standard Transformer block applies self-attention (wrapped in a residual connection and layer norm), followed by the feed-forward sublayer (also wrapped in its own residual connection and layer norm) — this exact repeatable structure is what gets stacked to build the full model.",
+            "id": "q1"
+          },
+          {
+            "question": "When a Transformer model stacks many blocks, do the blocks share the same learned weights?",
+            "options": [
+              "Yes, every block uses identical weights throughout the model",
+              "No — each block has its own independently learned weights, even though the structural design is repeated identically across blocks",
+              "Only the first and last blocks have learned weights",
+              "Weights are shared, but only for the feed-forward sublayers"
+            ],
+            "correctAnswer": 1,
+            "explanation": "While every block follows the same structural blueprint (self-attention, feed-forward, residuals, layer norm), each individual block learns its own separate set of weights during training — the repetition is in structure, not in the specific learned parameters.",
+            "id": "q2"
+          },
+          {
+            "question": "What combination of properties makes the Transformer block design particularly effective, according to this lesson?",
+            "options": [
+              "It is the slowest possible architecture, which guarantees higher accuracy",
+              "It combines a mechanism for relating any two positions directly, per-position transformation, training stability techniques for depth, and high parallelizability during training",
+              "It requires no training data of any kind",
+              "It can only be used for very short sequences"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The Transformer block's effectiveness comes from combining several complementary strengths at once: self-attention's ability to directly relate any two positions, the feed-forward sublayer's per-position transformation, residual connections and layer norm enabling deep stacking, and strong parallelizability — unlike the sequential processing required by RNNs.",
+            "id": "q3"
+          },
+          {
+            "question": "According to this lesson, how many encoder and decoder blocks did the original Transformer paper use?",
+            "options": [
+              "1 encoder and 1 decoder block",
+              "6 encoder and 6 decoder blocks",
+              "100 encoder and 100 decoder blocks",
+              "The original paper used no decoder blocks at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson notes that the original Transformer paper used 6 encoder and 6 decoder blocks, while modern large language models often stack dozens or more.",
+            "id": "q4"
+          },
+          {
+            "question": "When a Transformer model stacks many blocks together, do all the blocks share identical learned weights?",
+            "options": [
+              "Yes, every block in the stack uses the exact same weights",
+              "No — each block has its own independently learned weights, even though the structural design repeats identically",
+              "Only the very first block has any learned weights",
+              "Weight sharing depends entirely on the specific input sequence"
+            ],
+            "correctAnswer": 1,
+            "explanation": "While every stacked block follows the same structural blueprint, each individual block learns its own separate set of weights during training — repetition is in structure, not learned parameters.",
+            "id": "q5"
+          },
+          {
+            "question": "At what point in the overall model is positional encoding added, according to this lesson?",
+            "options": [
+              "It is recomputed fresh at every single stacked block",
+              "It is added once, at the very beginning, and propagates forward through the residual connections in later blocks",
+              "It is added only at the very last block, right before the output",
+              "Positional encoding is never actually added to the input"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Positional encoding is added once to the initial input, and this positional information propagates forward through the residual connections in every subsequent stacked block, rather than being recomputed at each block.",
+            "id": "q6"
+          },
+          {
+            "question": "What combination of properties does this lesson credit for the Transformer block design's effectiveness?",
+            "options": [
+              "Being the slowest possible design, which supposedly guarantees higher accuracy",
+              "Direct relationships between any two positions, per-position transformation, training-stability tools for depth, and strong parallelizability",
+              "Requiring no training data of any kind",
+              "Being usable only for extremely short sequences"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson attributes the block design's effectiveness to combining self-attention's direct position-to-position relationships, per-position transformation via feed-forward, residuals/layer norm enabling deep stacking, and strong parallelizability — a combination hard to find together elsewhere.",
+            "id": "q7"
+          },
+          {
+            "question": "What analogy does this lesson draw between stacking Transformer blocks and a concept from the computer vision course?",
+            "options": [
+              "It compares stacking blocks to convolutional filters detecting edges only",
+              "It compares each successive block building on richer representations to how a CNN's stacked layers build from simple to complex features",
+              "It claims there is no meaningful parallel to computer vision at all",
+              "It compares Transformer blocks to image resizing operations"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson notes that each successive Transformer block can build on the increasingly rich representations from earlier blocks, similar in spirit to how a CNN's stacked layers build from simple to complex features, though through attention and transformation rather than convolution.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

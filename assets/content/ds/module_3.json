@@ -1,0 +1,547 @@
+{
+  "id": "module_3",
+  "title": "Feature Engineering & Encoding",
+  "description": "Turn raw columns into useful model inputs: engineer new features, encode categories, scale numbers, and trim down to what matters.",
+  "icon": "🧪",
+  "color": "#00838F",
+  "order": 3,
+  "estimatedHours": 2,
+  "difficulty": "Intermediate",
+  "prerequisites": [
+    "module_2"
+  ],
+  "lessons": [
+    {
+      "id": "ds_good_features",
+      "title": "What Makes a Good Feature",
+      "description": "Learn what turns a raw column into a useful signal a model can actually learn from.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain what makes a feature useful and give examples of engineering new features from raw data."
+          },
+          {
+            "title": "🧩 A feature is just a useful column",
+            "content": "A **feature** is any column you feed into a model or analysis. Raw data rarely arrives in the most useful form — **feature engineering** means creating new, more informative columns from the ones you already have.\n\nExample: instead of a raw `signup_date`, you might create `days_since_signup` — a number that's directly useful for predicting things like churn."
+          },
+          {
+            "title": "💡 Where good features come from",
+            "content": "Good features usually come from domain knowledge — understanding what actually matters for the problem.\n\n```python\nimport pandas as pd\n\ndf = pd.DataFrame({\"signup_date\": pd.to_datetime([\"2024-01-01\", \"2024-06-15\"])})\ntoday = pd.Timestamp(\"2024-09-04\")\n\ndf[\"days_since_signup\"] = (today - df[\"signup_date\"]).dt.days\n```\n\n• **Ratios** often beat raw numbers — \"orders per month\" is more comparable across customers than raw order count\n• **Time-based features** — day of week, hour, days-since-event — often carry a surprising amount of signal\n• **Combining columns** — \"price per square foot\" from price and area"
+          },
+          {
+            "title": "🎯 A feature should be predictive and available",
+            "content": "Two practical checks for any feature you're considering:\n\n• **Is it actually related to what you're trying to predict?** Domain knowledge and quick visualization both help here\n• **Will it be available at prediction time?** A feature computed from information you won't actually have when making a real prediction (like a customer's *eventual* total spend, when predicting whether they'll churn *before* that spend happens) causes **data leakage** — more on this later"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Throwing in every possible column without thinking about relevance.** More features isn't automatically better — irrelevant ones can add noise.\n\n**Creating features using information that wouldn't be available at real prediction time.** This is one of the most common — and hardest to notice — bugs in real projects.\n\n**Ignoring domain knowledge.** The person who understands the business problem often has better feature ideas than generic statistical tricks."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ds_good_features_quiz",
+        "questions": [
+          {
+            "question": "What is feature engineering?",
+            "options": [
+              "Writing tests for a model",
+              "Creating new, more useful columns from existing raw data",
+              "Cleaning duplicate rows",
+              "Choosing which model architecture to use"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Feature engineering is the process of transforming or combining raw data into columns (features) that are more directly useful for analysis or modeling.",
+            "id": "q1"
+          },
+          {
+            "question": "Why might `days_since_signup` be a more useful feature than the raw `signup_date`?",
+            "options": [
+              "Dates can't be stored in a DataFrame",
+              "A numeric \"days since\" value is directly usable in calculations and comparisons, unlike a raw timestamp",
+              "signup_date is always missing",
+              "There's no actual difference"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Models and most calculations work naturally with numbers — turning a date into a meaningful numeric distance (like days since signup) makes it far more directly useful.",
+            "id": "q2"
+          },
+          {
+            "question": "What's the risk of creating a feature from information that wouldn't be available at real prediction time?",
+            "options": [
+              "The code will fail to run",
+              "It causes data leakage — the feature looks predictive during training but can't actually be used in practice",
+              "It has no real risk",
+              "It makes the model train faster"
+            ],
+            "correctAnswer": 1,
+            "explanation": "If a feature relies on information only known after the fact, it makes predictions look artificially accurate during training but is unusable (or misleading) when making real predictions.",
+            "id": "q3"
+          },
+          {
+            "question": "What's an example of a feature that would cause leakage because it wouldn't be available at real prediction time?",
+            "options": [
+              "The customer's signup date",
+              "A 'total refunds this year' feature used to predict churn early in the year, computed using data from months that haven't happened yet",
+              "The customer's country",
+              "The product category"
+            ],
+            "correctAnswer": 1,
+            "explanation": "If a feature is built using information that would only be fully known after the event you're trying to predict, it leaks future knowledge into training and won't be available when predicting for real.",
+            "id": "q4"
+          },
+          {
+            "question": "What kind of features can be derived from a date/time column?",
+            "options": [
+              "Only the exact timestamp, nothing else",
+              "Day of week, month, or time since a reference date — each can reveal different useful patterns",
+              "Date columns can't be used to create features",
+              "Only the year, never anything more granular"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A date can be decomposed into many useful signals — day of week for weekly patterns, month for seasonality, or elapsed time since some reference point.",
+            "id": "q5"
+          },
+          {
+            "question": "What's an example of combining two existing columns into a useful ratio feature?",
+            "options": [
+              "Adding two unrelated columns together with no business meaning",
+              "Dividing total spend by number of orders to create an 'average order value' feature",
+              "Deleting one of the two columns",
+              "Renaming a column to a new name"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A ratio like spend divided by order count creates a new, often more meaningful signal (average order value) than either raw column alone.",
+            "id": "q6"
+          },
+          {
+            "question": "Why is feature engineering often described as domain-knowledge-driven?",
+            "options": [
+              "It requires no understanding of the data or business context",
+              "Recognizing which derived quantities would actually be meaningful and predictive usually requires understanding the real-world problem, not just the raw columns",
+              "It's a purely automated, algorithmic process with no human judgment",
+              "Feature engineering only applies to numeric data"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Deciding what transformation of the raw data would actually be predictive (like recognizing 'days since last purchase' matters for churn) usually requires understanding the business problem, not just staring at column names.",
+            "id": "q7"
+          },
+          {
+            "question": "What's the difference between raw data and a feature?",
+            "options": [
+              "They are exactly the same thing",
+              "Raw data is what you originally collected; a feature is a column — original or derived — specifically prepared to be useful as model input",
+              "Features can never come directly from raw data",
+              "A feature must always be a completely new column"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Raw data is what you start with, while a feature is any column (whether it's raw or derived) chosen and shaped specifically because it's expected to help predict the target.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ds_encoding",
+      "title": "Encoding Categorical Data",
+      "description": "Learn how to turn category labels into numbers a model can actually use.",
+      "duration": "9 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can apply one-hot encoding and label encoding, and explain when each is appropriate."
+          },
+          {
+            "title": "🔤 Why categories need encoding",
+            "content": "Most models expect numeric input, but many useful columns are categories — \"city\", \"product type\", \"payment method.\" **Encoding** converts these labels into numbers without inventing a false sense of order or magnitude."
+          },
+          {
+            "title": "🎛️ One-hot encoding",
+            "content": "**One-hot encoding** creates a separate True/False (0/1) column for each category. This avoids implying any order between categories.\n\n```python\nimport pandas as pd\n\ndf = pd.DataFrame({\"city\": [\"Lahore\", \"Karachi\", \"Lahore\"]})\n\nencoded = pd.get_dummies(df, columns=[\"city\"])\nprint(encoded)\n#    city_Karachi  city_Lahore\n# 0             0            1\n# 1             1            0\n# 2             0            1\n```\n\nBest for categories with no natural order (city, color, payment method) and a manageable number of unique values."
+          },
+          {
+            "title": "🔢 Label encoding",
+            "content": "**Label encoding** assigns each category a single integer (0, 1, 2, ...). It's compact, but it accidentally implies an order — which is fine for genuinely ordered categories (like \"low\", \"medium\", \"high\") and misleading otherwise.\n\n```python\nsize_order = {\"small\": 0, \"medium\": 1, \"large\": 2}\ndf[\"size_encoded\"] = df[\"size\"].map(size_order)\n```\n\n• Use label encoding for **ordinal** data (has a genuine ranking)\n• Use one-hot encoding for **nominal** data (no natural order)"
+          },
+          {
+            "title": "⚠️ When category counts get large",
+            "content": "One-hot encoding a column with hundreds of unique categories (like \"product ID\") creates hundreds of new columns — often impractical. Common alternatives: group rare categories into an \"other\" bucket first, or use more advanced techniques like target encoding (beyond this lesson's scope)."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Label-encoding a non-ordinal category.** Turning \"city\" into 0, 1, 2 implies Karachi (1) is somehow \"between\" Lahore (0) and a third city (2) — which is meaningless and can confuse a model.\n\n**One-hot encoding a very high-cardinality column without a plan.** Hundreds of near-empty columns rarely help and can slow things down significantly.\n\n**Encoding before splitting into train/test data.** Fitting an encoder should generally happen only on training data to avoid leaking information from the test set."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ds_encoding_quiz",
+        "questions": [
+          {
+            "question": "When is one-hot encoding preferred over label encoding?",
+            "options": [
+              "When the category has a genuine natural order",
+              "When the category has no natural order, like city or payment method",
+              "Only for numeric columns",
+              "Never — label encoding is always better"
+            ],
+            "correctAnswer": 1,
+            "explanation": "One-hot encoding avoids implying a false ranking, making it the right choice for nominal categories that don't have a meaningful order.",
+            "id": "q1"
+          },
+          {
+            "question": "Why is label encoding appropriate for a \"size\" column with values small/medium/large?",
+            "options": [
+              "It isn't — one-hot encoding should always be used instead",
+              "Because these categories have a genuine order, so representing them as 0, 1, 2 preserves meaningful information",
+              "Because label encoding is faster to type",
+              "Because size can only have 3 values"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Small/medium/large has a real ranking, so mapping it to increasing integers (0, 1, 2) accurately reflects that order — unlike encoding a non-ordinal category the same way.",
+            "id": "q2"
+          },
+          {
+            "question": "What problem can arise from one-hot encoding a column with hundreds of unique values?",
+            "options": [
+              "It's not technically possible",
+              "It creates hundreds of new columns, which can be impractical and add little useful signal",
+              "It automatically deletes the original column",
+              "It always improves model performance"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Very high-cardinality columns blow up into a huge number of mostly-empty one-hot columns — often not helpful, and better handled by grouping rare categories or other techniques.",
+            "id": "q3"
+          },
+          {
+            "question": "What does one-hot encoding actually produce for a categorical column with 3 categories?",
+            "options": [
+              "A single new numeric column with values 0, 1, or 2",
+              "Three new binary (0/1) columns, one per category, each indicating presence or absence",
+              "It deletes the original column with no replacement",
+              "A single column of text labels, unchanged"
+            ],
+            "correctAnswer": 1,
+            "explanation": "One-hot encoding creates a separate binary column for each category, marking a 1 where that row belongs to that category and 0 otherwise.",
+            "id": "q4"
+          },
+          {
+            "question": "What is the 'dummy variable trap', and how is it commonly avoided?",
+            "options": [
+              "It doesn't exist in practice",
+              "One-hot encoded columns can be perfectly predicted from each other, causing redundancy — commonly avoided by dropping one of the encoded columns (drop_first)",
+              "It only affects numeric columns",
+              "It's avoided by encoding every category as the same number"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since knowing all-but-one of the one-hot columns tells you the value of the last one, one column is often dropped (drop_first=True) to remove this redundancy.",
+            "id": "q5"
+          },
+          {
+            "question": "Why do categorical columns need encoding at all before being used in most ML models?",
+            "options": [
+              "Models actually prefer raw text over numbers",
+              "Most machine learning algorithms require numeric input and can't directly process text labels",
+              "Encoding is purely a stylistic preference with no functional need",
+              "Only image models require encoding"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Most ML algorithms are built around numeric computation, so text categories must be converted into some numeric representation before they can be used.",
+            "id": "q6"
+          },
+          {
+            "question": "What's the pitfall of using label encoding (0, 1, 2, ...) on a genuinely non-ordinal category like 'city'?",
+            "options": [
+              "There's no pitfall — label encoding always works fine",
+              "It implies a false numeric order or distance between categories that don't actually have one, which can mislead the model",
+              "Label encoding is technically impossible for non-ordinal data",
+              "It automatically converts to one-hot encoding instead"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Assigning arbitrary numbers to unordered categories can make a model incorrectly infer that, say, city 2 is 'between' city 1 and city 3 in some meaningful way.",
+            "id": "q7"
+          },
+          {
+            "question": "What's an alternative to one-hot encoding for a high-cardinality categorical column?",
+            "options": [
+              "There is no alternative — one-hot encoding must always be used",
+              "Target encoding or frequency encoding, which represent each category with a single informative number instead of many binary columns",
+              "Deleting the column is the only option",
+              "Converting the column to a date type"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Target or frequency encoding compresses a high-cardinality category into a single numeric column based on its relationship to the target or how often it appears, avoiding a huge one-hot explosion.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ds_scaling",
+      "title": "Scaling and Normalization",
+      "description": "Learn why putting numeric columns on a similar scale matters, and the two most common ways to do it.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain why scaling matters and apply standardization and min-max scaling to numeric data."
+          },
+          {
+            "title": "📏 Why scale matters",
+            "content": "Imagine a dataset with \"age\" (roughly 0-100) and \"income\" (roughly 0-500,000). Many algorithms that rely on distance or gradients (like k-nearest neighbors, linear regression with gradient descent, or neural networks) will let the income column dominate simply because its numbers are bigger — not because it's actually more important.\n\nScaling puts numeric columns on a comparable footing so no feature dominates purely due to its units."
+          },
+          {
+            "title": "📐 Standardization (z-score scaling)",
+            "content": "**Standardization** rescales a column to have mean 0 and standard deviation 1.\n\n```python\nfrom sklearn.preprocessing import StandardScaler\nimport pandas as pd\n\ndf = pd.DataFrame({\"income\": [30000, 60000, 90000]})\n\nscaler = StandardScaler()\ndf[\"income_scaled\"] = scaler.fit_transform(df[[\"income\"]])\n```\n\nStandardization works well when the data is roughly bell-shaped and doesn't have a strict bounded range."
+          },
+          {
+            "title": "📊 Min-max scaling",
+            "content": "**Min-max scaling** rescales a column to a fixed range, usually [0, 1].\n\n```python\nfrom sklearn.preprocessing import MinMaxScaler\n\nscaler = MinMaxScaler()\ndf[\"income_scaled\"] = scaler.fit_transform(df[[\"income\"]])\n# smallest value → 0.0, largest value → 1.0\n```\n\nUseful when you want a bounded, interpretable range — but it's more sensitive to outliers, since a single extreme value stretches the whole scale."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Forgetting to scale before distance-based algorithms.** k-nearest neighbors and similar methods can be silently dominated by whichever column happens to have the largest raw numbers.\n\n**Fitting the scaler on the full dataset instead of just the training data.** Like with encoding, fit scalers only on training data, then apply that same fitted scaler to test data — otherwise information from the test set leaks into training.\n\n**Scaling a column that's already meaningfully bounded, like a probability.** Not every numeric column needs scaling — think about what the transformation actually buys you."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ds_scaling_quiz",
+        "questions": [
+          {
+            "question": "Why does scaling matter for algorithms based on distance or gradients?",
+            "options": [
+              "It doesn't matter — all algorithms are scale-invariant",
+              "A column with naturally larger numbers can dominate the result simply due to its scale, not its actual importance",
+              "Scaling always improves accuracy by a fixed amount",
+              "It's required by Python syntax"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Distance and gradient-based methods can be misled by raw magnitude — a column like income (tens of thousands) can swamp a column like age (tens) even if age matters just as much or more.",
+            "id": "q1"
+          },
+          {
+            "question": "What does standardization (z-score scaling) do to a column?",
+            "options": [
+              "Rescales it to exactly the range [0, 1]",
+              "Rescales it to have a mean of 0 and a standard deviation of 1",
+              "Removes all outliers from the column",
+              "Converts it to a categorical type"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Standardization centers the data around 0 and scales it so one unit equals one standard deviation — it doesn't bound the values to a fixed range like min-max scaling does.",
+            "id": "q2"
+          },
+          {
+            "question": "Why should a scaler be fit only on training data, not the full dataset?",
+            "options": [
+              "Fitting on all data is technically impossible",
+              "Fitting on test data as well leaks information from the test set into the training process, which can make evaluation misleading",
+              "It has no effect either way",
+              "Scalers can only be fit once per project"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The whole point of a test set is to simulate unseen data — if the scaler \"sees\" test data statistics during fitting, that's a subtle form of data leakage that can make evaluation look better than it truly is.",
+            "id": "q3"
+          },
+          {
+            "question": "What range does min-max scaling typically rescale a column to?",
+            "options": [
+              "[-1, 1]",
+              "[0, 1]",
+              "[0, 100]",
+              "It has no fixed range"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Min-max scaling linearly rescales values so the minimum becomes 0 and the maximum becomes 1, with everything else proportionally in between.",
+            "id": "q4"
+          },
+          {
+            "question": "For which type of model is scaling generally unnecessary?",
+            "options": [
+              "Distance-based models like k-nearest neighbors",
+              "Tree-based models like decision trees or random forests, since they split on thresholds rather than distances",
+              "Any model that uses gradients",
+              "Models that compute dot products"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Tree-based models make decisions by comparing a feature to a threshold, which isn't affected by the feature's overall scale, unlike distance- or gradient-based methods.",
+            "id": "q5"
+          },
+          {
+            "question": "Why might robust scaling be preferred over standard z-score scaling for data with outliers?",
+            "options": [
+              "Robust scaling ignores outliers entirely, using the median and IQR instead of the mean and standard deviation, which outliers distort less",
+              "Robust scaling is identical to standard scaling",
+              "Robust scaling always produces a [0, 1] range",
+              "There's no meaningful difference between the two"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Robust scaling centers and scales data using the median and interquartile range rather than the mean and standard deviation, which are more sensitive to extreme outlier values.",
+            "id": "q6"
+          },
+          {
+            "question": "How should a fitted scaler be applied to the test set?",
+            "options": [
+              "Fit a brand-new scaler on the test data separately",
+              "Use `.transform()` (not `.fit()`) with the scaler that was already fit on the training data",
+              "Scaling the test set is unnecessary",
+              "Apply min-max scaling to train and standardization to test"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The same scaler fit on training data should just transform the test data, ensuring both sets are scaled using consistent training-derived parameters and avoiding leakage.",
+            "id": "q7"
+          },
+          {
+            "question": "Do one-hot encoded categorical columns typically need to be scaled as well?",
+            "options": [
+              "Yes, always, exactly like numeric columns",
+              "Generally not — since they're already 0s and 1s, scaling adds little benefit and is usually skipped",
+              "Only if the original category had more than 10 values",
+              "Scaling is required or the model will fail to run"
+            ],
+            "correctAnswer": 1,
+            "explanation": "One-hot encoded columns already sit in the 0-1 range, so there's typically little reason to scale them the way you would a raw numeric column with a wide range.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ds_feature_selection",
+      "title": "Feature Selection Basics",
+      "description": "Learn why more features isn't always better, and simple ways to trim down to the ones that matter.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain why feature selection matters and describe a few simple ways to identify unhelpful features."
+          },
+          {
+            "title": "📦 Why not just keep every feature?",
+            "content": "It's tempting to throw every possible column at a model and let it \"figure out\" what matters. In practice, too many irrelevant or redundant features can:\n\n• Add noise that makes patterns harder to find\n• Slow down training significantly\n• Increase the risk of overfitting — the model memorizes quirks of the training data instead of learning general patterns\n\n**Feature selection** means deliberately keeping the features that actually help and dropping the ones that don't."
+          },
+          {
+            "title": "🔗 Spotting redundant features with correlation",
+            "content": "If two features are extremely highly correlated with each other, they're often carrying mostly the same information — keeping both adds little value.\n\n```python\nimport pandas as pd\n\ndf = pd.DataFrame({\n    \"height_cm\": [160, 170, 180],\n    \"height_in\": [63, 67, 71],\n    \"age\": [25, 31, 42],\n})\n\nprint(df.corr())\n# height_cm and height_in will show correlation ≈ 1.0 — redundant\n```"
+          },
+          {
+            "title": "🎯 Checking correlation with the target",
+            "content": "For a column you're trying to predict (the \"target\"), it's worth checking whether each candidate feature is related to it at all.\n\n```python\ntarget_corr = df.corrwith(df[\"target\"])\nprint(target_corr.sort_values(ascending=False))\n```\n\nA feature with almost zero correlation to the target *might* still matter (correlation only captures linear relationships), but it's a useful first-pass filter to flag candidates worth a closer look."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Fitting feature selection on the full dataset, including test data.** Just like scaling and encoding, feature selection should be done using only training data to avoid leaking test information.\n\n**Dropping a feature just because it has low correlation with the target.** Correlation only captures linear relationships — a feature can still be genuinely useful in a non-linear way.\n\n**Assuming more features always means a better model.** Past a certain point, extra irrelevant features tend to hurt more than help."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ds_feature_selection_quiz",
+        "questions": [
+          {
+            "question": "What's a downside of including too many irrelevant features in a model?",
+            "options": [
+              "The model will refuse to train",
+              "It can add noise, slow down training, and increase the risk of overfitting",
+              "It always improves accuracy",
+              "There is no real downside"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Extra irrelevant or redundant features can drown out genuinely useful signal, slow down computation, and make the model more prone to memorizing noise rather than learning general patterns.",
+            "id": "q1"
+          },
+          {
+            "question": "If two features have a correlation of about 1.0 with each other, what does that suggest?",
+            "options": [
+              "They are unrelated",
+              "They likely carry mostly the same information, making one somewhat redundant",
+              "One of them must be deleted from the dataset entirely",
+              "The data has an error"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A correlation near 1.0 between two features means they move together almost perfectly — keeping both usually adds little new information beyond keeping just one.",
+            "id": "q2"
+          },
+          {
+            "question": "Why shouldn't you drop a feature just because it has low linear correlation with the target?",
+            "options": [
+              "Low correlation always means the feature is useless",
+              "Correlation only measures linear relationships — a feature could still be useful in a non-linear way",
+              "Correlation can't be computed for numeric features",
+              "Feature selection should never drop any features"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Correlation coefficients specifically capture linear relationships — a feature could have a strong non-linear relationship with the target that a simple correlation check wouldn't detect.",
+            "id": "q3"
+          },
+          {
+            "question": "How can tree-based models help with feature selection?",
+            "options": [
+              "They can't provide any information relevant to feature selection",
+              "They can report feature importance scores, showing which features contributed most to the model's decisions",
+              "They automatically delete unimportant features from the dataset",
+              "They only work with pre-selected features"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Tree-based models like random forests naturally produce feature importance scores as a byproduct of training, which can guide which features to keep or drop.",
+            "id": "q4"
+          },
+          {
+            "question": "Why does domain knowledge complement statistical feature selection methods?",
+            "options": [
+              "Domain knowledge is irrelevant once statistics are involved",
+              "A feature might be statistically weak in the current data but known from experience to matter in situations the dataset doesn't fully capture",
+              "Statistical methods are always sufficient on their own",
+              "Domain knowledge only matters for choosing chart colors"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Purely statistical measures can miss features that matter for reasons the current dataset doesn't reveal, which domain expertise can catch.",
+            "id": "q5"
+          },
+          {
+            "question": "Why would you remove a constant or near-zero-variance feature before modeling?",
+            "options": [
+              "Because it always improves accuracy dramatically",
+              "Because a feature that barely varies across rows carries little to no information to help distinguish outcomes",
+              "Because pandas can't process constant columns",
+              "Because it's required by every ML library"
+            ],
+            "correctAnswer": 1,
+            "explanation": "If a feature has (nearly) the same value in every row, it can't help a model distinguish between different outcomes, so it adds little value while still adding noise and complexity.",
+            "id": "q6"
+          },
+          {
+            "question": "What's the purpose of examining a full correlation matrix early in feature selection?",
+            "options": [
+              "To calculate the final model's accuracy",
+              "To get a quick overview of which feature pairs are strongly related, hinting at possible redundancy",
+              "To automatically remove all correlated features without review",
+              "Correlation matrices only apply to categorical data"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A correlation matrix offers a fast, broad view across many feature pairs at once, flagging candidates worth a closer look for redundancy.",
+            "id": "q7"
+          },
+          {
+            "question": "What's the tradeoff of including more and more features in a model?",
+            "options": [
+              "There is no tradeoff — more features are strictly better",
+              "More features can add predictive signal but also add noise, training cost, overfitting risk, and reduced interpretability",
+              "More features always guarantee simpler, more interpretable models",
+              "Adding features never affects overfitting risk"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Each added feature is a balance — potential extra signal against added noise, slower training, higher overfitting risk, and a harder-to-interpret model.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

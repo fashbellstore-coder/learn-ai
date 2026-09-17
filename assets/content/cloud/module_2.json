@@ -1,0 +1,559 @@
+{
+  "id": "cld_kubernetes",
+  "title": "Kubernetes Fundamentals",
+  "description": "The core building blocks of Kubernetes — pods, Deployments, and Services — plus how configuration and secrets are externalized, how storage outlives ephemeral containers, how self-healing and autoscaling keep workloads running, and how Helm packages all of it for reuse across environments.",
+  "icon": "☸️",
+  "color": "#37474F",
+  "order": 2,
+  "estimatedHours": 4,
+  "difficulty": "intermediate",
+  "prerequisites": [
+    "cld_docker"
+  ],
+  "lessons": [
+    {
+      "id": "cld_pods_deployments_and_services",
+      "title": "Pods, Deployments, and Services",
+      "description": "The three core Kubernetes building blocks: the pod as the smallest deployable unit, the Deployment that declares and reconciles desired state, and the Service that gives a stable way to reach a constantly changing set of pods.",
+      "duration": 13,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson you should be able to explain what a **pod** is and why it's the smallest deployable unit in Kubernetes rather than a container, describe how a **Deployment** keeps a declared number of pod replicas running, and explain how a **Service** gives a stable network identity to a set of pods that are constantly being created and destroyed.\n"
+          },
+          {
+            "title": "🫘 Pods: the smallest deployable unit",
+            "content": "A **pod** is the smallest thing Kubernetes schedules and runs — not a container. A pod wraps one or more containers that:\n\n- Share the same network namespace (same IP address, same port space)\n- Can share storage volumes\n- Are always scheduled together on the same node\n- Live and die together\n\nMost pods run exactly one container. The multi-container case is for tightly coupled helpers — a **sidecar** that ships logs, or a proxy that handles TLS for the main container — not for grouping unrelated services. If two containers don't need to share a network namespace and a lifecycle, they belong in separate pods.\n\nPods are **ephemeral and disposable**. Kubernetes does not try to keep a specific pod alive forever — if a pod dies, it is gone, and a new pod with a new identity and a new IP address takes its place. You almost never create bare pods directly in production; you create a Deployment, and the Deployment creates and manages pods for you.\n"
+          },
+          {
+            "title": "📈 Deployments: declaring the desired state",
+            "content": "A **Deployment** is a declaration of *desired state*: \"I want 3 replicas of this pod template running, always.\" You don't tell Kubernetes how to get there — you describe the end state and a **controller** continuously reconciles the actual state toward it.\n\nIf a pod crashes, the Deployment's controller notices the replica count has dropped below 3 and creates a replacement. If a node dies taking two pods with it, the controller reschedules them elsewhere. If you edit the Deployment to ask for 5 replicas instead of 3, the controller creates 2 more. This reconciliation loop runs continuously, not just at creation time — it's what makes Kubernetes **self-healing**.\n\nA Deployment also manages **rollouts**. When you update the pod template (a new container image, typically), the Deployment replaces old pods with new ones gradually, by default keeping the service available throughout — this is a **rolling update**. If the new version is broken, you can roll back to the previous Deployment revision.\n"
+          },
+          {
+            "title": "🌐 Services: a stable way to reach a set of pods",
+            "content": "Pods are disposable and get new IP addresses every time they're recreated, which is a problem: how does anything reliably talk to \"the pods running my API\" when those pods' addresses keep changing?\n\nA **Service** solves this by giving a stable virtual IP address and DNS name to a *set* of pods, selected by matching labels (for example, all pods labeled `app: api`). Traffic sent to the Service is load-balanced across whichever pods currently match the label selector — Kubernetes keeps this mapping updated automatically as pods come and go.\n\nThe common Service types are:\n\n- **ClusterIP** (default): reachable only from inside the cluster — for internal service-to-service traffic\n- **NodePort**: also exposes the Service on a static port on every node — a basic way to reach it from outside\n- **LoadBalancer**: asks the cloud provider to provision an external load balancer pointing at the Service\n\nBecause Deployments and Services are decoupled — a Service just watches for pods matching a label — you can roll out entirely new pods under a Deployment and client traffic keeps flowing to \"the current set of healthy pods\" without any reconfiguration.\n"
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "Here's a simplified simulation of a Deployment's reconciliation loop and a Service routing to whatever pods currently match its label selector:\n\n```python\nclass Pod:\n    _next_id = 1\n\n    def __init__(self, labels):\n        self.id = f\"pod-{Pod._next_id}\"\n        Pod._next_id += 1\n        self.labels = labels\n        self.healthy = True\n\nclass Deployment:\n    def __init__(self, desired_replicas, labels):\n        self.desired_replicas = desired_replicas\n        self.labels = labels\n        self.pods = [Pod(labels) for _ in range(desired_replicas)]\n\n    def reconcile(self):\n        # drop unhealthy pods, then top back up to the desired count\n        self.pods = [p for p in self.pods if p.healthy]\n        while len(self.pods) < self.desired_replicas:\n            self.pods.append(Pod(self.labels))\n        return [p.id for p in self.pods]\n\nclass Service:\n    def __init__(self, selector_labels):\n        self.selector_labels = selector_labels\n\n    def route(self, all_pods):\n        # a Service always targets whatever pods currently match its selector\n        return [p.id for p in all_pods if p.labels == self.selector_labels]\n\napi_labels = {\"app\": \"api\"}\ndeployment = Deployment(desired_replicas=3, labels=api_labels)\nservice = Service(selector_labels=api_labels)\n\nprint(\"initial pods:\", [p.id for p in deployment.pods])\nprint(\"service routes to:\", service.route(deployment.pods))\n\n# a node failure kills pod-2\nfor p in deployment.pods:\n    if p.id == \"pod-2\":\n        p.healthy = False\n\nsurviving = deployment.reconcile()\nprint(\"after reconcile:\", surviving)  # pod-2 replaced by pod-4, count back to 3\nprint(\"service routes to:\", service.route(deployment.pods))  # follows automatically\n```\n\nThe Service never had to be told a pod died. `reconcile()` keeps the pod count at the declared desired state, and `route()` recomputes its target list by matching labels every time — the same pattern real Kubernetes uses. If `pod-2` is removed and `pod-4` is created with the same `api_labels`, the Service's route immediately includes `pod-4` and excludes `pod-2` with zero manual reconfiguration.\n"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Creating bare pods instead of a Deployment.** A bare pod has no controller watching it — if it dies, nothing recreates it, and you lose self-healing and rolling updates entirely. Deployments should be the default; bare pods are for debugging or one-off jobs only.\n\n**Forgetting that a Service selects by label, not by name.** If you rename or relabel pods without updating the Service's selector (or vice versa), the Service silently stops routing to anything, or starts routing to the wrong pods — with no error, just traffic going nowhere or somewhere unintended.\n\n**Treating a pod's IP address as stable.** Code or configuration that hardcodes a pod's IP will break the moment that pod is recreated. Always address pods through a Service's stable DNS name, never through an individual pod's address.\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "cld_pods_deployments_and_services_quiz",
+        "questions": [
+          {
+            "question": "According to the lesson, why is a pod — not a container — the smallest deployable unit in Kubernetes?",
+            "options": [
+              "Because containers cannot run without a pod wrapping them under any circumstances",
+              "Because a pod groups one or more containers that share a network namespace, can share storage, and are always scheduled and lifecycle-managed together",
+              "Because Kubernetes only supports a single container runtime, so pods exist purely for naming purposes",
+              "Because pods are a deprecated concept being replaced by containers directly"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson explains a pod wraps containers that share network namespace and storage and are scheduled and destroyed together — that shared unit, not the individual container, is what Kubernetes schedules.",
+            "id": "q1"
+          },
+          {
+            "question": "Per the \"📈 Deployments\" section, what does a Deployment actually declare?",
+            "options": [
+              "The exact sequence of shell commands to run to create pods",
+              "A desired state — such as \"3 replicas of this pod template running\" — that a controller continuously reconciles the actual state toward",
+              "A one-time snapshot of pods that Kubernetes creates once and never touches again",
+              "A list of specific node hostnames pods must run on"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson is explicit: you describe desired state and a controller reconciles actual state toward it continuously — that reconciliation loop is what makes Deployments self-healing.",
+            "id": "q2"
+          },
+          {
+            "question": "In the code example, what does `Service.route()` actually do?",
+            "options": [
+              "It stores a fixed list of pod IDs when the Service is created and never updates it",
+              "It recomputes the list of matching pod IDs by filtering whatever pods are passed in against the Service's stored label selector",
+              "It deletes any pod that doesn't match its selector",
+              "It creates new pods directly, bypassing the Deployment"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`route()` filters `all_pods` by `p.labels == self.selector_labels` every call — it doesn't cache a pod list, so it always reflects whichever pods currently match at call time.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, after `pod-2` is marked unhealthy and `reconcile()` runs, what happens to the pod count and why?",
+            "options": [
+              "It stays at 2 permanently because Kubernetes doesn't replace failed pods automatically",
+              "It drops to 2 and stays there until a human manually creates a new pod",
+              "`reconcile()` filters out the unhealthy pod and then creates new pods until the count is back to `desired_replicas` (3), so a new pod (e.g. `pod-4`) is added",
+              "It grows unbounded because `reconcile()` keeps appending pods every time it's called"
+            ],
+            "correctAnswer": 2,
+            "explanation": "`reconcile()` first drops unhealthy pods (removing `pod-2`), then loops `while len(self.pods) < self.desired_replicas` — with `desired_replicas=3` and 2 pods left, it adds exactly one new pod, bringing the count back to 3.",
+            "id": "q4"
+          },
+          {
+            "question": "In the code example, after reconciliation replaces `pod-2` with a new pod, does `service.route(deployment.pods)` need to be told about the change?",
+            "options": [
+              "Yes, `Service` must be manually updated with the new pod ID list",
+              "No — because `route()` matches on `self.labels` (shared by every pod the Deployment creates), the new pod is included automatically the next time `route()` is called",
+              "No, but only because the new pod happens to reuse `pod-2`'s exact ID",
+              "Yes, a new `Service` object must be constructed after every reconciliation"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Every pod the Deployment creates — including the replacement — is constructed with the same `api_labels`, so `route()`'s label-matching filter picks it up automatically with no manual update.",
+            "id": "q5"
+          },
+          {
+            "question": "Which Service type is the default, and where is it reachable from?",
+            "options": [
+              "LoadBalancer; reachable from the public internet by default",
+              "NodePort; reachable only from a single specific node",
+              "ClusterIP; reachable only from inside the cluster",
+              "ExternalName; reachable only from the cloud provider's control plane"
+            ],
+            "correctAnswer": 2,
+            "explanation": "The lesson lists ClusterIP as the default, and it's scoped to internal, in-cluster traffic — NodePort and LoadBalancer are the options for exposing a Service externally.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does the lesson warn against creating bare pods directly instead of using a Deployment?",
+            "options": [
+              "Because bare pods use more CPU than pods created by a Deployment",
+              "Because a bare pod has no controller watching it, so if it dies nothing recreates it — losing both self-healing and rolling updates",
+              "Because Kubernetes technically forbids bare pods from being created at all",
+              "Because bare pods cannot be given labels"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The common mistakes section is explicit that a bare pod has no controller, so its death is permanent until a human intervenes — Deployments should be the default precisely to avoid this.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does the lesson warn against hardcoding a pod's IP address in code or configuration?",
+            "options": [
+              "Because pod IP addresses are encrypted and cannot be read by application code",
+              "Because a pod's IP is not stable — the pod can be recreated at any time with a new IP, so code should address pods through a Service's stable DNS name instead",
+              "Because IP addresses are more expensive to route than DNS names",
+              "Because Kubernetes pods do not have IP addresses"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson explicitly warns that pod IPs are not stable across recreation, and the fix is to always go through a Service's stable identity rather than an individual pod's address.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "cld_configmaps_secrets_and_volumes",
+      "title": "ConfigMaps, Secrets, and Volumes",
+      "description": "How Kubernetes separates configuration from images with ConfigMaps, handles sensitive values with the structurally similar but access-controlled Secrets, and gives pods storage — from ephemeral scratch space to durable PersistentVolumes — that can outlive a container or even the pod itself.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson you should be able to explain why configuration is kept out of a container image using **ConfigMaps**, why sensitive values get the separate **Secrets** mechanism instead, and how **Volumes** give pods storage that survives beyond a single container's lifetime.\n"
+          },
+          {
+            "title": "⚙️ ConfigMaps: externalized, non-sensitive configuration",
+            "content": "A **ConfigMap** holds configuration data — feature flags, URLs, non-sensitive settings — as key-value pairs, kept separate from the container image. This separation matters because it means the *same* image can run in staging with one configuration and in production with another, without rebuilding anything. You mount a ConfigMap into a pod either as environment variables or as files in the container's filesystem.\n\nBecause a ConfigMap is a Kubernetes object independent of any specific pod, updating it can push new configuration to every pod that references it (behavior depends on how it's mounted) without a new image build or a full redeploy.\n"
+          },
+          {
+            "title": "🔐 Secrets: the sensitive counterpart",
+            "content": "A **Secret** is structurally almost identical to a ConfigMap — same key-value shape, same mounting mechanisms — but it exists as a separate object type because sensitive data (API keys, database passwords, TLS certificates) needs different handling: tighter access control (RBAC can restrict who can read Secrets specifically), and storage that a cluster can be configured to encrypt at rest.\n\nBy default, Kubernetes Secrets are only base64-**encoded**, not encrypted — encoding is not confidentiality, it's just a text-safe representation. Real protection requires enabling encryption-at-rest at the cluster level and restricting who can `get` Secret objects via RBAC. Treating the Secret/ConfigMap split as \"automatically secure\" is a common and dangerous misunderstanding.\n"
+          },
+          {
+            "title": "💾 Volumes: storage that outlives a single pod",
+            "content": "By default, anything a container writes to its own filesystem disappears when the container restarts — container filesystems are ephemeral. A **Volume** is storage attached to a pod that can outlive individual container restarts within that pod, and — depending on the volume type — can outlive the pod itself.\n\nCommon volume types include `emptyDir` (scratch space tied to the pod's lifetime, wiped when the pod is deleted), `configMap`/`secret` volumes (mounting configuration or secret data as files), and **PersistentVolumes** backed by real durable storage (a cloud disk, a network filesystem) that survives even after the pod is deleted. Choosing the right volume type is choosing how long you need the data to live.\n"
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "Here's a simplified simulation showing a ConfigMap update reaching a running pod, contrasted with an `emptyDir` volume being wiped when the pod is deleted:\n\n```python\nclass ConfigMap:\n    def __init__(self, data):\n        self.data = dict(data)\n\nclass Pod:\n    def __init__(self, config_map, use_empty_dir=True):\n        self.config_map = config_map  # reference, not a copy\n        self.empty_dir = {} if use_empty_dir else None\n\n    def read_config(self, key):\n        return self.config_map.data.get(key)\n\n    def write_scratch(self, key, value):\n        self.empty_dir[key] = value\n\n    def delete(self):\n        self.empty_dir = None  # emptyDir is wiped when the pod is deleted\n\napp_config = ConfigMap({\"log_level\": \"info\", \"max_connections\": \"100\"})\npod = Pod(app_config)\n\nprint(\"log_level before update:\", pod.read_config(\"log_level\"))\napp_config.data[\"log_level\"] = \"debug\"  # update the ConfigMap object itself\nprint(\"log_level after update:\", pod.read_config(\"log_level\"))  # picks it up, same reference\n\npod.write_scratch(\"temp_cache_key\", \"abc123\")\nprint(\"scratch before delete:\", pod.empty_dir)\npod.delete()\nprint(\"scratch after delete:\", pod.empty_dir)  # gone\n```\n\nBecause `pod.config_map` holds a reference to the same `ConfigMap` object rather than a copy, updating `app_config.data` is visible through `pod.read_config()` immediately — `\"debug\"`, not `\"info\"`. The `emptyDir` scratch space behaves the opposite way: it holds `{\"temp_cache_key\": \"abc123\"}` right up until `pod.delete()` runs, at which point it becomes `None` — nothing persists it anywhere.\n"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming Secrets are encrypted just because they're not ConfigMaps.** By default, Secrets are only base64-encoded, which anyone with read access can trivially decode. Real confidentiality requires enabling encryption-at-rest and locking down RBAC — the Secret/ConfigMap split alone provides organization, not protection.\n\n**Putting data that must survive pod deletion into an `emptyDir` volume.** `emptyDir` is scoped to the pod's lifetime — the moment the pod is deleted, that data is gone. Anything that needs to outlive the pod belongs on a PersistentVolume.\n\n**Baking environment-specific configuration into the container image.** This forces a rebuild for every environment change and defeats the entire purpose of ConfigMaps — configuration should be injected at runtime, not compiled into the image.\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "cld_configmaps_secrets_and_volumes_quiz",
+        "questions": [
+          {
+            "question": "According to the lesson, why does externalizing configuration into a ConfigMap matter?",
+            "options": [
+              "It makes containers start up faster",
+              "The same container image can run in different environments with different configuration, without rebuilding the image",
+              "It automatically encrypts all configuration values",
+              "It removes the need for environment variables entirely"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson's core point about ConfigMaps is that separating config from the image lets one image run in staging vs. production with different settings, with no rebuild required.",
+            "id": "q1"
+          },
+          {
+            "question": "Per the \"🔐 Secrets\" section, what is a Secret's default level of protection?",
+            "options": [
+              "Fully encrypted at rest and in transit automatically, with no configuration needed",
+              "Only base64-encoded by default — not encrypted — so real protection needs encryption-at-rest plus RBAC restrictions",
+              "Identical to a ConfigMap in every respect, including access control",
+              "Stored only in memory and never written to disk under any configuration"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson is explicit that default Secrets are base64-encoded, not encrypted, and that real protection requires explicitly enabling cluster-level encryption-at-rest and restricting access via RBAC.",
+            "id": "q2"
+          },
+          {
+            "question": "In the code example, why does `pod.read_config(\"log_level\")` return `\"debug\"` after `app_config.data[\"log_level\"] = \"debug\"` runs?",
+            "options": [
+              "Because `read_config` re-reads a file from disk",
+              "Because `pod.config_map` holds a reference to the same `ConfigMap` object, so mutating `app_config.data` is visible immediately through that shared reference",
+              "Because Pod automatically polls the ConfigMap every second",
+              "It doesn't — the value returned is still `\"info\"`"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`self.config_map = config_map` stores a reference, not a copy, so any mutation to `app_config.data` is visible the next time `read_config` reads `self.config_map.data`.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, what is `pod.empty_dir` after `pod.delete()` is called?",
+            "options": [
+              "`{\"temp_cache_key\": \"abc123\"}`, unchanged",
+              "An empty dict `{}`",
+              "`None`",
+              "It raises an exception"
+            ],
+            "correctAnswer": 2,
+            "explanation": "`delete()` explicitly sets `self.empty_dir = None`, modeling how `emptyDir` volumes are wiped when the pod they belong to is deleted.",
+            "id": "q4"
+          },
+          {
+            "question": "What does the code example demonstrate about the difference between the ConfigMap reference and the emptyDir volume?",
+            "options": [
+              "Both are wiped at the same time, on pod deletion",
+              "The ConfigMap reference reflects live updates from outside the pod, while the emptyDir volume's contents are scoped to (and destroyed with) the pod itself",
+              "The ConfigMap is scoped to the pod's lifetime, while emptyDir survives pod deletion",
+              "Neither is affected by pod deletion"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The ConfigMap update (`log_level`) shows up live because it's an external, shared object; the emptyDir scratch data disappears specifically because `pod.delete()` clears it — opposite lifetimes.",
+            "id": "q5"
+          },
+          {
+            "question": "Which volume type is described as surviving even after the pod itself is deleted?",
+            "options": [
+              "`emptyDir`",
+              "A `configMap` volume mounted as files",
+              "A PersistentVolume backed by durable storage such as a cloud disk or network filesystem",
+              "None — all volume types are deleted with the pod"
+            ],
+            "correctAnswer": 2,
+            "explanation": "The lesson distinguishes `emptyDir` (tied to pod lifetime) from PersistentVolumes, which are explicitly described as surviving even after the pod that used them is deleted.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does the lesson warn against assuming Secrets are automatically encrypted just because they're a separate object type from ConfigMaps?",
+            "options": [
+              "Because Secrets are actually less secure than ConfigMaps by design",
+              "Because base64 encoding — the default state of a Secret's data — is trivially reversible and provides no real confidentiality without additional cluster configuration",
+              "Because Secrets cannot be mounted into pods at all",
+              "Because ConfigMaps are always encrypted while Secrets never can be"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The common mistakes section calls out this exact misconception: base64 is an encoding, not encryption, and anyone with read access can trivially decode it without enabling encryption-at-rest and RBAC.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does the lesson recommend against baking environment-specific configuration into the container image?",
+            "options": [
+              "Because it makes the image too large to store",
+              "Because it forces a rebuild of the image for every environment-specific change, defeating the purpose of externalized configuration",
+              "Because Kubernetes refuses to run images with embedded configuration",
+              "Because it violates container registry naming rules"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The common mistakes section states this directly: baked-in config forces a rebuild per environment change and undermines the whole point of using ConfigMaps to inject config at runtime.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "cld_scaling_and_self_healing",
+      "title": "Scaling and Self-Healing",
+      "description": "How Kubernetes's reconciliation loop produces automatic self-healing, how Horizontal Pod Autoscaling adjusts replica counts based on metrics, and why the default CPU-based approach breaks down for GPU-bound AI/ML workloads specifically.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson you should be able to explain how Kubernetes self-healing recovers from pod and node failures automatically, how **Horizontal Pod Autoscaling** adjusts replica counts based on load, and why autoscaling has specific limits that matter for AI/ML workloads in particular.\n"
+          },
+          {
+            "title": "💊 Self-healing in practice",
+            "content": "Self-healing isn't a separate feature you turn on — it falls directly out of the reconciliation loop described earlier: a Deployment continuously compares actual pod count against desired replica count and creates replacements whenever they diverge. This covers several failure modes automatically:\n\n- A container crashes → the kubelet on that node restarts it\n- A pod fails **readiness/liveness probes** repeatedly → it's killed and replaced\n- An entire node goes offline → its pods are rescheduled onto healthy nodes\n\nNone of this requires a human to notice and intervene — the cluster is continuously working to close the gap between what's declared and what's actually running.\n"
+          },
+          {
+            "title": "📈 Horizontal Pod Autoscaling",
+            "content": "**Horizontal Pod Autoscaling (HPA)** adjusts a Deployment's replica count automatically based on observed metrics — most commonly CPU utilization, but also memory or custom metrics like requests per second. You declare a target (\"keep average CPU utilization near 60%\") and a min/max replica range, and the HPA controller periodically checks current utilization and scales replicas up or down to move toward that target.\n\nThis is *horizontal* scaling — adding or removing replicas — as opposed to *vertical* scaling, which would mean giving an individual pod more CPU or memory. Horizontal scaling is generally preferred for stateless services because it also improves resilience: more replicas means more redundancy against any single pod or node failing.\n"
+          },
+          {
+            "title": "⚠️ Autoscaling's limits for AI workloads",
+            "content": "HPA's assumptions fit typical web services well, but AI/ML workloads break some of them:\n\n- **GPU scarcity**: scaling up a CPU-bound service just requests more of an abundant resource; scaling up a GPU-bound service may simply fail if no GPU capacity is available in the cluster or region\n- **Slow scale-up latency**: a new pod needing a large model loaded into GPU memory can take minutes to become ready, unlike a lightweight web server that's ready in seconds — by the time it's up, the load spike may have passed\n- **CPU utilization is a poor proxy for GPU workloads**: a pod running inference can have low CPU usage while its GPU is saturated, so default CPU-based HPA metrics can fail to trigger scaling when it's actually needed\n\nFor GPU-bound workloads, scaling decisions typically need custom metrics (GPU utilization, queue depth, request latency) rather than the default CPU metric, and scale-up needs to be triggered earlier to absorb the longer time-to-ready.\n"
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "Here's a simplified simulation contrasting HPA scaling a CPU-bound service against a GPU-bound service where CPU utilization stays misleadingly low:\n\n```python\ndef hpa_decide_replicas(current_replicas, current_utilization_pct, target_pct, max_replicas):\n    # simplified proportional scaling, matching the real HPA formula's shape\n    desired = current_replicas * (current_utilization_pct / target_pct)\n    desired = max(1, min(max_replicas, round(desired)))\n    return desired\n\n# CPU-bound web service: CPU usage tracks load directly\nweb_replicas = hpa_decide_replicas(\n    current_replicas=4, current_utilization_pct=90, target_pct=60, max_replicas=10\n)\nprint(\"web service scales to:\", web_replicas)  # scales up, CPU signal is meaningful\n\n# GPU-bound inference service: GPU is saturated but CPU usage is low\ngpu_cpu_utilization_pct = 20  # misleadingly low, even though the GPU is maxed out\ngpu_replicas_using_cpu_metric = hpa_decide_replicas(\n    current_replicas=4, current_utilization_pct=gpu_cpu_utilization_pct, target_pct=60, max_replicas=10\n)\nprint(\"GPU service scales to (CPU metric):\", gpu_replicas_using_cpu_metric)  # scales DOWN, wrongly\n\ngpu_utilization_pct = 95  # the metric that actually reflects load\ngpu_replicas_using_gpu_metric = hpa_decide_replicas(\n    current_replicas=4, current_utilization_pct=gpu_utilization_pct, target_pct=60, max_replicas=10\n)\nprint(\"GPU service scales to (GPU metric):\", gpu_replicas_using_gpu_metric)  # scales up, correctly\n```\n\nWith `current_replicas=4`, `current_utilization_pct=90`, `target_pct=60`: `desired = 4 * (90/60) = 6.0`, so the web service scales to **6**. Using the CPU metric for the GPU service: `4 * (20/60) = 1.33`, rounding to **1** — HPA would actually shrink the deployment while the GPU is maxed out, exactly backwards. Using the GPU metric instead: `4 * (95/60) = 6.33`, rounding to **6** — the scale-up decision the workload actually needs.\n"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Applying default CPU-based HPA to GPU-bound inference services unmodified.** As the code example shows, this can produce exactly the wrong scaling decision — shrinking a deployment whose GPUs are saturated, because CPU usage looks low. GPU-bound services need GPU or queue-depth metrics.\n\n**Not accounting for slow pod startup when setting scaling thresholds.** If a GPU inference pod takes several minutes to load a model and become ready, waiting until utilization is already critical to trigger scale-up means the new capacity arrives too late to help with that spike.\n\n**Assuming autoscaling can always add capacity.** Horizontal scaling for GPU workloads can hit a hard ceiling — the cluster or region simply may not have more GPU capacity available — unlike CPU/memory scaling, which is rarely capacity-constrained in the same way.\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "cld_scaling_and_self_healing_quiz",
+        "questions": [
+          {
+            "question": "Per the \"💊 Self-healing\" section, does Kubernetes self-healing require a separate feature to be enabled?",
+            "options": [
+              "Yes, it must be explicitly enabled per Deployment",
+              "No — it falls directly out of the reconciliation loop that already compares actual vs. desired pod count and creates replacements automatically",
+              "Yes, it requires a third-party controller to be installed",
+              "No, but it only works for stateless pods"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson states self-healing isn't a separate feature — it's a direct consequence of the same reconciliation loop covered in the pods/Deployments lesson.",
+            "id": "q1"
+          },
+          {
+            "question": "What is the difference between horizontal and vertical scaling, per the \"📈 Horizontal Pod Autoscaling\" section?",
+            "options": [
+              "Horizontal scaling adds/removes replicas; vertical scaling gives an individual pod more CPU or memory",
+              "Horizontal scaling only applies to databases; vertical scaling only applies to web servers",
+              "They are two names for the exact same mechanism",
+              "Horizontal scaling changes a pod's resource limits; vertical scaling changes replica count"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson defines horizontal scaling as adjusting replica count and contrasts it explicitly with vertical scaling, which means giving one pod more resources.",
+            "id": "q2"
+          },
+          {
+            "question": "In the code example, why does `gpu_replicas_using_cpu_metric` come out to 1 instead of scaling up?",
+            "options": [
+              "Because `hpa_decide_replicas` has a bug that always returns 1 for GPU workloads",
+              "Because CPU utilization for the GPU service is only 20%, well below the 60% target, so the proportional formula `4 * (20/60) ≈ 1.33` rounds down to 1 — even though the GPU itself is saturated",
+              "Because `max_replicas` was set to 1 for the GPU example",
+              "Because GPU services always scale to exactly 1 replica by convention"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`desired = current_replicas * (current_utilization_pct / target_pct) = 4 * (20/60) ≈ 1.33`, which `round()`s to 1 — the CPU metric misrepresents the GPU service's actual load.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, what replica count does the GPU service scale to when using the GPU utilization metric (95%) instead of CPU?",
+            "options": [
+              "1",
+              "4",
+              "6",
+              "10"
+            ],
+            "correctAnswer": 2,
+            "explanation": "`desired = 4 * (95/60) ≈ 6.33`, which rounds to 6 — matching the web service's scale-up decision and correctly reflecting that the GPU-bound workload actually needs more capacity.",
+            "id": "q4"
+          },
+          {
+            "question": "What does the code example demonstrate about using CPU utilization as the scaling metric for a GPU-bound service?",
+            "options": [
+              "It produces the same correct scaling decision as a GPU-based metric would",
+              "It can produce a scaling decision that's exactly backwards — shrinking replicas while the GPU is actually saturated",
+              "It always causes replicas to increase regardless of actual load",
+              "CPU metrics are irrelevant because HPA ignores them for GPU pods automatically"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The CPU-metric calculation yields 1 replica (a decrease from 4) while the GPU is at 95% — the opposite of what the workload needs, illustrating exactly the mismatch the lesson warns about.",
+            "id": "q5"
+          },
+          {
+            "question": "According to the \"⚠️ Autoscaling's limits\" section, why can slow scale-up latency be a specific problem for GPU inference pods?",
+            "options": [
+              "Because GPU pods are ready in milliseconds, faster than HPA can react",
+              "Because loading a large model into GPU memory can take minutes, so by the time a newly scaled pod is ready, the load spike that triggered scaling may have already passed",
+              "Because GPU pods never become ready and must be restarted manually",
+              "Because HPA cannot create GPU pods at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson explicitly contrasts a lightweight web server (ready in seconds) with a GPU pod that can take minutes to load a model, meaning new capacity can arrive too late to help.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does the lesson warn that autoscaling cannot always add capacity for GPU-bound workloads?",
+            "options": [
+              "Because Kubernetes limits every Deployment to a fixed maximum of 10 replicas",
+              "Because the cluster or region may simply not have more GPU capacity available, unlike CPU/memory which are rarely constrained the same way",
+              "Because GPU pods are not allowed to be scaled by HPA under any circumstances",
+              "Because scaling GPU workloads requires manual approval from the cloud provider every time"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The common mistakes section calls out GPU scarcity as a hard ceiling that horizontal scaling can hit — a constraint CPU/memory-based scaling rarely runs into.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does the lesson recommend against waiting until utilization is already critical before triggering scale-up for GPU workloads?",
+            "options": [
+              "Because triggering scale-up early wastes money regardless of load",
+              "Because given the slow startup time of GPU pods, waiting until the last moment means new capacity arrives after the load spike has already passed",
+              "Because Kubernetes ignores scale-up requests made under high load",
+              "Because early triggers cause pods to be scheduled on the wrong node"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This directly follows from the scale-up latency point: with minutes-long readiness times, triggering scale-up earlier is necessary so new capacity actually arrives while it's still needed.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "cld_helm_for_packaging",
+      "title": "Helm for Packaging",
+      "description": "How Helm solves the repetitive-YAML problem with templated charts and per-environment values files, and how release versioning gives Kubernetes deployments the same safety properties as version-controlled code.",
+      "duration": 11,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson you should be able to explain the repetitive-YAML problem Helm solves, describe what a Helm **chart** is and how templating and values files work together, and explain how Helm's release versioning enables rollback.\n"
+          },
+          {
+            "title": "📄 The problem: too much repetitive YAML",
+            "content": "A realistic application might need a Deployment, a Service, a ConfigMap, a Secret, and an Ingress — each as separate YAML files, and each needing near-identical variants for dev, staging, and production (different replica counts, different resource limits, different hostnames). Hand-maintaining all of these separately means the same structural pattern is copy-pasted repeatedly, and any shared bug fix must be applied everywhere by hand.\n"
+          },
+          {
+            "title": "📦 Helm: templated packages called charts",
+            "content": "**Helm** is a package manager for Kubernetes. A **chart** is a bundle of templated YAML manifests plus a `values.yaml` file supplying the parameters that fill in those templates — replica count, image tag, resource limits, and so on. The same chart can be installed multiple times with different values files to produce a dev deployment, a staging deployment, and a production deployment from one shared template set, rather than three sets of hand-maintained YAML.\n\nInstalling a chart with a specific values file produces a **release** — a named, tracked instance of that chart's rendered manifests actually running in the cluster.\n"
+          },
+          {
+            "title": "🔄 Versioning and rollback",
+            "content": "Every time you install or upgrade a release, Helm records that as a new **revision** of the release, keeping a history. If an upgrade introduces a problem, `helm rollback` reverts the release to a previous revision's rendered manifests — restoring the exact configuration that was known to work, without hand-reconstructing what changed.\n\nThis turns deployment configuration into something with the same safety properties as version-controlled code: you can see what changed between revisions, and you can revert cleanly when something breaks.\n"
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "Here's a simplified simulation of a chart template being rendered with different values files, and a release history enabling rollback:\n\n```python\ndef render_template(template, values):\n    rendered = dict(template)\n    rendered[\"replicas\"] = values[\"replicaCount\"]\n    rendered[\"image\"] = f\"{values['image']['repository']}:{values['image']['tag']}\"\n    return rendered\n\nchart_template = {\"kind\": \"Deployment\", \"name\": \"api\"}\n\ndev_values = {\"replicaCount\": 1, \"image\": {\"repository\": \"api\", \"tag\": \"dev\"}}\nprod_values = {\"replicaCount\": 5, \"image\": {\"repository\": \"api\", \"tag\": \"v2.3.0\"}}\n\ndev_release = render_template(chart_template, dev_values)\nprod_release = render_template(chart_template, prod_values)\nprint(\"dev:\", dev_release)\nprint(\"prod:\", prod_release)\n\nclass ReleaseHistory:\n    def __init__(self):\n        self.revisions = []\n\n    def upgrade(self, template, values):\n        rendered = render_template(template, values)\n        self.revisions.append(rendered)\n        return len(self.revisions)  # revision number\n\n    def rollback(self, revision_number):\n        return self.revisions[revision_number - 1]\n\nhistory = ReleaseHistory()\nhistory.upgrade(chart_template, {\"replicaCount\": 3, \"image\": {\"repository\": \"api\", \"tag\": \"v1.0.0\"}})\nbroken_revision = history.upgrade(chart_template, {\"replicaCount\": 3, \"image\": {\"repository\": \"api\", \"tag\": \"v1.1.0-buggy\"}})\nprint(\"current (broken):\", history.revisions[-1])\n\nrestored = history.rollback(1)\nprint(\"rolled back to revision 1:\", restored)\n```\n\n`render_template` is the same function used for both `dev_release` and `prod_release` — only the `values` dict differs, so `dev_release[\"image\"]` is `\"api:dev\"` with `replicas: 1`, while `prod_release[\"image\"]` is `\"api:v2.3.0\"` with `replicas: 5`, from one shared template. After the second `upgrade()` call installs the buggy `v1.1.0-buggy` tag as revision 2, `history.rollback(1)` returns exactly the revision 1 manifest — `{\"kind\": \"Deployment\", \"name\": \"api\", \"replicas\": 3, \"image\": \"api:v1.0.0\"}` — restoring the known-good configuration.\n"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Hand-editing rendered manifests in the cluster instead of updating values and re-releasing.** This creates configuration drift between what the chart's values files describe and what's actually running — the next `helm upgrade` can silently overwrite the hand-edit, or the drift makes rollback unreliable.\n\n**Treating `values.yaml` defaults as safe for every environment.** A chart's default values are often tuned for one environment (frequently the least critical). Deploying to production without an explicit production values file can mean shipping with a dev-sized replica count or resource limit.\n\n**Forgetting that rollback reverts the release's manifests, not any stateful data.** Rolling back a Deployment to a previous image version doesn't undo a database migration that new version applied — rollback and data migrations need to be reasoned about separately.\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "cld_helm_for_packaging_quiz",
+        "questions": [
+          {
+            "question": "According to the \"📄 The problem\" section, what specifically makes hand-maintained per-environment YAML painful?",
+            "options": [
+              "YAML files cannot be stored in version control",
+              "The same structural pattern (Deployment, Service, ConfigMap, etc.) is copy-pasted across near-identical dev/staging/production variants, and shared fixes must be applied everywhere by hand",
+              "Kubernetes does not support YAML as a configuration format",
+              "Each environment requires a completely different container image"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson's stated problem is the repetition of the same structural pattern across environment variants, and the manual burden of propagating any shared fix across all of them.",
+            "id": "q1"
+          },
+          {
+            "question": "Per the \"📦 Helm\" section, what is a chart, and what does installing it produce?",
+            "options": [
+              "A chart is a single YAML file; installing it produces a ConfigMap",
+              "A chart is a bundle of templated manifests plus a values file; installing it with a specific values file produces a named, tracked release",
+              "A chart is a container image; installing it produces a running pod",
+              "A chart is a Kubernetes cluster; installing it produces a new node"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson defines a chart as templated manifests plus values, and describes installation as producing a release — a named, tracked instance of the rendered manifests running in the cluster.",
+            "id": "q2"
+          },
+          {
+            "question": "In the code example, why do `dev_release` and `prod_release` differ even though both come from `render_template(chart_template, ...)`?",
+            "options": [
+              "Because `render_template` is randomized",
+              "Because the same template is rendered with different `values` dicts (`dev_values` vs. `prod_values`), producing different `replicas` and `image` fields",
+              "Because `chart_template` itself was modified between the two calls",
+              "They don't actually differ — the output is identical"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`render_template` only varies its output based on the `values` argument — `chart_template` is shared and unchanged, so the differing `replicaCount` and `image` in `dev_values`/`prod_values` are the entire source of the difference.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, what does `history.rollback(1)` return after the buggy `v1.1.0-buggy` upgrade is applied as revision 2?",
+            "options": [
+              "The revision 2 (buggy) manifest",
+              "An empty dict",
+              "The revision 1 manifest — `replicas: 3`, image `api:v1.0.0` — restoring the previously known-good configuration",
+              "It raises an IndexError"
+            ],
+            "correctAnswer": 2,
+            "explanation": "`rollback(1)` returns `self.revisions[1 - 1]` = `self.revisions[0]`, which is the first `upgrade()` call's rendered output: replicas 3, image `api:v1.0.0`.",
+            "id": "q4"
+          },
+          {
+            "question": "What does `ReleaseHistory.upgrade()` return, and what does it represent?",
+            "options": [
+              "The rendered manifest itself, with no version tracking",
+              "`len(self.revisions)` after appending — the revision number of the just-applied upgrade",
+              "A boolean indicating success or failure",
+              "The previous revision's manifest"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`upgrade()` appends the new rendered manifest to `self.revisions` and returns `len(self.revisions)`, which is exactly the 1-indexed revision number that upgrade just created.",
+            "id": "q5"
+          },
+          {
+            "question": "What does the code example illustrate about reusing one chart template across environments?",
+            "options": [
+              "That a separate template must be hand-written for each environment",
+              "That the exact same `render_template` function, given only a different `values` dict, produces environment-appropriate output — avoiding maintaining separate near-duplicate manifest sets",
+              "That templates cannot vary replica count between environments",
+              "That values files are ignored when rendering a template"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The same `render_template(chart_template, values)` call, varying only `values`, produces both the dev and prod manifests — exactly the reuse Helm charts are meant to provide.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does the lesson warn against hand-editing rendered manifests directly in the cluster instead of updating chart values?",
+            "options": [
+              "Because Kubernetes forbids manual edits to running resources",
+              "Because it creates configuration drift between the values files and what's actually running, which the next `helm upgrade` can silently overwrite or which can make rollback unreliable",
+              "Because hand-edited manifests run faster than templated ones",
+              "Because Helm automatically deletes any manually edited resource"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The common mistakes section states this directly: hand-editing creates drift from the source-of-truth values files, risking silent overwrites on the next upgrade and undermining rollback reliability.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does the lesson warn that rollback doesn't undo everything a prior upgrade did?",
+            "options": [
+              "Because rollback only reverts the release's manifests, not stateful side effects like a database migration that a newer version applied",
+              "Because rollback is purely cosmetic and doesn't actually change anything in the cluster",
+              "Because Helm rollback requires re-entering all values by hand",
+              "Because rollback only works for ConfigMaps, never for Deployments"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The common mistakes section explicitly separates manifest rollback from stateful changes like database migrations, which rolling back a Deployment's image version does not automatically reverse.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

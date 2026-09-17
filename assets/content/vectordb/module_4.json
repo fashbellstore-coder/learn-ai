@@ -1,0 +1,559 @@
+{
+  "id": "vdb_systems_in_practice",
+  "title": "Vector Database Systems in Practice",
+  "description": "Qdrant, managed services like Pinecone, and pgvector as concrete instances of the decision framework from Module 0.",
+  "icon": "🗄️",
+  "color": "#D32F2F",
+  "order": 4,
+  "estimatedHours": 3,
+  "difficulty": "intermediate",
+  "prerequisites": [
+    "vdb_operating_at_scale"
+  ],
+  "lessons": [
+    {
+      "id": "vdb_qdrant_in_practice",
+      "title": "Qdrant in Practice",
+      "description": "A concrete look at one popular purpose-built vector database, as a representative of the category.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Describe Qdrant's core concepts — collections, points, and payloads — and where it fits among your options."
+          },
+          {
+            "title": "📦 Collections and points",
+            "content": "Qdrant organizes vectors into collections (similar to a table), where each entry is a 'point' — a vector plus its payload metadata and a unique ID. Collections are configured with a distance metric and vector size upfront, so the normalization lesson from Module 0 directly determines how you configure a real collection."
+          },
+          {
+            "title": "🔎 Filtering is a first-class feature",
+            "content": "Qdrant's filter syntax supports the tenant/access-control patterns from Module 2 directly — combining a vector search with must/should/must_not conditions on payload fields in a single query, rather than filtering after the fact in application code."
+          },
+          {
+            "title": "🐳 Operationally",
+            "content": "Qdrant can run self-hosted (as a Docker container, matching the containerization patterns from the Cloud course) or as a managed cloud service — the self-hosted-vs-managed decision from Module 0's 'choosing a vector database' lesson made concrete for one specific product."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "A tiny, illustrative Qdrant-style collection config and search request, built as plain dicts:\n\n```python\n# A tiny, illustrative Qdrant-style collection config and search request\n# (plain dicts — NOT the real qdrant-client library).\n\ndef make_collection_config(name, vector_size, distance=\"Cosine\"):\n    if distance not in (\"Cosine\", \"Euclid\", \"Dot\"):\n        raise ValueError(f\"unsupported distance metric: {distance}\")\n    return {\n        \"name\": name,\n        \"vectors\": {\"size\": vector_size, \"distance\": distance},\n    }\n\n\ndef make_search_request(query_vector, top_k=10, must=None, must_not=None):\n    request = {\n        \"vector\": query_vector,\n        \"limit\": top_k,\n        \"filter\": {},\n    }\n    if must:\n        request[\"filter\"][\"must\"] = must\n    if must_not:\n        request[\"filter\"][\"must_not\"] = must_not\n    return request\n\n\ncollection = make_collection_config(\"support_docs\", vector_size=384, distance=\"Cosine\")\n\nrequest = make_search_request(\n    query_vector=[0.1, 0.2, 0.3],  # normally 384 numbers, shortened here\n    top_k=5,\n    must=[{\"key\": \"tenant_id\", \"match\": {\"value\": \"acme_corp\"}}],\n)\n\nprint(collection)\nprint(request)\n```\n\n`make_collection_config` mirrors the fact that a collection's distance metric and vector size are locked in at creation time, and it rejects an unsupported metric outright rather than silently accepting one. `make_search_request` builds the `must` list inside the same `filter` dict as the vector query, showing how a tenant filter and a similarity search travel together in one request instead of two separate steps."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Filtering after retrieval instead of inside the query.** Qdrant's must/should/must_not filters run inside the vector search itself; running the tenant/access check in application code afterward means paying for irrelevant vectors and rows you'll just throw away.\n\n**Changing the distance metric after data is already indexed.** Since a collection's metric and vector size are fixed at creation, switching to a different metric mid-flight means the existing index no longer matches — the collection has to be recreated and re-populated, not patched in place.\n\n**Assuming self-hosted and managed Qdrant behave identically operationally.** The query API and filter syntax are the same, but who handles upgrades, backups, and scaling differs completely — treating the deployment choice as a detail rather than the Module 0 decision it actually is.\n\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "vdb_qdrant_in_practice_quiz",
+        "questions": [
+          {
+            "question": "In Qdrant, a 'point' represents",
+            "options": [
+              "A single vector plus its payload metadata and unique ID",
+              "An entire collection of vectors",
+              "A distance metric configuration",
+              "A sharding rule"
+            ],
+            "correctAnswer": 0,
+            "explanation": "A point is the basic unit stored in a Qdrant collection: one vector, its metadata, and an ID.",
+            "id": "q1"
+          },
+          {
+            "question": "Why does Qdrant require a distance metric to be configured when a collection is created?",
+            "options": [
+              "Because the collection's search behavior depends on it, connecting directly to the normalization/metric choice from earlier in this course",
+              "Because Qdrant only supports one metric globally, never per collection",
+              "Because distance metrics can be changed per-query with no other configuration",
+              "Because Qdrant does not support cosine similarity"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Collections are configured with a specific metric and vector size upfront, which is why the earlier metric-choice lesson matters when actually setting one up.",
+            "id": "q2"
+          },
+          {
+            "question": "Qdrant's filter syntax lets you",
+            "options": [
+              "Combine vector search with must/should/must_not conditions on payload fields in a single query",
+              "Only filter after retrieving all results in application code",
+              "Search without specifying a vector at all",
+              "Automatically detect tenant boundaries without configuration"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Native filter support means the tenant-isolation and metadata-filtering patterns from earlier lessons can be expressed directly in the query itself.",
+            "id": "q3"
+          },
+          {
+            "question": "Per the lesson, the choice between running Qdrant self-hosted or as a managed cloud service is best described as",
+            "options": [
+              "A concrete instance of the self-hosted-vs-managed decision introduced in Module 0's 'choosing a vector database' lesson",
+              "A choice that has no connection to anything covered earlier in the course",
+              "Something Qdrant does not actually support — only self-hosting is possible",
+              "A decision that only affects payload filtering, not deployment"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson frames Qdrant's self-hosted-vs-managed option as the Module 0 decision framework made concrete for one specific product.",
+            "id": "q4"
+          },
+          {
+            "question": "What two properties are configured on a Qdrant collection when it is first created?",
+            "options": [
+              "Vector size and distance metric",
+              "Tenant ID and access-control role",
+              "CPU count and disk size",
+              "Payload schema and API key"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson states collections are configured with a distance metric and vector size upfront.",
+            "id": "q5"
+          },
+          {
+            "question": "In the toy make_collection_config function, what happens if you pass a distance value that is not 'Cosine', 'Euclid', or 'Dot'?",
+            "options": [
+              "It raises a ValueError instead of silently accepting the unsupported metric",
+              "It defaults silently to 'Cosine'",
+              "It stores the value as-is with no validation",
+              "It deletes the collection if one already exists"
+            ],
+            "correctAnswer": 0,
+            "explanation": "make_collection_config checks distance against the tuple of supported values and raises ValueError for anything else.",
+            "id": "q6"
+          },
+          {
+            "question": "In the toy make_search_request function, what causes the returned request's filter dict to include a 'must' key?",
+            "options": [
+              "Passing a truthy value for the must argument",
+              "Setting top_k to a value greater than 10",
+              "Passing a query_vector with more than three numbers",
+              "It always includes 'must', regardless of arguments"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The function only adds request['filter']['must'] = must inside the `if must:` branch, so it only appears when a truthy must argument is passed.",
+            "id": "q7"
+          },
+          {
+            "question": "Per 'Common mistakes', why is filtering after retrieval instead of inside the query considered a mistake?",
+            "options": [
+              "Because it means paying the cost of fetching irrelevant vectors and rows that get thrown away, instead of letting the native filter narrow the search itself",
+              "Because Qdrant does not allow any filtering after retrieval under any circumstances",
+              "Because application-code filtering always returns incorrect results",
+              "Because must/should/must_not conditions can only be used at collection-creation time"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The mistakes section explains that native filters run inside the vector search itself, so filtering afterward in application code wastes work on vectors you discard anyway.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "vdb_pinecone_and_managed_services",
+      "title": "Pinecone and Managed Services",
+      "description": "What you gain — and give up — by letting someone else run the index.",
+      "duration": 11,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "List the operational trade-offs of a fully managed vector search service compared to self-hosting."
+          },
+          {
+            "title": "☁️ What managed buys you",
+            "content": "A managed service like Pinecone handles sharding, replication, scaling, and upgrades for you — the operational lessons from Module 3 (backups, monitoring, cost control) are largely the vendor's problem rather than yours, in exchange for a subscription cost and less low-level control."
+          },
+          {
+            "title": "🔒 What you give up",
+            "content": "Less control over exact index parameters, data residency constraints (your vectors live on the vendor's infrastructure, which may matter for the compliance concerns the Eval & Security course raised about data handling), and a dependency on the vendor's uptime and roadmap rather than your own."
+          },
+          {
+            "title": "🧮 When it makes sense",
+            "content": "For a small team without dedicated infrastructure expertise, or a product where time-to-market matters more than fine-grained cost or configuration control, managed services remove an entire category of operational work. For a large-scale system with strict data residency or cost requirements, self-hosting often becomes worth the added operational burden."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "A toy cost/throughput estimator for a managed vector-service \"pod\" configuration:\n\n```python\n# A toy cost/throughput estimator for a managed vector-service \"pod\"\n# configuration (illustrative numbers only, not any real vendor's pricing).\n\nPOD_CATALOG = {\n    \"s1\": {\"vectors_per_pod\": 5_000_000, \"qps_per_pod\": 20, \"cost_per_hour\": 0.10},\n    \"p1\": {\"vectors_per_pod\": 1_000_000, \"qps_per_pod\": 100, \"cost_per_hour\": 0.40},\n    \"p2\": {\"vectors_per_pod\": 1_000_000, \"qps_per_pod\": 200, \"cost_per_hour\": 0.80},\n}\n\n\ndef estimate_pods_needed(pod_type, total_vectors, target_qps):\n    spec = POD_CATALOG[pod_type]\n    pods_for_storage = -(-total_vectors // spec[\"vectors_per_pod\"])  # ceiling division\n    pods_for_throughput = -(-target_qps // spec[\"qps_per_pod\"])\n    return max(pods_for_storage, pods_for_throughput)\n\n\ndef estimate_monthly_cost(pod_type, total_vectors, target_qps, hours_per_month=730):\n    pods = estimate_pods_needed(pod_type, total_vectors, target_qps)\n    spec = POD_CATALOG[pod_type]\n    return pods * spec[\"cost_per_hour\"] * hours_per_month\n\n\nfor pod_type in (\"s1\", \"p1\", \"p2\"):\n    pods = estimate_pods_needed(pod_type, total_vectors=8_000_000, target_qps=150)\n    cost = estimate_monthly_cost(pod_type, total_vectors=8_000_000, target_qps=150)\n    print(f\"{pod_type}: {pods} pods, ~${cost:.2f}/month\")\n```\n\nNotice that `estimate_pods_needed` takes the *max* of the pods required for storage and the pods required for throughput, not the sum — a deployment sized for only one of the two would be under-provisioned on the other. Changing `pod_type` changes both the storage-per-pod and throughput-per-pod numbers at once, the same way choosing a different managed tier changes both dimensions of a real deployment together."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Sizing a managed deployment for storage alone, ignoring query throughput.** A pod configuration that comfortably holds your vector count can still fall over under real query volume if it wasn't sized for QPS too.\n\n**Treating the managed subscription price as the full cost comparison.** The subscription fee against self-hosting's server cost is only part of the comparison; the engineering time a managed service saves (or a self-hosted system consumes) belongs in the same comparison from Module 0.\n\n**Assuming data residency is automatically satisfied by picking a nearby cloud region.** A managed vendor's regional options can still fall short of specific compliance requirements (data never leaving a particular jurisdiction, specific certifications) — that needs to be checked against the actual requirement, not assumed.\n\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "vdb_pinecone_and_managed_services_quiz",
+        "questions": [
+          {
+            "question": "A key advantage of a managed vector search service is that it",
+            "options": [
+              "Handles operational concerns like sharding, replication, and scaling on your behalf",
+              "Always costs less than self-hosting at any scale",
+              "Removes the need for any distance metric configuration",
+              "Guarantees perfect recall regardless of settings"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Offloading operational work — the exact concerns covered in the operating-at-scale module — is the core value proposition of a managed service.",
+            "id": "q1"
+          },
+          {
+            "question": "A potential downside of a managed vector search service is",
+            "options": [
+              "Reduced control over data residency and low-level index configuration",
+              "Inability to store metadata payloads",
+              "Inability to perform any vector search at all",
+              "A requirement to self-host the embedding model"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Handing operations to a vendor typically means less control over where data lives and exactly how the index is tuned.",
+            "id": "q2"
+          },
+          {
+            "question": "A managed vector service is often the better choice when",
+            "options": [
+              "A team lacks dedicated infrastructure expertise and time-to-market matters more than fine-grained control",
+              "Strict data residency requirements rule out third-party hosting",
+              "Cost must be minimized at massive scale above all else",
+              "The team wants full control over every index parameter"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The trade favors managed services when operational simplicity outweighs the value of granular control — the reverse conditions favor self-hosting.",
+            "id": "q3"
+          },
+          {
+            "question": "Per the lesson, which of the following is explicitly listed as something a managed service like Pinecone handles for you?",
+            "options": [
+              "Sharding, replication, scaling, and upgrades",
+              "Choosing which embedding model your application uses",
+              "Writing your application's business logic",
+              "Designing your product's user interface"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson names sharding, replication, scaling, and upgrades as the operational work a managed service takes on for you.",
+            "id": "q4"
+          },
+          {
+            "question": "Per the lesson, self-hosting often becomes worth the added operational burden when",
+            "options": [
+              "A large-scale system has strict data residency or cost requirements",
+              "The team has no infrastructure expertise at all",
+              "Time-to-market matters more than anything else",
+              "The product is still an early, unvalidated prototype"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson states that for a large-scale system with strict data residency or cost requirements, self-hosting often becomes worth the added operational burden.",
+            "id": "q5"
+          },
+          {
+            "question": "In the estimator code, why does estimate_pods_needed take the max of pods_for_storage and pods_for_throughput rather than their sum?",
+            "options": [
+              "Because a single pod provides both storage and query capacity at once, so you need enough pods to satisfy whichever requirement demands more, not both added together",
+              "Because pods_for_throughput is always larger and the other value is unused",
+              "Because Python's // operator forces the use of max in this context",
+              "Because the sum would always equal zero for these inputs"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Each pod already contributes to both storage and throughput capacity simultaneously, so the binding constraint is whichever requirement needs more pods — not the two added together.",
+            "id": "q6"
+          },
+          {
+            "question": "For pod type 's1' (vectors_per_pod=5,000,000) in the code, how many pods does the storage requirement alone need for total_vectors=8,000,000?",
+            "options": [
+              "2, since ceiling(8,000,000 / 5,000,000) rounds 1.6 up to 2",
+              "1, since 8,000,000 is close enough to 5,000,000",
+              "8, one pod per million vectors",
+              "0, because 8,000,000 is below the pod's capacity"
+            ],
+            "correctAnswer": 0,
+            "explanation": "pods_for_storage uses ceiling division, and 8,000,000 / 5,000,000 = 1.6, which rounds up to 2 pods.",
+            "id": "q7"
+          },
+          {
+            "question": "Per 'Common mistakes', why is sizing a managed deployment for storage alone risky?",
+            "options": [
+              "Because a deployment that comfortably holds the vector count can still fail under real query throughput if it wasn't sized for QPS too",
+              "Because storage-only sizing always overestimates the number of pods needed",
+              "Because managed services do not track query throughput at all",
+              "Because storage capacity and query throughput are always identical for every pod type"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The mistakes section warns that ignoring throughput when sizing can leave a deployment that holds the data but can't sustain real query load.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "vdb_pgvector_postgres_as_a_vector_store",
+      "title": "pgvector: Postgres as a Vector Store",
+      "description": "Sometimes the right vector database is the relational database you're already running.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain when adding vector search to an existing Postgres database is preferable to a dedicated vector database."
+          },
+          {
+            "title": "🐘 One system instead of two",
+            "content": "pgvector is a Postgres extension that adds a vector column type and index types (including HNSW and IVFFlat) directly inside Postgres. This means vector search can live in the same database as your relational data — joined in the same SQL query as the tables you built in the SQL course — instead of syncing data between two separate systems."
+          },
+          {
+            "title": "⚖️ The trade-off: simplicity for ceiling",
+            "content": "pgvector's HNSW implementation is generally solid but tends to have a lower practical scale ceiling and fewer specialized features (like the rich payload filtering of Qdrant) than a purpose-built vector database. For a system already running Postgres with a moderate number of vectors, it removes an entire system from your architecture; for a system needing billions of vectors or extremely low query latency at massive concurrency, a dedicated system usually wins."
+          },
+          {
+            "title": "🔗 A SQL-native way to think about hybrid search",
+            "content": "Because pgvector search happens inside normal SQL, combining a vector similarity search with the exact-match filters or joins from the SQL course's window-functions and joins lessons is often more natural than in a standalone vector database — you're writing one SQL query instead of coordinating two systems' query languages."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "A toy function that builds a parameterized pgvector-style SQL query string with a metadata WHERE clause:\n\n```python\n# A toy function that builds a parameterized pgvector-style SQL query\n# string (illustrative — no real database driver involved).\n\ndef build_similarity_query(table, vector_column, embedding, top_k=10, filters=None):\n    filters = filters or {}\n    where_clauses = []\n    params = []\n\n    for column, value in filters.items():\n        where_clauses.append(f\"{column} = %s\")\n        params.append(value)\n\n    where_sql = \"\"\n    if where_clauses:\n        where_sql = \"WHERE \" + \" AND \".join(where_clauses) + \"\\n\"\n\n    query = (\n        f\"SELECT id, {vector_column} <-> %s AS distance\\n\"\n        f\"FROM {table}\\n\"\n        f\"{where_sql}\"\n        f\"ORDER BY distance\\n\"\n        f\"LIMIT %s;\"\n    )\n\n    params = [embedding] + params + [top_k]\n    return query, params\n\n\nquery, params = build_similarity_query(\n    table=\"documents\",\n    vector_column=\"embedding\",\n    embedding=[0.1, 0.2, 0.3],\n    top_k=5,\n    filters={\"tenant_id\": \"acme_corp\", \"status\": \"published\"},\n)\n\nprint(query)\nprint(params)\n```\n\nNotice that `<->` (pgvector's distance operator) sits inside the same `SELECT` / `WHERE` / `ORDER BY` / `LIMIT` statement as the ordinary `tenant_id` and `status` filters — one SQL query, not two systems being coordinated — and that `params` keeps the embedding, filter values, and `top_k` positionally aligned with each `%s` placeholder."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Interpolating filter values directly into the SQL string instead of using parameters.** Building the WHERE clause with f-string value interpolation (rather than placeholders and a params list) opens the door to SQL injection — exactly the kind of mistake a `%s` placeholder is meant to prevent.\n\n**Forgetting to build an index (HNSW/IVFFlat) on the vector column.** Without one, pgvector falls back to a full sequential scan comparing every row, which erases most of the performance benefit and can silently make queries much slower as the table grows.\n\n**Expecting pgvector to match a purpose-built vector database's filtering features one-for-one.** SQL WHERE clauses cover simple equality/range filters well, but the rich must/should/must_not filter combinators of a dedicated vector database (like Qdrant) aren't something pgvector replicates.\n\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "vdb_pgvector_postgres_as_a_vector_store_quiz",
+        "questions": [
+          {
+            "question": "The main architectural benefit of pgvector is that it",
+            "options": [
+              "Lets vector search live in the same database as relational data, avoiding syncing between two separate systems",
+              "Eliminates the need for any distance metric",
+              "Only works for sparse vectors",
+              "Provides better scale than any purpose-built vector database"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Keeping vectors inside Postgres means one system and one query language instead of coordinating data across two databases.",
+            "id": "q1"
+          },
+          {
+            "question": "Compared to a purpose-built vector database, pgvector generally",
+            "options": [
+              "Has a lower practical scale ceiling and fewer specialized features, in exchange for architectural simplicity",
+              "Always scales better at billions of vectors",
+              "Cannot be combined with SQL joins or filters",
+              "Requires a completely separate query language"
+            ],
+            "correctAnswer": 0,
+            "explanation": "pgvector trades some scale and specialized feature depth for the simplicity of staying inside a database you already run.",
+            "id": "q2"
+          },
+          {
+            "question": "Why might combining vector search with a SQL join feel more natural in pgvector than in a standalone vector database?",
+            "options": [
+              "Because both the vector search and the relational filter/join happen within the same SQL query and system",
+              "Because standalone vector databases cannot use any metadata at all",
+              "Because pgvector does not support the WHERE clause",
+              "Because SQL cannot express similarity search under any circumstances"
+            ],
+            "correctAnswer": 0,
+            "explanation": "A single SQL query spanning both vector similarity and relational conditions avoids coordinating two separate systems' query interfaces.",
+            "id": "q3"
+          },
+          {
+            "question": "According to the lesson, which index types does pgvector add to Postgres for vector columns?",
+            "options": [
+              "HNSW and IVFFlat",
+              "B-tree and hash indexes only",
+              "A proprietary index type unrelated to any algorithm discussed elsewhere in the course",
+              "No index types — pgvector always performs a full table scan"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson states pgvector adds a vector column type and index types including HNSW and IVFFlat directly inside Postgres.",
+            "id": "q4"
+          },
+          {
+            "question": "Per the lesson, for a system already running Postgres with a moderate number of vectors, what does adopting pgvector remove from the architecture?",
+            "options": [
+              "An entire separate system that would otherwise need to be run and kept in sync",
+              "The need for any relational tables at all",
+              "The requirement to ever write SQL",
+              "The concept of a distance metric"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson says that for a moderate-scale system already on Postgres, pgvector removes an entire system from the architecture.",
+            "id": "q5"
+          },
+          {
+            "question": "In build_similarity_query, what is the purpose of the params list returned alongside the query string?",
+            "options": [
+              "It holds the embedding, filter values, and top_k in the same order as the query's %s placeholders, for safe parameterized execution",
+              "It stores the names of the SQL columns being selected",
+              "It counts how many rows the query is expected to return",
+              "It is unused — the function only returns it for logging purposes"
+            ],
+            "correctAnswer": 0,
+            "explanation": "params is built as [embedding] + filter values + [top_k], matching the positional order of the %s placeholders in the query string.",
+            "id": "q6"
+          },
+          {
+            "question": "Given filters={\"tenant_id\": \"acme_corp\", \"status\": \"published\"}, what does the generated WHERE clause look like?",
+            "options": [
+              "WHERE tenant_id = %s AND status = %s",
+              "WHERE tenant_id == acme_corp OR status == published",
+              "WHERE tenant_id IN (acme_corp, published)",
+              "No WHERE clause is generated when filters are provided"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The loop over filters.items() appends one 'column = %s' clause per filter and joins them with AND, producing 'WHERE tenant_id = %s AND status = %s'.",
+            "id": "q7"
+          },
+          {
+            "question": "Per 'Common mistakes', why is interpolating filter values directly into a SQL string dangerous?",
+            "options": [
+              "It opens the door to SQL injection, which parameterized %s placeholders are designed to prevent",
+              "It makes the query run slower than using an index",
+              "It causes pgvector to ignore the vector column entirely",
+              "It is not actually dangerous, only a stylistic issue"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The mistakes section explains that building the WHERE clause via direct string interpolation (instead of parameters) creates a SQL injection risk.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "vdb_choosing_self_hosted_vs_managed",
+      "title": "Choosing Self-Hosted vs. Managed",
+      "description": "Bringing Module 0's decision framework back with real products in view.",
+      "duration": 11,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Apply the decision framework from Module 0 to a concrete self-hosted-vs-managed choice, now that you've seen specific systems."
+          },
+          {
+            "title": "🔁 Revisit the original questions with real options",
+            "content": "Scale: Qdrant self-hosted or a managed service both handle large scale, but at different operational cost. Update pattern and filtering: pgvector's simplicity might suffice if your relational data and vector needs overlap heavily. Operational model: a small team leans managed; a team with existing infrastructure expertise and cost sensitivity leans self-hosted."
+          },
+          {
+            "title": "🧾 A worked example",
+            "content": "A three-person startup building a RAG-powered support tool with under a million documents: pgvector inside their existing Postgres, or a managed service, both avoid taking on infrastructure work they don't have the headcount for. A large enterprise with 500 million documents, strict data residency requirements, and a dedicated platform team: self-hosted Qdrant or Milvus, run inside their own infrastructure, matches both the scale and the compliance need."
+          },
+          {
+            "title": "🚪 The decision is reversible, mostly",
+            "content": "Migrating vector databases later is real work — re-embedding is usually not required if you kept your embeddings, but reindexing and cutover need planning — so it's not a decision to treat as permanent, but it's also not free to change, which is one more reason the requirements-first approach from Module 0 pays off before committing."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "A toy weighted-scoring function for comparing self-hosted vs. managed options across a few criteria:\n\n```python\n# A toy weighted-scoring function for comparing self-hosted vs. managed\n# vector database options across a few criteria (illustrative only).\n\nCRITERIA_WEIGHTS = {\n    \"scale_headroom\": 0.25,\n    \"operational_burden\": 0.30,   # higher score = LESS burden (better)\n    \"cost_at_scale\": 0.20,\n    \"data_residency_control\": 0.25,\n}\n\nOPTIONS = {\n    \"self_hosted_qdrant\": {\n        \"scale_headroom\": 9,\n        \"operational_burden\": 4,\n        \"cost_at_scale\": 8,\n        \"data_residency_control\": 10,\n    },\n    \"managed_pinecone\": {\n        \"scale_headroom\": 7,\n        \"operational_burden\": 9,\n        \"cost_at_scale\": 5,\n        \"data_residency_control\": 4,\n    },\n    \"pgvector_in_existing_postgres\": {\n        \"scale_headroom\": 4,\n        \"operational_burden\": 8,\n        \"cost_at_scale\": 9,\n        \"data_residency_control\": 8,\n    },\n}\n\n\ndef weighted_score(option_scores, weights):\n    return sum(option_scores[criterion] * weight for criterion, weight in weights.items())\n\n\ndef rank_options(options, weights):\n    scored = {name: weighted_score(scores, weights) for name, scores in options.items()}\n    return sorted(scored.items(), key=lambda pair: pair[1], reverse=True)\n\n\nfor name, score in rank_options(OPTIONS, CRITERIA_WEIGHTS):\n    print(f\"{name}: {score:.2f}\")\n```\n\nNotice that `operational_burden` is scored so a *higher* number means *less* burden — a modeling choice that has to stay consistent across every criterion, or the weighted sum silently rewards the wrong thing. Changing a weight in `CRITERIA_WEIGHTS` (say, raising `data_residency_control`) directly shifts which option `rank_options` puts first, the same way a real team's shifting priorities change the real decision."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Scoring criteria on inconsistent scales (some \"higher is better\", some \"lower is better\") without normalizing them first.** Mixing the two inside one weighted sum silently rewards the wrong option unless every criterion is put on the same \"higher is better\" scale first.\n\n**Picking weights that don't reflect the team's actual priorities, then treating the resulting score as objective.** A weighted score is only as good as the weights behind it — quietly defaulting to equal weights (or copying someone else's) bakes in priorities that may not match the requirements-first approach Module 0 recommends.\n\n**Treating the decision as permanent because switching feels risky.** The lesson notes migration is real work but not impossible — re-embedding usually isn't required — so avoiding a review of the decision out of migration-anxiety can leave a team stuck with a mismatch.\n\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "vdb_choosing_self_hosted_vs_managed_quiz",
+        "questions": [
+          {
+            "question": "For a small team with limited infrastructure expertise building a modest-scale RAG tool, which factor most favors a managed service or pgvector?",
+            "options": [
+              "Avoiding operational work the team doesn't have the headcount to do well",
+              "The need for petabyte-scale storage",
+              "A strict requirement for on-premises data residency",
+              "The need for custom low-level index tuning"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Limited operational capacity is exactly the condition that favors offloading infrastructure work, whether via a managed service or the simplicity of pgvector.",
+            "id": "q1"
+          },
+          {
+            "question": "A large enterprise with strict data residency requirements and 500 million documents would most likely lean toward",
+            "options": [
+              "Self-hosted infrastructure like Qdrant or Milvus run within their own environment",
+              "A fully managed public cloud vector service with no residency guarantees",
+              "Storing all vectors in a spreadsheet",
+              "Avoiding vector search entirely"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Residency and scale requirements at that level typically require infrastructure the organization controls directly.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is migrating vector databases described as 'not free to change' even though embeddings themselves can often be reused?",
+            "options": [
+              "Because reindexing and cutover to a new system still require real planning and execution work",
+              "Because embeddings always become invalid when switching databases",
+              "Because vector database migrations are illegal without vendor approval",
+              "Because migration always requires retraining the embedding model"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Even without re-embedding, moving a live index to a new system involves nontrivial reindexing and cutover work.",
+            "id": "q3"
+          },
+          {
+            "question": "Per the lesson's revisit of the original decision questions, what most determines whether a team leans self-hosted rather than managed, aside from scale?",
+            "options": [
+              "Whether the team has existing infrastructure expertise and is cost sensitive",
+              "Whether the team's product has a logo yet",
+              "Whether the team prefers a particular programming language",
+              "Whether the team has ever used a spreadsheet before"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson states that a team with existing infrastructure expertise and cost sensitivity leans self-hosted, while a small team leans managed.",
+            "id": "q4"
+          },
+          {
+            "question": "In the worked example, what did both of the three-person startup's options (pgvector or a managed service) have in common?",
+            "options": [
+              "Both avoided taking on infrastructure work the team didn't have the headcount for",
+              "Both required hiring a dedicated platform team first",
+              "Both required strict data residency guarantees",
+              "Both required 500 million documents to be cost-effective"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson notes that for the small startup, either pgvector or a managed service avoids infrastructure work they lack the headcount to do.",
+            "id": "q5"
+          },
+          {
+            "question": "In the toy weighted_score function, what does raising a criterion's weight in CRITERIA_WEIGHTS do to the final ranking?",
+            "options": [
+              "It increases that criterion's influence on each option's total score, which can change which option ranks first",
+              "It removes that criterion from the calculation entirely",
+              "It has no effect unless the option's score for that criterion is also changed",
+              "It automatically normalizes all other weights to zero"
+            ],
+            "correctAnswer": 0,
+            "explanation": "weighted_score multiplies each criterion's score by its weight and sums them, so a larger weight gives that criterion more influence over the total — and potentially the ranking.",
+            "id": "q6"
+          },
+          {
+            "question": "Why is operational_burden scored so that a higher number means less burden, per the code's comment?",
+            "options": [
+              "So that every criterion in the weighted sum consistently follows a 'higher score is better' convention",
+              "Because Python requires all dictionary values to be positive",
+              "Because operational_burden is not actually used in weighted_score",
+              "So that the option with the most burden always wins the ranking"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The comment flags that a higher operational_burden score means less burden, keeping it on the same 'higher is better' scale as the other criteria so the weighted sum stays meaningful.",
+            "id": "q7"
+          },
+          {
+            "question": "Per 'Common mistakes', why is mixing 'higher is better' and 'lower is better' criteria in one weighted sum a problem?",
+            "options": [
+              "It silently rewards the wrong option unless every criterion is normalized to the same direction first",
+              "It causes a runtime error whenever the score is calculated",
+              "It only matters if there are more than ten criteria",
+              "It has no real effect on which option scores highest"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The mistakes section warns that mixing scale directions without normalizing first can make the weighted sum favor an option it shouldn't.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

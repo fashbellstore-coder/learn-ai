@@ -1,0 +1,559 @@
+{
+  "id": "swe_collaboration",
+  "title": "Git, Collaboration & Craft",
+  "description": "Git workflows and branching, code review etiquette, technical debt and refactoring cadence, and documentation as a first-class artifact.",
+  "icon": "🤝",
+  "color": "#1565C0",
+  "order": 5,
+  "estimatedHours": 4,
+  "difficulty": "intermediate",
+  "prerequisites": [
+    "swe_testing"
+  ],
+  "lessons": [
+    {
+      "id": "swe_git_workflows_and_branching",
+      "title": "Git Workflows and Branching",
+      "description": "Why teams branch, what trunk-based development means, and why frequent small merges ease conflicts.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain why teams branch, what trunk-based development means, and why frequent small merges ease conflict resolution."
+          },
+          {
+            "title": "🌿 Why branch at all",
+            "content": "A **branch** is an independent line of development. Without branching, everyone would edit the same shared history directly, so an unfinished feature or an experiment that doesn't pan out would sit mixed in with everything else. Branching lets work happen in isolation — a feature branch, a bugfix branch, an experiment — without disturbing the main line of history until that work is ready to join it."
+          },
+          {
+            "title": "🔀 A common workflow",
+            "content": "**Feature branches**: each unit of work (a feature, a fix) gets its own branch, created off the main line, developed and reviewed there, then merged back in once it's ready.\n\n**Trunk-based development** takes this further: branches are short-lived (often merged within a day or two), and everyone merges frequently into a single shared \"trunk\" (often called `main`). The core idea is that the longer a branch lives without merging, the further it drifts from what everyone else is doing, and the more painful the eventual merge becomes — so trunk-based teams deliberately keep that drift small by merging often."
+          },
+          {
+            "title": "💥 Merge conflicts are information, not failure",
+            "content": "A **merge conflict** happens when two branches changed the same lines of the same file in incompatible ways, and Git can't automatically decide which version to keep. This isn't a sign something went wrong — it's Git correctly noticing that two people's intentions overlap and asking a human to reconcile them. Frequent small merges make conflicts easier to resolve for a simple reason: a conflict between two changes made an hour apart is small and easy to reason about, while a conflict between two branches that diverged three weeks ago can span dozens of interacting changes."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "Git conflict markers can look intimidating the first time you see them, so here's what they actually represent and how to read them.\n\n```python\n# A conflict is Git showing you both versions of the same lines, side by side.\n# This is what a conflicted file looks like after a failed automatic merge:\n\nconflicted_file = '''\\\ndef get_discount(user):\n<<<<<<< HEAD (your current branch)\n    if user.is_premium:\n        return 0.20\n=======\n    if user.years_active >= 2:\n        return 0.15\n>>>>>>> feature/loyalty-discount (the branch being merged in)\n    return 0.0\n'''\n\ndef parse_conflict_sections(text):\n    \"\"\"Splits a conflicted block into 'ours' and 'theirs' for inspection.\"\"\"\n    ours, theirs = [], []\n    section = None\n    for line in text.splitlines():\n        if line.startswith(\"<<<<<<<\"):\n            section = \"ours\"\n            continue\n        if line.startswith(\"=======\"):\n            section = \"theirs\"\n            continue\n        if line.startswith(\">>>>>>>\"):\n            section = None\n            continue\n        if section == \"ours\":\n            ours.append(line)\n        elif section == \"theirs\":\n            theirs.append(line)\n    return ours, theirs\n\nours, theirs = parse_conflict_sections(conflicted_file)\nprint(\"our version:\", [l.strip() for l in ours])\nprint(\"their version:\", [l.strip() for l in theirs])\n# A real resolution here is neither -- it's deciding the actual intended logic,\n# e.g. applying whichever discount is larger, or keeping both as separate tiers.\n```\n\nThe `<<<<<<<`, `=======`, and `>>>>>>>` markers aren't an error — they're Git literally showing you both sides of the disagreement so a human can decide the real intent. `parse_conflict_sections` just mechanically separates \"ours\" from \"theirs\"; the actual resolution (which discount rule should win, or whether both should apply) is a judgment call no tool can make for you."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Letting a branch live for weeks without merging.** The longer a branch diverges from the trunk, the larger and harder-to-reason-about the eventual conflict becomes — small, frequent merges keep conflicts small too.\n\n**Resolving a conflict by blindly picking one side.** A conflict means two changes overlap; mechanically keeping \"ours\" or \"theirs\" without understanding both intents can silently discard a real fix or feature.\n\n**Treating a conflict as a sign something is broken.** A conflict is Git doing its job — flagging genuine overlap for a human to resolve, not evidence of a mistake.\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "swe_git_workflows_and_branching_quiz",
+        "questions": [
+          {
+            "question": "What is the main purpose of branching in Git?",
+            "options": [
+              "To permanently delete old code",
+              "To let work happen in isolation without disturbing the main line of history until it's ready",
+              "To automatically merge conflicting changes",
+              "To speed up the compiler"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Branching creates an independent line of development, so unfinished features or experiments can develop in isolation without affecting the shared main history until they're ready to merge in.",
+            "id": "q1"
+          },
+          {
+            "question": "What is the core idea behind trunk-based development?",
+            "options": [
+              "Branches should never be created",
+              "Branches should be short-lived and merged frequently into a single shared trunk to minimize drift",
+              "Only one developer should ever commit to the trunk",
+              "Trunk-based development eliminates the need for code review"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Trunk-based development keeps branches short-lived and merges them frequently, based on the idea that the longer a branch lives without merging, the further it drifts and the more painful the eventual merge becomes.",
+            "id": "q2"
+          },
+          {
+            "question": "Why do frequent small merges make conflict resolution easier?",
+            "options": [
+              "Because Git resolves small conflicts automatically",
+              "Because a conflict between changes made close together in time is smaller and easier to reason about than one between branches that diverged for weeks",
+              "Because small merges never produce conflicts",
+              "Because frequent merges disable conflict detection"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson explains that a conflict between two changes made an hour apart is small and simple, while a conflict between branches that diverged three weeks ago can span dozens of interacting changes.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, what do the `<<<<<<<` and `>>>>>>>` markers represent?",
+            "options": [
+              "Syntax errors in the code",
+              "The boundaries of the two conflicting versions of the same lines, from each branch",
+              "Comments left by a code reviewer",
+              "Deleted lines that Git is warning about"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The markers delimit the conflicting block: `<<<<<<<` through `=======` is the current branch's version (\"ours\"), and `=======` through `>>>>>>>` is the incoming branch's version (\"theirs\").",
+            "id": "q4"
+          },
+          {
+            "question": "What does `parse_conflict_sections` return for the example `conflicted_file`?",
+            "options": [
+              "Two identical lists",
+              "The 'ours' list containing the is_premium check, and the 'theirs' list containing the years_active check",
+              "An empty list for both",
+              "A single merged list combining both conditions"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Based on the conflict markers, the HEAD (\"ours\") section contains the `if user.is_premium` line, and the incoming branch (\"theirs\") section contains the `if user.years_active >= 2` line.",
+            "id": "q5"
+          },
+          {
+            "question": "According to the code example's closing comment, what does a real resolution to this conflict require?",
+            "options": [
+              "Automatically picking Git's default suggestion",
+              "A human judgment call about the actual intended logic, such as applying whichever discount is larger or keeping both as separate tiers",
+              "Deleting both versions and starting over",
+              "Reverting to the last commit before the conflict"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The comment explicitly states the real resolution is neither side alone — it's a judgment call about the actual intended business logic, which no tool can make automatically.",
+            "id": "q6"
+          },
+          {
+            "question": "Why is letting a branch live for weeks without merging flagged as a common mistake?",
+            "options": [
+              "Because Git deletes branches automatically after a week",
+              "Because the longer a branch diverges from the trunk, the larger and harder the eventual conflict becomes",
+              "Because long-lived branches use more disk space",
+              "Because it violates Git's built-in size limits"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson explains that divergence compounds over time, so a branch left unmerged for weeks accumulates a much larger, harder-to-reason-about conflict than frequent small merges would produce.",
+            "id": "q7"
+          },
+          {
+            "question": "Why is blindly picking one side (\"ours\" or \"theirs\") to resolve a conflict considered a mistake?",
+            "options": [
+              "Because Git doesn't allow choosing a side",
+              "Because it can silently discard a real fix or feature from the side that wasn't kept, without reconciling both intents",
+              "Because it always causes a syntax error",
+              "Because it deletes the entire file"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson warns that mechanically keeping one side without understanding both changes' intent risks silently losing a genuine fix or feature that was in the discarded side.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "swe_code_review_etiquette",
+      "title": "Code Review Etiquette",
+      "description": "Why small, well-described pull requests get better review, and why reviewing too slowly is also a problem.",
+      "duration": 11,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain why small, well-described pull requests get better review, and why reviewing too slowly is also a problem."
+          },
+          {
+            "title": "📏 Keep changes small and focused",
+            "content": "A pull request that changes 30 lines across one clear concern gets read carefully. A pull request that changes 2,000 lines across five unrelated concerns gets skimmed, rubber-stamped, or avoided entirely — there's simply too much for a reviewer to hold in their head at once, so the quality of review drops as the size grows. Splitting a large change into a sequence of small, focused PRs — even if they land in the same day — almost always produces better review than one giant PR."
+          },
+          {
+            "title": "📝 Write a clear description, not just a diff",
+            "content": "The diff shows *what* changed. A good PR description explains *why*: what problem this solves, what approach was chosen and why (especially if an alternative was considered and rejected), and anything a reviewer should pay special attention to. A reviewer who understands the reasoning behind a change can evaluate whether it's the right change — a reviewer who only sees the diff can only check whether the code looks locally correct."
+          },
+          {
+            "title": "⏱️ Review promptly, but don't rush",
+            "content": "A pull request sitting unreviewed for days blocks the author, encourages context-switching costs (the author has moved on to something else by the time feedback arrives), and, ironically, tends to produce worse reviews — by the time someone finally looks, there's schedule pressure to just approve it. The fix isn't to review instantly and carelessly, either; it's to build review into the normal cadence of the day, so PRs get a real look within hours, not days."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "Here's a small, illustrative model of the size/quality relationship the lesson describes — not a claim about exact numbers, but a way to make the shape of the trade-off concrete.\n\n```python\ndef estimate_review_thoroughness(lines_changed, unrelated_concerns):\n    \"\"\"\n    A toy model: thoroughness starts at 100 and drops as a PR grows in size\n    and mixes more unrelated concerns. Purely illustrative, not a real metric.\n    \"\"\"\n    size_penalty = min(lines_changed // 50, 70)       # caps out, but still hurts a lot\n    concern_penalty = unrelated_concerns * 10\n    return max(100 - size_penalty - concern_penalty, 5)\n\nprs = [\n    (\"small, focused PR\", 30, 0),\n    (\"medium PR, one concern\", 300, 0),\n    (\"large PR, multiple concerns\", 2000, 4),\n]\n\nfor name, lines, concerns in prs:\n    score = estimate_review_thoroughness(lines, concerns)\n    print(f\"{name}: estimated thoroughness = {score}\")\n# small, focused PR: 100\n# medium PR, one concern: 94\n# large PR, multiple concerns: 20\n```\n\nThe exact numbers aren't the point — `estimate_review_thoroughness` is a toy, not a real metric — but the shape is: the small, focused PR keeps its full score, the medium single-concern PR drops only slightly even at 300 lines, and the large PR mixing four unrelated concerns collapses to 20, illustrating why size *and* mixed concerns compound against review quality rather than just adding up linearly."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Bundling unrelated changes into one PR.** A refactor mixed in with a bug fix mixed in with a new feature forces the reviewer to evaluate three different things at once, and makes it hard to revert just one of them later if needed.\n\n**Writing a description that just restates the diff.** \"Updated the file\" or \"fixed the bug\" gives a reviewer no more information than the diff already shows — the description's job is to add the *why*.\n\n**Letting PRs sit unreviewed for days, then rushing through them.** Both extremes — never reviewing and reviewing too fast under pressure — produce worse outcomes than a steady, prompt cadence.\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "swe_code_review_etiquette_quiz",
+        "questions": [
+          {
+            "question": "Why do small, focused pull requests tend to get reviewed more carefully than large ones?",
+            "options": [
+              "Because small PRs are always bug-free",
+              "Because a reviewer can hold a small, focused change in their head, while a large PR with many concerns is too much to review carefully",
+              "Because Git only allows small PRs to be merged",
+              "Because large PRs are automatically rejected by CI"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson explains that a small PR covering one clear concern gets read carefully, while a very large PR with unrelated concerns tends to get skimmed or rubber-stamped because there's too much for a reviewer to hold in mind at once.",
+            "id": "q1"
+          },
+          {
+            "question": "What should a good PR description explain that the diff alone does not?",
+            "options": [
+              "The exact line count changed",
+              "Why the change was made and what alternatives were considered",
+              "The reviewer's name",
+              "The programming language used"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson states the diff shows what changed, but a good description explains the why — the problem being solved, the approach chosen, and what a reviewer should pay attention to.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is reviewing too slowly identified as a problem, according to the lesson?",
+            "options": [
+              "Because slow reviews are technically impossible",
+              "Because it blocks the author, creates context-switching costs, and tends to produce rushed, lower-quality reviews under later schedule pressure",
+              "Because Git automatically closes old pull requests",
+              "Because slow reviews always introduce security bugs"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson explains that a PR sitting unreviewed for days blocks the author and creates costs, and ironically tends to produce worse reviews once someone finally looks, due to schedule pressure to just approve it.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, what estimated thoroughness score does the \"medium PR, one concern\" (300 lines, 0 unrelated concerns) receive?",
+            "options": [
+              "100",
+              "94",
+              "20",
+              "5"
+            ],
+            "correctAnswer": 1,
+            "explanation": "With 300 lines, `size_penalty = min(300 // 50, 70) = 6`, and `concern_penalty = 0 * 10 = 0`, so the score is `100 - 6 - 0 = 94`.",
+            "id": "q4"
+          },
+          {
+            "question": "Why does the \"large PR, multiple concerns\" example score much lower (20) than the medium PR (94), even though its line count is less than 7x larger?",
+            "options": [
+              "Because the function has a bug",
+              "Because both the size penalty and the concern penalty apply and compound together, not just the larger line count alone",
+              "Because large PRs are scored randomly",
+              "Because 2000 lines exceeds a hard limit that always returns 20"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The large PR combines a size penalty (`min(2000 // 50, 70) = 40`) with a concern penalty (`4 * 10 = 40`), totaling `100 - 40 - 40 = 20` — the combination of both penalties, not line count alone, is what drives the score down sharply.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is bundling a refactor, a bug fix, and a new feature into one PR called a mistake?",
+            "options": [
+              "Because Git cannot technically process more than one type of change per PR",
+              "Because it forces the reviewer to evaluate three different things at once and makes it harder to revert just one of them later",
+              "Because refactors are never allowed in pull requests",
+              "Because bug fixes must always be their own repository"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson explains bundling unrelated changes forces a reviewer to evaluate multiple different things simultaneously and complicates reverting just one of them if something goes wrong later.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does a PR description that just restates the diff (like \"fixed the bug\") fail to do its job?",
+            "options": [
+              "Because it's too short to compile",
+              "Because it gives the reviewer no more information than the diff already shows, missing the why behind the change",
+              "Because it violates a strict character limit",
+              "Because reviewers cannot read diffs"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson states the description's job is to add the why — the reasoning and context — so a description that only restates what the diff already shows provides no additional value to the reviewer.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does the lesson say the fix for slow reviews isn't to review instantly and carelessly instead?",
+            "options": [
+              "Because instant reviews are technically impossible",
+              "Because both extremes — never reviewing and rushing through review under pressure — produce worse outcomes than building review into a steady, prompt cadence",
+              "Because careless reviews are actually more thorough",
+              "Because reviewers should only review once a week regardless of speed"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson's common mistakes explicitly frame this as two failure modes on the same spectrum: letting PRs sit unreviewed for days and then rushing through them are both worse than a steady cadence that gives PRs a real look within hours.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "swe_technical_debt_and_refactoring_cadence",
+      "title": "Technical Debt and Refactoring Cadence",
+      "description": "Deliberate vs. accidental technical debt, and why a regular repayment cadence beats occasional cleanup sprints.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Distinguish deliberate from accidental technical debt, and explain why a regular repayment cadence beats occasional cleanup sprints."
+          },
+          {
+            "title": "💳 The financial metaphor, taken seriously",
+            "content": "**Technical debt** is a deliberate or accidental shortcut in code that makes the immediate work faster, at the cost of making future work slower — exactly like financial debt lets you have something now in exchange for paying more later. And like financial debt, it accrues **interest**: the longer a shortcut stays in place, the more code gets built on top of it, and the more expensive it becomes to fix later, because now the fix has to account for everything built on top."
+          },
+          {
+            "title": "🎯 Deliberate debt vs. accidental debt",
+            "content": "**Deliberate debt** is a conscious trade-off: \"we're hardcoding this configuration to ship by Friday, and we know we'll need to generalize it later.\" This is a legitimate engineering decision when it's made consciously and, ideally, tracked somewhere so it doesn't get forgotten.\n\n**Accidental debt** accumulates without anyone deciding it should: copy-pasted code that was never refactored into a shared function, a workaround for a bug that was never revisited after the bug was fixed elsewhere, an architecture that made sense for the original scope but never got updated as requirements grew. Accidental debt is more dangerous precisely because no one chose it — it just happens if nobody watches for it."
+          },
+          {
+            "title": "📅 Why a repayment cadence matters",
+            "content": "Treating debt repayment as an occasional \"cleanup sprint\" tends to fail in practice: cleanup work competes with feature work for priority, and feature work almost always wins in the short term, so the cleanup sprint keeps getting postponed while debt keeps accruing interest. A **regular cadence** — a fixed percentage of every sprint, or a standing weekly slot — treats debt repayment as a normal, ongoing cost of doing business rather than a special event that has to win a priority fight against every new feature request."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "Here's a small simulation contrasting the \"occasional cleanup sprint\" approach against a \"steady cadence\" approach, tracking accumulated debt over the same 12 sprints.\n\n```python\ndef simulate_debt(sprints, new_debt_per_sprint, cleanup_schedule):\n    \"\"\"\n    cleanup_schedule: a function(sprint_number) -> amount of debt paid down that sprint.\n    Returns the debt level at the end of each sprint.\n    \"\"\"\n    debt = 0\n    history = []\n    for sprint in range(1, sprints + 1):\n        debt += new_debt_per_sprint\n        debt -= cleanup_schedule(sprint)\n        debt = max(debt, 0)\n        history.append(debt)\n    return history\n\ndef occasional_cleanup(sprint):\n    # A big cleanup sprint only every 4 sprints -- and it keeps slipping in practice,\n    # represented here by sprint 8's cleanup being skipped under feature pressure.\n    if sprint == 4:\n        return 15\n    if sprint == 12:\n        return 15\n    return 0\n\ndef steady_cadence(sprint):\n    return 4  # a fixed amount paid down every single sprint\n\noccasional = simulate_debt(12, 5, occasional_cleanup)\nsteady = simulate_debt(12, 5, steady_cadence)\n\nprint(\"occasional cleanup, debt over time:\", occasional)\nprint(\"steady cadence, debt over time:      \", steady)\nprint(\"peak debt -- occasional:\", max(occasional), \" steady:\", max(steady))\n```\n\nBoth scenarios accrue the same 5 units of new debt every sprint, but they pay it down very differently: `occasional_cleanup` only pays anything on sprints 4 and 12 (mirroring a cleanup sprint that keeps slipping), so debt climbs unchecked for long stretches in between; `steady_cadence` pays down 4 units every single sprint, keeping debt low and roughly flat. Printing `max(...)` for each makes the peak-debt gap concrete — the occasional approach lets debt climb far higher before it's ever addressed."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Taking on debt without tracking it anywhere.** A shortcut that only lives in one person's memory gets forgotten the moment that person moves to another project — write it down.\n\n**Treating all debt repayment as a special \"cleanup sprint\" event.** This keeps losing the priority fight against new feature work, which is exactly why debt tends to grow unchecked under this model.\n\n**Confusing \"deliberate\" with \"consequence-free.\"** Choosing to take on debt consciously is still taking on debt — it still accrues interest and still needs a plan to pay it down, just on a schedule the team chose rather than one forced on them later.\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "swe_technical_debt_and_refactoring_cadence_quiz",
+        "questions": [
+          {
+            "question": "What does technical debt trade in the short term for a cost later, according to the financial metaphor?",
+            "options": [
+              "Faster immediate work for slower future work",
+              "Better code quality for worse performance",
+              "More tests for fewer features",
+              "Lower cost for higher security risk"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson describes technical debt as a shortcut that makes immediate work faster at the cost of making future work slower, directly mirroring how financial debt trades present benefit for future cost.",
+            "id": "q1"
+          },
+          {
+            "question": "What is the key difference between deliberate and accidental technical debt?",
+            "options": [
+              "Deliberate debt is always worse than accidental debt",
+              "Deliberate debt is a conscious, ideally tracked trade-off, while accidental debt accumulates without anyone deciding it should",
+              "Accidental debt doesn't accrue interest",
+              "Deliberate debt cannot be paid down later"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson defines deliberate debt as a conscious engineering decision, ideally tracked, whereas accidental debt accumulates unnoticed — like copy-pasted code or an outdated architecture — which is why it's described as more dangerous.",
+            "id": "q2"
+          },
+          {
+            "question": "Why does treating debt repayment as an occasional \"cleanup sprint\" tend to fail in practice?",
+            "options": [
+              "Because cleanup sprints are technically impossible to schedule",
+              "Because cleanup work competes with feature work for priority, and feature work almost always wins in the short term, so cleanup keeps getting postponed",
+              "Because debt cannot be measured",
+              "Because cleanup sprints always introduce new bugs"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson explains that occasional cleanup sprints have to win a priority fight against feature work each time, and feature work tends to win in the short term, so the cleanup keeps slipping while debt keeps accruing interest.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, on which sprints does `occasional_cleanup` pay down any debt?",
+            "options": [
+              "Every sprint",
+              "Only sprints 4 and 12",
+              "Only sprint 1",
+              "Never"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`occasional_cleanup` returns 15 only when `sprint == 4` or `sprint == 12`, and 0 on every other sprint — modeling a cleanup effort that happens rarely and keeps slipping in between.",
+            "id": "q4"
+          },
+          {
+            "question": "How much debt does `steady_cadence` pay down on each individual sprint?",
+            "options": [
+              "0",
+              "4",
+              "5",
+              "15"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`steady_cadence` always returns 4, regardless of the sprint number, representing a fixed amount paid down consistently every sprint.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does the code example print `max(occasional)` and `max(steady)` specifically?",
+            "options": [
+              "To find which sprint has the most new debt added",
+              "To compare the peak debt level each approach reaches, showing the occasional approach lets debt climb much higher before being addressed",
+              "To count the total number of sprints",
+              "To verify the simulation has no bugs"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson's explanation notes this makes the \"peak-debt gap\" concrete — since occasional_cleanup lets debt climb unchecked for long stretches between sprints 4 and 12, its peak debt is expected to be substantially higher than steady_cadence's.",
+            "id": "q6"
+          },
+          {
+            "question": "Why is taking on debt without tracking it anywhere flagged as a common mistake?",
+            "options": [
+              "Because untracked debt automatically doubles in size",
+              "Because a shortcut that only lives in one person's memory gets forgotten once that person moves to another project",
+              "Because Git requires all debt to be documented",
+              "Because untracked debt is illegal under most engineering standards"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson warns that debt tracked only in someone's memory disappears from the team's awareness the moment that person is no longer around to remember it, making it effectively invisible.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does the lesson warn against confusing \"deliberate\" debt with \"consequence-free\" debt?",
+            "options": [
+              "Because deliberate debt is actually accidental debt in disguise",
+              "Because choosing to take on debt consciously doesn't exempt it from accruing interest or needing a repayment plan",
+              "Because deliberate debt cannot be tracked",
+              "Because only accidental debt needs to be repaid"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson clarifies that even consciously chosen debt still accrues interest and still needs a plan to pay it down — being deliberate about taking it on doesn't make it free, just chosen on the team's own schedule.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "swe_documentation_as_a_first_class_artifact",
+      "title": "Documentation as a First-Class Artifact",
+      "description": "Why different documentation serves different readers, why it rots, and how this closes the course's arc.",
+      "duration": 13,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain why different kinds of documentation serve different readers, why documentation rots, and how this lesson closes the course's arc."
+          },
+          {
+            "title": "📚 Different documentation serves different readers",
+            "content": "Documentation isn't one thing — different kinds serve different readers at different moments:\n\n- A **README** orients a newcomer: what this project is, how to get it running, where to look next.\n- **Inline comments** explain *why* a specific piece of code does something non-obvious, for the next person (often you, in six months) reading that exact line.\n- **Architecture docs** explain how the pieces fit together at a higher level than any single file shows, for someone trying to understand the system's shape before diving into any one part of it.\n- **API docs** tell an external consumer exactly what a given endpoint or function expects and returns, without requiring them to read the implementation at all.\n\nWriting documentation without asking \"who is this for, and what do they need at this moment\" tends to produce writing that satisfies no one particularly well."
+          },
+          {
+            "title": "🕰️ Documentation rots if it's not maintained like code",
+            "content": "Documentation that describes behavior which has since changed is often worse than no documentation at all — a reader who trusts it gets actively misled, whereas a reader who finds nothing at least knows to go check the code directly. Documentation stays trustworthy only when updating it is treated as part of the change that makes it stale — bundled into the same pull request that changes the behavior, not deferred to \"we'll update the docs later,\" which in practice often means never."
+          },
+          {
+            "title": "🎓 Closing this course's arc",
+            "content": "This course started with clean code and naming — the smallest unit of clarity, a single well-named function. It moved through data structures and algorithms — the tools for solving problems efficiently. It moved through system design — how those tools compose into whole systems. It moved through testing — how you know those systems actually work. And it ends here, with documentation and collaboration — because none of the technical skill in the earlier lessons matters much if it can't be understood, maintained, and built on by the people working alongside you, including your future self. Good software engineering was never just about writing code that works once — it's about writing code, and the material around it, that keeps working as other people (and time) act on it."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "Here's a small, concrete illustration of documentation rot — and the one habit that prevents it.\n\n```python\n# --- The function, and its docstring, at time of writing ---\n\ndef get_active_users(users, days=30):\n    \"\"\"Return users active in the last 30 days.\"\"\"\n    return [u for u in users if u[\"days_since_active\"] <= days]\n\nusers = [\n    {\"name\": \"Alice\", \"days_since_active\": 5},\n    {\"name\": \"Bob\", \"days_since_active\": 45},\n    {\"name\": \"Carol\", \"days_since_active\": 60},\n]\n\nprint(\"with default window:\", [u[\"name\"] for u in get_active_users(users)])\n# ['Alice'] -- matches the docstring's '30 days' claim\n\n# --- Six months later, someone changes the default without updating the docstring ---\n\ndef get_active_users_v2(users, days=90):\n    \"\"\"Return users active in the last 30 days.\"\"\"  # <- now WRONG, still says 30\n    return [u for u in users if u[\"days_since_active\"] <= days]\n\nprint(\"with changed default:\", [u[\"name\"] for u in get_active_users_v2(users)])\n# ['Alice', 'Bob'] -- the docstring says 30 days, but the real window is now 90\nprint(\"docstring still claims:\", get_active_users_v2.__doc__)\n```\n\n`get_active_users` and its docstring agree at first: the default window is 30 days, and the printed result matches. `get_active_users_v2` is exactly the documentation-rot scenario — the default changed to 90, but the docstring was never touched, so it now actively misleads anyone who trusts it: Bob shows up as \"active\" under the new 90-day window while the docs still promise a 30-day one. The fix is process, not tooling — the docstring update belongs in the very same change that adjusted `days`."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Writing one kind of documentation for every audience.** A README written like an architecture doc overwhelms a newcomer trying to get the project running; an architecture doc written like a README leaves an experienced engineer without the detail they need.\n\n**Deferring doc updates to \"later.\"** In practice, \"we'll update the docs later\" very often means never — the only reliable way to keep documentation accurate is bundling its update into the same change that made it stale.\n\n**Trusting documentation more than the code when the two disagree.** If a docstring and the actual implementation contradict each other, the code is what actually runs — treat the mismatch as a bug in the documentation to fix, not evidence to act on as-is.\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "swe_documentation_as_a_first_class_artifact_quiz",
+        "questions": [
+          {
+            "question": "According to the lesson, what does a README primarily do?",
+            "options": [
+              "Explain why a specific line of code exists",
+              "Orient a newcomer to what the project is, how to run it, and where to look next",
+              "Define an external API's exact request and response shape",
+              "Describe the system's architecture in full technical depth"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson describes the README as serving a newcomer specifically: orienting them to what the project is, how to get it running, and where to go next.",
+            "id": "q1"
+          },
+          {
+            "question": "Why can outdated documentation be worse than no documentation at all?",
+            "options": [
+              "Because outdated documentation takes up disk space",
+              "Because a reader who trusts outdated docs gets actively misled, whereas a reader who finds nothing knows to check the code directly",
+              "Because documentation always slows down the build process",
+              "Because outdated docs are illegal under most licenses"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson explains that trusting stale documentation actively misleads a reader, while the absence of documentation at least signals that the code itself needs to be checked directly.",
+            "id": "q2"
+          },
+          {
+            "question": "How does this lesson frame its place in the arc of the whole Software Engineering course?",
+            "options": [
+              "As an unrelated bonus topic tacked onto the end",
+              "As the closing lesson, arguing that none of the earlier technical skills matter much if the resulting work can't be understood and maintained by others",
+              "As a replacement for the testing module",
+              "As a prerequisite that should have come first"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson explicitly walks back through clean code, data structures/algorithms, system design, and testing, framing documentation and collaboration as the closing piece that makes all of that earlier work maintainable by others.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, what does `get_active_users(users)` return with its default arguments, and why?",
+            "options": [
+              "An empty list, because no users are active",
+              "['Alice'], because only Alice has days_since_active <= 30",
+              "['Alice', 'Bob'], because the window is actually 90 days",
+              "All three users, because the docstring is inaccurate"
+            ],
+            "correctAnswer": 1,
+            "explanation": "With the default `days=30`, only Alice (`days_since_active: 5`) falls within the window; Bob (45) and Carol (60) do not, so the result is `['Alice']`, matching what the docstring claims.",
+            "id": "q4"
+          },
+          {
+            "question": "What specifically makes `get_active_users_v2` an example of documentation rot?",
+            "options": [
+              "It has a syntax error",
+              "Its default changed from 30 to 90 days, but its docstring still says '30 days', so the docs no longer match the actual behavior",
+              "It removed the docstring entirely",
+              "It returns a different data type than the original function"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The function's `days` default was changed to 90, but the docstring was left saying \"last 30 days\" — the documentation and the actual behavior have diverged, which is precisely what documentation rot means.",
+            "id": "q5"
+          },
+          {
+            "question": "According to the code example's closing explanation, what is the actual fix for documentation rot?",
+            "options": [
+              "A better documentation generation tool",
+              "Bundling the docstring update into the very same change that adjusted the behavior it describes",
+              "Removing all docstrings to avoid the risk",
+              "Running the code more often"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson states explicitly that the fix is process, not tooling — updating the docstring should happen in the same pull request that changes the behavior, rather than being deferred.",
+            "id": "q6"
+          },
+          {
+            "question": "Why is writing one kind of documentation for every audience called a mistake?",
+            "options": [
+              "Because only one kind of documentation is allowed per project",
+              "Because each kind of documentation serves a different reader's needs, so a mismatch (like a README written as an architecture doc) fails to serve anyone well",
+              "Because it takes too long to write multiple documents",
+              "Because documentation tools only support one format"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson's common mistakes point out that a README written like an architecture doc overwhelms a newcomer, while an architecture doc written like a README lacks the detail an experienced engineer needs — each audience needs its own appropriate form.",
+            "id": "q7"
+          },
+          {
+            "question": "If a docstring and the actual code implementation disagree, what does the lesson say you should trust?",
+            "options": [
+              "The docstring, since it represents the intended design",
+              "The code, since that's what actually runs — treat the mismatch as a bug in the documentation",
+              "Neither — the function should be deleted",
+              "Whichever was written more recently, regardless of which is code"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson's common mistakes explicitly state that when a docstring and the implementation contradict each other, the code is what actually runs, so the mismatch should be treated as a documentation bug to fix, not something to act on as-is.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

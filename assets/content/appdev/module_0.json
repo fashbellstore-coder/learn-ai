@@ -1,0 +1,557 @@
+{
+  "id": "app_fastapi_foundations",
+  "title": "Building APIs with FastAPI",
+  "description": "REST fundamentals for AI apps, FastAPI routes and Pydantic models, async endpoints, and request validation.",
+  "icon": "🧭",
+  "color": "#E65100",
+  "order": 0,
+  "estimatedHours": 3,
+  "difficulty": "beginner",
+  "prerequisites": [],
+  "lessons": [
+    {
+      "id": "app_rest_fundamentals_for_ai_apps",
+      "title": "REST Fundamentals for AI Apps",
+      "description": "Turning a model that works in a notebook into something another program can actually call.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Apply the resource-and-HTTP-verb conventions from the Software Engineering course specifically to an endpoint that wraps a model call."
+          },
+          {
+            "title": "🔌 The gap this course closes",
+            "content": "Every model built earlier in this curriculum — a fine-tuned classifier, a RAG pipeline, an agent — exists as Python code you can call directly. A real product needs that logic reachable over the network, with a stable contract, from a web app, a mobile app, or another service. That's the gap this course exists to close."
+          },
+          {
+            "title": "🌐 Modeling an AI operation as a resource",
+            "content": "A chat completion becomes `POST /conversations/{id}/messages`, a document upload for RAG becomes `POST /documents`, and a fine-tuning job becomes a resource you can `GET /jobs/{id}` to check status on — applying the resource-based API design principles from the Software Engineering course directly to AI-specific operations."
+          },
+          {
+            "title": "⏱️ Why AI endpoints break some ordinary API assumptions",
+            "content": "A typical REST endpoint responds in milliseconds; an LLM call can take seconds, and a fine-tuning job can take hours. This single fact — that AI operations are often slow relative to typical API responses — is the reason this course dedicates entire modules to streaming (Module 2) and background jobs (Module 3) that a typical CRUD API tutorial doesn't need to cover."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "Here's the resource-modeling idea made concrete: an AI operation represented as a resource with its own URL, rather than a single \"do the thing\" endpoint.\n\n```python\n# --- The wrong shape: one endpoint that tries to do everything synchronously ---\n\ndef bad_generate_endpoint(prompt):\n    \"\"\"POST /generate -- blocks until the whole model call finishes, no way to check status.\"\"\"\n    return call_model(prompt)  # could take 30+ seconds; the client just waits\n\n# --- The resource-based shape: the job itself is a resource you can query ---\n\njobs = {}\nnext_job_id = 1\n\ndef call_model(prompt):\n    return f\"response to: {prompt}\"\n\ndef post_jobs(prompt):\n    \"\"\"POST /jobs -- returns immediately with a resource the client can check later.\"\"\"\n    global next_job_id\n    job_id = next_job_id\n    next_job_id += 1\n    jobs[job_id] = {\"id\": job_id, \"status\": \"completed\", \"result\": call_model(prompt)}\n    return 201, jobs[job_id]\n\ndef get_job(job_id):\n    \"\"\"GET /jobs/{id} -- the same resource, checked on the client's own schedule.\"\"\"\n    if job_id not in jobs:\n        return 404, {\"error\": \"not found\"}\n    return 200, jobs[job_id]\n\nstatus, body = post_jobs(\"summarize this document\")\nprint(status, body)\nstatus, body = get_job(body[\"id\"])\nprint(status, body)\n```\n\n`bad_generate_endpoint` bakes the action into a single call the client has to sit through. `post_jobs` and `get_job` instead treat the operation as a resource — creation returns a `201` with the job's own identity, and that same identity can be queried again later with `GET /jobs/{id}`, exactly the pattern the lesson describes for a fine-tuning job."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Designing one endpoint per action instead of one resource with HTTP verbs.** `/generateSummary`, `/checkJobStatus`, `/cancelJob` as three separate ad hoc endpoints duplicate what `POST /jobs`, `GET /jobs/{id}`, and `DELETE /jobs/{id}` already express through the resource plus the HTTP method.\n\n**Assuming every AI endpoint can respond as fast as a typical CRUD endpoint.** Designing the API contract around a same-request, instant-response assumption works until the first LLM call or fine-tuning job that takes longer than a client is willing to wait.\n\n**Forgetting that the gap this course closes is a real engineering gap, not a formality.** A model that only runs in a notebook isn't a product yet — the network-reachable, stable-contract version of it is genuinely different work, not a thin wrapper.\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "app_rest_fundamentals_for_ai_apps_quiz",
+        "questions": [
+          {
+            "question": "What real-world gap does this course's opening lesson identify?",
+            "options": [
+              "The gap between a model that works as Python code and a stable, network-reachable API another program can call",
+              "The gap between training and evaluation datasets",
+              "The gap between two different embedding models",
+              "The gap between SQL and NoSQL databases"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Turning working model code into something callable over a network with a stable contract is exactly the product-engineering gap this course addresses.",
+            "id": "q1"
+          },
+          {
+            "question": "Why does modeling a fine-tuning job as a resource (`GET /jobs/{id}`) make sense?",
+            "options": [
+              "Because it follows the same resource-based API design principles from the Software Engineering course, applied to a long-running AI operation",
+              "Because fine-tuning jobs cannot be represented as resources under any API convention",
+              "Because GET requests are required to trigger fine-tuning",
+              "Because job status can only be checked through a database query, never an API"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Treating the job itself as a resource you can query status on directly extends the general resource-modeling principle to an AI-specific, long-running operation.",
+            "id": "q2"
+          },
+          {
+            "question": "Why do AI-specific API endpoints often break the 'responds in milliseconds' assumption of a typical REST tutorial?",
+            "options": [
+              "Because LLM calls and fine-tuning jobs can take seconds to hours, unlike typical fast CRUD operations",
+              "Because AI endpoints never return any response at all",
+              "Because REST cannot be used for any AI-related endpoint",
+              "Because AI models always respond faster than database queries"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The comparatively long duration of real AI operations is exactly why this course needs dedicated modules on streaming and background jobs that a standard CRUD API wouldn't require.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, what does `post_jobs` return, and why is that shape better than `bad_generate_endpoint`?",
+            "options": [
+              "It returns the finished result only, identical to bad_generate_endpoint",
+              "It returns a 201 status and the job resource itself, including its id, so the client can query it again later via get_job",
+              "It returns nothing and silently discards the result",
+              "It returns a 500 error every time"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`post_jobs` returns `201, jobs[job_id]`, giving the client the job's identity as a resource — exactly what lets `get_job` retrieve the same job again later, unlike `bad_generate_endpoint`'s one-shot blocking call.",
+            "id": "q4"
+          },
+          {
+            "question": "What does `get_job` return if called with a `job_id` that was never created?",
+            "options": [
+              "200 and an empty dictionary",
+              "404 and {'error': 'not found'}",
+              "It raises an unhandled exception",
+              "201 and a newly created job"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`get_job` explicitly checks `if job_id not in jobs` and returns `404, {\"error\": \"not found\"}` rather than crashing or fabricating a result.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is designing three separate ad hoc endpoints like `/generateSummary`, `/checkJobStatus`, and `/cancelJob` flagged as a mistake?",
+            "options": [
+              "Because it's technically impossible to implement",
+              "Because it duplicates what a single resource (`/jobs`) combined with different HTTP verbs already expresses",
+              "Because ad hoc endpoint names are always shorter to type",
+              "Because it violates a hard limit on the number of endpoints an API can have"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson's common mistakes point out that action-named endpoints re-invent what resource-plus-verb design (`POST /jobs`, `GET /jobs/{id}`, `DELETE /jobs/{id}`) already covers more consistently.",
+            "id": "q6"
+          },
+          {
+            "question": "Why is assuming every AI endpoint can respond as fast as a typical CRUD endpoint a mistake?",
+            "options": [
+              "Because it works fine as an assumption until an LLM call or fine-tuning job takes longer than a client will wait",
+              "Because CRUD endpoints are always slower than AI endpoints",
+              "Because AI endpoints never take more than a few milliseconds",
+              "Because this assumption has no bearing on API design"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explains this assumption breaks down specifically because AI operations can be genuinely slow, which is exactly why streaming and background jobs get dedicated modules later in the course.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does the lesson describe a notebook-only model as 'not a product yet'?",
+            "options": [
+              "Because notebooks cannot run Python code",
+              "Because making it network-reachable with a stable contract is genuinely different engineering work, not a thin wrapper",
+              "Because models in notebooks are always less accurate",
+              "Because products cannot use Python at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson's common mistakes emphasize that the gap between notebook code and a real, network-reachable API is a substantive engineering gap, which is exactly what this course is built to close.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "app_fastapi_basics_routes_and_models",
+      "title": "FastAPI Basics: Routes and Models",
+      "description": "A concrete Python framework for building the APIs described in the last lesson.",
+      "duration": 13,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Describe how FastAPI defines routes and validates request/response data using type-annotated models."
+          },
+          {
+            "title": "🛣️ Routes: mapping a URL and method to a function",
+            "content": "FastAPI maps an HTTP method and path to a Python function using decorators — `@app.post(\"/documents\")` calls a specific function whenever a POST request arrives at that path, with FastAPI handling the parsing of the request into Python objects automatically based on type hints."
+          },
+          {
+            "title": "📐 Pydantic models define the data contract",
+            "content": "Instead of manually checking that a request body has the right fields and types, FastAPI uses Pydantic models — Python classes with type-annotated fields — to define exactly what a valid request or response looks like. A request that doesn't match the model's shape is automatically rejected with a clear error, before your business logic ever runs."
+          },
+          {
+            "title": "📄 Automatic documentation, as a side effect",
+            "content": "Because routes and models are defined with type hints, FastAPI can automatically generate interactive API documentation (via OpenAPI/Swagger) with no extra work — directly addressing the API-documentation need flagged in the Software Engineering course's API design lesson, essentially for free."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "Pydantic's validation is the part worth seeing fail on purpose — here's a model rejecting a malformed payload before any route logic runs.\n\n```python\nfrom pydantic import BaseModel, ValidationError\n\nclass DocumentUpload(BaseModel):\n    title: str\n    content: str\n    max_chunk_size: int = 500  # has a default, so it's optional\n\n# --- A valid request: parses cleanly ---\n\ngood_payload = {\"title\": \"Q3 Report\", \"content\": \"Revenue grew...\", \"max_chunk_size\": 300}\ndoc = DocumentUpload(**good_payload)\nprint(\"parsed:\", doc)\n\n# --- A malformed request: missing a required field ---\n\nbad_payload = {\"title\": \"Q3 Report\"}  # 'content' is missing entirely\n\ntry:\n    DocumentUpload(**bad_payload)\nexcept ValidationError as e:\n    print(\"rejected before any route logic ran:\")\n    for err in e.errors():\n        print(f\"  {err['loc']}: {err['msg']}\")\n\n# --- A wrong-type request: max_chunk_size isn't an int ---\n\nwrong_type_payload = {\"title\": \"Q3 Report\", \"content\": \"...\", \"max_chunk_size\": \"not a number\"}\ntry:\n    DocumentUpload(**wrong_type_payload)\nexcept ValidationError as e:\n    print(\"also rejected:\", e.errors()[0][\"msg\"])\n```\n\n`good_payload` parses into a `DocumentUpload` instance with no fuss. `bad_payload` is missing the required `content` field, so Pydantic raises a `ValidationError` naming exactly which field is missing — this is the automatic rejection the lesson describes, happening before any of your own route code runs. `wrong_type_payload` shows the same thing for a type mismatch: `max_chunk_size` is declared as `int`, so a string value is rejected too."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Skipping Pydantic models and manually checking `request.json()` fields by hand.** This re-implements, less reliably, exactly what a type-annotated model already gives you automatically, and it's easy to miss a field or a type check that Pydantic would have caught by default.\n\n**Treating the automatic docs as optional polish.** Because the documentation is generated directly from the same type hints that drive validation, it stays in sync with the actual contract for free — skipping it means writing (and maintaining) documentation manually for something FastAPI already produces correctly.\n\n**Giving every field a default value just to avoid validation errors.** A field that's actually required (like `content` for a document upload) should stay required — defaulting it to an empty string just moves a missing-data bug from an immediate, clear validation error to a confusing failure somewhere downstream.\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "app_fastapi_basics_routes_and_models_quiz",
+        "questions": [
+          {
+            "question": "How does FastAPI map an incoming HTTP request to a specific Python function?",
+            "options": [
+              "Through decorators that associate an HTTP method and path with a function, like `@app.post(\"/documents\")`",
+              "By reading a separate XML configuration file for every route",
+              "By requiring all requests to use the GET method exclusively",
+              "By manually parsing the raw request string inside every function body"
+            ],
+            "correctAnswer": 0,
+            "explanation": "FastAPI's decorator syntax directly ties a route definition to the function that should handle requests matching that path and method.",
+            "id": "q1"
+          },
+          {
+            "question": "What is the main purpose of a Pydantic model in a FastAPI route?",
+            "options": [
+              "To define the exact expected shape of request/response data, so invalid requests are rejected automatically before business logic runs",
+              "To store the application's database connection settings",
+              "To render the final HTML response to the client",
+              "To replace the need for any HTTP methods entirely"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Pydantic models act as a validation contract, catching malformed requests automatically based on the model's type-annotated fields.",
+            "id": "q2"
+          },
+          {
+            "question": "Why does FastAPI's automatic API documentation matter, connecting back to the Software Engineering course?",
+            "options": [
+              "It directly satisfies the need for clear API documentation flagged in the earlier API design lesson, essentially for free from existing type hints",
+              "Because documentation is otherwise impossible to produce for any API",
+              "Because FastAPI requires documentation to be written manually in a separate tool",
+              "Because automatic documentation replaces the need for request validation"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The type-hint-driven approach means documentation stays in sync with the actual code, directly addressing a concern raised earlier in the curriculum about API contracts.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, what happens when `DocumentUpload(**bad_payload)` is called with `bad_payload = {\"title\": \"Q3 Report\"}`?",
+            "options": [
+              "It parses successfully with content set to an empty string",
+              "It raises a ValidationError because the required 'content' field is missing",
+              "It silently ignores the missing field",
+              "It crashes with an unrelated TypeError"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`content` has no default value in `DocumentUpload`, so omitting it causes Pydantic to raise a `ValidationError` naming the missing field, exactly the automatic rejection the lesson describes.",
+            "id": "q4"
+          },
+          {
+            "question": "Why does `good_payload` parse successfully while `wrong_type_payload` does not?",
+            "options": [
+              "Because good_payload provides all required fields with correct types, while wrong_type_payload provides max_chunk_size as a string instead of an int",
+              "Because wrong_type_payload is missing the title field",
+              "Because good_payload uses a completely different model class",
+              "There is no actual difference between the two payloads"
+            ],
+            "correctAnswer": 0,
+            "explanation": "`good_payload` matches the model's declared types exactly, while `wrong_type_payload` supplies a string for `max_chunk_size`, which is type-annotated as `int`, triggering a `ValidationError`.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is manually checking `request.json()` fields by hand instead of using a Pydantic model flagged as a mistake?",
+            "options": [
+              "Because it's faster than using Pydantic",
+              "Because it re-implements, less reliably, validation that a type-annotated model already provides automatically",
+              "Because manual checks are required by FastAPI",
+              "Because Pydantic models cannot validate JSON data"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson's common mistakes point out that hand-rolled field checking duplicates what Pydantic validation already does, with a higher risk of missing a field or type check Pydantic would have caught by default.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does the lesson warn against treating FastAPI's automatic documentation as optional polish?",
+            "options": [
+              "Because the documentation is generated from the same type hints that drive validation, so skipping it means manually maintaining something that's otherwise free and automatically in sync",
+              "Because automatic documentation is always inaccurate",
+              "Because documentation has no connection to an API's actual contract",
+              "Because FastAPI charges extra for documentation generation"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Because the docs come directly from the type hints already written for validation, treating them as skippable polish throws away documentation that's otherwise correct and free.",
+            "id": "q7"
+          },
+          {
+            "question": "Why is giving every field a default value just to avoid validation errors called a mistake?",
+            "options": [
+              "Because default values are not supported in Pydantic",
+              "Because it turns a genuinely required field's missing-data bug from an immediate, clear validation error into a confusing failure further downstream",
+              "Because default values always slow down request parsing",
+              "Because fields with defaults cannot be type-checked"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson explains that defaulting an actually-required field (like content) just to dodge a validation error trades a clear, immediate error for a harder-to-diagnose problem later in the pipeline.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "app_async_endpoints_and_background_tasks",
+      "title": "Async Endpoints and Background Tasks",
+      "description": "Why an API that calls an LLM shouldn't block a whole worker thread while it waits.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain why async endpoints matter specifically for I/O-bound operations like LLM API calls."
+          },
+          {
+            "title": "⏳ The problem: waiting is wasted capacity",
+            "content": "A traditional synchronous endpoint that calls an external LLM API blocks its entire worker thread for the whole duration of that call — often several seconds — during which that worker can't handle any other request. At any real traffic volume, this wastes enormous capacity waiting on network I/O rather than doing useful computation."
+          },
+          {
+            "title": "⚡ Async: doing something else while waiting",
+            "content": "An async endpoint (defined with `async def` in FastAPI) can yield control back to the event loop while waiting on an I/O operation like an LLM API call, letting the same worker handle other requests during that wait — dramatically improving how many concurrent requests a single process can serve, since most of an LLM call's latency is spent waiting on the network, not on local computation."
+          },
+          {
+            "title": "🔧 Background tasks: fire, respond, then finish the work",
+            "content": "For work that doesn't need to complete before responding to the client — like logging an interaction or triggering a downstream notification — FastAPI's background tasks let you return a response immediately while the task finishes after, avoiding making the client wait for work they don't need to wait for."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "A simulated event loop makes the difference between blocking and yielding concrete without needing a real server.\n\n```python\nimport time\n\n# --- Synchronous: one slow call blocks everything behind it ---\n\ndef sync_call_llm(request_id, delay):\n    print(f\"[sync] request {request_id}: blocking for {delay}s\")\n    time.sleep(delay)  # simulates waiting on the network for an LLM response\n    return f\"response-{request_id}\"\n\nstart = time.perf_counter()\nfor req_id, delay in [(1, 0.05), (2, 0.05), (3, 0.05)]:\n    sync_call_llm(req_id, delay)\nsync_elapsed = time.perf_counter() - start\nprint(f\"sync total: {sync_elapsed:.3f}s (roughly 3 * 0.05s, one after another)\")\n\n# --- Async: overlapping waits, using asyncio.gather ---\n\nimport asyncio\n\nasync def async_call_llm(request_id, delay):\n    print(f\"[async] request {request_id}: awaiting for {delay}s\")\n    await asyncio.sleep(delay)  # yields control back to the event loop while waiting\n    return f\"response-{request_id}\"\n\nasync def run_concurrently():\n    start = time.perf_counter()\n    results = await asyncio.gather(\n        async_call_llm(1, 0.05),\n        async_call_llm(2, 0.05),\n        async_call_llm(3, 0.05),\n    )\n    elapsed = time.perf_counter() - start\n    print(f\"async total: {elapsed:.3f}s (roughly 0.05s, all three overlapped)\")\n    return results\n\nasyncio.run(run_concurrently())\n```\n\nThe synchronous version calls `sync_call_llm` three times in a row, so the total time is roughly the sum of all three delays (about 0.15s). The async version instead awaits all three with `asyncio.gather`, so while each one is waiting on `asyncio.sleep` (standing in for the network wait on an LLM call), the event loop can make progress on the others — the total time is roughly the *longest* single delay (about 0.05s), not the sum, which is exactly the capacity win the lesson describes."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Marking a route `async def` but still calling a blocking library inside it.** An `async def` endpoint that calls a synchronous, blocking HTTP client still blocks the event loop for that call's full duration — declaring a function async doesn't make the code inside it non-blocking by itself; the I/O calls inside it need to actually be awaited async calls.\n\n**Using a background task for work the client actually needs the result of.** If the client's next action depends on the task's output, firing it as a background task and returning early just moves the problem — the client ends up polling or guessing when the real answer is ready instead of getting it directly.\n\n**Assuming async automatically makes CPU-bound work faster.** Async helps specifically with I/O-bound waiting, like a network call to an LLM API. It does nothing for a slow, CPU-bound computation running in the same process, which still blocks the event loop regardless of how the function is declared.\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "app_async_endpoints_and_background_tasks_quiz",
+        "questions": [
+          {
+            "question": "Why does a synchronous endpoint calling an LLM API waste server capacity at scale?",
+            "options": [
+              "Because it blocks its entire worker thread for the whole duration of the call, preventing that worker from handling any other request meanwhile",
+              "Because synchronous endpoints cannot call external APIs at all",
+              "Because LLM APIs only accept asynchronous requests",
+              "Because blocking calls always use more CPU than async calls"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The worker sits idle waiting on network I/O rather than doing useful work, which compounds badly under real concurrent traffic.",
+            "id": "q1"
+          },
+          {
+            "question": "What does an async endpoint do differently while waiting on an LLM API call?",
+            "options": [
+              "It yields control back to the event loop, letting the same worker handle other requests during the wait",
+              "It creates an entirely new server process for every request",
+              "It blocks all other requests until the LLM call completes, same as a synchronous endpoint",
+              "It skips calling the LLM API entirely"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Yielding control during I/O wait is exactly what lets a single async worker serve many concurrent requests efficiently.",
+            "id": "q2"
+          },
+          {
+            "question": "When is a FastAPI background task the right tool to use?",
+            "options": [
+              "When work doesn't need to complete before responding to the client, like logging or triggering a downstream notification",
+              "When the client must wait for the task's result before receiving any response",
+              "Only for tasks that take less than one millisecond",
+              "Only for tasks that call an LLM directly"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Background tasks let the response return immediately while non-blocking follow-up work completes afterward, avoiding unnecessary client wait time.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, roughly how long does the synchronous version take to process all three requests?",
+            "options": [
+              "Roughly 0.05s, since all three run at once",
+              "Roughly the sum of all three delays, about 0.15s, since each call happens one after another",
+              "Roughly 0s, since sync calls are instant",
+              "It never completes"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`sync_call_llm` is called three times in a plain loop, each one fully blocking with `time.sleep(delay)` before the next starts, so the total is roughly the sum of the three 0.05s delays.",
+            "id": "q4"
+          },
+          {
+            "question": "Why does the async version's total time come out closer to 0.05s instead of 0.15s?",
+            "options": [
+              "Because asyncio.gather runs all three async_call_llm calls concurrently, so their waits overlap instead of stacking up",
+              "Because async code always skips the delay entirely",
+              "Because only one of the three calls actually executes",
+              "Because asyncio.sleep is faster than time.sleep for the same duration"
+            ],
+            "correctAnswer": 0,
+            "explanation": "`asyncio.gather` starts all three coroutines together, and since each one yields control during `await asyncio.sleep(delay)`, their waits overlap — the total time is bounded by the longest single wait, not the sum.",
+            "id": "q5"
+          },
+          {
+            "question": "Why doesn't declaring a route `async def` automatically make it non-blocking?",
+            "options": [
+              "Because if the code inside it still calls a blocking, synchronous library, that call still blocks the event loop for its full duration",
+              "Because FastAPI ignores the async keyword entirely",
+              "Because async def routes always run slower than regular def routes",
+              "Because async def is only valid for GET requests"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's common mistakes point out that async only helps when the actual I/O calls inside the function are awaited, async-compatible calls — wrapping a blocking call in an async function doesn't change its blocking behavior.",
+            "id": "q6"
+          },
+          {
+            "question": "Why is using a background task for work the client actually needs the result of considered a mistake?",
+            "options": [
+              "Because background tasks are always slower than a normal synchronous call",
+              "Because it moves the problem — the client ends up polling or guessing when the real result is ready instead of getting it directly in the response",
+              "Because background tasks can only be used with GET requests",
+              "Because FastAPI does not support background tasks"
+            ],
+            "correctAnswer": 1,
+            "explanation": "If the client genuinely needs the task's output next, firing it as a background task and responding early just defers the client's actual problem rather than solving it.",
+            "id": "q7"
+          },
+          {
+            "question": "Why doesn't async automatically make a CPU-bound computation faster?",
+            "options": [
+              "Because async specifically helps with I/O-bound waiting, not CPU-bound work, which still blocks the event loop regardless of how the function is declared",
+              "Because CPU-bound work is always faster than I/O-bound work already",
+              "Because Python cannot execute any CPU-bound code",
+              "Because async functions cannot contain any computation at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson clarifies that async's benefit comes from yielding control during I/O waits; a slow, CPU-bound calculation has no I/O wait to yield during, so it still blocks the event loop just as it would in a synchronous function.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "app_request_validation_with_pydantic",
+      "title": "Request Validation with Pydantic",
+      "description": "Catching a malformed request before it ever reaches your business logic — or your LLM API bill.",
+      "duration": 11,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain why strict request validation matters especially for endpoints that call a paid external API."
+          },
+          {
+            "title": "🛡️ Validation as a first line of defense",
+            "content": "Pydantic models validate incoming data's types, required fields, and constraints (string length limits, numeric ranges, allowed enum values) automatically, rejecting malformed requests with a clear error before any application code — including an expensive LLM call — ever executes."
+          },
+          {
+            "title": "💸 Why this matters more for AI endpoints specifically",
+            "content": "A malformed request that reaches an LLM call anyway wastes real money on an API call for input that was never going to produce a useful response — validation isn't just about correctness here, it's a cost-control measure directly connected to the LLMOps course's cost-per-token discipline, just applied at the input-validation layer instead of a downstream optimization."
+          },
+          {
+            "title": "🧩 Nested and custom validation",
+            "content": "Pydantic supports nested models (a request containing a list of structured objects, not just flat fields) and custom validators for rules that go beyond basic types — like ensuring a prompt field isn't empty, or that a temperature parameter falls within a valid range — encoding business rules directly into the data contract rather than checking them ad hoc inside every endpoint function."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "Here's a custom validator enforcing exactly the kind of AI-specific business rule the lesson describes: a non-empty prompt and a temperature within a valid range.\n\n```python\nfrom pydantic import BaseModel, field_validator, ValidationError\n\nclass CompletionRequest(BaseModel):\n    prompt: str\n    temperature: float = 1.0\n\n    @field_validator(\"prompt\")\n    @classmethod\n    def prompt_not_empty(cls, v):\n        if not v.strip():\n            raise ValueError(\"prompt must not be empty\")\n        return v\n\n    @field_validator(\"temperature\")\n    @classmethod\n    def temperature_in_range(cls, v):\n        if not 0.0 <= v <= 2.0:\n            raise ValueError(\"temperature must be between 0.0 and 2.0\")\n        return v\n\ndef validate_and_maybe_call_llm(payload):\n    \"\"\"Simulates the request path: validate first, only call the (fake) LLM if valid.\"\"\"\n    try:\n        req = CompletionRequest(**payload)\n    except ValidationError as e:\n        return f\"REJECTED before any LLM call: {e.errors()[0]['msg']}\"\n    return f\"LLM CALLED with prompt={req.prompt!r}, temperature={req.temperature}\"\n\nprint(validate_and_maybe_call_llm({\"prompt\": \"Summarize this\", \"temperature\": 0.7}))\nprint(validate_and_maybe_call_llm({\"prompt\": \"   \", \"temperature\": 0.7}))\nprint(validate_and_maybe_call_llm({\"prompt\": \"Summarize this\", \"temperature\": 5.0}))\n```\n\nThe first call has a real prompt and a valid temperature, so it reaches `\"LLM CALLED ...\"` — the expensive path. The second call's prompt is only whitespace, so `prompt_not_empty` raises before `validate_and_maybe_call_llm` ever considers calling the model — no LLM API charge for input that could never produce a useful response. The third call's `temperature=5.0` is outside the valid `0.0`-`2.0` range, so `temperature_in_range` rejects it the same way, for the same reason."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Validating fields for type only, and skipping business-rule constraints.** A `temperature: float` field alone happily accepts `-50.0` or `9999.0` — the type check passes, but the value is still meaningless for an actual LLM call. Custom validators are what catch this class of problem.\n\n**Checking validity after the LLM call instead of before it.** If a request is rejected only after the model has already been called, the cost-control benefit of validation is lost entirely — the point is to reject before the expensive step runs, not after.\n\n**Silently coercing invalid input into something 'close enough' instead of rejecting it.** Clamping an out-of-range temperature to the nearest valid value instead of raising an error hides a bug in whatever sent the invalid value in the first place, and the client never learns their request was malformed.\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "app_request_validation_with_pydantic_quiz",
+        "questions": [
+          {
+            "question": "What does Pydantic validation prevent from happening, for a malformed request?",
+            "options": [
+              "It rejects the request with a clear error before any application code, including an LLM call, executes",
+              "It silently corrects the request's data without informing the client",
+              "It always forwards the request to the LLM regardless of validity",
+              "It deletes the malformed request from the server's logs"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Validation acts as a gate that catches problems before they propagate into expensive or incorrect downstream processing.",
+            "id": "q1"
+          },
+          {
+            "question": "Why does request validation matter more for AI endpoints specifically, compared to a typical CRUD endpoint?",
+            "options": [
+              "Because a malformed request that reaches an LLM call anyway wastes real money on an API call for input that couldn't produce a useful response",
+              "Because AI endpoints never receive any invalid requests",
+              "Because validation is impossible for endpoints that call an LLM",
+              "Because CRUD endpoints have no cost associated with invalid requests either"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The direct dollar cost of an unnecessary LLM API call gives AI endpoints a stronger cost-control reason for strict validation than a typical free CRUD operation.",
+            "id": "q2"
+          },
+          {
+            "question": "What is an example of a custom validation rule that goes beyond basic type checking?",
+            "options": [
+              "Ensuring a prompt field isn't empty, or that a temperature parameter falls within a valid range",
+              "Checking that a request uses the HTTP GET method",
+              "Verifying the server's uptime",
+              "Confirming the client's IP address is valid"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Custom validators encode specific business rules — like value ranges or non-empty constraints — directly into the data contract, beyond simple type checks.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, what does `validate_and_maybe_call_llm({\"prompt\": \"   \", \"temperature\": 0.7})` return?",
+            "options": [
+              "\"LLM CALLED with prompt='   ', temperature=0.7\"",
+              "A rejection message, since prompt_not_empty raises a ValueError for a whitespace-only prompt",
+              "None",
+              "An unhandled crash"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`prompt_not_empty` calls `v.strip()` on the whitespace-only string, which becomes an empty string and fails the `if not v.strip()` check, raising before the LLM would ever be called.",
+            "id": "q4"
+          },
+          {
+            "question": "Why does `validate_and_maybe_call_llm({\"prompt\": \"Summarize this\", \"temperature\": 5.0})` get rejected?",
+            "options": [
+              "Because the prompt field is empty",
+              "Because temperature_in_range rejects 5.0 as outside the valid 0.0 to 2.0 range",
+              "Because the prompt is too long",
+              "Because CompletionRequest does not accept a temperature field at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`temperature_in_range` checks `0.0 <= v <= 2.0`, and 5.0 fails that check, so the ValidationError is raised before any LLM call happens.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is validating a field's type alone, without a business-rule constraint, called insufficient in the common mistakes?",
+            "options": [
+              "Because a type-only check like temperature: float would still accept clearly invalid values like -50.0 or 9999.0",
+              "Because Pydantic cannot check types at all",
+              "Because type checks always run slower than custom validators",
+              "Because business-rule constraints replace the need for type annotations"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson points out that a bare type annotation passes for any float, including values that are technically the right type but meaningless for an actual LLM call, which is exactly what a custom validator catches.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does checking validity after the LLM call instead of before it undermine the cost-control benefit?",
+            "options": [
+              "Because if the request is only rejected after the model has already run, the expensive call already happened and the cost was already incurred",
+              "Because LLM calls are free regardless of when validation happens",
+              "Because validation after the call is technically impossible",
+              "Because the order of validation and the LLM call has no effect on cost"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The entire point of validating before the LLM call is to avoid paying for a call on input that will be rejected — validating afterward means the expensive step already ran regardless of the outcome.",
+            "id": "q7"
+          },
+          {
+            "question": "Why is silently clamping an out-of-range temperature to the nearest valid value instead of rejecting it flagged as a mistake?",
+            "options": [
+              "Because clamping is computationally more expensive than rejecting",
+              "Because it hides a bug in whatever sent the invalid value, and the client never learns their request was malformed",
+              "Because Pydantic does not support clamping values",
+              "Because clamped values always produce worse LLM output than rejected ones"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson's common mistakes note that quietly coercing an invalid value into something 'close enough' masks the underlying problem instead of surfacing it to the client as a clear, actionable error.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,525 @@
+{
+  "id": "module_3",
+  "title": "Vector Databases in Practice",
+  "description": "What a vector database adds beyond a raw ANN index, combining vector similarity with metadata filtering, keeping an index current as data changes, and how sharding handles scale beyond a single machine.",
+  "icon": "🗄️",
+  "color": "#004D40",
+  "order": 3,
+  "estimatedHours": 2,
+  "difficulty": "Intermediate",
+  "prerequisites": [],
+  "lessons": [
+    {
+      "id": "emb_what_a_vector_db_adds",
+      "title": "What a Vector Database Adds Beyond a Raw Index",
+      "description": "See what turns an ANN index (from the previous module) into a full vector database.",
+      "duration": "7 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can name a few things a vector database provides beyond a bare ANN index algorithm."
+          },
+          {
+            "title": "🧱 An index is a component, not a complete system",
+            "content": "The previous module covered ANN algorithms (HNSW, IVF) as the core search technique — but a production **vector database** wraps that core algorithm with the operational features a real application actually needs: persistence (data survives a restart), a query interface (an actual API or query language, not just a raw function call), concurrency handling (many simultaneous reads and writes correctly), and operational tooling (backups, monitoring, access control)."
+          },
+          {
+            "title": "🔧 The database vs. algorithm distinction, familiar from elsewhere",
+            "content": "This mirrors a distinction from earlier in the curriculum: the difference between a raw ANN algorithm and a vector database is similar to the difference between a raw machine learning model and the Trainer API from the Hugging Face course — the underlying technique is the same, but the surrounding infrastructure is what makes it usable and reliable in a real system.\n\n```python\n# Conceptual: what a vector DB adds on top of a bare index\n# - persistence: data survives restarts and crashes\n# - a real query API (not just an in-memory function call)\n# - concurrent read/write handling\n# - operational tooling: backups, monitoring, access control\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming any ANN library is automatically production-ready as-is.** A bare ANN implementation is a building block, not a complete operational system — the gap matters for anything beyond a prototype.\n\n**Underestimating the engineering effort of building these operational features yourself.** This is exactly why dedicated vector database products exist — reimplementing persistence, concurrency, and tooling from scratch is genuine, nontrivial engineering work.\n\n**Assuming every vector database offers identical features.** Different products make different tradeoffs (scale, features, hosting model) — the choice deserves the same deliberate evaluation as any other infrastructure decision."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "emb_what_a_vector_db_adds_quiz",
+        "questions": [
+          {
+            "question": "What is the key difference between a bare ANN index algorithm and a production vector database?",
+            "options": [
+              "There is no meaningful difference between the two",
+              "A vector database wraps the core ANN algorithm with operational features like persistence, a real query interface, concurrency handling, and tooling like backups and monitoring",
+              "Vector databases never actually use ANN algorithms internally",
+              "ANN algorithms already include all operational features a vector database provides"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The ANN algorithm (like HNSW or IVF) is the core search technique, while a full vector database adds everything needed to run that technique reliably in a real system: persistence, querying, concurrency, and operational tooling.",
+            "id": "q1"
+          },
+          {
+            "question": "How does the distinction between a raw ANN algorithm and a vector database compare to a distinction from the Hugging Face course?",
+            "options": [
+              "There is no meaningful parallel to any concept from the Hugging Face course",
+              "It's similar to the distinction between a raw machine learning model and the Trainer API — the underlying technique is the same, but the surrounding infrastructure is what makes it genuinely usable and reliable",
+              "The Hugging Face course never discussed anything related to infrastructure or tooling",
+              "Trainer and vector databases are actually the exact same kind of tool"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This mirrors the Trainer API's relationship to a raw training loop: the core technique is unchanged, but the surrounding infrastructure (checkpointing, logging, evaluation for Trainer; persistence, querying, concurrency for a vector database) is what makes it production-usable.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is it a mistake to assume any ANN library is automatically production-ready as-is?",
+            "options": [
+              "ANN libraries are always fully production-ready without any additional work",
+              "A bare ANN implementation is a building block for search, not a complete operational system with persistence, concurrency handling, and operational tooling — those gaps matter for anything beyond a prototype",
+              "Production readiness has no relationship to operational features like persistence or concurrency",
+              "ANN libraries never need any additional infrastructure to function reliably"
+            ],
+            "correctAnswer": 1,
+            "explanation": "An ANN algorithm solves the search problem, but real production use also needs data durability, safe concurrent access, and operational visibility — none of which a bare algorithm implementation provides on its own.",
+            "id": "q3"
+          },
+          {
+            "question": "In the lesson's conceptual list, what four things does a vector database add on top of a bare index?",
+            "options": [
+              "Persistence, a real query API, concurrent read/write handling, and operational tooling like backups and monitoring",
+              "Only a faster CPU and more memory",
+              "Only support for a single programming language",
+              "Only the ability to store text, not vectors"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's conceptual list explicitly names persistence, a real query API, concurrency handling, and operational tooling (backups, monitoring, access control) as what a vector database adds beyond a bare index.",
+            "id": "q4"
+          },
+          {
+            "question": "According to this lesson, what does 'persistence' mean in the context of a vector database?",
+            "options": [
+              "Data survives a restart",
+              "Data is automatically deleted after each query",
+              "Data can only ever be read, never written",
+              "Data is stored exclusively in temporary memory with no disk backing"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson defines persistence specifically as data surviving a restart, one of the operational features a vector database adds beyond a raw ANN algorithm.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does this lesson compare the ANN-algorithm-vs-vector-database distinction to something from the Hugging Face course?",
+            "options": [
+              "Because it's similar to the difference between a raw machine learning model and the Trainer API — the technique is the same, but the surrounding infrastructure makes it usable",
+              "Because the Hugging Face course never discussed any infrastructure-related concepts",
+              "Because Trainer and vector databases are functionally identical tools",
+              "Because this comparison has no relevance to understanding vector databases"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly draws this parallel: just as Trainer wraps a raw training loop with operational infrastructure, a vector database wraps a raw ANN algorithm with the infrastructure needed for real production use.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does the lesson warn against underestimating the effort of building vector database features yourself?",
+            "options": [
+              "Because reimplementing persistence, concurrency, and tooling from scratch is genuine, nontrivial engineering work — exactly why dedicated products exist",
+              "Because building these features yourself is always trivial and quick",
+              "Because vector databases require no meaningful engineering effort at all",
+              "Because persistence and concurrency are automatically provided by any ANN library"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is underestimating this operational engineering effort, which is precisely why dedicated vector database products exist rather than everyone building this from scratch.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson caution against assuming every vector database offers identical features?",
+            "options": [
+              "Because different products make different tradeoffs around scale, features, and hosting model, deserving deliberate evaluation",
+              "Because all vector database products are functionally interchangeable with zero differences",
+              "Because vector databases never differ in scale or hosting model",
+              "Because feature differences between vector databases never matter in practice"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is assuming uniformity across vector database products, when in fact they make genuinely different tradeoffs that deserve the same deliberate evaluation as any infrastructure decision.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "emb_metadata_filtering_hybrid_queries",
+      "title": "Metadata Filtering and Hybrid Queries",
+      "description": "Combine vector similarity search with traditional structured filters.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain what metadata filtering adds to a pure vector similarity search."
+          },
+          {
+            "title": "🏷️ Similarity alone often isn't the whole query",
+            "content": "A real search request is often more than 'find similar things' — it's 'find similar things that also match these specific structured conditions' (a date range, a category, a user's own permission scope, a price range). **Metadata filtering** lets a vector database combine a vector similarity search with these traditional structured filters in a single query, rather than requiring two completely separate systems."
+          },
+          {
+            "title": "🔀 Filter-then-search vs. search-then-filter",
+            "content": "There are different strategies for combining the two: filtering the collection down to matching metadata *first*, then running vector search only within that filtered subset (often more efficient when the filter is highly selective), versus running vector search first and filtering the results afterward (can be simpler, but risks losing genuinely relevant results if the top similarity matches happen to fail the filter and get discarded after the fact).\n\n```python\n# Conceptual: a hybrid query combining vector similarity and metadata\nresults = vector_db.search(\n    query_embedding=query_vec,\n    filter={\"category\": \"electronics\", \"in_stock\": True},\n    top_k=10,\n)\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Treating metadata filtering as an afterthought bolted on after retrieval.** For access control specifically (a user should only ever see documents they're permitted to), the filter needs to be applied correctly and consistently, not as an optional post-processing step that could be skipped by mistake.\n\n**Not considering how filter selectivity affects performance.** A highly selective filter (matching very few documents) combined with search-then-filter can return far fewer results than requested, since most top similarity matches get discarded afterward.\n\n**Forgetting that metadata itself needs to be kept in sync with the underlying data.** Stale or incorrect metadata (e.g. an outdated 'in_stock' flag) makes filtering actively misleading, not just imprecise."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "emb_metadata_filtering_hybrid_queries_quiz",
+        "questions": [
+          {
+            "question": "What does metadata filtering allow a vector database query to do?",
+            "options": [
+              "It replaces vector similarity search entirely with keyword matching",
+              "It combines a vector similarity search with traditional structured filters (like date range, category, or permissions) in a single query",
+              "It has no relationship to vector similarity search at all",
+              "It only works on databases that don't support vector search"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Metadata filtering lets a query express both 'find things similar to this' and 'that also satisfy these structured conditions' together, rather than requiring similarity search and structured filtering to be handled as two entirely separate systems.",
+            "id": "q1"
+          },
+          {
+            "question": "What is a risk of running vector search first and applying metadata filters to the results afterward (search-then-filter)?",
+            "options": [
+              "This approach has no risks and always performs identically to filtering first",
+              "If a highly selective filter discards most of the top similarity matches afterward, the final result set can end up far smaller than requested, potentially losing genuinely relevant results",
+              "Search-then-filter always returns more results than filter-then-search",
+              "Metadata filters cannot be applied after a vector search under any circumstances"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since search-then-filter runs similarity search without the filter in mind, a highly selective filter applied afterward can end up discarding most of the top matches, leaving fewer usable results than filter-then-search would have produced.",
+            "id": "q2"
+          },
+          {
+            "question": "Why does access-control filtering (showing a user only documents they're permitted to see) need particular care in how it's applied?",
+            "options": [
+              "Access control has no real consequences if applied inconsistently",
+              "If applied as an optional or inconsistent post-processing step rather than a properly enforced part of every query, a user could end up seeing documents they shouldn't have access to",
+              "Access control filtering is identical to any other kind of metadata filter with no special considerations",
+              "Vector databases automatically enforce access control with no configuration needed"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since a lapse in access-control filtering means exposing data to someone who shouldn't see it, this specific use of metadata filtering needs to be consistently and correctly enforced as a core part of the query, not treated as an optional or easily-skipped afterthought.",
+            "id": "q3"
+          },
+          {
+            "question": "In the lesson's code example, what two things does the vector_db.search call combine in one query?",
+            "options": [
+              "A query_embedding for vector similarity and a filter for structured metadata conditions",
+              "Two separate, unrelated embedding models",
+              "A username and a password for authentication only",
+              "Only a raw SQL query with no vector component at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's example shows vector_db.search combining query_embedding (for similarity) with filter (for structured metadata conditions like category and in_stock) in a single call.",
+            "id": "q4"
+          },
+          {
+            "question": "According to this lesson, when is filter-then-search often more efficient than search-then-filter?",
+            "options": [
+              "When the filter is highly selective",
+              "When the filter matches almost every single document in the collection",
+              "Filter-then-search is never more efficient than search-then-filter under any conditions",
+              "Efficiency has no relationship to filter selectivity"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson notes that filtering the collection down first is often more efficient specifically when the filter is highly selective, narrowing the search space significantly before vector comparison begins.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does this lesson say search-then-filter risks losing genuinely relevant results?",
+            "options": [
+              "Because top similarity matches that happen to fail the filter get discarded after the fact",
+              "Because search-then-filter always returns strictly more results than filter-then-search",
+              "Because vector similarity search never actually produces any relevant results",
+              "Because metadata filters can never be applied after a vector search"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explains that with search-then-filter, some genuinely top similarity matches can end up excluded simply because they fail the metadata filter applied afterward, discarding potentially relevant results.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson emphasize that access-control filtering needs particular consistency?",
+            "options": [
+              "Because a user should only ever see documents they're permitted to, so the filter must be applied correctly and consistently, not as a skippable post-processing step",
+              "Because access control filtering has no real consequences if occasionally skipped",
+              "Because access control is functionally identical to any other kind of metadata filter",
+              "Because vector databases automatically enforce access control without any configuration"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is treating access-control filtering as an optional afterthought, when in fact a lapse there means exposing data a user shouldn't be able to see.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson stress that metadata itself needs to stay in sync with the underlying data?",
+            "options": [
+              "Because stale or incorrect metadata, like an outdated 'in_stock' flag, makes filtering actively misleading, not just imprecise",
+              "Because metadata never actually changes once it's first recorded",
+              "Because metadata accuracy has no bearing on filtering results",
+              "Because metadata is automatically kept in sync by every vector database with no extra work"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is forgetting that metadata needs active syncing — stale values like an outdated stock flag make filter results actively wrong, not merely imprecise.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "emb_indexing_workflows_staleness",
+      "title": "Indexing Workflows and Staleness",
+      "description": "Keep a vector index up to date as the underlying data changes over time.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain what causes a vector index to become stale and describe a couple of strategies for keeping it current."
+          },
+          {
+            "title": "🕰️ An index is a snapshot, not a live mirror",
+            "content": "Once data is embedded and indexed, the index reflects the data as it was *at that moment*. If the underlying source data changes — a document is updated, deleted, or a new one is added — the index doesn't automatically know unless something explicitly tells it to. This staleness gap is a genuine operational concern, not a one-time setup detail."
+          },
+          {
+            "title": "🔄 Keeping an index current",
+            "content": "Common approaches: **upsert on change** (re-embed and update the index entry immediately whenever the source document changes, keeping staleness minimal but requiring your application to reliably trigger this on every change), **batch re-indexing** (periodically re-embed and rebuild some or all of the index — simpler to implement, but means staleness can persist between batch runs), and **soft deletes with cleanup** (marking removed documents as deleted immediately for query-time filtering, with the actual index cleanup happening later as a separate maintenance step).\n\n```python\n# Conceptual: upsert-on-change keeping the index current\ndef on_document_updated(doc):\n    new_embedding = embed(doc.content)\n    vector_db.upsert(id=doc.id, embedding=new_embedding, metadata=doc.metadata)\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming an index stays accurate forever after the initial build.** Without an explicit update strategy, an index silently drifts out of sync with the actual current state of the source data.\n\n**Re-embedding an entire large collection on every small change.** For most applications, this is unnecessarily expensive — targeted upserts for just the changed documents are usually far more efficient.\n\n**Forgetting deleted documents need explicit handling.** A document removed from the source system doesn't automatically disappear from the vector index unless something explicitly removes or marks it — otherwise deleted content can keep showing up in search results indefinitely."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "emb_indexing_workflows_staleness_quiz",
+        "questions": [
+          {
+            "question": "Why does a vector index become 'stale' if not actively maintained?",
+            "options": [
+              "Vector indexes automatically stay perfectly synchronized with source data forever with no maintenance needed",
+              "An index reflects the data as it was at the moment it was built or last updated, so any subsequent changes to the underlying source data (updates, deletions, new additions) aren't automatically reflected unless something explicitly updates the index",
+              "Staleness only affects metadata filters, never the vector embeddings themselves",
+              "Indexes cannot become stale under any circumstances"
+            ],
+            "correctAnswer": 1,
+            "explanation": "An index is essentially a snapshot from whenever it was built or last updated — without an explicit process to propagate ongoing source data changes into it, the index and the actual current data inevitably drift apart over time.",
+            "id": "q1"
+          },
+          {
+            "question": "What is the tradeoff between upsert-on-change and periodic batch re-indexing?",
+            "options": [
+              "They are functionally identical with no meaningful tradeoff",
+              "Upsert-on-change keeps staleness minimal but requires reliably triggering updates on every source change, while batch re-indexing is simpler to implement but allows staleness to persist between batch runs",
+              "Batch re-indexing always keeps the index perfectly current with zero staleness",
+              "Upsert-on-change is always more expensive regardless of update frequency"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Upsert-on-change trades implementation complexity (reliably catching every change) for minimal staleness, while batch re-indexing trades some staleness (data can be out of date between runs) for a simpler update process.",
+            "id": "q2"
+          },
+          {
+            "question": "Why do deleted documents require explicit handling in a vector index?",
+            "options": [
+              "Deleted documents automatically disappear from the vector index with no action needed",
+              "A document removed from the source system doesn't automatically vanish from the vector index unless something explicitly removes or marks it as deleted, so without that handling, deleted content can keep appearing in search results",
+              "Vector indexes cannot store any information about deleted documents",
+              "Deletion handling is only a concern for metadata, never for the vector embeddings"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since the index doesn't automatically know when source data has been deleted, an explicit removal or soft-delete marking is needed — otherwise stale, deleted content can persist indefinitely in search results, misleading users.",
+            "id": "q3"
+          },
+          {
+            "question": "In the lesson's code example, what does on_document_updated do when a source document changes?",
+            "options": [
+              "It re-embeds the document and upserts the new embedding into the vector database",
+              "It deletes the document from the source system entirely",
+              "It ignores the change and leaves the old embedding untouched",
+              "It rebuilds the entire index from scratch for every single change"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's example function re-embeds the updated document's content and calls vector_db.upsert with the new embedding, illustrating the upsert-on-change strategy.",
+            "id": "q4"
+          },
+          {
+            "question": "According to this lesson, what are the three approaches described for keeping an index current?",
+            "options": [
+              "Upsert on change, batch re-indexing, and soft deletes with cleanup",
+              "Only deleting the entire database and starting over each time",
+              "Only manually re-typing every document by hand",
+              "Only ignoring changes entirely and never updating the index"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson names these three specific strategies for keeping a vector index current: upsert on change, periodic batch re-indexing, and soft deletes with later cleanup.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does this lesson describe an index as 'a snapshot, not a live mirror'?",
+            "options": [
+              "Because once data is embedded and indexed, the index reflects the data as it was at that moment, not automatically tracking later changes",
+              "Because indexes automatically and instantly reflect every change to source data",
+              "Because snapshots and live mirrors are functionally identical concepts",
+              "Because an index can never actually represent any data at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson uses this framing explicitly: an index captures data as it existed at build or update time, and doesn't automatically know about subsequent changes unless something explicitly updates it.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson warn against re-embedding an entire large collection on every small change?",
+            "options": [
+              "Because for most applications, this is unnecessarily expensive, and targeted upserts for just the changed documents are usually far more efficient",
+              "Because re-embedding the whole collection is always the cheapest possible option",
+              "Because targeted upserts are technically impossible to implement",
+              "Because small changes never actually require any re-embedding at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is re-embedding everything for every small change, when targeted upserts of just the changed documents are typically far more efficient.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson stress that deleted documents need explicit handling?",
+            "options": [
+              "Because a document removed from the source system doesn't automatically disappear from the vector index unless something explicitly removes or marks it",
+              "Because deleted documents are always automatically purged from the index instantly",
+              "Because deletion handling only matters for metadata, never for the embeddings themselves",
+              "Because vector indexes cannot store any reference to deleted documents"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is forgetting explicit deletion handling — without it, deleted content can keep showing up in search results indefinitely.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "emb_scaling_sharding",
+      "title": "Scaling and Sharding Considerations",
+      "description": "Understand how vector search systems grow beyond what a single machine can handle.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain why very large vector collections need to be sharded, and what that introduces."
+          },
+          {
+            "title": "📦 When one machine isn't enough",
+            "content": "At a large enough scale (hundreds of millions to billions of vectors), a single machine's memory and compute simply aren't enough to hold the index and serve queries with acceptable latency. **Sharding** splits the collection across multiple machines, each holding and searching only a portion of the total data."
+          },
+          {
+            "title": "🔀 Querying across shards",
+            "content": "A sharded system needs a strategy for combining results: a query is typically sent to all relevant shards in parallel, each shard returns its own top candidates, and a final merge step combines and re-ranks those partial result sets into one final answer — introducing real coordination complexity that a single-machine system never has to deal with.\n\n```python\n# Conceptual: querying a sharded vector index\npartial_results = [shard.search(query_vec, k) for shard in all_shards]  # parallel\nfinal_results = merge_and_rerank(partial_results, k)  # combine into one ranked list\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming sharding is needed at a much smaller scale than it actually is.** Sharding adds real operational complexity — it's worth introducing only once single-machine capacity is a genuine, demonstrated constraint, not preemptively.\n\n**Ignoring how data is distributed across shards.** An uneven or poorly-chosen sharding strategy can leave some shards overloaded while others sit mostly idle.\n\n**Forgetting that a merge-and-rerank step across shards adds its own latency and complexity.** Sharding solves the single-machine capacity problem but introduces a new coordination cost that needs its own attention."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "emb_scaling_sharding_quiz",
+        "questions": [
+          {
+            "question": "Why do very large vector collections eventually need to be sharded across multiple machines?",
+            "options": [
+              "Sharding is always required regardless of collection size",
+              "At a large enough scale, a single machine's memory and compute aren't sufficient to hold the index and serve queries with acceptable latency, so the collection needs to be split across multiple machines",
+              "Sharding has no relationship to memory or compute constraints",
+              "A single machine can always handle any size vector collection with no limit"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Sharding exists specifically to address the point where one machine's resources are no longer enough — splitting the collection so each machine holds and searches only a manageable portion of the total data.",
+            "id": "q1"
+          },
+          {
+            "question": "What does querying a sharded vector index require that a single-machine system doesn't?",
+            "options": [
+              "Nothing additional; sharded and single-machine queries work identically",
+              "Sending the query to relevant shards in parallel, then merging and re-ranking each shard's partial results into one final combined answer",
+              "Querying only a single, randomly-chosen shard and ignoring the rest",
+              "Sharding eliminates the need for any query processing at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A sharded query needs coordination across machines: querying multiple shards in parallel and then combining their individual top results into one coherent, correctly-ranked final result set — a step that doesn't exist in a single-machine setup.",
+            "id": "q2"
+          },
+          {
+            "question": "Why should sharding be introduced only once single-machine capacity is a demonstrated constraint, rather than preemptively?",
+            "options": [
+              "Sharding should always be used from the very start of any project regardless of scale",
+              "Sharding adds real operational complexity (data distribution, merge-and-rerank coordination), so it's best justified by an actual, demonstrated need rather than adopted before it's genuinely necessary",
+              "Sharding has no operational complexity or cost associated with it",
+              "Single-machine systems can never actually reach a capacity constraint"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since sharding introduces genuine coordination overhead and operational complexity, it's a tradeoff worth making only once single-machine limits are a real, demonstrated bottleneck — not a default choice to reach for prematurely.",
+            "id": "q3"
+          },
+          {
+            "question": "In the lesson's code example, what does the merge_and_rerank step do with partial_results?",
+            "options": [
+              "It combines the parallel results from all shards into one final, correctly ranked result set",
+              "It deletes all but one shard's results entirely",
+              "It re-runs the entire query on a single shard only",
+              "It converts the results into raw text with no ranking at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's example shows merge_and_rerank taking the list of partial_results gathered from querying each shard in parallel and combining them into one final ranked list.",
+            "id": "q4"
+          },
+          {
+            "question": "According to this lesson, at roughly what scale does a single machine typically become insufficient for vector search?",
+            "options": [
+              "Hundreds of millions to billions of vectors",
+              "Only once a collection exceeds a few dozen vectors",
+              "A single machine is always sufficient regardless of scale",
+              "Scale has no bearing on whether a single machine suffices"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson specifically names hundreds of millions to billions of vectors as the scale at which a single machine's memory and compute typically become insufficient.",
+            "id": "q5"
+          },
+          {
+            "question": "How are shards typically queried, according to this lesson's description?",
+            "options": [
+              "A query is sent to all relevant shards in parallel, and each shard returns its own top candidates",
+              "A query is sent to exactly one randomly selected shard only",
+              "Shards are queried one at a time in strict sequential order",
+              "Sharded systems never actually process queries against multiple shards"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson describes querying a sharded system as sending the query to all relevant shards in parallel, with each shard returning its own top candidates before a merge step combines them.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson recommend introducing sharding only once single-machine capacity is a demonstrated constraint?",
+            "options": [
+              "Because sharding adds real operational complexity that's best justified by an actual, demonstrated need rather than adopted preemptively",
+              "Because sharding should always be adopted from the very start of any project",
+              "Because sharding has zero operational complexity or cost associated with it",
+              "Because single-machine systems can never actually reach any capacity limit"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is adopting sharding at a much smaller scale than needed, since it introduces real coordination overhead that's only worth the cost once genuinely necessary.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson warn about ignoring how data is distributed across shards?",
+            "options": [
+              "Because an uneven or poorly-chosen sharding strategy can leave some shards overloaded while others sit mostly idle",
+              "Because data distribution across shards has no effect on system performance",
+              "Because every sharding strategy automatically distributes data with perfect evenness",
+              "Because shard load balancing is handled entirely outside the sharding strategy"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is ignoring data distribution across shards, which can create imbalance where some shards are overloaded while others remain underused.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,543 @@
+{
+  "id": "module_5",
+  "title": "The Real-World Data Science Workflow",
+  "description": "Avoid the mistakes that sink real projects: honest evaluation, data leakage, reproducibility, and communicating findings people can trust and act on.",
+  "icon": "🧭",
+  "color": "#00838F",
+  "order": 5,
+  "estimatedHours": 2,
+  "difficulty": "Intermediate",
+  "prerequisites": [
+    "module_4"
+  ],
+  "lessons": [
+    {
+      "id": "ds_train_test_leakage",
+      "title": "Train/Test Split and Data Leakage",
+      "description": "Learn why you must hold back data to evaluate honestly, and the sneaky ways that discipline breaks down.",
+      "duration": "9 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain why train/test splitting matters and recognize common causes of data leakage."
+          },
+          {
+            "title": "✂️ Why split the data at all?",
+            "content": "If you evaluate a model on the exact same data it learned from, you're not measuring how well it generalizes — you're measuring how well it memorized. Splitting data into a **training set** (used to fit the model) and a **test set** (held back, used only to evaluate) gives an honest estimate of performance on new, unseen data.\n\n```python\nfrom sklearn.model_selection import train_test_split\n\nX_train, X_test, y_train, y_test = train_test_split(\n    X, y, test_size=0.2, random_state=42\n)\n```"
+          },
+          {
+            "title": "💧 What is data leakage?",
+            "content": "**Data leakage** happens when information from outside the training data — especially from the test set, or from the future — sneaks into the training process, making performance look better than it will actually be in the real world.\n\nIt's one of the most common (and most damaging) mistakes in real-world data science, because the model can look great during evaluation and then perform badly once deployed."
+          },
+          {
+            "title": "🕳️ Common ways leakage sneaks in",
+            "content": "• **Scaling or encoding before splitting** — fitting a scaler on the full dataset lets test-set statistics influence the training process\n• **Features computed using future information** — like a \"total lifetime purchases\" feature when predicting whether someone will make a *first* purchase\n• **Duplicate or near-duplicate rows split across train and test** — the model effectively \"sees\" the test row during training\n• **Target leakage** — a feature that's only knowable *because* the outcome already happened (e.g. a \"cancellation_fee_charged\" column when predicting cancellations)\n\n```python\n# WRONG — fit scaler on everything, then split\n# scaler.fit(X)  \n# X_train, X_test = train_test_split(X, ...)\n\n# RIGHT — split first, fit scaler only on train\nX_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)\nscaler.fit(X_train)\nX_train_scaled = scaler.transform(X_train)\nX_test_scaled = scaler.transform(X_test)\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Fitting any preprocessing step (scaling, encoding, feature selection) on the full dataset before splitting.** Always split first, then fit preprocessing only on the training portion.\n\n**Not asking \"would I actually have this information at prediction time?\" for every feature.** This single question catches most leakage before it happens.\n\n**Being suspicious of results that seem too good.** Extremely high accuracy is sometimes a real breakthrough — but it's also a very common symptom of leakage, so it's worth double-checking rather than celebrating immediately."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ds_train_test_leakage_quiz",
+        "questions": [
+          {
+            "question": "Why do we evaluate a model on a held-out test set instead of the data it was trained on?",
+            "options": [
+              "Testing on training data is technically impossible",
+              "Evaluating on unseen data gives an honest estimate of how well the model generalizes, rather than how well it memorized",
+              "It makes the code run faster",
+              "There's no real reason — it's just convention"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A model can achieve great performance on data it has already seen simply by memorizing it — a held-out test set checks whether it actually learned generalizable patterns.",
+            "id": "q1"
+          },
+          {
+            "question": "What is data leakage?",
+            "options": [
+              "When a dataset file gets corrupted",
+              "When information from outside the training data (like the test set or the future) improperly influences the training process",
+              "When a model trains too slowly",
+              "When a dataset has too many missing values"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Leakage happens when the model gets access, directly or indirectly, to information it shouldn't have during training — making evaluation metrics look better than real-world performance will actually be.",
+            "id": "q2"
+          },
+          {
+            "question": "What's the correct order of operations to avoid leakage when scaling numeric features?",
+            "options": [
+              "Fit the scaler on the full dataset, then split into train/test",
+              "Split into train/test first, then fit the scaler only on the training data",
+              "Scaling order doesn't matter",
+              "Fit a separate scaler on the test set only"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Splitting first and fitting preprocessing steps only on the training set ensures the test set stays truly \"unseen\" — nothing about its statistics has influenced training.",
+            "id": "q3"
+          },
+          {
+            "question": "What's a commonly used train/test split ratio for a moderately sized dataset?",
+            "options": [
+              "50/50 is always required by definition",
+              "Something like 80% train / 20% test is a common starting point, though it can vary with dataset size",
+              "Exactly 99% train and 1% test in every case",
+              "Splitting is unnecessary if the dataset is large enough"
+            ],
+            "correctAnswer": 1,
+            "explanation": "An 80/20 (or similar) split is a common default, balancing having enough data to train on with a large enough test set to evaluate honestly.",
+            "id": "q4"
+          },
+          {
+            "question": "How could a feature that's derived using future information cause leakage?",
+            "options": [
+              "Future-derived features are always safe to use",
+              "If a feature encodes something that would only be known after the prediction moment (like total future purchases), the model appears to perform better than it really would in practice",
+              "Leakage can only come from missing values, never from features",
+              "This scenario is impossible in real datasets"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A feature calculated using information that wouldn't exist yet at prediction time gives the model an unfair, unrealistic advantage during training that won't hold up in production.",
+            "id": "q5"
+          },
+          {
+            "question": "How can duplicate rows across the train and test sets cause a misleading evaluation?",
+            "options": [
+              "Duplicates across sets are impossible",
+              "The model may effectively be tested on data it already memorized during training, making performance look better than it really is",
+              "Duplicate rows always lower reported performance",
+              "It has no effect on evaluation at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "If the same row appears in both sets, the model isn't truly being tested on unseen data for that row, inflating the apparent test performance.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does data usually need to be shuffled before a random train/test split?",
+            "options": [
+              "Shuffling is never necessary",
+              "If the data is ordered (like sorted by date or category), a non-shuffled split can put very different kinds of data entirely into just one of the two sets",
+              "Shuffling guarantees a model will always perform better",
+              "Shuffling removes the need for a test set"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Without shuffling, an ordered dataset could put, say, only early dates in training and only late dates in testing purely by position, rather than by a fair random split.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does time series data need a chronological split rather than a random one?",
+            "options": [
+              "Chronological order never matters for any dataset",
+              "Randomly splitting would let the model train on future data to predict the past, which isn't realistic for how the model will actually be used going forward",
+              "Time series data can't be split at all",
+              "A chronological split always produces worse results with no benefit"
+            ],
+            "correctAnswer": 1,
+            "explanation": "In time series, evaluating fairly means training only on the past and testing on the future, mirroring the real deployment scenario — a random split would leak future information into training.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ds_reproducibility",
+      "title": "Reproducibility and Keeping Track of Your Work",
+      "description": "Learn simple habits that make your analysis trustworthy and rebuildable by anyone — including future you.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can describe practical habits that make a data science project reproducible."
+          },
+          {
+            "title": "🔁 Why reproducibility matters",
+            "content": "**Reproducibility** means someone else (or you, six months later) can rerun your analysis and get the same result. Without it, a chart or number in a report is just a claim — no one can verify it, extend it, or trust it fully.\n\nA figure that only exists as a screenshot, with no code or data trail behind it, is genuinely hard to trust or build on."
+          },
+          {
+            "title": "📓 Practical habits that help",
+            "content": "• **Keep code, not just results.** A script or notebook that regenerates the analysis from raw data is far more valuable than a final number alone\n• **Set a random seed** for anything involving randomness (like `train_test_split`'s `random_state`), so results don't change between runs\n• **Track which version of the data produced which result.** Data changes over time — a chart made from last month's data can quietly become misleading\n• **Write down assumptions and exclusions.** \"We excluded refunded orders\" is easy to forget and important to record"
+          },
+          {
+            "title": "🗂️ A simple versioning habit",
+            "content": "You don't need fancy tools to start — even a clear naming and logging habit goes a long way.\n\n```python\n# At the top of an analysis script or notebook\n# Data source: sales_2024_09.csv (pulled 2024-09-04)\n# Excludes: refunded orders, test accounts\n# Random seed: 42\n\nimport random\nrandom.seed(42)\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Sharing a chart or number without the code and data behind it.** Anyone reviewing it has no way to check or reproduce your work.\n\n**Not setting a random seed.** Results that change every run make it hard to know if a change in output is due to your code edit or just randomness.\n\n**Losing track of which data version produced a given result.** This is especially costly when a stakeholder later asks \"can you double check that number\" and you can't tell what data it came from."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ds_reproducibility_quiz",
+        "questions": [
+          {
+            "question": "Why is a chart with no accompanying code or data trail hard to trust?",
+            "options": [
+              "Charts are inherently unreliable",
+              "No one can verify, rerun, or extend the analysis behind it — it's just a claim",
+              "Charts should never be used in reports",
+              "It's not actually a problem"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Reproducibility is what lets others (or future you) verify a result actually came from the stated process — without the underlying code and data, a chart is unverifiable.",
+            "id": "q1"
+          },
+          {
+            "question": "Why set a random seed (like `random_state=42`) when splitting data or using randomness?",
+            "options": [
+              "It makes the code run faster",
+              "It ensures the random process gives the same result every time it's rerun, making comparisons and debugging reliable",
+              "It's required by Python syntax",
+              "It removes the need for a test set"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Without a fixed seed, randomness-based steps like a train/test split produce different results each run, making it hard to tell if changes in output come from your code changes or just random variation.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is it important to track which version of the data produced a given result?",
+            "options": [
+              "Data never changes, so this doesn't matter",
+              "Data can change over time, and a result computed on old data can quietly become misleading if not tracked",
+              "It's only relevant for very large datasets",
+              "Tracking data versions is illegal in most cases"
+            ],
+            "correctAnswer": 1,
+            "explanation": "As new data arrives or gets corrected, a chart or metric built on an earlier version can become outdated or wrong — knowing exactly which data version produced a result is essential for trusting and updating it correctly.",
+            "id": "q3"
+          },
+          {
+            "question": "Why is tracking software dependencies (like a requirements file) part of reproducibility?",
+            "options": [
+              "Dependencies never change between machines",
+              "Different library versions can produce different results, so recording exact versions helps others reproduce your exact environment",
+              "It's only relevant for web development, not data science",
+              "Requirements files are unrelated to reproducibility"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since library behavior and even numerical outputs can shift between versions, recording the exact dependency versions used helps ensure someone else gets the same results.",
+            "id": "q4"
+          },
+          {
+            "question": "What's a common reproducibility pitfall with notebooks specifically?",
+            "options": [
+              "Notebooks always run cells in a perfectly reproducible order",
+              "Running cells out of order can leave the notebook's displayed state inconsistent with what a fresh top-to-bottom run would actually produce",
+              "Notebooks can't be used for reproducible work at all",
+              "Notebooks automatically save every intermediate result forever"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Because notebook cells can be run in any order and re-run individually, the visible output can drift from what a clean, sequential run would actually generate — a classic reproducibility trap.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is using version control (like Git) for analysis code considered good practice for reproducibility?",
+            "options": [
+              "Version control is unrelated to reproducibility",
+              "It preserves a history of exactly what code produced a given result, so past results can be traced back and rerun",
+              "It automatically fixes bugs in the code",
+              "Version control only matters for production software, never analysis"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Tracking code changes over time means you can always go back and see (or rerun) the exact code that generated any particular past result.",
+            "id": "q6"
+          },
+          {
+            "question": "Why is documenting assumptions and steps taken during analysis considered a reproducibility habit?",
+            "options": [
+              "Documentation slows down analysis with no real benefit",
+              "Undocumented decisions (like why certain rows were excluded) can't be reconstructed later, making the analysis hard to trust or repeat",
+              "Only the final numbers matter, never the process",
+              "Documentation is only necessary for published academic papers"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Without a record of the choices made along the way — what was filtered, why, and how — someone (including your future self) can't verify or repeat the analysis confidently.",
+            "id": "q7"
+          },
+          {
+            "question": "Why is naming files and versions clearly (like `report_v2_final.ipynb`) a useful simple reproducibility habit?",
+            "options": [
+              "File naming has no effect on reproducibility",
+              "Clear naming helps avoid confusion about which version of an analysis or output is the current, authoritative one",
+              "Every file should always be named exactly the same thing",
+              "File names are automatically standardized by pandas"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Clear, consistent naming reduces the risk of accidentally referencing or sharing an outdated or wrong version of an analysis or result.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ds_storytelling",
+      "title": "Communicating Results Clearly",
+      "description": "Learn how to turn an analysis into a clear, honest, actionable message for people who weren't in the weeds with you.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can structure a data finding so it's clear, honest, and actionable for a non-technical audience."
+          },
+          {
+            "title": "🎯 Lead with the takeaway, not the process",
+            "content": "A common mistake is walking an audience through every analytical step in order, saving the actual finding for last. Most people want the answer first, then (optionally) the supporting detail.\n\n**Weak:** \"We collected the data, cleaned it, ran several models, tuned hyperparameters, and eventually found...\"\n**Better:** \"Customers who don't use the app in their first week are 3x more likely to cancel. Here's how we found that, and what we recommend.\""
+          },
+          {
+            "title": "📊 Choose the simplest chart that makes the point",
+            "content": "The goal of a chart in a report isn't to show off every technique you know — it's to make one point clearly. A simple, well-labeled bar chart usually beats a busy chart with five overlapping lines and no clear takeaway.\n\n• Label your axes and give the chart a clear, plain-language title\n• Remove anything that doesn't support the specific point you're making\n• Round numbers to a sensible precision — \"43%\" reads better than \"43.271984%\""
+          },
+          {
+            "title": "🎯 Be honest about uncertainty and limits",
+            "content": "Good communication includes what you *don't* know, not just what you found.\n\n• State sample size and time period, so people can judge how much to trust the finding\n• Flag when a pattern is correlational, not proven causal\n• Mention any known data quality issues that could affect the conclusion\n\nThis builds more trust, not less — confident overclaiming tends to backfire once someone spots a gap."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Burying the main finding at the end of a long walkthrough.** Lead with the takeaway; let the audience ask for more detail if they want it.\n\n**Using a chart that requires a lengthy explanation to understand.** If you have to talk for two minutes before anyone gets the point, the chart isn't doing its job.\n\n**Presenting a finding with false certainty.** Acknowledging limitations and uncertainty is a sign of rigor, not weakness — and it protects your credibility."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ds_storytelling_quiz",
+        "questions": [
+          {
+            "question": "What's a better way to open a data science presentation to a non-technical audience?",
+            "options": [
+              "Walk through every processing step in chronological order before mentioning any results",
+              "Lead with the key takeaway, then provide supporting detail for those who want it",
+              "Show the raw code used for the analysis first",
+              "Start with a list of every column in the dataset"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Most audiences want the answer first — leading with the takeaway respects their time and lets you use the rest of the presentation to support and explain it.",
+            "id": "q1"
+          },
+          {
+            "question": "What makes a chart effective in a results presentation?",
+            "options": [
+              "Including every possible metric so nothing is left out",
+              "Making one clear point with a simple, well-labeled design",
+              "Using as many colors and chart types as possible",
+              "Avoiding axis labels to keep it clean"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A chart's job in a presentation is to make one specific point instantly understandable — simplicity and clear labeling usually beat cramming in more information.",
+            "id": "q2"
+          },
+          {
+            "question": "Why should a presenter mention the limitations or uncertainty in their findings?",
+            "options": [
+              "It makes the presentation seem less confident and should be avoided",
+              "It builds credibility and helps the audience judge how much to trust and act on the finding",
+              "Limitations are irrelevant to decision-making",
+              "It's only necessary for academic papers"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Being upfront about sample size, correlational (not causal) findings, or data quality issues helps the audience calibrate their trust appropriately — and protects the presenter's credibility if gaps are later discovered.",
+            "id": "q3"
+          },
+          {
+            "question": "Why should the level of technical detail in a presentation be tailored to the audience?",
+            "options": [
+              "Every audience wants exactly the same level of technical detail",
+              "A non-technical audience benefits from a focus on implications and takeaways, while a technical audience may want to see methodology and metrics",
+              "Technical detail should always be maximized regardless of audience",
+              "Tailoring to the audience is unnecessary busywork"
+            ],
+            "correctAnswer": 1,
+            "explanation": "What's useful to a technical peer (methodology, metrics) can overwhelm a non-technical stakeholder, who's usually better served by clear implications and next steps.",
+            "id": "q4"
+          },
+          {
+            "question": "Why should jargon be avoided when presenting to non-technical stakeholders?",
+            "options": [
+              "Jargon always makes a presentation sound more credible",
+              "Unfamiliar technical terms can obscure the actual finding and make the audience disengage or misunderstand the point",
+              "Non-technical audiences always understand technical terms perfectly",
+              "Avoiding jargon has no effect on how a message lands"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Technical jargon can create a barrier to understanding for a non-technical audience, getting in the way of the actual message you're trying to communicate.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is comparing a result to a baseline or benchmark useful when presenting findings?",
+            "options": [
+              "Baselines are irrelevant to interpreting a result",
+              "A number in isolation is hard to judge — comparing it to a baseline (like last quarter, or a competitor) gives it meaningful context",
+              "Comparisons to a baseline always make results look worse",
+              "Only technical audiences care about baselines"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A raw number like '15% conversion rate' means little without context — comparing it to a prior period or benchmark helps the audience judge whether it's actually good or concerning.",
+            "id": "q6"
+          },
+          {
+            "question": "Why do clear labels and units matter on a chart shown to an audience?",
+            "options": [
+              "Labels and units are optional decorative details",
+              "Without them, viewers may misinterpret what's being measured or the scale involved, undermining the chart's clarity",
+              "Charts are always self-explanatory without labels",
+              "Units only matter for scientific papers, not business presentations"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A chart without clear axis labels and units leaves the audience guessing what's actually being shown, which can lead to confusion or misinterpretation.",
+            "id": "q7"
+          },
+          {
+            "question": "Why is ending with an actionable recommendation often stronger than ending with a mere observation?",
+            "options": [
+              "Observations are always more useful than recommendations",
+              "A recommendation tells the audience what to actually do with the finding, rather than leaving them to figure out the implications themselves",
+              "Recommendations should never be included in a data presentation",
+              "There's no meaningful difference between the two endings"
+            ],
+            "correctAnswer": 1,
+            "explanation": "An observation alone leaves the 'so what' unanswered, while a clear recommendation connects the finding directly to a decision or next step the audience can act on.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ds_common_pitfalls",
+      "title": "Common Data Science Pitfalls: A Recap",
+      "description": "Bring together the biggest traps from this course into one practical checklist.",
+      "duration": "7 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can list the most common data science pitfalls covered in this course and why each one matters."
+          },
+          {
+            "title": "🧭 The workflow-level traps",
+            "content": "• **Skipping straight to modeling** without understanding the data or clarifying the question first\n• **Not documenting assumptions and exclusions**, making the work hard for anyone (including future you) to trust or rebuild\n• **Confusing correlation with causation** when interpreting a pattern"
+          },
+          {
+            "title": "🧹 The data-quality traps",
+            "content": "• **Filling missing values before asking why they're missing** — sometimes the absence itself is the signal\n• **Deleting outliers automatically** instead of investigating whether they're errors or the exact thing worth studying\n• **Not checking `.value_counts()`** on category columns, missing inconsistent labels like \"USA\" vs \"usa\""
+          },
+          {
+            "title": "💧 The leakage traps",
+            "content": "• **Fitting scalers, encoders, or feature selection on the full dataset** instead of only the training data\n• **Using features that wouldn't actually be available at real prediction time**\n• **Being suspicious of results that seem too good** — often the first sign that leakage happened somewhere"
+          },
+          {
+            "title": "⚠️ Putting it into a habit",
+            "content": "None of these traps require advanced tools to avoid — mostly they require a habit of asking a few honest questions at each step: *What does a row mean here? Why is this missing? Would I actually have this information in the real world? Does this pattern hold up, or did I just get excited too early?*\n\nAsking these questions consistently is what separates careful data science from work that looks impressive right up until it meets the real world."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ds_common_pitfalls_quiz",
+        "questions": [
+          {
+            "question": "Why is \"filling missing values before asking why they're missing\" listed as a pitfall?",
+            "options": [
+              "Missing values should never be filled under any circumstances",
+              "The absence itself might be a meaningful signal that gets erased once it's filled in without investigation",
+              "Filling missing values is technically impossible",
+              "It has no real consequence"
+            ],
+            "correctAnswer": 1,
+            "explanation": "As covered earlier in the course, missingness can sometimes carry information (like \"this customer never purchased\") — filling it in blindly can throw away that signal.",
+            "id": "q1"
+          },
+          {
+            "question": "What's a common early warning sign of data leakage?",
+            "options": [
+              "The model trains slowly",
+              "Results that seem unrealistically good compared to what you'd expect",
+              "The dataset has too few rows",
+              "The code runs without any errors"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Leakage often makes evaluation metrics look artificially strong, since the model effectively had access to information it shouldn't have — suspiciously excellent results are worth double-checking.",
+            "id": "q2"
+          },
+          {
+            "question": "What's the common theme behind most of the pitfalls covered in this course?",
+            "options": [
+              "Using the wrong programming language",
+              "Not asking honest, careful questions at each step of the process, like why data is missing or whether a feature would really be available at prediction time",
+              "Not having enough computing power",
+              "Choosing the wrong chart colors"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Most of the pitfalls in this course come down to skipping a moment of careful questioning — about data meaning, missingness, leakage, or overclaiming — rather than requiring advanced technical fixes.",
+            "id": "q3"
+          },
+          {
+            "question": "Why is 'jumping straight to modeling without a clear question' considered a foundational workflow pitfall?",
+            "options": [
+              "It's actually always the fastest and best approach",
+              "Without a clear question, there's no way to judge whether the resulting model is even solving the right problem",
+              "This pitfall only applies to beginners, never experienced practitioners",
+              "Modeling always defines its own question automatically"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A model built without a clear guiding question risks optimizing for the wrong thing entirely, since there was never a clear target to judge success against.",
+            "id": "q4"
+          },
+          {
+            "question": "Why does not verifying a row's grain before analysis count as a recurring pitfall?",
+            "options": [
+              "Row grain never affects any analysis results",
+              "Misunderstanding what a row represents can lead to incorrect joins, double-counted totals, or misleading aggregations",
+              "This only matters for extremely large datasets",
+              "It's a purely cosmetic issue with no real impact"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Not knowing what a row actually represents is a common root cause of silent errors like inflated totals from bad joins or miscounted aggregations.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is ignoring outliers without investigation listed among the recurring pitfalls?",
+            "options": [
+              "Outliers should always be deleted immediately without further thought",
+              "Outliers might be the exact meaningful signal being studied (like fraud), so ignoring them without checking risks losing important information",
+              "Outliers never carry any useful information",
+              "Outliers only matter in very small datasets"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Automatically dismissing outliers risks throwing away genuinely important cases, since some outliers represent precisely the phenomenon a project is trying to understand.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does presenting results without discussing uncertainty count as a pitfall?",
+            "options": [
+              "Uncertainty is irrelevant to good decision-making",
+              "Omitting uncertainty can make an audience overly confident in a finding that may not be as solid as it appears, leading to poor decisions",
+              "Discussing uncertainty always weakens a presentation unnecessarily",
+              "This pitfall only matters in academic research, not business settings"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Leaving out caveats or confidence bounds can make a shaky finding look more certain than it really is, which can mislead decisions based on it.",
+            "id": "q7"
+          },
+          {
+            "question": "What's the general habit that ties together most of the pitfalls covered in this course?",
+            "options": [
+              "Using more advanced algorithms at every stage",
+              "Consistently pausing to ask careful, honest questions at each step — why is this missing, is this row really independent, would this feature really be available — rather than moving on autopilot",
+              "Working faster to finish projects sooner",
+              "Avoiding the use of visualizations"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Most of the pitfalls trace back to skipping a moment of honest questioning at some step, so building the habit of pausing to interrogate assumptions is the unifying fix.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

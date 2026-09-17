@@ -1,0 +1,567 @@
+{
+  "id": "ops_reliability",
+  "title": "Rollback, Governance & Reliability",
+  "description": "Fast and reliable rollback strategies, model governance and audit trails, incident response for ML systems, and the common MLOps mistakes to check for before shipping.",
+  "icon": "🛡️",
+  "color": "#546E7A",
+  "order": 5,
+  "estimatedHours": 5,
+  "difficulty": "advanced",
+  "prerequisites": [
+    "ops_monitoring"
+  ],
+  "lessons": [
+    {
+      "id": "ops_rollback_strategies",
+      "title": "Rollback Strategies",
+      "description": "The fastest fix for a bad deployment is often not fixing the new version at all — it's going back to the version that was already working.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Describe what makes a model rollback fast and reliable, connecting back to the model registry and deployment strategies covered earlier."
+          },
+          {
+            "title": "⚡ Why rollback needs to be fast",
+            "content": "When a newly deployed model version is behaving badly in production, the cost of the problem **compounds** for every moment it continues — the immediate priority is almost always to **stop the bleeding** (revert to the known-good previous version) rather than to diagnose and fix the new version's problem in place while it continues causing harm; root-causing what went wrong can happen afterward, with the pressure off."
+          },
+          {
+            "title": "📋 What makes rollback actually fast: the registry and versioning discipline",
+            "content": "This is where the **model registry** (which knows exactly which previous version was running and where its artifact is) and the **deployment strategies from module 3** (blue-green deployment specifically keeps the previous version fully ready to receive traffic again) pay off directly — a rollback is fast and low-risk specifically because the infrastructure for it was **built in from the start**, not improvised in a crisis. Without a registry and a deployment strategy designed with rollback in mind, \"go back to the previous version\" can be surprisingly hard to actually execute correctly under pressure."
+          },
+          {
+            "title": "🔄 Rollback versus roll-forward",
+            "content": "Sometimes the better fix is **rolling forward** — deploying a corrected new version rather than reverting to the old one — particularly when the previous version had its own known issues that the new version was specifically meant to fix, and going back to it isn't actually a clean improvement. The decision between rollback and roll-forward depends on which option gets to a genuinely better state faster and with less risk, not a rule that rollback is always preferred."
+          },
+          {
+            "title": "🎯 Practicing rollback before you need it",
+            "content": "A rollback procedure that's never actually been exercised outside of a real crisis is a real risk — testing that a rollback actually works (as part of routine operations, not only during an actual incident) catches problems with the rollback mechanism itself **before** they compound an already-bad situation, mirroring the same practice-before-you-need-it principle behind any disaster-recovery planning in traditional software operations."
+          },
+          {
+            "title": "💻 Rollback as a registry lookup, not a scramble",
+            "content": "```python\ndef rollback(registry, router, model_name):\n    previous_stable = registry.get_previous_stage(model_name, stage=\"production\")\n    if previous_stable is None:\n        raise RuntimeError(\"no known-good previous version recorded -- cannot roll back cleanly\")\n    router.set_split(previous_stable, 100)  # blue-green: it was already ready\n    registry.set_stage(previous_stable, \"production\")\n    return f\"rolled back to {previous_stable.version}\"\n\n# This function is only this simple because the registry always knew\n# which version was previously live, and blue-green kept it ready to\n# receive traffic again -- neither fact was improvised during the incident.\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Diagnosing the new version's problem in place instead of reverting first.** The cost of a bad deployment compounds every moment it continues — stopping the bleeding takes priority over root-causing while the harm is ongoing.\n\n**Having no readily-available previous version to fall back to.** Rollback's speed depends entirely on infrastructure built in from the start, like the registry and blue-green's parallel-and-ready version — without it, 'go back to the previous version' becomes an improvised scramble.\n\n**Never actually testing the rollback procedure until a real crisis.** A rollback mechanism exercised for the first time during an actual incident risks compounding an already-bad situation if it doesn't work as expected."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ops_rollback_strategies_quiz",
+        "questions": [
+          {
+            "question": "Why is the immediate priority during a bad deployment usually to roll back rather than fix the new version in place?",
+            "options": [
+              "Fixing the new version in place is always faster than rolling back",
+              "The cost of the problem compounds for every moment it continues, so stopping the harm quickly by reverting to a known-good version takes priority over in-place diagnosis",
+              "Rollback is never actually a viable option during an incident",
+              "Root-causing the problem should always happen before any rollback"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Stopping ongoing harm quickly by reverting to a known-good state is usually the priority, with root-causing the underlying issue happening afterward once the pressure is off.",
+            "id": "q1"
+          },
+          {
+            "question": "What makes a rollback fast and low-risk, according to this lesson?",
+            "options": [
+              "Rollback speed has nothing to do with any prior infrastructure decisions",
+              "The model registry (knowing exactly which previous version was running) and deployment strategies like blue-green (keeping the previous version ready) built the rollback capability in from the start",
+              "Rollback is always slow and risky regardless of preparation",
+              "Rollback requires retraining a new model from scratch every time"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Fast, reliable rollback is a direct payoff of the registry and deployment-strategy discipline covered earlier — it's built in by design, not improvised during a crisis.",
+            "id": "q2"
+          },
+          {
+            "question": "When might 'roll forward' be preferable to rolling back to the previous version?",
+            "options": [
+              "Roll-forward is never actually a valid option in any scenario",
+              "When the previous version had its own known issues that the new version was meant to fix, making a revert not a clean improvement",
+              "Roll-forward should always be chosen over rollback regardless of circumstances",
+              "Rolling forward is only relevant for models using batch serving"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The choice between rollback and roll-forward depends on which path leads to a genuinely better state faster and with less risk — sometimes the previous version's own flaws make reverting to it not actually the safer choice.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, what does `registry.get_previous_stage(model_name, stage=\"production\")` provide that makes `rollback` simple to implement?",
+            "options": [
+              "Nothing — the function always returns None",
+              "A direct lookup of exactly which model version was previously in production, removing the need to reconstruct that information during an active incident",
+              "The complete training code for the previous model version",
+              "A guarantee that the current production model has no bugs"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Because the registry already tracks exactly which version was previously live, rollback becomes a straightforward lookup rather than something that needs to be reconstructed under pressure during an incident.",
+            "id": "q4"
+          },
+          {
+            "question": "Why does `rollback` raise a `RuntimeError` when `previous_stable is None`?",
+            "options": [
+              "Because this condition can never actually occur in practice",
+              "Because without a recorded known-good previous version, there's nothing to cleanly roll back to, and failing loudly is better than proceeding on a guess",
+              "Because RuntimeError is required syntax for every Python function",
+              "Because previous_stable being None means the current model is definitely broken"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This reflects the lesson's point that rollback depends on infrastructure recording a known-good previous version — if that record doesn't exist, the function correctly surfaces the gap rather than guessing.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does the code comment note that `rollback` 'is only this simple because... neither fact was improvised during the incident'?",
+            "options": [
+              "Because the function is actually overly complicated and inefficient",
+              "Because the simplicity comes from infrastructure (the registry and blue-green readiness) that was built in advance, not from anything clever done during the incident itself",
+              "Because router.set_split always fails during a real incident",
+              "Because this comment has no connection to the lesson's content"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This reinforces the lesson's central point: rollback's speed and reliability come from advance preparation (registry tracking, blue-green readiness), not from improvisation under pressure.",
+            "id": "q6"
+          },
+          {
+            "question": "Why is diagnosing a bad deployment's problem in place, instead of reverting first, identified as a mistake?",
+            "options": [
+              "Because in-place diagnosis is always faster than reverting",
+              "Because the cost of a bad deployment compounds every moment it continues, so stopping the bleeding takes priority over root-causing while the harm is ongoing",
+              "Because reverting is technically impossible once a problem is discovered",
+              "Because this approach has no actual downside"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This is the lesson's central priority ordering: contain the harm first via rollback, then investigate root cause afterward once the pressure of ongoing damage is off.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does having no readily-available previous version to fall back to undermine rollback speed?",
+            "options": [
+              "Because this scenario never actually happens in real systems",
+              "Because rollback's speed depends entirely on infrastructure built in from the start, like the registry and blue-green's parallel-and-ready version — without it, reverting becomes an improvised scramble",
+              "Because rollback is always slow regardless of available infrastructure",
+              "Because this only matters for models using real-time serving"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson is explicit that rollback speed is a direct payoff of prior infrastructure investment — without a ready fallback version, the same operation becomes much harder to execute correctly under pressure.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ops_model_governance_and_audit_trails",
+      "title": "Model Governance and Audit Trails",
+      "description": "Someone, eventually, will ask 'who approved this model, when, and based on what evidence' — governance is what makes that question answerable.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain what model governance covers and how it builds on the versioning, registry, and lineage practices from earlier in this course."
+          },
+          {
+            "title": "📋 What governance actually means here",
+            "content": "The **policies and processes** around who can approve a model for production deployment, what evidence (evaluation results, fairness or bias checks where relevant, documented data provenance) needs to be reviewed before that approval, and how decisions and their justifications get recorded — governance is the **human and organizational process** layered on top of the technical infrastructure (registries, lineage, experiment tracking) this course has covered, tying that infrastructure to actual accountability and decision-making."
+          },
+          {
+            "title": "📝 Audit trails: making decisions reconstructable",
+            "content": "A complete audit trail means that, months or years later, someone can reconstruct **exactly what data trained a specific deployed model** (via data versioning and lineage from module 1), **what its evaluation results were at the time** (via experiment tracking and the registry), **who approved its deployment and when** (via governance's own recorded decisions), and **what happened to it afterward** (via monitoring history and any subsequent rollback or retraining) — every technical practice from this course feeds into making this reconstruction possible, which is exactly why governance sits as this course's final integrating topic rather than a standalone concern."
+          },
+          {
+            "title": "⚖️ Why this matters beyond pure compliance",
+            "content": "Beyond regulatory requirements (which matter more in some domains — finance, healthcare, hiring — than others), having clear governance and audit trails also just makes **organizational decision-making better**: disagreements about whether a model should have been deployed can be resolved by looking at the actual recorded evidence and decision process, rather than relying on memory or after-the-fact reconstruction of what people believe happened."
+          },
+          {
+            "title": "🎯 Calibrating governance to actual risk",
+            "content": "Not every model needs the same level of governance rigor — a low-stakes internal tool and a model making decisions that materially affect people's lives warrant very different levels of review, approval, and documentation, echoing the same \"match the safeguard to the actual risk\" principle from the Agents course's guardrails lesson, just applied to organizational process rather than technical guardrails specifically."
+          },
+          {
+            "title": "💻 An approval record tying the technical record to accountability",
+            "content": "```python\ndef approve_for_production(registry, model_version, approver, evidence, stakes_level):\n    required_evidence = GOVERNANCE_REQUIREMENTS[stakes_level]  # scales with risk\n    missing = [e for e in required_evidence if e not in evidence]\n    if missing:\n        raise ValueError(f\"cannot approve: missing required evidence {missing}\")\n\n    registry.record_approval(\n        model_version=model_version,\n        approver=approver,\n        evidence=evidence,           # eval results, bias checks, data provenance\n        timestamp=now(),\n    )\n    registry.set_stage(model_version, \"production\")\n\n# Months later, this recorded approval -- plus the lineage, experiment\n# tracking, and monitoring history already covered in this course --\n# is what makes 'who approved this, and based on what' answerable.\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Treating governance as separate from the technical infrastructure this course covers.** Governance's value comes specifically from tying registries, lineage, and experiment tracking to actual accountability — without that connection, audit trails have gaps.\n\n**Applying identical governance rigor to every model regardless of stakes.** A low-stakes internal tool doesn't need the same review and documentation burden as a model materially affecting people's lives — uniform rigor either over-burdens the former or under-protects the latter.\n\n**Recording an approval decision without the evidence behind it.** An approval with no attached evaluation results, bias checks, or data provenance can't actually answer 'based on what' when the question eventually comes."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ops_model_governance_and_audit_trails_quiz",
+        "questions": [
+          {
+            "question": "What does model governance add on top of the technical infrastructure (registries, lineage, experiment tracking) covered earlier in this course?",
+            "options": [
+              "Nothing — governance is identical to the technical infrastructure itself",
+              "The human and organizational process — who approves deployment, what evidence is reviewed, how decisions get recorded — tying technical infrastructure to actual accountability",
+              "A replacement for data versioning and lineage tracking",
+              "Governance only applies to models that have already failed in production"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Governance is the process layer that connects the technical record-keeping infrastructure to actual organizational decision-making and accountability.",
+            "id": "q1"
+          },
+          {
+            "question": "What makes a complete audit trail possible, according to this lesson?",
+            "options": [
+              "A single screenshot taken at deployment time",
+              "The combination of data versioning/lineage, experiment tracking, registry records, governance decisions, and monitoring history all feeding into a reconstructable record",
+              "Audit trails require none of the technical practices covered earlier in this course",
+              "Only the model's final accuracy score, with no other information needed"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A full audit trail is the integration of every technical practice from this course — provenance, evaluation, approval decisions, and post-deployment history — into one reconstructable picture.",
+            "id": "q2"
+          },
+          {
+            "question": "Why should governance rigor be calibrated to a model's actual risk level rather than applied uniformly?",
+            "options": [
+              "All models should always receive the exact same level of governance regardless of stakes",
+              "A low-stakes internal tool and a model materially affecting people's lives warrant very different levels of review, mirroring the 'match the safeguard to the risk' principle from the Agents course",
+              "Governance should never be applied to any model regardless of risk",
+              "Higher-stakes models actually need less governance than low-stakes ones"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Just as the Agents course recommended matching guardrail intensity to actual risk, governance process should scale with a model's real-world stakes rather than being applied as a uniform, one-size-fits-all requirement.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, why does `approve_for_production` look up `GOVERNANCE_REQUIREMENTS[stakes_level]` rather than using a fixed evidence requirement for every model?",
+            "options": [
+              "Because GOVERNANCE_REQUIREMENTS always returns the same list regardless of input",
+              "Because governance rigor should scale with a model's actual risk level, so the required evidence for approval differs by stakes_level rather than being uniform",
+              "Because stakes_level has no actual bearing on what evidence is required",
+              "Because this lookup is purely decorative with no functional effect"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This directly implements the 'calibrating governance to actual risk' principle: the evidence bar for approval scales with how consequential the model's deployment actually is.",
+            "id": "q4"
+          },
+          {
+            "question": "Why does `approve_for_production` raise a `ValueError` if `missing` is non-empty, rather than approving with a warning?",
+            "options": [
+              "Because ValueError is the only exception type available in Python",
+              "Because governance's value depends on approval decisions actually being backed by the required evidence — allowing approval without it would leave the eventual audit question 'based on what' unanswerable",
+              "Because missing evidence has no bearing on whether an approval is meaningful",
+              "Because this function is never actually meant to be called"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Blocking approval on missing evidence enforces the governance principle that decisions need to be backed by actual evidence, not just nominally recorded — otherwise the audit trail would have a hole in it.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does `registry.record_approval` store `approver`, `evidence`, and `timestamp` together rather than just marking the model as approved?",
+            "options": [
+              "Because these fields are required by Python syntax with no other purpose",
+              "Because a complete audit trail needs to answer who approved it, when, and based on what evidence — recording all three together is what makes that question reconstructable months or years later",
+              "Because approver and timestamp are actually the same piece of information",
+              "Because evidence never needs to be retained once a model is approved"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This is exactly what the lesson's audit trail description requires: the who, when, and based-on-what of an approval decision all need to be recorded together for the decision to be reconstructable later.",
+            "id": "q6"
+          },
+          {
+            "question": "Why is treating governance as separate from this course's technical infrastructure identified as a mistake?",
+            "options": [
+              "Because governance and technical infrastructure have never actually been related",
+              "Because governance's value comes specifically from tying registries, lineage, and experiment tracking to actual accountability — without that connection, audit trails have gaps",
+              "Because technical infrastructure alone is always sufficient for governance purposes",
+              "Because governance should replace registries and lineage entirely"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson frames governance as the integrating layer that connects the technical record-keeping this course has built up to actual organizational accountability — treating it as unrelated breaks that connection.",
+            "id": "q7"
+          },
+          {
+            "question": "Why is recording an approval decision without its supporting evidence considered a mistake?",
+            "options": [
+              "Because approval decisions never actually need any supporting evidence",
+              "Because an approval with no attached evaluation results, bias checks, or data provenance can't actually answer 'based on what' when the question eventually comes",
+              "Because evidence is always automatically generated regardless of what's recorded",
+              "Because this practice has no bearing on audit trail completeness"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A bare approval record without its evidence leaves exactly the gap an audit trail is meant to close — the eventual question of what justified the decision becomes unanswerable.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ops_incident_response_for_ml",
+      "title": "Incident Response for ML Systems",
+      "description": "When something goes wrong in production, having a plan before the incident happens is the difference between a contained problem and a chaotic scramble.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Describe the stages of ML-specific incident response and how they draw on the monitoring, rollback, and governance practices from this course."
+          },
+          {
+            "title": "🚨 Detection",
+            "content": "An incident typically starts with a signal from the **monitoring practices in module 4** — an alert firing, a drift signal, a spike in errors — though it can also start with an **external report** (a user or business stakeholder noticing something wrong before monitoring caught it), which is itself worth investigating as a possible monitoring gap once the immediate incident is handled."
+          },
+          {
+            "title": "🩹 Containment: stop the bleeding first",
+            "content": "Following the same priority order as the **rollback lesson**: the immediate response is usually to limit ongoing harm — rolling back to a known-good version, or in some cases temporarily disabling the affected model or feature entirely if even the previous version isn't safe to serve — **before** doing any deep investigation into root cause, since root-causing while the harm continues unabated is rarely the right trade-off."
+          },
+          {
+            "title": "🔍 Diagnosis: which category of problem is this",
+            "content": "Once contained, use the **diagnostic categories from the what-can-go-wrong lesson** (infrastructure failure, data drift, concept drift, upstream pipeline failure) plus the lineage and monitoring tools from earlier modules to actually determine what happened and why — this is where the technical infrastructure built throughout this course pays off directly, turning \"something is wrong\" into a specific, actionable finding."
+          },
+          {
+            "title": "📝 Post-incident review and follow-through",
+            "content": "Documenting what happened, why, and what's changing as a result (a new monitoring check that would have caught this sooner, a data validation rule that would have prevented the bad data from ever reaching training, a change to the deployment strategy) — feeding directly into the **governance and audit-trail practices** from the previous lesson, and closing the loop by making the monitoring and validation systems from earlier in this course better at catching this specific category of problem next time, rather than treating the incident as a one-off event with no lasting improvement to the system."
+          },
+          {
+            "title": "💻 The four stages as one incident-response function",
+            "content": "```python\ndef handle_incident(signal_or_report):\n    # 1. Detection\n    incident = open_incident(signal_or_report)\n\n    # 2. Containment -- happens before deep diagnosis, same priority as rollback\n    rollback(registry, router, incident.model_name)\n\n    # 3. Diagnosis -- using the categories from the what-can-go-wrong lesson\n    category = diagnose(incident.symptom)      # infra / data drift /\n                                                # concept drift / upstream\n    root_cause = trace_backward(incident.flagged_feature, lineage_graph)\n\n    # 4. Post-incident review -- feeds back into governance and future prevention\n    record_postmortem(\n        incident=incident, category=category, root_cause=root_cause,\n        prevention_change=\"add validation rule / monitoring check / deploy strategy fix\",\n    )\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Investigating root cause before containing the harm.** As with rollback, root-causing while a bad deployment continues to affect users is rarely the right trade-off — contain first, diagnose after.\n\n**Skipping the diagnostic categories and guessing at the cause.** Without systematically checking infrastructure, data drift, concept drift, and upstream pipeline failure, it's easy to apply the wrong fix to the wrong category of problem.\n\n**Treating an incident as closed once service is restored.** Without a post-incident review that feeds concrete prevention changes back into monitoring and validation, the same category of problem is likely to recur."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ops_incident_response_for_ml_quiz",
+        "questions": [
+          {
+            "question": "What typically comes first in ML incident response, per this lesson?",
+            "options": [
+              "A full root-cause investigation, before any containment action",
+              "Containment — stopping ongoing harm (e.g., rolling back) — generally comes before deep root-cause investigation, mirroring the rollback lesson's priority order",
+              "Writing the post-incident review document",
+              "Retraining the model from scratch immediately"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Consistent with the rollback lesson, limiting ongoing harm takes priority over deep diagnosis, since root-causing while damage continues is rarely the better trade-off.",
+            "id": "q1"
+          },
+          {
+            "question": "What does the diagnosis stage of incident response draw on from earlier in this course?",
+            "options": [
+              "Nothing — diagnosis happens independently of any prior course content",
+              "The failure categories from the what-can-go-wrong lesson (infrastructure, data drift, concept drift, upstream pipeline failure), plus lineage and monitoring tools from earlier modules",
+              "Only the model's original training code, with no other information",
+              "A completely new framework unrelated to anything covered previously"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Diagnosis directly applies the failure taxonomy and technical tools (lineage, monitoring) built up across this course to determine the specific, actionable cause of an incident.",
+            "id": "q2"
+          },
+          {
+            "question": "Why does post-incident review matter beyond just documenting what happened?",
+            "options": [
+              "Documentation alone is the only useful outcome of an incident review",
+              "It feeds into governance/audit-trail practices and drives concrete improvements (new monitoring checks, validation rules) that make the system better at catching similar problems next time",
+              "Post-incident review has no practical value once an incident is resolved",
+              "It should focus exclusively on assigning individual blame rather than system improvements"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A good post-incident review closes the loop by turning a specific failure into a lasting system improvement, connecting to the governance practices from the previous lesson rather than treating the incident as a one-off with no follow-through.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, why does `handle_incident` call `rollback` before calling `diagnose`?",
+            "options": [
+              "Because rollback and diagnose must always be called in alphabetical order",
+              "Because containment is prioritized before deep diagnosis, consistent with the rollback lesson's guidance that root-causing while harm continues is rarely the right trade-off",
+              "Because diagnose cannot function unless rollback has already succeeded",
+              "Because this ordering has no relationship to the lesson's content"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The function's ordering directly mirrors the lesson's stated priority: contain the harm first (rollback), then investigate what actually happened (diagnose) once the immediate damage is stopped.",
+            "id": "q4"
+          },
+          {
+            "question": "Why does `handle_incident` call both `diagnose(incident.symptom)` and `trace_backward(incident.flagged_feature, lineage_graph)` during the diagnosis stage?",
+            "options": [
+              "Because these two calls are redundant and one could be removed",
+              "Because diagnose categorizes which type of problem occurred while trace_backward uses lineage to pinpoint exactly where in the pipeline it originated — together they turn 'something is wrong' into an actionable finding",
+              "Because lineage_graph is unrelated to incident diagnosis",
+              "Because diagnose always returns the same category regardless of the symptom"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Categorizing the failure type and tracing its origin through lineage are complementary steps — one identifies what kind of problem it is, the other identifies exactly where it came from, together making the diagnosis actionable.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does `record_postmortem` include a `prevention_change` field rather than just recording what happened?",
+            "options": [
+              "Because prevention_change is a required Python keyword with no functional meaning",
+              "Because post-incident review is meant to drive concrete improvements (a new validation rule, a monitoring check, a deployment strategy fix), not just document the incident for its own sake",
+              "Because prevention_change always defaults to an empty string",
+              "Because documenting an incident is sufficient without any follow-through"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson emphasizes that post-incident review should feed concrete prevention changes back into the system, closing the loop rather than treating the incident as a one-off with no lasting improvement.",
+            "id": "q6"
+          },
+          {
+            "question": "Why is investigating root cause before containing the harm identified as a mistake?",
+            "options": [
+              "Because root cause investigation is always faster than containment",
+              "Because, as with rollback, root-causing while a bad deployment continues to affect users is rarely the right trade-off — containing first limits ongoing harm",
+              "Because containment is technically impossible during an active incident",
+              "Because this ordering has no actual effect on incident outcomes"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This mirrors the rollback lesson's priority ordering directly: stopping ongoing harm should come before deep diagnosis, since the cost of the problem compounds the longer it continues unaddressed.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does treating an incident as closed once service is restored risk future recurrence?",
+            "options": [
+              "Because restored service always means the underlying problem is fully fixed",
+              "Because without a post-incident review that feeds concrete prevention changes back into monitoring and validation, the same category of problem is likely to recur",
+              "Because incidents never actually have a recurring root cause",
+              "Because post-incident review has no connection to preventing future incidents"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Restoring service (via rollback, for instance) addresses the immediate symptom but not necessarily the underlying cause — without the follow-through review, the system isn't actually improved against the same failure happening again.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ops_common_mlops_mistakes",
+      "title": "Common MLOps Mistakes",
+      "description": "The recurring ways ML systems fail operationally, and which lesson in this course heads off each one.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Recognize the most common MLOps mistakes covered across this course and identify the practice that prevents each one."
+          },
+          {
+            "title": "🚫 Common mistakes",
+            "content": "**Treating 'the data' as a fixed, unversioned thing**, making past training runs impossible to reproduce or compare — addressed by the data-versioning lesson.\n\n**Computing features differently in training pipelines versus serving code**, causing training-serving skew that's notoriously hard to detect — addressed by the feature-store lesson.\n\n**Skipping data validation as a mandatory pipeline gate**, letting bad data silently reach training — addressed by the data-validation lesson.\n\n**Manually executing multi-step training and deployment processes**, reintroducing exactly the human-error risk automation is meant to eliminate — addressed by the orchestration and CI/CD lessons.\n\n**Deploying a new model version as an all-or-nothing switch** with no canary, shadow, or blue-green safety net — addressed by the deployment-strategies lesson.\n\n**Monitoring only for data drift and missing concept drift entirely**, since concept drift can occur even with a stable input distribution — addressed by the drift-detection lesson.\n\n**Having no tested, ready rollback path**, turning a bad deployment into a prolonged crisis rather than a quick revert — addressed by the rollback lesson.\n\n**Applying uniform governance rigor regardless of a model's actual real-world stakes** — addressed by the governance lesson."
+          },
+          {
+            "title": "✅ The throughline across this course",
+            "content": "Nearly every mistake here is a case of skipping a specific piece of the **reproducibility, automation, or safety-net infrastructure** this course built up, module by module — the pattern across MLOps as a discipline is that classical software engineering's versioning, testing, and deployment-safety practices genuinely do transfer to ML, and most real-world ML operational failures trace back to one of those practices being skipped or done manually rather than to some exotic, ML-specific cause."
+          },
+          {
+            "title": "💻 A checklist as a script, not just a list",
+            "content": "```python\ndef preflight_check(system):\n    findings = []\n    if not system.data_is_versioned:\n        findings.append(\"data is unversioned -- past runs unreproducible\")\n    if system.training_and_serving_feature_code_differ:\n        findings.append(\"training-serving skew risk -- no shared feature definition\")\n    if not system.has_validation_gate:\n        findings.append(\"no automated data validation gate before training\")\n    if system.deployment_is_manual:\n        findings.append(\"training/deployment still manually executed\")\n    if system.deployment_strategy == \"all_or_nothing\":\n        findings.append(\"no canary/shadow/blue-green safety net\")\n    if not system.monitors_concept_drift:\n        findings.append(\"only monitoring data drift, missing concept drift\")\n    if not system.rollback_tested:\n        findings.append(\"rollback path exists but has never been tested\")\n    if system.governance_rigor == \"uniform\":\n        findings.append(\"governance not calibrated to actual model stakes\")\n    return findings or [\"passes pre-deployment checklist\"]\n```"
+          },
+          {
+            "title": "🧭 A pre-deployment checklist",
+            "content": "- Data used for training is versioned and its provenance traceable via lineage\n- Feature computation is consistent between training and serving\n- Data validation runs as a mandatory automated gate\n- Training and deployment are automated end to end via CI/CD, not manually executed\n- New model versions roll out via canary, shadow, or blue-green rather than an all-or-nothing switch\n- Both data drift and concept drift are monitored, with retraining triggers connected to the pipeline\n- A tested rollback path exists and is ready before it's needed\n- Governance rigor matches the model's actual real-world stakes\n\nReviewing this list before shipping catches the large majority of the operational mistakes that show up repeatedly in real ML systems."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ops_common_mlops_mistakes_quiz",
+        "questions": [
+          {
+            "question": "Which lesson's practice directly addresses the mistake of computing features differently in training versus serving?",
+            "options": [
+              "The rollback-strategies lesson",
+              "The feature-store lesson",
+              "The governance-and-audit-trails lesson",
+              "The incident-response lesson"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Training-serving skew from inconsistent feature computation is exactly the problem feature stores are designed to eliminate by defining feature logic exactly once.",
+            "id": "q1"
+          },
+          {
+            "question": "What is the throughline this lesson identifies across the common MLOps mistakes?",
+            "options": [
+              "MLOps mistakes are exotic and have no relationship to standard software engineering practices",
+              "Most real-world ML operational failures trace back to a specific reproducibility, automation, or safety-net practice being skipped or done manually, rather than some exotic ML-specific cause",
+              "There is no common pattern connecting any of these mistakes",
+              "MLOps mistakes only ever occur due to insufficient compute resources"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson's key insight is that classical software engineering discipline (versioning, automation, deployment safety) transfers directly to ML, and most failures come from skipping a specific piece of that discipline rather than from something uniquely exotic to ML.",
+            "id": "q2"
+          },
+          {
+            "question": "What does the pre-deployment checklist recommend regarding new model version rollouts?",
+            "options": [
+              "Always deploying new versions as an all-or-nothing switch for simplicity",
+              "Rolling out new versions via canary, shadow, or blue-green strategies rather than an all-or-nothing switch",
+              "Skipping any deployment strategy entirely once a model passes evaluation",
+              "Deployment strategy is irrelevant as long as monitoring exists"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The checklist reinforces the deployment-strategies lesson's core recommendation: gradual, monitored rollout approaches rather than switching all traffic to a new version immediately.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, what does `preflight_check` return if `system.rollback_tested` is `False` but every other check passes?",
+            "options": [
+              "An empty list, since one failing check is ignored",
+              "A list containing the finding \"rollback path exists but has never been tested\", since findings accumulates every failed check independently",
+              "The string \"passes pre-deployment checklist\", since rollback isn't checked",
+              "A Python exception halting the entire function"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The function appends a finding for each individual failed condition, so an untested rollback path produces its own specific finding in the returned list, regardless of how many other checks pass.",
+            "id": "q4"
+          },
+          {
+            "question": "Why does `preflight_check` return `[\"passes pre-deployment checklist\"]` only when `findings` is falsy (empty)?",
+            "options": [
+              "Because the function always returns this message regardless of any checks",
+              "Because the checklist should only report success when none of the individual mistake conditions were detected, mirroring the pre-deployment checklist's role as a comprehensive pass/fail gate",
+              "Because findings is always empty by default and never actually gets populated",
+              "Because this message indicates the check function crashed"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The `or` fallback means the success message only appears when no individual check appended a finding — exactly the checklist's intended behavior of flagging any and all detected gaps.",
+            "id": "q5"
+          },
+          {
+            "question": "Which condition in `preflight_check` corresponds to the mistake addressed by the orchestration and CI/CD lessons?",
+            "options": [
+              "system.data_is_versioned",
+              "system.deployment_is_manual",
+              "system.governance_rigor",
+              "system.monitors_concept_drift"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Manually executed training and deployment processes are exactly the mistake the orchestration and CI/CD lessons address by automating the pipeline end to end.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson describe most MLOps mistakes as failures to apply 'classical software engineering discipline' rather than as ML-specific phenomena?",
+            "options": [
+              "Because ML systems never actually experience any operational failures",
+              "Because the recurring pattern across these mistakes is skipping a specific versioning, automation, or safety-net practice — the same kind of discipline software engineering already relies on, just extended for ML's data dependence",
+              "Because classical software engineering has no relevance to machine learning whatsoever",
+              "Because every one of these mistakes requires an entirely new, ML-specific solution unrelated to software engineering"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This connects back to the very first lesson of this course: MLOps extends familiar software engineering discipline rather than requiring an unrelated, exotic set of practices — most mistakes are simply a case of skipping a piece of that extended discipline.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does the pre-deployment checklist include both 'data drift and concept drift are monitored' as one combined item rather than listing only data drift?",
+            "options": [
+              "Because concept drift is not actually a real phenomenon",
+              "Because monitoring only data drift and missing concept drift entirely is one of the specific mistakes this lesson calls out, since concept drift can occur even with a stable input distribution",
+              "Because data drift and concept drift require identical detection methods",
+              "Because concept drift is always caught automatically once data drift monitoring is in place"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This directly reflects one of the lesson's named common mistakes — monitoring exclusively for data drift misses concept drift, which can occur independently of any input distribution shift.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

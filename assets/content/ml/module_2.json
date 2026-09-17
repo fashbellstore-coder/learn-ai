@@ -1,0 +1,543 @@
+{
+  "id": "module_2",
+  "title": "Decision Trees & Ensembles",
+  "description": "From a single tree's simple yes/no questions to the powerful ensembles — random forests and gradient boosting — built from many of them.",
+  "icon": "🌲",
+  "color": "#43A047",
+  "order": 2,
+  "estimatedHours": 2,
+  "difficulty": "Intermediate",
+  "prerequisites": [
+    "module_1"
+  ],
+  "lessons": [
+    {
+      "id": "ml_decision_trees",
+      "title": "Decision Trees",
+      "description": "Learn how a model can make predictions by asking a series of yes/no questions.",
+      "duration": "9 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain how a decision tree makes predictions and why it's prone to overfitting on its own."
+          },
+          {
+            "title": "🌳 The core idea",
+            "content": "A **decision tree** predicts by asking a sequence of simple yes/no questions about the features, splitting the data at each step, until it reaches a final prediction.\n\n```\nIs square_feet > 1500?\n├── Yes → Is bedrooms > 3?\n│         ├── Yes → predict $450,000\n│         └── No  → predict $380,000\n└── No  → predict $220,000\n```\n\nEach question is chosen (during training) to best separate the data into more \"pure\" groups — groups that share a more similar outcome."
+          },
+          {
+            "title": "🌱 How a tree is trained",
+            "content": "```python\nfrom sklearn.tree import DecisionTreeClassifier\n\nmodel = DecisionTreeClassifier(max_depth=4)\nmodel.fit(X_train, y_train)\n\npredictions = model.predict(X_test)\n```\n\nAt each step, the algorithm picks the feature and threshold that best separates the classes (using a measure like Gini impurity or information gain) — repeating this recursively builds the full tree."
+          },
+          {
+            "title": "✅ Strengths and a big weakness",
+            "content": "• **Easy to interpret** — you can literally read off the sequence of questions that led to a prediction\n• **No feature scaling needed** — trees split on raw thresholds, unaffected by the units of measurement\n• **Prone to overfitting** — an unconstrained tree can keep splitting until every training example gets its own leaf, perfectly memorizing the training data (and generalizing poorly)\n\nControlling tree depth (`max_depth`) or requiring a minimum number of samples per leaf are common ways to keep a tree from overfitting."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Letting a tree grow without any depth limit.** An unconstrained tree will often overfit dramatically — always set `max_depth` or another stopping rule.\n\n**Judging a tree only by training accuracy.** A deep, unconstrained tree can hit near-100% training accuracy while performing badly on new data — the classic overfitting trap.\n\n**Assuming a single decision tree is production-grade.** In practice, single trees are usually a stepping stone to the ensemble methods covered next — they rarely outperform ensembles on their own."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ml_decision_trees_quiz",
+        "questions": [
+          {
+            "question": "How does a decision tree make a prediction?",
+            "options": [
+              "By computing a weighted sum of all features at once",
+              "By following a sequence of yes/no questions about the features down to a final leaf prediction",
+              "By measuring distance to the nearest training examples",
+              "By clustering similar examples together"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A decision tree splits the data step by step based on feature thresholds, following a path of questions down to a leaf node that holds the final prediction.",
+            "id": "q1"
+          },
+          {
+            "question": "Why is an unconstrained decision tree prone to overfitting?",
+            "options": [
+              "Trees can't actually be trained on real data",
+              "It can keep splitting until every training example has its own leaf, memorizing the training data rather than learning general patterns",
+              "Trees ignore the training data entirely",
+              "It's not actually prone to overfitting"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Without a depth limit or similar constraint, a tree can create extremely specific splits tailored to individual training examples — fitting the training data perfectly while failing to generalize.",
+            "id": "q2"
+          },
+          {
+            "question": "What's a common way to prevent a decision tree from overfitting?",
+            "options": [
+              "Removing all training data",
+              "Limiting the tree's depth or requiring a minimum number of samples per leaf",
+              "Increasing the learning rate",
+              "Using more decimal places in calculations"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Constraining how deep the tree can grow, or how few samples a leaf can represent, keeps it from creating overly specific splits that memorize training data noise.",
+            "id": "q3"
+          },
+          {
+            "question": "What is a 'leaf' node in a decision tree?",
+            "options": [
+              "The very first question asked at the top of the tree",
+              "A terminal node at the end of a path that gives the final prediction",
+              "A node that always splits into exactly two more nodes",
+              "A synonym for the tree's root node"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A leaf is where the decision path ends and the tree outputs its final prediction, with no further splits beneath it.",
+            "id": "q4"
+          },
+          {
+            "question": "How does a decision tree decide which feature to split on at each step?",
+            "options": [
+              "It always splits on the first feature in the dataset",
+              "It chooses the split that most effectively separates the data into purer groups, using a measure like Gini impurity or information gain",
+              "It picks a feature at random every time",
+              "It splits on every feature simultaneously"
+            ],
+            "correctAnswer": 1,
+            "explanation": "At each node, a decision tree evaluates possible splits and picks the one that best improves the purity of the resulting groups, using metrics like Gini impurity.",
+            "id": "q5"
+          },
+          {
+            "question": "What's an advantage of decision trees in terms of interpretability?",
+            "options": [
+              "They are always black boxes with no interpretability at all",
+              "The decision path from root to leaf can be read as a clear sequence of understandable yes/no rules",
+              "They can only be interpreted by expert statisticians",
+              "Interpretability is not a relevant property for decision trees"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A key appeal of decision trees is that you can trace the exact sequence of feature comparisons that led to any given prediction.",
+            "id": "q6"
+          },
+          {
+            "question": "What does 'pruning' a decision tree mean?",
+            "options": [
+              "Adding more branches to increase depth",
+              "Removing branches that add little predictive value, to reduce overfitting and simplify the tree",
+              "Deleting the entire tree and starting over",
+              "Doubling the amount of training data used"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Pruning trims back parts of a tree that don't meaningfully improve performance, helping control overfitting and producing a simpler, more generalizable tree.",
+            "id": "q7"
+          },
+          {
+            "question": "Why can decision trees handle both numeric and categorical features relatively naturally?",
+            "options": [
+              "They can only handle one type of feature at a time",
+              "Splits can be formed as thresholds for numeric features or category membership checks for categorical ones, both fitting the same yes/no question structure",
+              "Categorical features must always be dropped before using a tree",
+              "Decision trees convert every feature into text before splitting"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The yes/no question structure of a tree split adapts naturally to both numeric thresholds (like age > 30) and categorical checks (like city == 'X').",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ml_random_forests",
+      "title": "Random Forests",
+      "description": "Learn how combining many imperfect trees creates a much stronger, more reliable model.",
+      "duration": "9 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain how a random forest works and why averaging many trees reduces overfitting."
+          },
+          {
+            "title": "🌲🌲🌲 The core idea: wisdom of the crowd",
+            "content": "A single decision tree overfits easily. A **random forest** trains *many* different decision trees and averages their predictions (for regression) or takes a majority vote (for classification). Individually noisy, imperfect trees combine into a much more stable, accurate model."
+          },
+          {
+            "title": "🎲 Two sources of randomness",
+            "content": "Each tree in the forest is trained slightly differently, on purpose, so they make different kinds of mistakes:\n\n• **Bagging (bootstrap aggregating)** — each tree trains on a random sample of the training data (drawn with replacement), so no two trees see quite the same data\n• **Random feature selection** — at each split, each tree only considers a random subset of features, not all of them\n\nThis deliberate diversity is what makes averaging the trees' predictions so effective — errors that are somewhat random and uncorrelated tend to cancel out when combined."
+          },
+          {
+            "title": "🛠️ Using a random forest",
+            "content": "```python\nfrom sklearn.ensemble import RandomForestClassifier\n\nmodel = RandomForestClassifier(n_estimators=100, max_depth=6, random_state=42)\nmodel.fit(X_train, y_train)\n\npredictions = model.predict(X_test)\nprint(model.feature_importances_)  # which features mattered most, on average\n```\n\n• `n_estimators` — how many trees to build (more generally helps, up to diminishing returns)\n• Random forests are far more resistant to overfitting than a single unconstrained tree\n• A tradeoff: harder to interpret than a single tree — you can't easily \"read off\" one clean decision path anymore"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming more trees always keeps improving performance indefinitely.** Gains taper off — at some point, adding more trees mostly costs computation time without meaningfully improving accuracy.\n\n**Losing the interpretability advantage without realizing it.** A forest of 100 trees can't be \"read\" the way a single small tree can — use `feature_importances_` for interpretability instead of trying to trace individual trees.\n\n**Forgetting that random forests still need a validation set.** They're more overfitting-resistant than a single tree, but they aren't immune, especially on small or noisy datasets."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ml_random_forests_quiz",
+        "questions": [
+          {
+            "question": "What's the core idea behind a random forest?",
+            "options": [
+              "Training one very large, very deep tree",
+              "Training many different decision trees and combining their predictions, which reduces overfitting compared to any single tree",
+              "Removing decision trees in favor of a single linear model",
+              "Using only the single best-performing tree out of many candidates"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A random forest builds an ensemble of many trees, each trained slightly differently, and combines their predictions — this averaging cancels out much of the overfitting any individual tree would show on its own.",
+            "id": "q1"
+          },
+          {
+            "question": "What are the two main sources of randomness that make trees in a forest diverse?",
+            "options": [
+              "Different programming languages and different computers",
+              "Bootstrap-sampled training data per tree, and a random subset of features considered at each split",
+              "Randomly shuffling the final predictions",
+              "Random initial weights, like in a neural network"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Each tree sees a random sample of the training rows (bagging) and considers only a random subset of features at each split — both introduce controlled diversity that makes averaging the trees' predictions effective.",
+            "id": "q2"
+          },
+          {
+            "question": "What's a tradeoff of using a random forest compared to a single decision tree?",
+            "options": [
+              "Random forests always perform worse",
+              "Random forests are harder to interpret — you can't trace one clean decision path the way you can with a single small tree",
+              "Random forests can't be used for classification",
+              "Random forests never overfit under any circumstances"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The averaging that makes forests more accurate and stable also makes them less directly interpretable than a single tree — you generally rely on aggregate feature importance rather than tracing individual decision paths.",
+            "id": "q3"
+          },
+          {
+            "question": "How does a random forest combine the predictions of its individual trees for a classification task?",
+            "options": [
+              "It picks the single tree with the highest confidence",
+              "It typically takes a majority vote across all the trees' individual predictions",
+              "It averages every tree's raw training data",
+              "It selects one tree at random each time"
+            ],
+            "correctAnswer": 1,
+            "explanation": "For classification, a random forest commonly aggregates predictions from its trees using majority voting to reach a final decision.",
+            "id": "q4"
+          },
+          {
+            "question": "What does 'bootstrap sampling' mean in the context of building a random forest?",
+            "options": [
+              "Using the exact same full dataset for every tree",
+              "Sampling the training data with replacement to create a slightly different training set for each tree",
+              "Sampling only categorical features",
+              "Deleting rows to shrink the dataset before training"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Bootstrap sampling draws random samples with replacement from the training data, giving each tree in the forest a slightly different (but overlapping) training set.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does averaging or voting across many diverse trees tend to reduce overfitting compared to a single deep tree?",
+            "options": [
+              "It doesn't — averaging trees always overfits more",
+              "Individual trees' errors tend to be somewhat independent, so combining them cancels out much of each tree's individual noise",
+              "Averaging removes the need for any training data",
+              "Random forests use fewer training examples per tree, which alone prevents overfitting"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Because each tree tends to make somewhat different mistakes, combining many trees' predictions averages out a lot of the individual noise, improving generalization.",
+            "id": "q6"
+          },
+          {
+            "question": "What is 'feature importance' in a random forest typically based on?",
+            "options": [
+              "The alphabetical order of feature names",
+              "How much each feature contributes to reducing impurity across the splits it's used in, aggregated across all trees",
+              "A random assignment with no basis in the data",
+              "Only the very first split in the very first tree"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Feature importance is usually computed by measuring how much each feature contributes to improving split quality (like reducing impurity) across all trees in the forest.",
+            "id": "q7"
+          },
+          {
+            "question": "Why might you still choose a single decision tree over a random forest in some situations?",
+            "options": [
+              "Single trees are always more accurate than forests",
+              "When interpretability of the exact decision path matters more than squeezing out maximum predictive accuracy",
+              "Single decision trees train slower than random forests in every case",
+              "There's never a good reason to prefer a single tree"
+            ],
+            "correctAnswer": 1,
+            "explanation": "If being able to explain the exact reasoning behind a prediction matters more than raw performance, a single interpretable tree can be preferable to an ensemble.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ml_boosting",
+      "title": "Gradient Boosting",
+      "description": "Learn how building trees one at a time, each fixing the last one's mistakes, produces some of the strongest tabular-data models around.",
+      "duration": "9 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain the core idea behind gradient boosting and how it differs from a random forest."
+          },
+          {
+            "title": "🎯 A different ensemble strategy",
+            "content": "Random forests build many trees *independently* and average them. **Gradient boosting** builds trees *sequentially* — each new tree is trained specifically to correct the mistakes (the residual errors) of the trees built so far.\n\n• Random forest: many independent trees, averaged (reduces variance)\n• Gradient boosting: trees built one after another, each fixing prior errors (reduces bias, gradually)"
+          },
+          {
+            "title": "🔁 The step-by-step idea",
+            "content": "1. Start with a simple initial prediction (like the average target value)\n2. Compute the errors (residuals) between predictions and actual values\n3. Train a new small tree to predict those *errors*\n4. Add a scaled-down version of that tree's predictions to the running total\n5. Repeat for many rounds, gradually reducing the remaining error\n\nEach individual tree is usually shallow and weak on its own — the power comes from combining many of them, each nudging the prediction a little closer to correct."
+          },
+          {
+            "title": "🛠️ Popular implementations",
+            "content": "```python\nfrom sklearn.ensemble import GradientBoostingClassifier\n\nmodel = GradientBoostingClassifier(\n    n_estimators=200,\n    learning_rate=0.05,\n    max_depth=3,\n)\nmodel.fit(X_train, y_train)\n```\n\nIn practice, most real-world tabular ML competitions and production systems use faster, more optimized boosting libraries like **XGBoost**, **LightGBM**, or **CatBoost**, which follow the same core idea with engineering improvements.\n\n• `learning_rate` — how much each new tree's correction counts; smaller values need more trees but often generalize better\n• `n_estimators` — how many rounds of boosting to run\n• Gradient boosting is often the strongest \"off-the-shelf\" choice for structured/tabular data"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Setting the learning rate and number of trees independently without considering both together.** A low learning rate typically needs more trees to compensate — they're tuned as a pair, not separately.\n\n**Not watching for overfitting.** Because each tree targets the remaining error, boosting can eventually start fitting noise if allowed to run for too many rounds — validation-set monitoring (and early stopping) helps catch this.\n\n**Assuming boosting is always better than a random forest.** It's frequently stronger, but it's also more sensitive to hyperparameter tuning and can be slower to train — a forest is a very reasonable first baseline."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ml_boosting_quiz",
+        "questions": [
+          {
+            "question": "How does gradient boosting differ from a random forest in how trees are built?",
+            "options": [
+              "Boosting builds trees independently; forests build them sequentially",
+              "Boosting builds trees sequentially, each correcting the errors of the ones before it; a forest builds trees independently and averages them",
+              "There is no real difference between the two methods",
+              "Boosting only uses a single tree total"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Random forests average many independently-trained trees; gradient boosting builds trees one at a time, each specifically targeting the remaining errors of the combined trees so far.",
+            "id": "q1"
+          },
+          {
+            "question": "What does each new tree in a gradient boosting model typically try to predict?",
+            "options": [
+              "The original target value from scratch",
+              "The remaining errors (residuals) left by the trees built so far",
+              "A completely random target",
+              "The feature importances of the previous tree"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Each new tree is trained to predict the current residual error, and its (scaled) prediction is added to the running total — gradually reducing the overall error round by round.",
+            "id": "q2"
+          },
+          {
+            "question": "Why are the learning rate and number of trees usually tuned together in gradient boosting?",
+            "options": [
+              "They have no relationship to each other",
+              "A smaller learning rate means each tree contributes less, so more trees (rounds) are typically needed to reach good performance",
+              "Learning rate only matters for random forests",
+              "The number of trees is fixed and can't be changed"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Learning rate controls how much each tree's correction counts toward the final prediction — a smaller rate needs more rounds (trees) to compensate, so the two settings are tuned as a pair rather than independently.",
+            "id": "q3"
+          },
+          {
+            "question": "Why is gradient boosting generally more sensitive to overfitting than a random forest, if not carefully tuned?",
+            "options": [
+              "It isn't — boosting is always less prone to overfitting",
+              "Because each tree is fit specifically to correct the errors of the previous ones, too many rounds can start fitting noise in the training data",
+              "Boosting doesn't use decision trees at all",
+              "Random forests are never at risk of overfitting"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since boosting keeps chasing the remaining errors round after round, without proper tuning (like limiting rounds or learning rate) it can start fitting noise rather than signal.",
+            "id": "q4"
+          },
+          {
+            "question": "What role does the learning rate play in gradient boosting?",
+            "options": [
+              "It controls how many features are used per tree",
+              "It scales down how much each new tree's correction contributes to the overall prediction, trading speed for stability",
+              "It has no effect on the model's training",
+              "It determines the maximum depth of each tree"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A smaller learning rate shrinks each tree's contribution, generally leading to more stable, better-generalizing models at the cost of needing more trees.",
+            "id": "q5"
+          },
+          {
+            "question": "What is a well-known gradient boosting implementation commonly used in practice?",
+            "options": [
+              "K-means",
+              "XGBoost (or similar libraries like LightGBM)",
+              "Linear regression",
+              "K-nearest neighbors"
+            ],
+            "correctAnswer": 1,
+            "explanation": "XGBoost and similar libraries like LightGBM are popular, optimized implementations of gradient boosting widely used for tabular data problems.",
+            "id": "q6"
+          },
+          {
+            "question": "Why is gradient boosting often a strong choice for structured, tabular data competitions?",
+            "options": [
+              "It requires no hyperparameter tuning at all",
+              "It tends to achieve high predictive accuracy on tabular data by effectively correcting successive rounds of errors",
+              "It's the only algorithm capable of handling tabular data",
+              "It always trains faster than every other algorithm"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Gradient boosting's ability to iteratively refine predictions often makes it one of the most accurate approaches for structured tabular datasets.",
+            "id": "q7"
+          },
+          {
+            "question": "What happens to the training process if the learning rate in gradient boosting is set very high?",
+            "options": [
+              "Training becomes perfectly stable regardless of other settings",
+              "Each tree's correction has an outsized effect, which can cause the model to overshoot and perform poorly, similar to a too-large learning rate in gradient descent",
+              "The number of trees needed increases dramatically",
+              "It has no meaningful effect on training"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Just like in general gradient descent, too large a learning rate can cause updates (here, tree contributions) to overshoot and destabilize training.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ml_bagging_vs_boosting",
+      "title": "Bagging vs. Boosting: A Recap",
+      "description": "Consolidate the difference between these two ensemble strategies with a clear side-by-side comparison.",
+      "duration": "7 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can clearly compare bagging and boosting and know when each is a natural fit."
+          },
+          {
+            "title": "🧩 Two ways to combine weak learners",
+            "content": "Both bagging (random forests) and boosting (gradient boosting) combine many individual trees into one stronger model — but they combine them in fundamentally different ways.\n\n• **Bagging** — trees trained independently and in parallel, on random samples of the data, then averaged\n• **Boosting** — trees trained sequentially, each one correcting the errors of the trees before it"
+          },
+          {
+            "title": "⚖️ What each is good at",
+            "content": "• Bagging (random forests) primarily reduces **variance** — it's great at stabilizing an already-decent model that's overfitting due to being too sensitive to its specific training sample\n• Boosting primarily reduces **bias** — it's great at gradually improving a model that's systematically missing patterns, by continually chasing the remaining error\n\nIn practice, both are strong choices for tabular data, and boosting (especially XGBoost/LightGBM) often edges out forests on raw accuracy — at the cost of being more sensitive to hyperparameter tuning and slightly more prone to overfitting if not carefully monitored."
+          },
+          {
+            "title": "🛠️ Practical guidance",
+            "content": "• **Start with a random forest** as a strong, relatively low-effort baseline — it's fairly robust to default settings\n• **Reach for gradient boosting** (or XGBoost/LightGBM/CatBoost) when you have time to tune it and want to squeeze out more accuracy\n• Both are typically far stronger than a single decision tree, and both remain highly competitive choices for structured/tabular data — even in a world of deep learning"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming one ensemble method is always strictly better than the other.** It depends on the dataset and how much tuning effort you can invest — trying both is often worthwhile.\n\n**Forgetting both methods still need a held-out validation or test set.** Ensembles reduce overfitting risk but don't eliminate the need for honest evaluation.\n\n**Jumping straight to boosting without trying a simpler baseline first.** A random forest (or even plain logistic/linear regression) is a fast, useful sanity check before investing in a more complex, tunable model."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ml_bagging_vs_boosting_quiz",
+        "questions": [
+          {
+            "question": "What's the key structural difference between bagging and boosting?",
+            "options": [
+              "Bagging uses neural networks; boosting uses trees",
+              "Bagging trains trees independently in parallel; boosting trains trees sequentially, each correcting prior errors",
+              "They are identical techniques with different names",
+              "Bagging can only be used for regression"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Bagging (as in random forests) builds many trees independently and averages them; boosting builds trees one after another, each specifically targeting the errors left by the previous ones.",
+            "id": "q1"
+          },
+          {
+            "question": "Which type of error does boosting primarily target?",
+            "options": [
+              "Variance, by averaging many independent models",
+              "Bias, by sequentially correcting the errors the combined model has made so far",
+              "Neither — boosting doesn't affect bias or variance",
+              "Only errors in categorical features"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Boosting continually chases whatever error remains after the trees built so far — this sequential error-correction process primarily works to reduce bias (systematic underfitting).",
+            "id": "q2"
+          },
+          {
+            "question": "What's a sensible default strategy when starting a new tabular ML problem?",
+            "options": [
+              "Jump straight to the most complex boosting setup available",
+              "Start with a simple baseline like a random forest, then consider gradient boosting if more accuracy is needed and tuning time is available",
+              "Only ever use a single decision tree",
+              "Skip evaluation entirely and deploy the first model trained"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A random forest is a strong, relatively low-effort baseline; boosting methods can often improve on that but cost more tuning effort — starting simple and escalating only if needed is a practical approach.",
+            "id": "q3"
+          },
+          {
+            "question": "How does bagging primarily reduce error?",
+            "options": [
+              "By reducing bias through sequential error correction",
+              "By reducing variance, since averaging many independently trained models smooths out individual model noise",
+              "By eliminating the need for a validation set",
+              "Bagging doesn't reduce any type of error"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Bagging's main benefit comes from reducing variance — averaging independent models' predictions cancels out much of each individual model's noise.",
+            "id": "q4"
+          },
+          {
+            "question": "Can bagging and boosting both be applied using decision trees as the base model?",
+            "options": [
+              "No, boosting can only be used with linear models",
+              "Yes — random forests use bagging with trees, and gradient boosting uses boosting with trees",
+              "No, bagging can only be used with neural networks",
+              "Only bagging can use decision trees as a base model"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Both major ensemble strategies commonly use decision trees as their base learners — random forests apply bagging, while gradient boosting applies boosting.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does boosting typically train its models sequentially rather than in parallel like bagging?",
+            "options": [
+              "Sequential training is purely a historical convention with no technical reason",
+              "Each new model in boosting needs to know the errors made by the previous models, which requires those earlier models to already be trained",
+              "Sequential training is actually faster than parallel training",
+              "Boosting doesn't actually use multiple models"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Because each boosting round is specifically designed to correct the mistakes of the ensemble so far, it inherently depends on knowing what those prior mistakes were.",
+            "id": "q6"
+          },
+          {
+            "question": "What's a reasonable approach if a random forest baseline isn't accurate enough for a project's needs?",
+            "options": [
+              "Immediately abandon tree-based methods entirely",
+              "Try gradient boosting with careful tuning, since it often squeezes out additional accuracy at the cost of more careful tuning",
+              "Reduce the dataset size to make the problem easier",
+              "Switch to using no model at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "When a simple ensemble baseline isn't sufficient, gradient boosting is a natural next step, often improving accuracy in exchange for more careful hyperparameter tuning.",
+            "id": "q7"
+          },
+          {
+            "question": "Why is starting with a simple ensemble baseline generally good practice before jumping to advanced tuning?",
+            "options": [
+              "It's not good practice — always start with the most complex model available",
+              "It establishes a solid reference point and quickly reveals whether a simpler model is already good enough for the task",
+              "Simple baselines are required by every ML library",
+              "It skips the need for any further evaluation"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A quick, simple baseline shows whether the problem is already reasonably solved and gives a fair benchmark to judge whether additional complexity is actually worth the effort.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

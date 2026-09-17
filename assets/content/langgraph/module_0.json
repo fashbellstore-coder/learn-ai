@@ -1,0 +1,557 @@
+{
+  "id": "lg_langchain_fundamentals",
+  "title": "LangChain Fundamentals",
+  "description": "Why a framework helps, LCEL's declarative composition, chains and output parsers working together, and why agentic control flow eventually needs graphs.",
+  "icon": "🔗",
+  "color": "#00ACC1",
+  "order": 0,
+  "estimatedHours": 5,
+  "difficulty": "beginner",
+  "prerequisites": [],
+  "lessons": [
+    {
+      "id": "lg_why_a_framework",
+      "title": "Why Use a Framework Like LangChain at All?",
+      "description": "You could wire up prompts, LLM calls, and tools by hand — a framework exists to standardize the parts you'd otherwise rebuild every time.",
+      "duration": "12 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain what problems a framework like LangChain solves and when hand-rolling your own orchestration is actually the better choice."
+          },
+          {
+            "title": "🧩 What keeps getting rebuilt by hand",
+            "content": "Every LLM application ends up needing the same handful of pieces: a way to compose a prompt template with variables, a consistent interface across different model providers, a way to parse a model's raw text output into structured data, and a way to chain several of these steps together with consistent error handling and retry logic. Building this from scratch for every project means re-solving the same plumbing problems repeatedly.\n\n```python\n# Without a framework: hand-rolled, repeated per project\nprompt_text = PROMPT_TEMPLATE.format(topic=topic)\nresponse = provider_specific_client.call(prompt_text)\nresult = manually_parse_json(response.text)  # fragile, rewritten each time\n```"
+          },
+          {
+            "title": "🔧 What LangChain standardizes",
+            "content": "**A common interface** for LLMs, chat models, prompts, output parsers, and tools, so swapping providers or model versions doesn't mean rewriting your application logic.\n\n**A composition syntax** (LCEL, covered next lesson) for wiring these pieces together declaratively.\n\n**Integrations** with a large ecosystem of vector stores, document loaders, and other tools, so you're not writing a new integration for every new data source."
+          },
+          {
+            "title": "⚖️ When a framework helps versus adds overhead",
+            "content": "For applications with several composed steps, multiple model providers to support, or a need for the broader ecosystem's integrations, a framework's standardization pays for itself quickly. For a genuinely simple single-call application, or one with very unusual requirements the framework's abstractions don't map onto well, a framework can add more indirection than it saves — the abstraction layer becomes something to learn and debug rather than something that gets out of your way."
+          },
+          {
+            "title": "🔗 Where LangGraph fits in",
+            "content": "LangChain's chain-based composition (this module) is well suited to fixed, linear sequences of steps. As the Agents course covered, though, real agentic systems need loops, conditional branching, and state that persists and evolves — needs a linear chain can't express well. LangGraph, covered starting next module, is LangChain's answer to that: a graph-based way of expressing exactly the control loop, state, and branching concepts from the Agents course, using a similar underlying toolset."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Reaching for the framework's full abstraction stack for a single, simple LLM call.** This lesson is explicit that a genuinely simple application can find the framework's indirection costs more than it saves.\n\n**Assuming a framework is required to call an LLM at all.** A framework standardizes plumbing that gets repeated across many composed steps or providers — it isn't a prerequisite for making a model call in the first place.\n\n**Forcing agentic, cyclic control flow into chain-based composition.** Chains are built for fixed, linear sequences; a task that genuinely needs loops or branching is exactly the case this lesson identifies as needing LangGraph instead."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "lg_why_a_framework_quiz",
+        "questions": [
+          {
+            "question": "What kind of plumbing problem does a framework like LangChain aim to standardize?",
+            "options": [
+              "The physical GPU hardware used for training",
+              "Common interfaces for prompts, models, and output parsing that would otherwise be rebuilt from scratch on every project",
+              "The exact wording of every prompt",
+              "The licensing terms of open-weight models"
+            ],
+            "correctAnswer": 1,
+            "explanation": "LangChain standardizes the repeated plumbing — prompt composition, model interfaces, output parsing, chaining — that nearly every LLM application ends up needing.",
+            "id": "q1"
+          },
+          {
+            "question": "When might using a framework like LangChain add more overhead than it saves?",
+            "options": [
+              "Whenever more than one prompt is used",
+              "For a genuinely simple single-call application, or one with unusual requirements the framework's abstractions don't map onto well",
+              "Only when working with open-weight models",
+              "Frameworks always save more time than they cost, with no exceptions"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A framework's abstractions are worth their learning and debugging cost mainly when there's real composition, multiple providers, or ecosystem integrations to benefit from — not for every possible project.",
+            "id": "q2"
+          },
+          {
+            "question": "Why does LangChain's chain-based composition alone fall short for agentic systems, per this lesson?",
+            "options": [
+              "Chains can only be used with one specific model provider",
+              "Real agentic systems need loops, conditional branching, and evolving state, which a linear chain can't express well",
+              "Chains cannot use any tools at all",
+              "LangChain has no relationship to agentic systems"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Agentic needs like loops and branching (as covered in the Agents course) go beyond what a fixed linear chain can represent, which is exactly the gap LangGraph is built to fill.",
+            "id": "q3"
+          },
+          {
+            "question": "In this lesson's code example, why is the hand-rolled approach described as 'fragile, rewritten each time'?",
+            "options": [
+              "Because it uses a provider-specific client and manual JSON parsing that would need to be redone for each new project",
+              "Because it uses LCEL's pipe syntax",
+              "Because it is guaranteed to run faster than any framework",
+              "Because it never actually calls an LLM"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example shows manually formatting a prompt, calling a provider-specific client, and manually parsing JSON — exactly the repeated plumbing a framework is meant to standardize.",
+            "id": "q4"
+          },
+          {
+            "question": "What does the code example show as being 'manually' handled without a framework?",
+            "options": [
+              "Parsing the model's response into usable data",
+              "Training the underlying model from scratch",
+              "Selecting which GPU to run inference on",
+              "Choosing a programming language"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The code example's manually_parse_json step is the fragile, hand-rolled equivalent of what an output parser would standardize.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does this lesson say integrations with vector stores and document loaders are a benefit of using LangChain?",
+            "options": [
+              "Because they mean you're not writing a new integration for every new data source",
+              "Because they eliminate the need for any data sources at all",
+              "Because they are unrelated to what a framework provides",
+              "Because they only matter for single-call applications"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson lists ecosystem integrations as one of the concrete things LangChain standardizes, saving the work of building each integration from scratch.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson warn against reaching for the framework's full abstraction stack for a single, simple LLM call?",
+            "options": [
+              "Because a genuinely simple application can find the framework's indirection costs more than it saves",
+              "Because frameworks are incapable of handling simple calls",
+              "Because simple calls always require multiple providers",
+              "Because output parsers are mandatory for every LLM call"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is over-applying framework abstraction where a single well-structured call would be simpler to build, test, and reason about.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson caution against forcing agentic, cyclic control flow into chain-based composition?",
+            "options": [
+              "Because chains are built for fixed, linear sequences, and genuinely looping or branching tasks are exactly what LangGraph exists to handle instead",
+              "Because chains can express any control flow, including cycles, just as well as LangGraph",
+              "Because agentic tasks never require any control flow beyond a single call",
+              "Because LangGraph and chains are functionally identical"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is trying to bolt cyclic or branching behavior onto a linear chain abstraction, when that mismatch is precisely why LangGraph exists.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "lg_lcel_basics",
+      "title": "LCEL: Composing Steps Declaratively",
+      "description": "The LangChain Expression Language lets you wire a prompt, a model, and a parser together with a pipe operator instead of nested function calls.",
+      "duration": "13 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Read and explain a simple LCEL chain expression, and describe why declarative composition is easier to reason about than imperative glue code."
+          },
+          {
+            "title": "🔗 The pipe-based composition style",
+            "content": "LCEL lets you compose a sequence of steps (a prompt template, a chat model, an output parser) using a pipe-like syntax — `prompt | model | parser` — where each step's output becomes the next step's input, in a single declarative expression rather than a series of intermediate variables and manual function calls. This mirrors Unix pipe composition: each stage does one clear job and hands its result to the next.\n\n```python\nchain = prompt | model | parser\nresult = chain.invoke({\"topic\": \"black holes\"})\n# equivalent imperative version:\n# formatted = prompt.format(topic=\"black holes\")\n# raw = model.call(formatted)\n# result = parser.parse(raw)\n```"
+          },
+          {
+            "title": "🧱 The Runnable interface",
+            "content": "Every piece that can appear in an LCEL chain — prompts, models, parsers, even custom functions — implements a common **Runnable** interface, which is what makes the pipe syntax work uniformly across very different kinds of components. Because they share this interface, the same chain-composition syntax and the same execution features (covered next) apply regardless of what specific pieces are being composed."
+          },
+          {
+            "title": "⚡ What composing this way gives you for free",
+            "content": "Chains built with LCEL automatically support **streaming** (getting partial output as it's generated, rather than waiting for the whole chain to finish), **batching** (running the same chain over multiple inputs efficiently), and **async execution** — because these capabilities are built into the underlying Runnable interface rather than something you'd need to hand-implement for every custom chain."
+          },
+          {
+            "title": "🔍 Reading a chain expression",
+            "content": "In `prompt | model | parser`: `prompt` takes input variables and produces a formatted prompt; `model` takes that formatted prompt and produces a raw model response; `parser` takes that raw response and produces the final structured output your application actually uses. Reading left to right traces the exact data flow, which is much of LCEL's appeal — the composition itself documents the pipeline's shape."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming a pipe chain runs its steps in parallel.** The pipe syntax expresses sequential data flow — each step's output feeds the next — not concurrent execution of unrelated steps.\n\n**Hand-implementing streaming or batching for a custom LCEL-composed chain.** These capabilities come for free from the Runnable interface; reimplementing them separately duplicates what composition already provides.\n\n**Treating a custom function dropped into a chain as exempt from the Runnable interface's expectations.** A plain function composed into an LCEL chain still needs to behave like the other steps around it — consistent input and output shapes — or the pipe's data flow breaks at that link."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "lg_lcel_basics_quiz",
+        "questions": [
+          {
+            "question": "What does the pipe syntax in an LCEL chain like `prompt | model | parser` express?",
+            "options": [
+              "Three unrelated steps run in parallel with no data flow between them",
+              "Each step's output becomes the next step's input, composed in a single declarative expression",
+              "A random selection of one of the three steps to run",
+              "A requirement that all three steps use the same model"
+            ],
+            "correctAnswer": 1,
+            "explanation": "LCEL's pipe composition chains steps so that each one's output flows directly into the next, similar to Unix pipes, making the data flow easy to read left to right.",
+            "id": "q1"
+          },
+          {
+            "question": "What is the Runnable interface, and why does it matter for LCEL?",
+            "options": [
+              "A tool specific to database queries only",
+              "A common interface implemented by prompts, models, parsers, and custom functions, which is what makes uniform pipe-based composition possible",
+              "A deprecated feature no longer used in LangChain",
+              "A requirement that only applies to LangGraph, not LangChain"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Because very different kinds of components share the same Runnable interface, they can all be composed with the same pipe syntax and get the same execution features.",
+            "id": "q2"
+          },
+          {
+            "question": "What capabilities does an LCEL chain get 'for free' due to the Runnable interface?",
+            "options": [
+              "Automatic fine-tuning of the underlying model",
+              "Streaming, batching, and async execution, without needing to hand-implement them for every custom chain",
+              "Automatic prompt engineering with no human input",
+              "Guaranteed zero errors during execution"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Streaming, batching, and async support are built into the shared Runnable interface, so any chain composed from Runnables gets these capabilities without extra implementation work.",
+            "id": "q3"
+          },
+          {
+            "question": "In this lesson's code example, what does chain.invoke({\"topic\": \"black holes\"}) do?",
+            "options": [
+              "Runs the composed prompt | model | parser chain with topic as the input variable",
+              "Deletes the chain definition",
+              "Only formats the prompt with no further steps",
+              "Trains a new model on the topic"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example calls invoke with the input dictionary, running the full composed chain from prompt formatting through parsing in one call.",
+            "id": "q4"
+          },
+          {
+            "question": "In this lesson's code example, what three imperative steps does the LCEL chain replace?",
+            "options": [
+              "Formatting the prompt, calling the model, and parsing the raw response",
+              "Training, evaluating, and deploying a model",
+              "Downloading, installing, and configuring a framework",
+              "Logging in, authenticating, and rate-limiting"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's commented-out imperative version shows prompt.format, model.call, and parser.parse as the three steps the single chain expression replaces.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does this lesson compare LCEL's pipe syntax to Unix pipe composition?",
+            "options": [
+              "Because each stage does one clear job and hands its result to the next, just as Unix pipes chain commands together",
+              "Because LCEL and Unix pipes use identical underlying code",
+              "Because Unix pipes cannot process any text data",
+              "Because the comparison implies LCEL requires a Unix operating system"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson draws this analogy specifically to illustrate the sequential, single-responsibility-per-stage nature of pipe-based composition.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson warn against assuming a pipe chain runs its steps in parallel?",
+            "options": [
+              "Because the pipe syntax expresses sequential data flow, not concurrent execution of unrelated steps",
+              "Because LCEL chains are technically incapable of ever running any step",
+              "Because parallel execution is the only way LCEL chains can run",
+              "Because sequential execution is impossible in LCEL"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is misreading the pipe as parallelism, when each step's output actually feeds into the very next step in sequence.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson caution against hand-implementing streaming or batching for a custom LCEL-composed chain?",
+            "options": [
+              "Because these capabilities come for free from the Runnable interface, so reimplementing them duplicates what composition already provides",
+              "Because streaming and batching are impossible to achieve in LCEL under any circumstances",
+              "Because hand-implementing these features always produces better performance",
+              "Because the Runnable interface has no relationship to streaming or batching"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is redundant reimplementation of capabilities the Runnable interface already provides automatically to any composed chain.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "lg_chains_and_composability",
+      "title": "Chains, Prompts, and Output Parsers Working Together",
+      "description": "A chain is only as reliable as its weakest link — usually the step that turns free-form model text into something your code can actually use.",
+      "duration": "12 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Describe the role of prompt templates and output parsers in a chain, and explain why structured output parsing matters."
+          },
+          {
+            "title": "📝 Prompt templates",
+            "content": "A prompt template defines the fixed structure of a prompt with placeholders for variables that get filled in per request — separating the stable instructional wrapper (persona, format instructions, examples) from the parts that change with each call. This keeps prompt engineering changes isolated to one place rather than scattered across application code that constructs prompt strings inline."
+          },
+          {
+            "title": "🤖 The model step",
+            "content": "Whatever chat model or LLM is plugged into this step of the chain, the surrounding chain code doesn't need to change based on which one — this is the direct payoff of the common interface covered in the previous lesson, letting you swap providers or model versions by changing configuration rather than rewriting the chain."
+          },
+          {
+            "title": "🔍 Output parsers: from text to structure",
+            "content": "A model's raw output is text; an output parser converts that text into the structured form your application actually needs — a specific object, a validated JSON structure matching a schema, a simple string with formatting stripped. This is the same underlying need as structured tool-calling formats covered in the LLM Engineering course, applied to a chain's final output rather than an intermediate tool-selection decision.\n\n```python\nclass Recommendation(BaseModel):\n    title: str\n    reason: str\n\nchain = prompt | model | PydanticOutputParser(pydantic_object=Recommendation)\nresult = chain.invoke({\"genre\": \"sci-fi\"})  # a validated Recommendation object, not raw text\n```"
+          },
+          {
+            "title": "⚠️ Where chains commonly break",
+            "content": "A model occasionally produces output that doesn't match the expected format even with a well-designed prompt — extra commentary around a JSON block, a slightly malformed structure — and the output parser needs to handle this gracefully (validation with clear errors, and sometimes automatic retry with corrective feedback to the model) rather than crashing the whole chain on any imperfect output. This exact reliability concern is one of the reasons LangGraph, with its explicit state and conditional branching, becomes valuable once error handling and retries need to be part of the control flow itself, not just an afterthought bolted onto a linear chain."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Skipping schema validation and trusting the model's output format blindly.** Even well-prompted models occasionally drift from the expected format — validation is what catches this before a malformed value propagates further into the application.\n\n**Letting a single parse failure crash the entire chain with no retry path.** This lesson is explicit that graceful handling (clear errors, sometimes a corrective retry) is preferable to failing outright on any imperfect output.\n\n**Building elaborate error-handling and retry control flow directly into a linear chain.** Once retries and branching logic need to be first-class parts of the control flow itself, that's the signal to reach for LangGraph rather than bolting increasingly complex logic onto a chain."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "lg_chains_and_composability_quiz",
+        "questions": [
+          {
+            "question": "What is the main purpose of a prompt template in a chain?",
+            "options": [
+              "To choose which GPU runs the model",
+              "To define the fixed structure of a prompt with placeholders for variables, isolating prompt engineering changes to one place",
+              "To parse the model's output into structured data",
+              "To eliminate the need for any model in the chain"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Prompt templates separate the stable instructional wrapper from per-request variables, keeping prompt changes centralized rather than scattered through application code.",
+            "id": "q1"
+          },
+          {
+            "question": "What problem does an output parser solve in a chain?",
+            "options": [
+              "It formats the input prompt before sending it to the model",
+              "It converts the model's raw text output into the structured form the application actually needs",
+              "It selects which model to use for the chain",
+              "It prevents the model from ever producing incorrect output"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Output parsers bridge the gap between free-form model text and the structured data (objects, validated JSON, clean strings) that downstream application code requires.",
+            "id": "q2"
+          },
+          {
+            "question": "Why does handling occasional malformed model output gracefully matter for a chain's output parser?",
+            "options": [
+              "Malformed output never actually occurs in practice",
+              "A model can produce output that doesn't match the expected format even with good prompting, and crashing the whole chain on this is a poor failure mode",
+              "Output parsers cannot detect malformed output",
+              "Handling this gracefully requires switching to a different model provider"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Even well-prompted models occasionally produce imperfect output, so a robust parser validates and, where reasonable, retries with corrective feedback rather than failing the entire chain outright.",
+            "id": "q3"
+          },
+          {
+            "question": "In this lesson's code example, what does PydanticOutputParser(pydantic_object=Recommendation) produce when the chain runs?",
+            "options": [
+              "A validated Recommendation object, rather than raw text",
+              "The original unformatted prompt string",
+              "A brand new model definition",
+              "Nothing — the parser step is optional and skipped"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example shows the parser converting the model's raw output into a validated Recommendation object matching the defined schema.",
+            "id": "q4"
+          },
+          {
+            "question": "In this lesson's code example, what two fields does the Recommendation schema define?",
+            "options": [
+              "title and reason",
+              "genre and model",
+              "prompt and parser",
+              "chain and result"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example defines the Recommendation class with title and reason as its fields, which the parser validates the model's output against.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does this lesson connect output parsing to the structured tool-calling formats from the LLM Engineering course?",
+            "options": [
+              "Because both address the same underlying need: converting free-form model output into a structured form code can use, just applied to a chain's final output instead of a tool-selection decision",
+              "Because tool-calling and output parsing are completely unrelated techniques",
+              "Because output parsers require the exact same model provider as tool calling",
+              "Because structured tool-calling formats eliminate the need for prompt templates"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson draws this parallel to show that structuring free-form text into usable data is a recurring need, whether at a chain's final output or in an intermediate tool-selection step.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson warn against letting a single parse failure crash the entire chain with no retry path?",
+            "options": [
+              "Because graceful handling — clear errors and sometimes a corrective retry — is preferable to failing outright on any imperfect output",
+              "Because parse failures are technically impossible once a parser is defined",
+              "Because crashing the chain always produces a better user experience",
+              "Because retries are never actually useful for handling malformed output"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is treating any imperfect output as a hard failure, when a well-designed parser can validate and often recover gracefully instead.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson caution against building elaborate error-handling and retry control flow directly into a linear chain?",
+            "options": [
+              "Because once retries and branching logic need to be first-class parts of control flow itself, that's the signal to reach for LangGraph instead of bolting complexity onto a chain",
+              "Because chains are technically incapable of handling any errors whatsoever",
+              "Because LangGraph cannot express any error-handling logic either",
+              "Because linear chains always handle errors better than any graph-based approach"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is over-extending a chain's linear structure with increasingly complex control flow, when that complexity is exactly what LangGraph's explicit state and branching are built to handle.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "lg_from_chains_to_graphs",
+      "title": "From Chains to Graphs: Why LangGraph Exists",
+      "description": "A chain is a straight line. Real agentic control flow — the loops and branches from the Agents course — needs a shape that isn't a straight line.",
+      "duration": "12 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain specifically what a chain cannot express that a graph-based approach can, connecting back to the Agents course's control loop concepts."
+          },
+          {
+            "title": "➡️ What a chain can express well",
+            "content": "A fixed sequence: step A always leads to step B, which always leads to step C. This maps cleanly onto tasks where the sequence of operations really is known and fixed in advance — much of what LCEL's pipe composition is good for, as covered in this module."
+          },
+          {
+            "title": "🔁 What a chain cannot express well",
+            "content": "The Agents course's control loop is fundamentally cyclic — reason, act, observe, and then decide whether to loop back and reason again, or stop. A chain has no natural way to express 'go back to an earlier step' or 'conditionally skip to a different step depending on what just happened' — you'd need to bolt on external control flow around the chain, at which point you're not really using the chain abstraction for the part that matters most.\n\n```python\n# A chain: A always leads to B, always leads to C (no way to loop back)\npipeline = step_a | step_b | step_c\n\n# What a cycle needs, conceptually (not expressible as a plain chain):\n# while not done:\n#     result = reasoning_step(state)\n#     if result.needs_tool:\n#         state = tool_step(state, result)   # then loop back to reasoning_step\n#     else:\n#         done = True\n```"
+          },
+          {
+            "title": "🕸️ What a graph adds",
+            "content": "A graph structure has **nodes** (units of work — very similar to a chain's steps) connected by **edges** that can be **conditional** (go to node X if condition A, node Y if condition B) and can form **cycles** (an edge can point back to an earlier node), which directly represents the loop, branch, and stop-condition concepts from the Agents course as an explicit, inspectable structure rather than implicit control flow buried in application code."
+          },
+          {
+            "title": "🎯 Same underlying pieces, different composition",
+            "content": "The prompts, models, and output parsers from this module's earlier lessons don't disappear in LangGraph — they typically become the logic inside individual graph nodes. What changes is the composition layer: instead of a fixed pipe of steps, you get a graph where the path taken depends on runtime state and conditions, which is exactly the flexibility an agentic control loop needs."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Trying to simulate a cycle by manually re-invoking a chain in an external Python loop.** This works in a pinch, but it pushes the actual control-flow logic (when to stop, what to do differently next time) outside the framework entirely, losing the inspectability a graph's explicit edges would provide.\n\n**Assuming a graph is just a chain with a different name.** A chain's steps are fixed and linear; a graph's defining feature is exactly what a chain lacks — conditional, potentially cyclic edges between nodes.\n\n**Rebuilding prompts, models, and parsers from scratch when moving from a chain to a graph.** These pieces typically carry over unchanged as the logic inside graph nodes — the composition layer changes, not the underlying building blocks."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "lg_from_chains_to_graphs_quiz",
+        "questions": [
+          {
+            "question": "What control-flow pattern from the Agents course does a simple chain struggle to express?",
+            "options": [
+              "A fixed, predetermined sequence of steps",
+              "Cyclic behavior — looping back to reason again, or conditionally branching based on what just happened",
+              "Using a prompt template",
+              "Calling exactly one LLM"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Chains are inherently linear; the reason-act-observe-and-possibly-loop-back pattern central to agents needs cycles and conditional branching, which a chain doesn't naturally support.",
+            "id": "q1"
+          },
+          {
+            "question": "What do graph edges add that a chain's fixed sequence doesn't have?",
+            "options": [
+              "Nothing — chains and graphs are functionally identical",
+              "Edges can be conditional and can form cycles, pointing back to earlier nodes based on runtime state",
+              "Edges eliminate the need for nodes entirely",
+              "Edges only work with a single specific model provider"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Conditional, potentially cyclic edges let a graph express branching and looping behavior explicitly as part of its structure, which a chain's fixed path cannot represent.",
+            "id": "q2"
+          },
+          {
+            "question": "In LangGraph, what typically happens to the prompts, models, and parsers used in LangChain chains?",
+            "options": [
+              "They become entirely obsolete and unused",
+              "They typically become the logic running inside individual graph nodes",
+              "They are replaced by a completely different, incompatible set of tools",
+              "They can only be used outside of any graph structure"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The same building blocks (prompts, models, parsers) are still used — they just live inside nodes now, while the graph structure itself handles the branching and looping composition.",
+            "id": "q3"
+          },
+          {
+            "question": "In this lesson's code example, what does the commented-out while loop illustrate that the pipeline = step_a | step_b | step_c chain cannot?",
+            "options": [
+              "Looping back to the reasoning step conditionally, depending on whether a tool is needed",
+              "Running step_a and step_c at the same time",
+              "Using more than three steps in a chain",
+              "Calling a model with no prompt template"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example contrasts the fixed pipeline chain with the conceptual while-loop, which conditionally routes back to reasoning_step — exactly the cyclic behavior a plain chain lacks.",
+            "id": "q4"
+          },
+          {
+            "question": "In this lesson's code example, what determines whether the conceptual loop continues or exits?",
+            "options": [
+              "Whether result.needs_tool is true, and whether done gets set to True",
+              "The number of nodes defined in step_a",
+              "Whether the pipeline variable has been reassigned",
+              "A fixed number of iterations hardcoded with no condition"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example shows the loop continuing to call tool_step and looping back when needs_tool is true, and setting done = True to exit otherwise — a runtime-dependent condition a plain chain can't express natively.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does this lesson say bolting external control flow around a chain means 'you're not really using the chain abstraction for the part that matters most'?",
+            "options": [
+              "Because the actual looping and branching logic ends up living outside the chain, defeating the purpose of using the chain for that part of the task",
+              "Because chains are incapable of being combined with any other code",
+              "Because external control flow always breaks a chain's execution entirely",
+              "Because this approach is identical to how LangGraph itself works internally"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson makes this point to show that hand-rolled loops around a chain push the real complexity outside the framework, which is exactly the gap LangGraph's graph structure is designed to close.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson warn against trying to simulate a cycle by manually re-invoking a chain in an external Python loop?",
+            "options": [
+              "Because it pushes the actual control-flow logic outside the framework entirely, losing the inspectability a graph's explicit edges would provide",
+              "Because Python loops are technically incapable of calling a chain more than once",
+              "Because this approach always produces faster execution than using LangGraph",
+              "Because chains cannot be invoked more than one time under any circumstances"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is hand-rolling cyclic behavior around a chain instead of using a graph's explicit, inspectable conditional and cyclic edges.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson caution against rebuilding prompts, models, and parsers from scratch when moving from a chain to a graph?",
+            "options": [
+              "Because these pieces typically carry over unchanged as the logic inside graph nodes — only the composition layer changes",
+              "Because LangGraph is fundamentally incompatible with anything built for LangChain chains",
+              "Because graph nodes cannot contain any prompt or model logic",
+              "Because rebuilding from scratch is always required when adopting LangGraph"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is assuming a fresh start is needed, when in fact the same building blocks are reused inside nodes and only the graph's composition layer is new.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

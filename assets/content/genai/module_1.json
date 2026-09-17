@@ -1,0 +1,525 @@
+{
+  "id": "module_1",
+  "title": "Sampling & Decoding Strategies",
+  "description": "Temperature's effect on the output distribution, top-k and top-p sampling, greedy decoding versus beam search, and how constrained decoding makes structured output reliable.",
+  "icon": "🎲",
+  "color": "#D81B60",
+  "order": 1,
+  "estimatedHours": 2,
+  "difficulty": "Beginner",
+  "prerequisites": [],
+  "lessons": [
+    {
+      "id": "gen_temperature",
+      "title": "Temperature: Sharpening or Flattening Predictions",
+      "description": "Control how confident vs. random a generative model's next-token choice is.",
+      "duration": "7 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain what temperature does to a model's output distribution and predict how raising or lowering it changes generated text."
+          },
+          {
+            "title": "🌡️ Reshaping the probability distribution",
+            "content": "At each generation step, the model produces a probability for every possible next token. **Temperature** rescales these probabilities before sampling: a temperature below 1 sharpens the distribution (making likely tokens even more likely, reducing randomness), while a temperature above 1 flattens it (making less-likely tokens more competitive, increasing randomness/creativity).\n\n```python\n# Conceptual effect of temperature on token probabilities:\n# temperature = 0.2  -> nearly always picks the single most likely token\n# temperature = 1.0  -> uses the raw predicted probabilities\n# temperature = 1.5  -> flattens things out, more surprising choices\n```"
+          },
+          {
+            "title": "🎯 Matching temperature to the task",
+            "content": "A support bot answering factual questions wants low temperature — consistent, predictable answers. A creative writing assistant brainstorming ideas benefits from higher temperature — more variety, more surprising word choices. There's no universally \"correct\" temperature; it's a product decision as much as a technical one."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Using the same temperature for every use case.** A single default temperature rarely suits both a factual Q&A feature and a creative brainstorming feature in the same product.\n\n**Setting temperature to 0 and expecting true determinism everywhere.** Even at temperature 0 (always picking the most likely token), other factors like floating-point nondeterminism or batching effects can introduce tiny variation.\n\n**Confusing high temperature with 'more intelligent'.** Higher temperature adds randomness, not more reasoning ability — it can just as easily make output less coherent."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "gen_temperature_quiz",
+        "questions": [
+          {
+            "question": "What effect does a temperature below 1 have on a model's next-token distribution?",
+            "options": [
+              "It flattens the distribution, making all tokens equally likely",
+              "It sharpens the distribution, making already-likely tokens even more dominant and reducing randomness",
+              "It has no effect on the distribution at all",
+              "It deletes low-probability tokens permanently from the vocabulary"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Temperature below 1 sharpens the probability distribution over next tokens, concentrating more probability mass on the already most-likely choices and making generation more deterministic and less random.",
+            "id": "q1"
+          },
+          {
+            "question": "Why might a factual support-bot feature use a lower temperature than a creative writing assistant?",
+            "options": [
+              "Temperature has no meaningful effect on either use case",
+              "Lower temperature produces more consistent, predictable outputs, which suits factual answers, while creative tasks benefit from the increased variety higher temperature provides",
+              "Support bots cannot use temperature settings at all",
+              "Creative writing always requires temperature to be set to exactly 0"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since lower temperature favors the model's most confident, likely tokens, it suits tasks needing consistent, predictable answers. Higher temperature's added variety instead suits creative or exploratory tasks where surprising choices are a feature, not a bug.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is it a mistake to equate higher temperature with a 'smarter' or 'more capable' model?",
+            "options": [
+              "Higher temperature genuinely does make a model more intelligent",
+              "Temperature only controls the randomness of token selection during sampling; it doesn't change the model's underlying knowledge or reasoning capability",
+              "Temperature settings are randomly assigned and meaningless",
+              "There is no such thing as a temperature setting above 1"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Temperature is purely a sampling-time knob that reshapes how randomly tokens are chosen — it doesn't alter what the model actually knows or how well it reasons, and turning it up can just as easily reduce coherence as add useful variety.",
+            "id": "q3"
+          },
+          {
+            "question": "What does a temperature above 1 do to a model's next-token probability distribution?",
+            "options": [
+              "It flattens the distribution, making less-likely tokens more competitive and increasing randomness",
+              "It sharpens the distribution, making the top token nearly certain",
+              "It deletes the most likely tokens from consideration entirely",
+              "It has no effect on the distribution"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson states that temperature above 1 flattens the distribution, giving less-likely tokens a more competitive chance and increasing randomness and creativity in the output.",
+            "id": "q4"
+          },
+          {
+            "question": "According to this lesson, why is there no universally 'correct' temperature setting?",
+            "options": [
+              "Because the right temperature is as much a product decision as a technical one, depending on the task",
+              "Because temperature has no measurable effect on any output",
+              "Because every application requires exactly the same temperature value",
+              "Because temperature can only be set to 0 or 1"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explains that matching temperature to the task (factual vs. creative) is a product decision, not a fixed technical rule — there's no single correct value for every use case.",
+            "id": "q5"
+          },
+          {
+            "question": "Why might even a temperature-0 setting fail to produce perfectly identical output every time, per this lesson?",
+            "options": [
+              "Other factors like floating-point nondeterminism or batching effects can introduce tiny variation",
+              "Temperature 0 is mathematically impossible to implement",
+              "Temperature 0 always produces the least likely token",
+              "Temperature settings are ignored at inference time"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson notes that even at temperature 0 (deterministic, always the top token), floating-point or batching effects can still introduce small amounts of variation.",
+            "id": "q6"
+          },
+          {
+            "question": "Why would a support bot answering factual questions typically use a low temperature?",
+            "options": [
+              "Low temperature produces more consistent, predictable answers, which suits factual responses",
+              "Low temperature makes the model more creative",
+              "Low temperature disables the model's ability to answer questions",
+              "Low temperature is required for the model to access any information"
+            ],
+            "correctAnswer": 0,
+            "explanation": "As the lesson explains, low temperature sharpens the distribution toward the most likely (and typically most consistent) tokens, which is well suited to factual, predictable answers.",
+            "id": "q7"
+          },
+          {
+            "question": "Why is it a mistake to equate higher temperature with 'more intelligent' output?",
+            "options": [
+              "Because higher temperature only adds randomness to token selection, not reasoning ability, and can even reduce coherence",
+              "Because higher temperature always improves factual accuracy",
+              "Because intelligence is a formal property of the temperature parameter",
+              "Because higher temperature guarantees more creative and always-correct output"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson is explicit that temperature is a randomness knob, not an intelligence knob — turning it up can make output less coherent rather than smarter.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "gen_top_p_top_k",
+      "title": "Top-k and Top-p (Nucleus) Sampling",
+      "description": "Limit sampling to a sensible pool of candidate tokens instead of the entire vocabulary.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain how top-k and top-p sampling each restrict the candidate pool before sampling, and how they differ."
+          },
+          {
+            "title": "🔢 Top-k: a fixed-size shortlist",
+            "content": "**Top-k sampling** keeps only the k highest-probability tokens at each step and samples among just those, discarding the long tail of unlikely tokens entirely. This prevents the model from ever picking a bizarre, very-low-probability token, but a fixed k can be too small in some contexts (many reasonable options) and too large in others (few reasonable options).\n\n```python\n# top_k=5 -> only the 5 most likely tokens are eligible, every step\n```"
+          },
+          {
+            "title": "🎯 Top-p: a variable-size shortlist",
+            "content": "**Top-p (nucleus) sampling** instead keeps the smallest set of tokens whose cumulative probability exceeds p (e.g. p=0.9 means \"the fewest top tokens that together account for 90% of the probability mass\"). This adapts naturally: when the model is very confident, the nucleus is small; when it's uncertain, the nucleus is larger.\n\n```python\n# top_p=0.9 -> keep adding tokens, highest probability first,\n# until their probabilities sum to 0.9, then sample among just those\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Combining temperature, top-k, and top-p without understanding the interaction.** These are often applied together (temperature reshapes probabilities, then top-k/top-p restricts the pool, then sampling happens) — stacking them carelessly can produce surprising results.\n\n**Assuming top-p always outperforms top-k.** Both are heuristics; the right choice and parameter values often come down to empirical testing for your specific task.\n\n**Using either with temperature 0.** At temperature 0 you're doing greedy (always pick the single best token) decoding anyway, making top-k/top-p irrelevant — they only matter when there's real randomness in the sampling step."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "gen_top_p_top_k_quiz",
+        "questions": [
+          {
+            "question": "What does top-k sampling do at each generation step?",
+            "options": [
+              "It keeps every possible token as a candidate, with no restriction",
+              "It restricts sampling to only the k highest-probability tokens, discarding the rest of the vocabulary for that step",
+              "It always selects the single most likely token, with no randomness",
+              "It only applies to image generation, not text"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Top-k limits the candidate pool to a fixed number (k) of the most likely tokens at each step, preventing the model from ever sampling from the long tail of very unlikely tokens.",
+            "id": "q1"
+          },
+          {
+            "question": "How does top-p (nucleus) sampling's candidate pool size differ from top-k's?",
+            "options": [
+              "They are identical — both always keep exactly the same fixed number of tokens",
+              "Top-p's pool size varies depending on the model's confidence at each step (small when confident, larger when uncertain), while top-k's pool size is always fixed",
+              "Top-p always keeps more tokens than top-k, in every case",
+              "Top-p ignores probability entirely and picks tokens randomly from the full vocabulary"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Top-p adapts: it keeps only as many top tokens as needed for their combined probability to reach the threshold p, so a confident prediction yields a small pool and an uncertain one yields a larger pool — unlike top-k's fixed-size pool.",
+            "id": "q2"
+          },
+          {
+            "question": "Why do top-k and top-p become irrelevant when temperature is set to 0?",
+            "options": [
+              "They don't become irrelevant; they always have a strong effect regardless of temperature",
+              "At temperature 0, decoding becomes greedy (always picking the single most likely token), so there's no randomness left for a candidate-pool restriction to meaningfully affect",
+              "Temperature 0 disables the model entirely",
+              "Top-k and top-p only work when temperature is exactly 0"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Temperature 0 collapses sampling into greedy decoding — always picking the top token deterministically — so restricting the candidate pool to more than one option (top-k or top-p) has no effect since the single best token would be chosen either way.",
+            "id": "q3"
+          },
+          {
+            "question": "What is a key limitation of a fixed top-k value, as described in this lesson?",
+            "options": [
+              "A fixed k can be too small when many options are reasonable and too large when few options are reasonable",
+              "Top-k always produces identical results to top-p",
+              "Top-k cannot be combined with temperature",
+              "Top-k always selects the single most likely token only"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson points out that a fixed k doesn't adapt: it may be too restrictive in contexts with many reasonable next tokens and too permissive in contexts with few reasonable options.",
+            "id": "q4"
+          },
+          {
+            "question": "How does top-p sampling decide how many tokens to include in its candidate pool?",
+            "options": [
+              "It keeps the smallest set of tokens whose cumulative probability exceeds a threshold p",
+              "It always keeps exactly p tokens, regardless of their probabilities",
+              "It ignores probability and picks a fixed number of random tokens",
+              "It requires the vocabulary to be sorted alphabetically first"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Top-p (nucleus) sampling keeps adding the highest-probability tokens until their combined probability mass exceeds p, making the pool size adapt to the model's confidence.",
+            "id": "q5"
+          },
+          {
+            "question": "In what order are temperature, top-k/top-p, and sampling typically applied, according to this lesson?",
+            "options": [
+              "Temperature reshapes probabilities first, then top-k/top-p restricts the pool, then sampling happens",
+              "Sampling happens first, then temperature is applied afterward",
+              "Top-k/top-p is applied only after the final token is already chosen",
+              "These three steps cannot be combined in any pipeline"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson describes the typical pipeline order: temperature reshapes the probabilities, top-k/top-p then restricts the candidate pool, and sampling draws from what remains.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does the lesson say the choice between top-k and top-p often comes down to empirical testing?",
+            "options": [
+              "Because both are heuristics, and the right choice and parameter values depend on the specific task",
+              "Because top-p is mathematically proven to always outperform top-k",
+              "Because top-k is illegal to use in production systems",
+              "Because only one of the two techniques can ever be implemented correctly"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson warns against assuming top-p always outperforms top-k — both are heuristic approaches, so testing them empirically for a specific task is the recommended approach.",
+            "id": "q7"
+          },
+          {
+            "question": "Why do top-k and top-p become irrelevant at temperature 0, according to this lesson?",
+            "options": [
+              "Because temperature 0 already collapses decoding into greedy, deterministic selection of the single best token",
+              "Because top-k and top-p only function at temperature 0",
+              "Because temperature 0 disables sampling-based methods only for images",
+              "Because top-k and top-p require temperature values above 2"
+            ],
+            "correctAnswer": 0,
+            "explanation": "At temperature 0, decoding is already greedy — always the top token — so restricting the candidate pool further with top-k or top-p has no additional effect.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "gen_greedy_vs_beam",
+      "title": "Greedy Decoding vs. Beam Search",
+      "description": "Compare picking the single best token at each step against exploring several candidate sequences.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain the difference between greedy decoding and beam search, and why the locally-best choice isn't always globally best."
+          },
+          {
+            "title": "👣 Greedy: best choice, one step at a time",
+            "content": "**Greedy decoding** picks the single highest-probability token at every step, with no look-ahead. It's fast and simple, but it's a purely local decision — the token that looks best right now can lead down a path that turns out worse overall than a slightly less obvious first choice would have."
+          },
+          {
+            "title": "🌳 Beam search: keeping several options alive",
+            "content": "**Beam search** keeps track of several (the \"beam width\") of the most promising partial sequences at each step, instead of committing to just one, then picks the best complete sequence at the end. This explores more of the possibility space than greedy decoding, often finding a better overall sequence, at the cost of more computation.\n\n```python\n# Conceptual: beam_width=3 keeps the 3 best partial sequences\n# alive at each step, rather than only the single best one\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming beam search always produces better text.** For open-ended generation (like creative writing), beam search can actually produce *more* repetitive, generic text than sampling-based methods — it tends to favor safe, high-probability sequences over interesting ones.\n\n**Confusing beam search with random sampling.** Beam search is deterministic given a beam width — it doesn't add temperature-style randomness on its own.\n\n**Using a very large beam width expecting proportionally better results.** Diminishing returns and higher compute cost usually make very wide beams impractical for most use cases."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "gen_greedy_vs_beam_quiz",
+        "questions": [
+          {
+            "question": "What is the key limitation of greedy decoding?",
+            "options": [
+              "It has no limitations — it's always the optimal choice",
+              "It makes a purely local decision at each step with no look-ahead, so the token that looks best right now can lead to a worse overall sequence than a different early choice would have",
+              "Greedy decoding cannot be used for text generation at all",
+              "Greedy decoding always produces identical output to beam search"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Greedy decoding commits to the single best-looking next token at each step without considering how that choice affects the rest of the sequence, which can lead it into a worse overall outcome than a less locally-optimal first choice.",
+            "id": "q1"
+          },
+          {
+            "question": "How does beam search differ from greedy decoding?",
+            "options": [
+              "Beam search is identical to greedy decoding in every way",
+              "Beam search keeps several of the most promising partial sequences alive simultaneously at each step, rather than committing to only the single best one",
+              "Beam search adds random noise to token probabilities before selecting",
+              "Beam search only works for image generation tasks"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Instead of committing to one path at each step like greedy decoding, beam search tracks multiple candidate partial sequences (the beam width) in parallel and ultimately selects the best complete sequence among them.",
+            "id": "q2"
+          },
+          {
+            "question": "Why might beam search actually produce worse results than sampling-based methods for open-ended creative generation?",
+            "options": [
+              "Beam search always produces strictly better results for every kind of generation task",
+              "Beam search tends to favor safe, high-probability sequences, which can make open-ended creative text more repetitive and generic compared to methods that embrace more variety",
+              "Beam search cannot generate any text longer than one sentence",
+              "Beam search and sampling always produce mathematically identical output"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Because beam search optimizes toward the highest-probability overall sequence, it tends to converge on \"safe\" and sometimes repetitive phrasing — a real downside for creative or open-ended tasks where sampling-based diversity is often preferred instead.",
+            "id": "q3"
+          },
+          {
+            "question": "What does greedy decoding do at each generation step, according to this lesson?",
+            "options": [
+              "It picks the single highest-probability token with no look-ahead",
+              "It considers every possible complete sequence before choosing a token",
+              "It randomly samples from the full vocabulary at each step",
+              "It always selects the least likely token to encourage diversity"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Greedy decoding makes a purely local decision, picking the single highest-probability token at each step without looking ahead at how that choice affects the rest of the sequence.",
+            "id": "q4"
+          },
+          {
+            "question": "What does the 'beam width' parameter control in beam search?",
+            "options": [
+              "The number of the most promising partial sequences tracked simultaneously at each step",
+              "The number of tokens in the final output",
+              "The temperature used during sampling",
+              "The number of training epochs used to train the model"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Beam width determines how many candidate partial sequences beam search keeps alive at each step before ultimately selecting the best complete sequence at the end.",
+            "id": "q5"
+          },
+          {
+            "question": "Why can greedy decoding lead to a worse overall sequence than a different early choice would have produced?",
+            "options": [
+              "Because it makes a purely local decision with no look-ahead, so the best-looking token now can lead down a worse overall path",
+              "Because greedy decoding never considers probabilities at all",
+              "Because greedy decoding always produces the same output as beam search",
+              "Because greedy decoding cannot generate more than one token"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Since greedy decoding commits to the locally best token without considering downstream consequences, that immediate choice can steer the sequence toward a worse overall outcome than a less obvious first choice.",
+            "id": "q6"
+          },
+          {
+            "question": "According to this lesson, why can beam search produce more repetitive or generic text for open-ended creative generation?",
+            "options": [
+              "Because it tends to favor safe, high-probability sequences over more interesting, less predictable ones",
+              "Because beam search always adds random noise to its selections",
+              "Because beam search can only generate a single word at a time",
+              "Because beam search cannot be used for text generation at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Beam search optimizes toward the highest-probability overall sequence, which tends to favor safe and sometimes repetitive phrasing — a real downside for open-ended creative tasks.",
+            "id": "q7"
+          },
+          {
+            "question": "Why is a very large beam width usually impractical, per this lesson?",
+            "options": [
+              "Because it leads to diminishing returns and higher compute cost",
+              "Because beam width above 1 is not supported by any decoding algorithm",
+              "Because larger beam widths always produce worse output than beam width 1",
+              "Because beam search requires beam width to equal the vocabulary size"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson notes that very wide beams face diminishing returns while costing significantly more compute, making them impractical for most real use cases.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "gen_structured_output",
+      "title": "Structured Output and Constrained Decoding",
+      "description": "Make a generative model reliably produce output that fits a schema, like valid JSON.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain why asking a model nicely for JSON is unreliable, and what constrained decoding does instead."
+          },
+          {
+            "title": "🙏 \"Please return JSON\" is a request, not a guarantee",
+            "content": "A prompt that says \"respond only in JSON\" is still just influencing the probabilities of an otherwise free-form generation process — the model can still produce malformed JSON, extra commentary, or a subtly wrong schema, especially as outputs get longer or more complex."
+          },
+          {
+            "title": "🔒 Constrained decoding: making invalid tokens impossible",
+            "content": "**Constrained decoding** (also called grammar-constrained or schema-constrained generation) modifies the decoding process itself so that at each step, only tokens consistent with a target grammar or schema are even considered as candidates — invalid completions become literally impossible to sample, rather than just discouraged by a prompt.\n\n```python\n# Conceptual: instead of hoping the model says \"true\" or \"false\",\n# a JSON-schema constraint makes only tokens that keep the output\n# valid JSON eligible at each decoding step\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Relying only on prompting for structured output in production systems.** This works often enough to seem reliable in testing, then fails unpredictably in production edge cases.\n\n**Not validating output even with constrained decoding.** Constrained decoding guarantees the *syntax* is valid; it doesn't guarantee the *content* is correct or sensible.\n\n**Over-constraining a task that genuinely needs open-ended text.** Not every generation task benefits from rigid structure — apply constraints where a schema genuinely exists (tool calls, structured records), not everywhere."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "gen_structured_output_quiz",
+        "questions": [
+          {
+            "question": "Why is prompting a model with \"respond only in JSON\" not a reliable guarantee of valid output?",
+            "options": [
+              "It is actually a complete guarantee with no exceptions",
+              "The prompt only influences the probabilities of an otherwise free-form generation process, so the model can still produce malformed JSON or extra text, especially on longer or complex outputs",
+              "Models are physically incapable of producing JSON-formatted text",
+              "JSON formatting only works with image generation models"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A prompt-based instruction is a soft nudge, not a hard rule — the underlying generation process can still drift from the requested format, particularly as the required output becomes longer or more structurally complex.",
+            "id": "q1"
+          },
+          {
+            "question": "What does constrained decoding do differently from simply prompting for a format?",
+            "options": [
+              "It has the exact same effect as prompting, just phrased differently",
+              "It modifies the decoding process so only tokens consistent with a target grammar or schema are considered candidates at each step, making invalid completions impossible to sample",
+              "It disables sampling entirely and returns a fixed template",
+              "It only works for generating images, never text"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Constrained decoding intervenes directly in the token-selection process, restricting the candidate set at each step to only what's valid under the target schema — making invalid output structurally impossible rather than just less likely.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is it still important to validate output even when using constrained decoding?",
+            "options": [
+              "Validation is never necessary once constrained decoding is used",
+              "Constrained decoding guarantees valid syntax, but it doesn't guarantee the actual content is correct, complete, or sensible for the task",
+              "Constrained decoding always produces perfect content with no possible errors",
+              "Constrained decoding is only used for tasks that don't need any correctness at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Constrained decoding solves the structural/syntax problem (the output will parse as valid JSON, for instance) but says nothing about whether the values inside that structure are actually correct or meaningful — that still needs separate validation.",
+            "id": "q3"
+          },
+          {
+            "question": "Why is a prompt like 'respond only in JSON' not a reliable guarantee of valid output, according to this lesson?",
+            "options": [
+              "Because it only influences the probabilities of an otherwise free-form generation process, so malformed output is still possible",
+              "Because JSON cannot be generated by any language model",
+              "Because the model ignores all formatting instructions by design",
+              "Because JSON output is only possible with constrained decoding, never with prompting"
+            ],
+            "correctAnswer": 0,
+            "explanation": "A prompt-based instruction is a soft nudge on an otherwise free-form process — the model can still produce malformed JSON or extra commentary, especially on longer or more complex outputs.",
+            "id": "q4"
+          },
+          {
+            "question": "What does constrained decoding do at each decoding step that plain prompting does not, per this lesson?",
+            "options": [
+              "It restricts the candidate tokens to only those consistent with a target grammar or schema",
+              "It removes the need for any decoding step entirely",
+              "It forces the model to always output the exact same fixed template",
+              "It only works for generating unconstrained natural language"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Constrained decoding modifies the decoding process itself so invalid tokens are never even considered as candidates, unlike prompting, which only nudges probabilities without enforcing hard constraints.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does constrained decoding still not guarantee that generated content is correct, according to this lesson?",
+            "options": [
+              "Because it guarantees valid syntax, not that the values inside that structure are accurate or sensible",
+              "Because constrained decoding always produces invalid JSON",
+              "Because constrained decoding is incompatible with any schema",
+              "Because syntax and content correctness are the same thing"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson distinguishes syntax from content: constrained decoding ensures the output parses correctly, but the actual correctness of the values still needs separate validation.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does the lesson warn against relying only on prompting for structured output in production systems?",
+            "options": [
+              "Because it can work often enough in testing but fail unpredictably on production edge cases",
+              "Because prompting always fails immediately in every test case",
+              "Because production systems cannot accept any JSON input",
+              "Because prompting is illegal to use for structured data"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson cautions that prompting-only approaches often look reliable during testing but can break down unpredictably once exposed to the wider range of edge cases seen in production.",
+            "id": "q7"
+          },
+          {
+            "question": "According to this lesson, when should constrained decoding be applied rather than left out?",
+            "options": [
+              "Where a schema genuinely exists, like tool calls or structured records — not for every generation task",
+              "For every single generation task, regardless of whether structure is needed",
+              "Only for tasks that require no structure of any kind",
+              "Only when temperature is set above 1"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson warns against over-constraining tasks that genuinely need open-ended text, recommending constraints be applied specifically where a real schema exists, such as tool calls or structured records.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

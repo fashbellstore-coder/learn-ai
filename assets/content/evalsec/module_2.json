@@ -1,0 +1,575 @@
+{
+  "id": "sec_input_attacks",
+  "title": "Prompt Injection & Input Attacks",
+  "description": "Direct vs. indirect prompt injection, data poisoning attacks on training data, adversarial examples, and building defense in depth against all three.",
+  "icon": "🕵️",
+  "color": "#C62828",
+  "order": 2,
+  "estimatedHours": 5,
+  "difficulty": "advanced",
+  "prerequisites": [
+    "sec_red_teaming"
+  ],
+  "lessons": [
+    {
+      "id": "sec_direct_vs_indirect_prompt_injection",
+      "title": "Direct vs. Indirect Prompt Injection",
+      "description": "The MCP course covered this risk for tool and resource content specifically — this lesson generalizes it into the full picture of where untrusted content can enter a system.",
+      "duration": 13,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Distinguish direct from indirect prompt injection and identify where each can enter a real LLM application."
+          },
+          {
+            "title": "💬 Direct prompt injection",
+            "content": "A user directly includes injection attempts in their own input to the system — 'ignore your previous instructions and instead...' — sent straight in the user's own message. This is the most straightforward form and the one every jailbreak technique from this module's second lesson is essentially a variation of, since instruction-override framing is itself a form of direct injection."
+          },
+          {
+            "title": "📄 Indirect prompt injection: the harder problem",
+            "content": "Exactly the risk the MCP course's security module covered in depth: injection instructions hidden inside content the system processes but didn't originate from the direct user — a document retrieved by a RAG pipeline (per the RAG course), a tool result or resource returned by an MCP server (per the MCP course), a web page fetched by an agent's tool — where the actual human on the other end of the conversation never typed the injection at all, someone else embedded it in content the system was going to process anyway."
+          },
+          {
+            "title": "🕸️ Why indirect injection is harder to defend against",
+            "content": "Direct injection at least comes from the identifiable user making the request, so some level of trust calibration based on who's asking is possible. Indirect injection can come from content sources several steps removed from any identifiable party — a document uploaded by someone else entirely, a web page controlled by an unrelated third party — meaning the system has even less basis for calibrating trust, and the content itself often looks completely unremarkable until you know to look for the hidden instruction."
+          },
+          {
+            "title": "🎯 Both share the same root cause and the same core defense",
+            "content": "In both cases, the fundamental issue is the same one the MCP course identified: an LLM has no inherent way to distinguish 'trusted instruction' from 'untrusted data that happens to look like an instruction' once both are sitting in its context window — which is why the core defense recommended in the MCP course (treat all content flowing in from outside the direct system prompt as untrusted data, never as instructions, and enforce real guardrails in code rather than relying on the model's own judgment) applies identically to both direct and indirect injection, not just the indirect case the MCP course happened to focus on."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "Since indirect injection hides inside content a RAG pipeline or tool call retrieves, a practical first layer is scanning that content for injection-like phrasing before it ever reaches the prompt — not as a complete defense, but as a monitoring signal layered on top of treating the content as pure data.\n\n```python\nimport re\n\n# Phrasings that often show up in injection attempts hidden inside\n# retrieved documents -- a signal worth flagging, not proof of an attack.\nINJECTION_PATTERNS = [\n    r\"ignore (all|previous|the above)\\s+instructions\",\n    r\"you are now\\s+\",\n    r\"disregard (your|the) (system )?prompt\",\n    r\"reveal (your|the) (system prompt|instructions)\",\n]\n\ndef scan_untrusted_document(text: str) -> list[str]:\n    \"\"\"Flag suspicious phrases in a retrieved document before it enters\n    the prompt. The document is still treated as untrusted DATA either\n    way -- flagging is for monitoring, never for letting the document\n    dictate what the system does.\"\"\"\n    return [p for p in INJECTION_PATTERNS if re.search(p, text, re.IGNORECASE)]\n\ndoc = retrieve_document(query)\nflags = scan_untrusted_document(doc)\nif flags:\n    log_for_review(doc, flags)   # still used as data, just monitored\n\n# The document is interpolated as reference material, never as\n# instructions -- true regardless of whether scan_untrusted_document\n# found anything.\nprompt = f\"Answer using only this document as reference data:\\n{doc}\"\n```\n\nNotice that a flagged document is still passed into the prompt as data rather than blocked outright — the scan is a monitoring layer, not the thing that actually keeps the model from treating hidden text as an instruction. That job belongs to the framing itself, and to guardrails enforced in code."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Treating indirect injection as a lesser threat than direct injection.** Since the root cause is identical for both, dismissing indirect injection because 'the user didn't type it' ignores that the model still can't tell instruction from data once both are sitting in its context window.\n\n**Relying on pattern-matching alone as the full defense.** Regex scans like the one above only catch known phrasings; the actual defense is treating all external content as data, never letting it dictate control flow, no matter what it contains.\n\n**Trusting content only because it comes from a 'reputable' source.** A legitimate website or document one step removed from an attacker can still carry injected instructions; source reputation doesn't substitute for enforcing untrusted-data handling in code."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "sec_direct_vs_indirect_prompt_injection_quiz",
+        "questions": [
+          {
+            "question": "What distinguishes indirect prompt injection from direct prompt injection?",
+            "options": [
+              "There is no actual distinction — the terms are interchangeable",
+              "Direct injection comes straight from the user's own message, while indirect injection is hidden in content the system processes (a document, tool result, web page) that didn't originate from the direct user",
+              "Indirect injection only affects classical ML systems, never LLMs",
+              "Direct injection is always more dangerous than indirect injection"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Direct injection is embedded in the user's own input, while indirect injection is hidden in externally-sourced content the system processes as part of its normal operation, such as retrieved documents or tool results.",
+            "id": "q1"
+          },
+          {
+            "question": "Why is indirect prompt injection often harder to defend against than direct injection?",
+            "options": [
+              "Indirect injection is actually easier to defend against since it never occurs in practice",
+              "Indirect injection can come from content sources several steps removed from any identifiable party, giving the system even less basis for calibrating trust than with a direct, identifiable user",
+              "Indirect injection always uses completely different attack techniques with no overlap with direct injection",
+              "There is no meaningful difference in difficulty between the two"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since indirect injection content often comes from unrelated third parties several steps removed, the system has less identifiable basis to calibrate trust, and the content itself may look unremarkable.",
+            "id": "q2"
+          },
+          {
+            "question": "What core defense, originally described in the MCP course, applies identically to both direct and indirect injection?",
+            "options": [
+              "Only technical firewalls can prevent prompt injection",
+              "Treating all content flowing in from outside the direct system prompt as untrusted data rather than instructions, with real guardrails enforced in code rather than relying on the model's own judgment",
+              "Prompt injection cannot actually be defended against in any way",
+              "Only indirect injection needs any defensive measures at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since both forms share the same root cause — the model's inability to distinguish trusted instructions from untrusted data that looks like one — the same fundamental defense applies to both direct and indirect injection.",
+            "id": "q3"
+          },
+          {
+            "question": "According to this lesson, how do the jailbreak techniques covered elsewhere in this module relate to direct prompt injection?",
+            "options": [
+              "They are completely unrelated topics with no overlap",
+              "Every jailbreak technique is essentially a variation of direct injection, since instruction-override framing is itself a form of direct injection",
+              "Jailbreak techniques are a form of indirect injection, never direct injection",
+              "Jailbreak techniques only apply to classical ML systems"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson explicitly frames jailbreak techniques as variations of direct injection, since both rely on instruction-override framing sent straight in the user's own message.",
+            "id": "q4"
+          },
+          {
+            "question": "Which prior courses does this lesson point to as sources of indirect injection risk it is generalizing?",
+            "options": [
+              "The Fine-Tuning course's preference-optimization module and the MLOps course's lineage lessons",
+              "The RAG course (retrieved documents) and the MCP course (tool results and resources returned by an MCP server)",
+              "Only the Agents course's guardrails lesson, with no other courses mentioned",
+              "This lesson makes no connection to any other course"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson explicitly names the RAG course's retrieved documents and the MCP course's tool/resource results as concrete sources where indirect injection content can enter a system.",
+            "id": "q5"
+          },
+          {
+            "question": "In the code example, what does scan_untrusted_document return, and what happens to a document regardless of that result?",
+            "options": [
+              "It returns a boolean that determines whether the document is deleted; flagged documents are always deleted",
+              "It returns a list of matched suspicious patterns for monitoring; the document is still interpolated into the prompt as reference data either way",
+              "It returns the document rewritten with all suspicious text removed automatically",
+              "It returns nothing, since the function has no return value"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The scan collects which known patterns matched, purely as a monitoring signal — the document still flows into the prompt as data whether or not anything was flagged, since scanning isn't the mechanism that actually neutralizes hidden instructions.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does the code example frame the retrieved document as 'reference data' inside the f-string prompt rather than passing it in unmarked?",
+            "options": [
+              "Because f-strings require a label for every variable they interpolate",
+              "Because explicitly framing the content as data (not instructions) is the actual defense the example is illustrating, consistent with the lesson's core recommendation",
+              "Because the label makes the regex patterns run faster",
+              "Because it prevents the document from being retrieved at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Explicitly labeling the interpolated content as reference data reflects the lesson's core defense — treating externally-sourced content as untrusted data rather than as instructions the model should follow.",
+            "id": "q7"
+          },
+          {
+            "question": "Why is relying on pattern-matching alone, like the regex scan shown in this lesson, an insufficient defense against prompt injection?",
+            "options": [
+              "Because regex patterns cannot be written in Python",
+              "Because such scans only catch known phrasings, whereas the actual defense is treating all external content as data and never letting it dictate control flow, no matter what it contains",
+              "Because pattern-matching is actually a complete and sufficient defense on its own",
+              "Because regex scans always produce false positives on every document"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Pattern-matching can only flag phrasings it already knows to look for; genuine protection comes from architecturally treating untrusted content as data rather than from catching every possible attack phrase.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "sec_data_poisoning",
+      "title": "Data Poisoning: Attacking the Training Data Itself",
+      "description": "Rather than attacking a deployed system at inference time, a data poisoning attack corrupts what the system learns in the first place.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain what data poisoning is, how it differs from prompt injection, and connect it to the data-validation practices from the MLOps course."
+          },
+          {
+            "title": "☠️ What data poisoning does",
+            "content": "Rather than manipulating a live system's behavior at inference time (like prompt injection), a poisoning attack corrupts the data a model is trained or fine-tuned on, so the resulting model itself has a planted, harmful behavior baked into its weights — this could be a hidden 'trigger' phrase that causes specific bad behavior only when present (a backdoor), or more general degradation of quality or safety across the board, depending on the attacker's goal."
+          },
+          {
+            "title": "🔗 Why this connects directly to the Fine-Tuning course's data-quality lessons",
+            "content": "The Fine-Tuning course's data-quality lesson emphasized reviewing training examples and being wary of unreviewed, auto-generated data — largely framed around accidental quality problems. Data poisoning is the adversarial version of that same underlying risk: if training or fine-tuning data can be influenced by an untrusted or unvetted source (scraped web content, user-submitted feedback data used for further training), an attacker has a path to intentionally, not just accidentally, corrupt what the model learns."
+          },
+          {
+            "title": "🛡️ Defenses: extending MLOps data-validation practices",
+            "content": "The MLOps course's data-validation and lineage lessons are directly relevant defenses here: schema and statistical validation can catch some poisoning attempts that produce anomalous-looking data, and lineage tracking (knowing exactly where training data came from) lets you assess how trustworthy each data source actually is and investigate a suspected poisoning incident by tracing back to its source — the same technical infrastructure built for accidental-quality-problem detection also helps against deliberate poisoning, just with an adversarial mindset applied to interpreting the results."
+          },
+          {
+            "title": "🎯 Why poisoning is particularly hard to catch",
+            "content": "A well-designed poisoning attack aims to produce data that looks statistically normal and passes ordinary validation checks, with the harmful behavior only manifesting under a specific trigger condition the attacker controls — meaning ordinary data validation, built around catching accidental errors and typical anomalies, may not reliably catch data specifically crafted to evade it, which is why data source trustworthiness (not just statistical normality) needs to be part of the defense."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "Two complementary checks are worth running over a batch of training or fine-tuning examples before it's used: a statistical outlier screen, and a lineage check against known-trustworthy sources.\n\n```python\nimport statistics\n\ndef flag_outlier_examples(examples, feature_fn, z_threshold=3.0):\n    \"\"\"Flag examples whose feature value is an extreme outlier relative\n    to the rest of the batch. Catches some poisoning attempts, but not\n    ones deliberately crafted to look statistically normal.\"\"\"\n    values = [feature_fn(ex) for ex in examples]\n    mean = statistics.mean(values)\n    stdev = statistics.pstdev(values) or 1e-9\n    flagged = []\n    for ex, v in zip(examples, values):\n        z = (v - mean) / stdev\n        if abs(z) > z_threshold:\n            flagged.append((ex, z))\n    return flagged\n\ndef check_lineage(example, trusted_sources):\n    \"\"\"Stub: does this example trace back to a source we actually\n    trust, independent of whether it looks statistically normal?\"\"\"\n    return example.get(\"source\") in trusted_sources\n\nbatch = load_finetuning_batch()\noutliers = flag_outlier_examples(batch, feature_fn=lambda ex: len(ex[\"text\"]))\nuntrusted = [ex for ex in batch if not check_lineage(ex, TRUSTED_SOURCES)]\n```\n\nNeither check alone is sufficient: `flag_outlier_examples` misses an attack crafted to look normal, and `check_lineage` misses a poisoned example from an otherwise-trusted source — which is exactly why the lesson treats statistical validation and lineage-based trust as separate, complementary layers rather than one solving what the other misses."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Treating statistical-outlier detection as sufficient on its own.** A well-crafted poisoning attack is specifically designed to look statistically normal, so outlier detection alone will miss it — lineage and source-trust checks matter as a separate, complementary layer, not a redundant one.\n\n**Trusting auto-generated or scraped fine-tuning data without review, the same accidental-quality mistake the Fine-Tuning course warned about.** Under an adversarial mindset, that same unreviewed data is also a viable attack surface, not just a quality risk.\n\n**Assuming a backdoor trigger will show up during normal evaluation.** Since poisoning-planted behavior often only manifests under a specific attacker-chosen trigger, ordinary evaluation on typical inputs may never surface it — this is exactly the kind of gap dedicated red-teaming exists to cover."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "sec_data_poisoning_quiz",
+        "questions": [
+          {
+            "question": "How does data poisoning differ from prompt injection in terms of when it attacks a system?",
+            "options": [
+              "They are identical attacks with different names",
+              "Prompt injection manipulates a live system's behavior at inference time, while data poisoning corrupts the data a model is trained or fine-tuned on, baking a harmful behavior into its weights",
+              "Data poisoning only happens after a model is already deployed, never during training",
+              "Prompt injection requires modifying model weights, unlike data poisoning"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The key distinction is timing and mechanism: injection manipulates live inference-time behavior via crafted input, while poisoning corrupts the training process itself so the harmful behavior is baked into the resulting model.",
+            "id": "q1"
+          },
+          {
+            "question": "How does data poisoning relate to the Fine-Tuning course's data-quality lessons?",
+            "options": [
+              "It has no relationship to those lessons at all",
+              "It's the adversarial version of the same underlying risk those lessons covered — if unvetted data sources can influence training, an attacker has a path to intentionally, not just accidentally, corrupt what the model learns",
+              "Data poisoning only applies to classical ML, never to fine-tuning",
+              "The Fine-Tuning course's data-quality lessons already fully solved data poisoning"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Poisoning extends the accidental-data-quality concerns from the Fine-Tuning course into a deliberate, adversarial version of the same risk — an untrusted data source becomes an attack vector, not just a quality risk.",
+            "id": "q2"
+          },
+          {
+            "question": "Why might ordinary data validation, as covered in the MLOps course, fail to catch a well-designed poisoning attack?",
+            "options": [
+              "Data validation always catches every possible poisoning attempt with perfect reliability",
+              "A well-designed attack aims to produce data that looks statistically normal and passes ordinary checks, with harmful behavior only manifesting under a specific attacker-controlled trigger",
+              "Data validation is completely useless against any kind of data quality problem",
+              "Poisoning attacks always produce obviously anomalous data that any validation would catch"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since a sophisticated poisoning attack is specifically crafted to evade statistical-normality checks, source trustworthiness (via lineage) becomes an essential complement to ordinary validation, not a redundant extra step.",
+            "id": "q3"
+          },
+          {
+            "question": "According to this lesson, what are the two general forms a data poisoning attack's planted behavior can take?",
+            "options": [
+              "It can only ever cause the model to crash immediately",
+              "A hidden trigger phrase causing specific bad behavior only when present (a backdoor), or more general degradation of quality or safety across the board",
+              "It can only degrade the model's inference speed, never its outputs",
+              "It always causes exactly the same effect regardless of attacker goal"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson describes both a targeted backdoor (bad behavior only under a specific trigger) and general, across-the-board quality or safety degradation as possible attacker goals.",
+            "id": "q4"
+          },
+          {
+            "question": "How does lineage tracking, as extended from the MLOps course, specifically help when investigating a suspected poisoning incident?",
+            "options": [
+              "It has no investigative use — it only matters before training begins",
+              "It lets you trace training data back to its source to assess how trustworthy that source actually is, which is exactly what's needed to investigate a suspected incident after the fact",
+              "It automatically retrains the model without any need for further investigation",
+              "It only tracks the model's inference outputs, not its training data origins"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Lineage tracking's value for investigation is knowing exactly where data came from, letting you trace a suspected poisoning incident back to its originating source.",
+            "id": "q5"
+          },
+          {
+            "question": "In the code example, what does flag_outlier_examples compute for each training example to decide whether to flag it?",
+            "options": [
+              "A hash of the example's raw text, flagging any collision",
+              "A z-score measuring how far that example's feature value deviates from the batch mean, flagging any example beyond the z_threshold",
+              "The example's exact position in the original file",
+              "Whether the example's source string is alphabetically first in the batch"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The function computes each example's z-score relative to the batch's mean and standard deviation, flagging examples whose deviation exceeds the threshold as statistical outliers.",
+            "id": "q6"
+          },
+          {
+            "question": "What does the check_lineage stub function address that flag_outlier_examples does not, per the code example?",
+            "options": [
+              "It checks the example's file size, which flag_outlier_examples already checks too",
+              "It checks whether an example's recorded source is among trusted sources — the source-trust dimension a purely statistical outlier check can't cover",
+              "It re-runs flag_outlier_examples with a stricter threshold",
+              "It has no distinct purpose from flag_outlier_examples"
+            ],
+            "correctAnswer": 1,
+            "explanation": "check_lineage evaluates source trustworthiness directly, addressing exactly the gap the lesson describes: a poisoned example crafted to look statistically normal would pass flag_outlier_examples but could still be caught by an untrustworthy-source check.",
+            "id": "q7"
+          },
+          {
+            "question": "Why is relying on statistical outlier detection alone, as in the flag_outlier_examples function, an insufficient defense against data poisoning?",
+            "options": [
+              "Because statistics.mean() and statistics.pstdev() are not valid Python functions",
+              "Because a well-crafted poisoning attack is specifically designed to look statistically normal, so outlier detection alone will miss it — lineage-based source trust is needed as a separate layer",
+              "Because outlier detection only works on image data, never text data",
+              "Because statistical checks always flag every single training example as an outlier"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since sophisticated poisoning is engineered to evade statistical-normality checks, outlier detection alone leaves exactly the gap that lineage/source-trust checks are meant to cover.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "sec_adversarial_examples",
+      "title": "Adversarial Examples: Small Input Changes, Large Behavior Changes",
+      "description": "A change too small for a human to notice can be exactly the change that flips a model's output entirely.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain what an adversarial example is and describe why this vulnerability is more fundamental than a specific attack technique."
+          },
+          {
+            "title": "🎯 What an adversarial example is",
+            "content": "A deliberately crafted input, often differing from a normal input by a change imperceptible or nearly imperceptible to a human, that causes a model to produce a dramatically different (and typically wrong or harmful) output — a classic example from computer vision: a small, carefully-calculated pixel perturbation invisible to a human eye that causes an image classifier to confidently misclassify an object; for text, this can look like unusual character substitutions, subtle rephrasing, or specific token sequences that trigger unexpected model behavior."
+          },
+          {
+            "title": "🧠 Why this vulnerability exists at all",
+            "content": "Models learn decision boundaries from training data, but those boundaries are shaped by an optimization process, not by genuine conceptual understanding in the way a human has it — a boundary that correctly separates 'cat' from 'dog' for all normal images might still have narrow, hard-to-predict regions near that boundary where a tiny, deliberately-targeted nudge crosses it in a way no ordinary variation in real-world images would ever trigger, since real-world data essentially never explores those specific, mathematically-precise regions."
+          },
+          {
+            "title": "🔗 Connecting to earlier evaluation concepts",
+            "content": "This is exactly why the evaluation-foundations module's representativeness principle isn't sufficient on its own for safety and security purposes: an evaluation set built from realistic, representative inputs (however thorough) systematically won't include the narrow, deliberately-crafted, unrealistic inputs that adversarial examples specifically exploit — which is precisely the gap red teaming (this course's module 1) exists to fill, since red teaming's whole point is generating exactly these unrealistic, deliberately-adversarial inputs that ordinary representative evaluation wouldn't naturally produce."
+          },
+          {
+            "title": "🛡️ Practical mitigations",
+            "content": "Adversarial training (deliberately including adversarial examples in training data, so the model learns to be robust to at least the known attack patterns, mirroring the same 'expose the system to attacks during development' principle as red teaming). Input sanitization and anomaly detection (flagging inputs that look statistically unusual in ways that correlate with known adversarial patterns) as an additional layer, in the spirit of the defense-in-depth approach from the MCP course's security module."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "A toy linear classifier makes the mechanism concrete: repeatedly nudging each feature a tiny amount in the direction its weight points can flip the classifier's output, even though every individual step is far too small to notice on its own.\n\n```python\ndef classify(features, weights, bias):\n    \"\"\"Toy linear classifier: positive score -> class 1, else class 0.\"\"\"\n    score = sum(w * f for w, f in zip(weights, features)) + bias\n    return 1 if score > 0 else 0\n\ndef targeted_perturbation(features, weights, epsilon=0.01):\n    \"\"\"Nudge each feature a tiny amount in the direction that increases\n    the classifier's score fastest -- the sign of each weight -- without\n    changing anything a human would notice in a single step.\"\"\"\n    return [f + epsilon * (1 if w > 0 else -1) for f, w in zip(features, weights)]\n\nweights, bias = [0.9, 0.9, -0.2], -1.5\noriginal = [0.8, 0.7, 0.3]\nprint(classify(original, weights, bias))            # 0\n\nperturbed = original\nfor _ in range(50):                                  # 50 tiny, targeted nudges\n    perturbed = targeted_perturbation(perturbed, weights)\nprint(classify(perturbed, weights, bias))            # 1 -- flipped\nprint(max(abs(a - b) for a, b in zip(original, perturbed)))  # tiny total change\n```\n\nThe classification flips from 0 to 1 even though the largest single-feature change is small — exactly the gap between what looks like a normal input to a human and what actually crosses the model's decision boundary."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming a model's decision boundary reflects genuine conceptual understanding.** Since boundaries come from optimization on training data rather than real comprehension, they can have narrow vulnerable regions ordinary data never explores — expecting 'human-like' robustness near the boundary is unfounded.\n\n**Relying only on a representative evaluation set to catch this vulnerability.** As this lesson explains, representative test cases systematically exclude the deliberately-crafted, unrealistic inputs adversarial examples exploit — dedicated red teaming is needed to cover that specific gap.\n\n**Treating adversarial training as a complete fix.** Adversarial training only makes a model robust to the attack patterns it was actually trained against; it doesn't guarantee robustness to a novel perturbation strategy an attacker discovers next."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "sec_adversarial_examples_quiz",
+        "questions": [
+          {
+            "question": "What defines an adversarial example?",
+            "options": [
+              "Any input that a model processes normally without producing unusual output",
+              "A deliberately crafted input, often differing from a normal input by a change imperceptible to a human, that causes a dramatically different and typically wrong or harmful model output",
+              "An input that is always obviously malformed and easy for a human to spot",
+              "A completely random, unstructured input with no deliberate design"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The defining feature is that a small, often human-imperceptible change is specifically engineered to cause a large, undesired shift in the model's output.",
+            "id": "q1"
+          },
+          {
+            "question": "Why do models have narrow regions near decision boundaries vulnerable to tiny, targeted perturbations?",
+            "options": [
+              "Models have perfect conceptual understanding with no exploitable regions at all",
+              "Decision boundaries are shaped by an optimization process rather than genuine conceptual understanding, leaving narrow regions that real-world data essentially never explores but that a deliberate, precise nudge can cross",
+              "This vulnerability only exists in classical ML models, never in LLMs",
+              "Adversarial examples are purely a myth with no actual technical basis"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since decision boundaries emerge from optimization rather than true understanding, they can have narrow, mathematically-precise vulnerable regions that ordinary data never triggers but a deliberate attack can exploit.",
+            "id": "q2"
+          },
+          {
+            "question": "Why doesn't a representative evaluation set (per this course's evaluation-foundations module) catch adversarial-example vulnerabilities on its own?",
+            "options": [
+              "Representative evaluation always catches every possible adversarial example automatically",
+              "A representative set is built from realistic inputs, which systematically won't include the narrow, deliberately-crafted, unrealistic inputs that adversarial examples specifically exploit — this is exactly the gap red teaming fills",
+              "Adversarial examples are identical to ordinary representative test cases",
+              "Evaluation representativeness has no relationship to adversarial robustness at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This directly connects back to the evaluation-foundations module: realistic, representative test cases won't naturally include deliberately-crafted adversarial inputs, which is precisely why red teaming (a distinct practice) is needed to cover this gap.",
+            "id": "q3"
+          },
+          {
+            "question": "What classic computer-vision example does this lesson use to illustrate an adversarial example?",
+            "options": [
+              "A model that runs out of memory when given a very large image",
+              "A small, carefully-calculated pixel perturbation invisible to a human eye that causes an image classifier to confidently misclassify an object",
+              "An image with an obviously visible watermark that confuses the classifier",
+              "A blurry, low-resolution photo that no classifier could reasonably handle"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson gives exactly this example: an imperceptible pixel-level perturbation that causes confident misclassification, illustrating how small a change can be while still flipping the output.",
+            "id": "q4"
+          },
+          {
+            "question": "How does adversarial training, as a practical mitigation, mirror red teaming's underlying principle?",
+            "options": [
+              "It doesn't — the two practices share no conceptual similarity",
+              "Both involve deliberately exposing the system to attacks during development, so it learns to be robust to at least the known attack patterns",
+              "Adversarial training replaces the need for red teaming entirely",
+              "Adversarial training only applies after deployment, unlike red teaming"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson explicitly draws this parallel: deliberately including adversarial examples in training mirrors red teaming's 'expose the system to attacks during development' principle.",
+            "id": "q5"
+          },
+          {
+            "question": "In the code example, what does targeted_perturbation use the sign of each weight for?",
+            "options": [
+              "To decide randomly whether to increase or decrease each feature",
+              "To nudge each feature in the direction that increases the classifier's score fastest, moving the input toward flipping the classification",
+              "To compute the classifier's bias term directly",
+              "To discard features whose weight is negative"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Each feature is nudged in the direction its weight points (positive weight -> increase, negative weight -> decrease), which is exactly the direction that increases the linear score fastest per unit of change.",
+            "id": "q6"
+          },
+          {
+            "question": "What does the code example's final printed line (the maximum absolute per-feature change) illustrate about the attack?",
+            "options": [
+              "That the attack required completely rewriting every feature from scratch",
+              "That the classification flipped from 0 to 1 even though each individual feature only changed by a small, human-imperceptible amount",
+              "That the classifier's weights themselves were modified by the attack",
+              "That the perturbation function failed to change the input at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "By printing the largest single-feature change, the example makes concrete that a classification flip doesn't require a large or obvious change — exactly the human-imperceptibility that defines an adversarial example.",
+            "id": "q7"
+          },
+          {
+            "question": "Why is treating adversarial training as a complete fix for adversarial-example vulnerabilities a mistake, per this lesson's common mistakes?",
+            "options": [
+              "Because adversarial training is completely ineffective and provides no benefit whatsoever",
+              "Because adversarial training only makes a model robust to the attack patterns it was actually trained against, not to a novel perturbation strategy an attacker discovers later",
+              "Because adversarial training can only be applied to text models, never to image models",
+              "Because adversarial training requires no training data at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Adversarial training closes the specific gaps it's trained on, but since the underlying vulnerability comes from optimization-shaped boundaries in general, a genuinely new perturbation approach can still find an untrained-for gap.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "sec_defense_in_depth_for_input_attacks",
+      "title": "Defense in Depth for Input Attacks",
+      "description": "No single defense against prompt injection, poisoning, or adversarial examples is complete on its own — layering several imperfect defenses is what actually holds up.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Describe what defense in depth means for input-attack security and list the layers that combine to form it, drawing on guardrails concepts from earlier courses."
+          },
+          {
+            "title": "🧱 Why no single layer is sufficient",
+            "content": "Building directly on the Agents course's guardrails lesson and the MCP course's security module: input filtering can catch known attack patterns but will always lag behind genuinely novel ones; permission scoping limits damage but doesn't prevent an attack from being attempted; model-level safety training helps but has the blind spots this module's jailbreak lesson described — each individual defense has known gaps, which is exactly why relying on any single one is insufficient."
+          },
+          {
+            "title": "🛡️ The layers, assembled",
+            "content": "Input-level: filtering and anomaly detection for known injection and adversarial patterns (this module's earlier lessons). Model-level: safety training and alignment (the Fine-Tuning course's preference-optimization module), imperfect but still a meaningful first line of defense. System-level: least-privilege permission scoping and approval gates (the Agents course's guardrails lesson), which limit blast radius even when the above layers are bypassed. Monitoring-level: tracing and anomaly detection in production (the LLMOps course's tracing and monitoring modules), catching attacks that got through the earlier layers before they cause more damage."
+          },
+          {
+            "title": "🎯 Why layering multiple imperfect defenses beats any single strong one",
+            "content": "An attacker who successfully bypasses one layer still has to get past the others — a jailbreak that gets past model-level safety training still runs into system-level permission scoping that limits what damage it can actually cause, mirroring exactly the same reasoning the MCP course used to justify sandboxing and auditing as complements to (not replacements for) permission scoping. No individual layer needs to be perfect for the combination to provide meaningful protection."
+          },
+          {
+            "title": "🔄 Connecting back to red teaming",
+            "content": "Testing defense-in-depth as a whole system (does an attack that gets past input filtering actually get stopped by system-level permissions, per this course's red-teaming module) is more informative than testing each layer in isolation, since real security comes from how the layers interact, not just whether each one individually looks reasonable on paper."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "A minimal way to make defense in depth concrete in code: chain the layers as ordinary functions and short-circuit on the first one that fails, so no single layer has to be perfect on its own.\n\n```python\ndef input_filter(request):\n    \"\"\"Layer 1: catch known injection/adversarial patterns.\"\"\"\n    return not looks_like_known_attack_pattern(request.text)\n\ndef permission_check(request):\n    \"\"\"Layer 2: is this action even allowed for this caller, regardless\n    of what the model decides to do?\"\"\"\n    return request.action in ALLOWED_ACTIONS[request.caller_role]\n\ndef safety_classifier(request):\n    \"\"\"Layer 3: model-level safety signal on the actual response.\"\"\"\n    return safety_score(request.proposed_response) < RISK_THRESHOLD\n\nDEFENSE_LAYERS = [input_filter, permission_check, safety_classifier]\n\ndef run_defense_in_depth(request):\n    \"\"\"Short-circuit on the first layer that fails -- no single layer\n    needs to be perfect for the chain as a whole to hold.\"\"\"\n    for layer in DEFENSE_LAYERS:\n        if not layer(request):\n            return False, layer.__name__\n    return True, None\n\nallowed, failed_layer = run_defense_in_depth(incoming_request)\nif not allowed:\n    log_blocked_request(incoming_request, failed_layer)\n```\n\nEven if `input_filter` misses a novel attack pattern, the same request still has to clear `permission_check` and `safety_classifier` — one bypassed layer doesn't mean the request goes through unchecked."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Treating any single layer as 'the' defense.** As this lesson stresses, input filtering, safety training, and permission scoping each have known gaps; picking one and calling it done leaves exactly the gap that layer doesn't cover.\n\n**Testing each defense layer only in isolation.** Verifying that input filtering works, and that permission scoping works, separately doesn't confirm that an attack bypassing one layer is actually caught by the next — whole-system red-teaming, per this course's red-teaming module, is needed for that.\n\n**Expecting permission scoping to prevent an attack from being attempted, rather than limit its damage.** Permission scoping only bounds what a successful attack can do — it's not a substitute for the input-level filtering and model-level safety training that address whether an attack is attempted or succeeds in the first place."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "sec_defense_in_depth_for_input_attacks_quiz",
+        "questions": [
+          {
+            "question": "Why is relying on a single defensive layer against input attacks insufficient, per this lesson?",
+            "options": [
+              "A single sufficiently strong layer is always completely sufficient on its own",
+              "Each individual defense (input filtering, model safety training, permission scoping) has known gaps, so relying on any one alone leaves those specific gaps exposed",
+              "Multiple layers are never actually more effective than a single layer",
+              "This lesson claims no defenses against input attacks exist at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since every individual defense layer has its own known limitations (lagging pattern detection, imperfect safety training, etc.), combining several is what actually closes the gaps any one layer leaves open.",
+            "id": "q1"
+          },
+          {
+            "question": "What role does system-level permission scoping play in a defense-in-depth strategy, even if model-level safety training is bypassed?",
+            "options": [
+              "It plays no role at all once model-level safety training is bypassed",
+              "It limits the blast radius of an attack that got past earlier layers, mirroring the Agents course's guardrails principle of enforcing real limits outside the model's own judgment",
+              "Permission scoping only matters if no other defenses exist",
+              "System-level scoping is identical to model-level safety training with no distinct function"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Even when an attack successfully manipulates the model's own behavior, tightly-scoped permissions structurally limit what damage that manipulated behavior can actually cause, exactly as the Agents course described.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is testing defense-in-depth as a whole system more informative than testing each layer in isolation?",
+            "options": [
+              "Testing layers in isolation is always sufficient and equally informative",
+              "Real security comes from how the layers interact together, so testing whether an attack that bypasses one layer is actually stopped by another is more meaningful than checking each layer alone",
+              "Whole-system testing is never actually possible in practice",
+              "Individual layer testing and whole-system testing always produce identical results"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since the whole point of defense in depth is that layers compensate for each other's gaps, verifying that interaction (not just each layer's individual soundness) is what actually confirms the combined defense holds up.",
+            "id": "q3"
+          },
+          {
+            "question": "According to the 'layers, assembled' section, which course's lesson is cited as the source for the system-level permission-scoping and approval-gate layer?",
+            "options": [
+              "The MLOps course's data-validation lesson",
+              "The Agents course's guardrails lesson",
+              "The RAG course's retrieval-evaluation lesson",
+              "The evaluation-foundations module's representativeness lesson"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson explicitly attributes least-privilege permission scoping and approval gates to the Agents course's guardrails lesson as the system-level layer.",
+            "id": "q4"
+          },
+          {
+            "question": "What does the monitoring-level layer described in this lesson do, and which course's modules is it drawn from?",
+            "options": [
+              "It retrains the model automatically; it's drawn from the Fine-Tuning course",
+              "It performs tracing and anomaly detection in production, catching attacks that got through earlier layers; it's drawn from the LLMOps course's tracing and monitoring modules",
+              "It performs input filtering before any request is processed; it's drawn from the MCP course",
+              "It has no described function in this lesson"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson names the LLMOps course's tracing and monitoring modules as the source of the monitoring-level layer, which catches attacks that slipped past the earlier input-, model-, and system-level layers.",
+            "id": "q5"
+          },
+          {
+            "question": "In the code example, what happens when input_filter returns False for a request?",
+            "options": [
+              "permission_check and safety_classifier still both run before any decision is made",
+              "run_defense_in_depth returns False immediately with 'input_filter' as the failing layer, without calling permission_check or safety_classifier",
+              "The request is automatically allowed through as a fallback",
+              "The program raises an unhandled exception and crashes"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The for-loop returns as soon as any layer fails, so a False from input_filter short-circuits the chain before the later layers are even checked.",
+            "id": "q6"
+          },
+          {
+            "question": "What does the DEFENSE_LAYERS list, and the order layers are checked in, represent in the code example?",
+            "options": [
+              "A random, arbitrary ordering with no relationship to the lesson's concepts",
+              "The sequence of independent checks a request must pass, mirroring the input-level, system-level, and model-level layers described in the lesson, chained so any one failing blocks the request",
+              "A single combined layer that behaves identically to using just one check",
+              "A list of attackers the system has previously blocked"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The ordered list of layer functions mirrors the lesson's distinct defense levels, chained together so that no single layer being imperfect lets a request through unchecked.",
+            "id": "q7"
+          },
+          {
+            "question": "Why is expecting permission scoping to prevent an attack from being attempted, rather than merely limit its damage, considered a mistake in this lesson?",
+            "options": [
+              "Because permission scoping is completely irrelevant to input-attack defense",
+              "Because permission scoping only bounds what a successful attack can do — it isn't a substitute for the input-level filtering and model-level safety training that address whether an attack is attempted or succeeds in the first place",
+              "Because permission scoping always fully prevents every attack from being attempted",
+              "Because permission scoping and input filtering are exactly the same mechanism"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson is explicit that permission scoping limits damage rather than preventing an attempt in the first place, so treating it as a stand-in for the other layers misunderstands its actual role.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

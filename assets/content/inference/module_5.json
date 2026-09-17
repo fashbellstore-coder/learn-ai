@@ -1,0 +1,559 @@
+{
+  "id": "inf_production",
+  "title": "Inference in Production",
+  "description": "Observability, cost-per-token modeling, long-context fairness, and pulling it all into one inference SLO.",
+  "icon": "🚀",
+  "color": "#F9A825",
+  "order": 5,
+  "estimatedHours": 4,
+  "difficulty": "advanced",
+  "prerequisites": [
+    "inf_serving_frameworks"
+  ],
+  "lessons": [
+    {
+      "id": "inf_observability_for_inference",
+      "title": "Observability for Inference",
+      "description": "The metrics dashboard a serving system needs, beyond generic infrastructure monitoring.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "List the inference-specific metrics a production LLM serving system should expose, beyond standard CPU/memory monitoring."
+          },
+          {
+            "title": "📊 Metrics specific to LLM serving",
+            "content": "Time to first token and time per output token (from Module 0), tracked as percentiles, not just averages. KV cache utilization, since that's often the binding resource constraint. Batch size and queue depth over time, revealing whether the scheduler is keeping the GPU busy or requests are piling up. Tokens generated per second per GPU, the core throughput number."
+          },
+          {
+            "title": "🔗 This extends LLMOps, applied one layer down",
+            "content": "The LLMOps course covered observability for LLM applications — cost, latency, and quality at the application layer. This lesson is the same discipline applied one layer lower, at the serving infrastructure itself, where the KV cache and batching internals from this course become the things worth watching."
+          },
+          {
+            "title": "🚨 Alert on the leading indicators, not just the lagging ones",
+            "content": "Latency percentiles rising are a lagging indicator — something has already gone wrong. Queue depth growing and KV cache utilization approaching its ceiling are leading indicators that predict a latency problem before users feel it, giving you time to autoscale or shed load proactively."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "A tiny percentile calculator for time-to-first-token and inter-token latency, built from a list of timestamped events:\n\n```python\n# A tiny illustrative latency-percentile calculator (NOT production code).\n# Each event records when a request started, when its first output token\n# appeared, and the timestamps of every token generated after that.\n\nevents = [\n    {\"request_id\": \"r1\", \"start\": 0.000, \"first_token\": 0.120, \"tokens\": [0.120, 0.145, 0.170, 0.195, 0.220]},\n    {\"request_id\": \"r2\", \"start\": 0.050, \"first_token\": 0.260, \"tokens\": [0.260, 0.300, 0.340, 0.380]},\n    {\"request_id\": \"r3\", \"start\": 0.100, \"first_token\": 0.140, \"tokens\": [0.140, 0.160, 0.180, 0.200, 0.220, 0.240]},\n]\n\n\ndef percentile(values, pct):\n    ordered = sorted(values)\n    index = min(len(ordered) - 1, int(len(ordered) * pct))\n    return ordered[index]\n\n\ndef summarize(events):\n    ttft = [e[\"first_token\"] - e[\"start\"] for e in events]\n    itl = []\n    for e in events:\n        gaps = [b - a for a, b in zip(e[\"tokens\"], e[\"tokens\"][1:])]\n        itl.extend(gaps)\n\n    return {\n        \"ttft_p50\": percentile(ttft, 0.50),\n        \"ttft_p99\": percentile(ttft, 0.99),\n        \"itl_p50\": percentile(itl, 0.50),\n        \"itl_p99\": percentile(itl, 0.99),\n    }\n\n\nprint(summarize(events))\n```\n\n`ttft` is computed per request as `first_token - start`, while `itl` (inter-token latency) flattens the gaps between consecutive token timestamps within each request into one combined list across all requests — both are then fed through the same `percentile` helper, which is exactly the \"track as percentiles, not just averages\" discipline the lesson describes."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Only tracking average latency, not percentiles.** Averages smooth over the tail; a handful of slow requests can hide inside an average that still looks fine, while the p99 users actually feel keeps getting worse.\n\n**Treating queue depth and KV cache utilization as optional \"nice to have\" panels.** These leading indicators are what let you autoscale or shed load before latency degrades, not after — skipping them means you only find out once users are already affected.\n\n**Reusing a generic infrastructure dashboard without adding LLM-serving-specific panels.** CPU and memory graphs alone say nothing about batch size, queue depth, or KV cache utilization — the metrics that actually reflect the binding constraints of an inference server.\n\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "inf_observability_for_inference_quiz",
+        "questions": [
+          {
+            "question": "Which metric is specific to LLM serving infrastructure, beyond generic CPU/memory monitoring?",
+            "options": [
+              "KV cache utilization",
+              "Disk read/write speed",
+              "Number of open browser tabs",
+              "Git commit frequency"
+            ],
+            "correctAnswer": 0,
+            "explanation": "KV cache utilization directly reflects the serving-specific resource constraint covered throughout the KV cache module, unlike generic infra metrics.",
+            "id": "q1"
+          },
+          {
+            "question": "How does this lesson's observability focus relate to the LLMOps course's observability lesson?",
+            "options": [
+              "It applies the same discipline one layer lower, at the serving infrastructure rather than the application layer",
+              "It replaces LLMOps observability entirely and makes it unnecessary",
+              "It only applies to embedding models, not LLMs",
+              "It has no relationship to LLMOps at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Both courses apply the same observability discipline, just at different layers of the stack — application-level in LLMOps, infrastructure-level here.",
+            "id": "q2"
+          },
+          {
+            "question": "Why are queue depth and KV cache utilization considered 'leading' indicators compared to latency percentiles?",
+            "options": [
+              "Because they predict a latency problem before it fully manifests, giving time to react proactively",
+              "Because they are less accurate than latency metrics",
+              "Because they can only be measured after an incident has already occurred",
+              "Because they have no relationship to actual system performance"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Rising queue depth or near-full KV cache utilization signals trouble ahead, while rising latency shows a problem that has already happened.",
+            "id": "q3"
+          },
+          {
+            "question": "According to the lesson, what does tracking batch size and queue depth over time reveal?",
+            "options": [
+              "Whether the scheduler is keeping the GPU busy or requests are piling up",
+              "The exact model architecture being served",
+              "The total number of GPUs installed in the data center",
+              "Nothing useful — those metrics are described as irrelevant"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson lists batch size and queue depth over time as revealing whether the scheduler is keeping the GPU busy or requests are piling up.",
+            "id": "q4"
+          },
+          {
+            "question": "Per the lesson, why is KV cache utilization worth tracking as a serving metric?",
+            "options": [
+              "Because it's often the binding resource constraint for a serving system",
+              "Because it measures how many users are logged in",
+              "Because it has no effect on request latency or throughput",
+              "Because it only matters during model training"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly calls out KV cache utilization because it's often the binding resource constraint in production serving.",
+            "id": "q5"
+          },
+          {
+            "question": "In the code example, how is a request's ttft (time to first token) computed?",
+            "options": [
+              "As that request's first_token timestamp minus its start timestamp",
+              "As the average of all requests' first_token timestamps",
+              "As the total number of tokens generated for that request",
+              "As the last token's timestamp minus the first token's timestamp"
+            ],
+            "correctAnswer": 0,
+            "explanation": "summarize computes ttft as `e[\"first_token\"] - e[\"start\"]` for each event — the elapsed time before the first output token appears.",
+            "id": "q6"
+          },
+          {
+            "question": "For request r1 in the example events list, what is its time-to-first-token (first_token minus start)?",
+            "options": [
+              "0.120",
+              "0.220",
+              "0.050",
+              "0.145"
+            ],
+            "correctAnswer": 0,
+            "explanation": "r1's start is 0.000 and first_token is 0.120, so first_token - start = 0.120.",
+            "id": "q7"
+          },
+          {
+            "question": "Per 'Common mistakes', why is relying only on average latency a mistake for inference observability?",
+            "options": [
+              "It can hide a small number of very slow requests that still make up a meaningful, painful p99 tail",
+              "Average latency is impossible to compute for LLM requests",
+              "Averages always report a higher number than percentiles",
+              "It causes the serving system to crash"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The mistakes section explains that averages smooth over the tail, letting p99 keep getting worse while the average still looks fine.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "inf_cost_modeling_tokens_per_dollar",
+      "title": "Cost Modeling: Tokens per Dollar",
+      "description": "Turning GPU bills into a number you can actually optimize against.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Build a basic cost-per-token model for an inference deployment and identify which lever in this course affects it most."
+          },
+          {
+            "title": "💵 The core formula",
+            "content": "Cost per token roughly equals (GPU cost per hour) divided by (tokens generated per hour on that GPU). Every technique in this course — quantization, continuous batching, PagedAttention, speculative decoding — ultimately acts on one side or the other of this ratio: either reducing effective GPU cost, or increasing tokens generated per hour."
+          },
+          {
+            "title": "🔍 Where the biggest wins usually come from",
+            "content": "Continuous batching and PagedAttention typically deliver the largest gains, since they're about not wasting GPU capacity that's already been paid for. Quantization helps by letting a cheaper GPU (or more concurrent requests on the same GPU) handle the same workload. This mirrors the LLMOps course's cost-per-token discipline for API-based LLM usage, now applied to self-hosted serving infrastructure instead."
+          },
+          {
+            "title": "📈 Model this before choosing infrastructure, not after",
+            "content": "Building this cost model against your expected traffic pattern before committing to a specific GPU type, serving engine, and precision level lets you compare options on a level footing — tokens per dollar — rather than comparing raw GPU prices or raw throughput numbers in isolation, which can be misleading on their own."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "A small cost-per-million-tokens calculator comparing a few hypothetical hosting options on the same basis:\n\n```python\n# A small cost-per-million-tokens calculator (NOT production code).\n\noptions = {\n    \"on_prem_a100\": {\"cost_per_gpu_hour\": 2.50, \"tokens_per_hour\": 1_800_000},\n    \"cloud_h100\": {\"cost_per_gpu_hour\": 5.20, \"tokens_per_hour\": 4_200_000},\n    \"quantized_a100\": {\"cost_per_gpu_hour\": 2.50, \"tokens_per_hour\": 3_100_000},\n    \"hosted_api\": {\"cost_per_million_tokens\": 3.00},\n}\n\n\ndef cost_per_million_tokens(option):\n    if \"cost_per_million_tokens\" in option:\n        return option[\"cost_per_million_tokens\"]\n    cost_per_token = option[\"cost_per_gpu_hour\"] / option[\"tokens_per_hour\"]\n    return cost_per_token * 1_000_000\n\n\ndef rank_options(options):\n    scored = {name: cost_per_million_tokens(opt) for name, opt in options.items()}\n    return sorted(scored.items(), key=lambda pair: pair[1])\n\n\nfor name, cost in rank_options(options):\n    print(f\"{name:15s}  ${cost:.2f} per million tokens\")\n```\n\n`cost_per_million_tokens` puts every option on the same footing: self-hosted GPU options divide an hourly rate by hourly throughput, while the pay-per-token hosted API just reports its rate directly, and both flow into the same tokens-per-dollar number. Notice that `rank_options` can then sort GPU-based and API-based options side by side, which is exactly the \"level footing\" comparison the lesson describes."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Comparing raw GPU hourly prices instead of cost per token.** A cheaper GPU that produces far fewer tokens per hour can end up more expensive per token than a pricier, higher-throughput GPU — the sticker price alone doesn't tell you which one is actually cheaper to run.\n\n**Comparing raw throughput numbers alone, without dividing by GPU cost.** A GPU that generates more tokens per hour isn't automatically cheaper per token if it also costs proportionally more to rent; throughput on its own is only half the ratio.\n\n**Building the cost model after infrastructure is already chosen.** The lesson stresses modeling before committing to a GPU type, serving engine, and precision level — modeling afterward means comparing against a decision that's already locked in, losing the chance to actually pick the cheaper option.\n\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "inf_cost_modeling_tokens_per_dollar_quiz",
+        "questions": [
+          {
+            "question": "What does the basic cost-per-token formula for inference divide?",
+            "options": [
+              "GPU cost per hour by tokens generated per hour on that GPU",
+              "Total model parameters by number of GPUs",
+              "KV cache size by number of requests",
+              "Latency by throughput"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Cost per token is fundamentally about how much GPU spend produces how much useful output over time.",
+            "id": "q1"
+          },
+          {
+            "question": "Why do continuous batching and PagedAttention typically deliver the largest cost-per-token wins?",
+            "options": [
+              "Because they avoid wasting GPU capacity that's already been paid for, increasing tokens generated per hour without added cost",
+              "Because they reduce the number of parameters in the model",
+              "Because they eliminate the need for a GPU entirely",
+              "Because they only affect training cost, not inference cost"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Both techniques increase effective throughput from existing hardware, which directly improves the tokens-generated side of the cost ratio.",
+            "id": "q2"
+          },
+          {
+            "question": "Why should a cost-per-token model be built before choosing infrastructure, not after?",
+            "options": [
+              "Because it lets you compare GPU/engine/precision options on a level footing rather than comparing raw prices or throughput in isolation",
+              "Because cost modeling is impossible once infrastructure is already running",
+              "Because tokens-per-dollar cannot be calculated in advance under any circumstances",
+              "Because infrastructure choices have no effect on cost"
+            ],
+            "correctAnswer": 0,
+            "explanation": "A shared cost-per-token metric across candidate options avoids being misled by raw price or raw throughput numbers that don't account for each other.",
+            "id": "q3"
+          },
+          {
+            "question": "Per the lesson, what does quantization primarily let you do to affect cost per token?",
+            "options": [
+              "Use a cheaper GPU, or serve more concurrent requests on the same GPU, for the same workload",
+              "Eliminate the need for a serving engine entirely",
+              "Increase the model's total parameter count for free",
+              "Guarantee a fixed cost per token regardless of traffic"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson states quantization helps by letting a cheaper GPU, or more concurrent requests on the same GPU, handle the same workload.",
+            "id": "q4"
+          },
+          {
+            "question": "Per the lesson, applying tokens-per-dollar cost modeling to self-hosted serving infrastructure mirrors which idea from an earlier course?",
+            "options": [
+              "The LLMOps course's cost-per-token discipline for API-based LLM usage",
+              "The RAG course's chunking strategy",
+              "The Fine-Tuning course's dataset curation process",
+              "No earlier course covered anything related to cost"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly says this mirrors the LLMOps course's cost-per-token discipline for API-based LLM usage, now applied to self-hosted infrastructure.",
+            "id": "q5"
+          },
+          {
+            "question": "In the code example, how is cost_per_million_tokens computed for a self-hosted GPU option like cloud_h100?",
+            "options": [
+              "By dividing cost_per_gpu_hour by tokens_per_hour, then scaling the result to a per-million-token basis",
+              "By multiplying cost_per_gpu_hour by tokens_per_hour",
+              "By looking up a fixed cost_per_million_tokens value, the same as hosted_api",
+              "By counting the number of keys in the option's dictionary"
+            ],
+            "correctAnswer": 0,
+            "explanation": "For GPU options without a cost_per_million_tokens key, the function computes cost_per_token = cost_per_gpu_hour / tokens_per_hour, then multiplies by 1,000,000.",
+            "id": "q6"
+          },
+          {
+            "question": "Based on the example values in the code, which option has the lowest cost per million tokens?",
+            "options": [
+              "quantized_a100",
+              "cloud_h100",
+              "on_prem_a100",
+              "hosted_api"
+            ],
+            "correctAnswer": 0,
+            "explanation": "quantized_a100 costs 2.50 / 3,100,000 * 1,000,000 ≈ $0.81 per million tokens, lower than cloud_h100 (≈$1.24), on_prem_a100 (≈$1.39), and hosted_api ($3.00).",
+            "id": "q7"
+          },
+          {
+            "question": "Per 'Common mistakes', why is comparing raw GPU hourly prices alone misleading?",
+            "options": [
+              "A cheaper GPU that produces far fewer tokens per hour can end up more expensive per token than a pricier, higher-throughput GPU",
+              "GPU hourly prices are always identical across every vendor",
+              "Raw prices are impossible to obtain from any cloud provider",
+              "It causes the serving engine to crash on startup"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The mistakes section notes that price alone doesn't reflect throughput, so a cheaper-looking GPU can actually cost more per token.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "inf_handling_long_context_at_scale",
+      "title": "Handling Long-Context Requests at Scale",
+      "description": "A single 100,000-token request can quietly dominate a whole GPU's capacity.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain why long-context requests pose a disproportionate challenge for shared serving infrastructure."
+          },
+          {
+            "title": "📏 Long context is expensive in two ways",
+            "content": "It increases prefill time (more tokens to process before the first output token), and it consumes disproportionately more KV cache memory than several shorter requests combined — directly connecting to the KV cache growth problem from Module 1, now expressed as a scheduling and fairness challenge rather than just a memory-planning one."
+          },
+          {
+            "title": "⚖️ Fairness in a shared serving pool",
+            "content": "A handful of very long requests can crowd out many shorter ones' worth of KV cache capacity, degrading service for everyone else sharing the same GPU pool — a resource-fairness problem similar in spirit to the noisy-neighbor problem the Cloud course's multi-tenancy material touches on, just expressed in KV cache memory instead of CPU or network bandwidth."
+          },
+          {
+            "title": "🛠️ Mitigation strategies",
+            "content": "Dedicated capacity pools for long-context requests, separate from the pool serving typical short requests, so one class of traffic doesn't starve the other. Chunked prefill, which breaks a long prompt's prefill work into smaller pieces interleaved with other requests' decode steps, improving fairness without needing separate hardware pools. Request-level limits on maximum context length for shared, cost-sensitive tiers of service."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "A toy model of how context length drives KV cache memory and prefill time, plus a toy chunked-prefill scheduler:\n\n```python\n# A toy model of context-length scaling (NOT production code).\n\nBYTES_PER_TOKEN_KV = 128 * 1024  # stand-in for (layers * heads * head_dim * 2 * dtype_size)\nMS_PER_TOKEN_PREFILL = 0.8\n\n\ndef request_cost(context_tokens):\n    kv_cache_mb = (context_tokens * BYTES_PER_TOKEN_KV) / (1024 * 1024)\n    prefill_ms = context_tokens * MS_PER_TOKEN_PREFILL\n    return {\"context_tokens\": context_tokens, \"kv_cache_mb\": kv_cache_mb, \"prefill_ms\": prefill_ms}\n\n\ndef chunked_prefill_schedule(context_tokens, chunk_size):\n    # Splits one long request's prefill into chunks that could each be\n    # interleaved with other requests' decode steps — the toy equivalent\n    # of chunked prefill's fairness benefit.\n    chunks = []\n    remaining = context_tokens\n    while remaining > 0:\n        this_chunk = min(chunk_size, remaining)\n        chunks.append(this_chunk)\n        remaining -= this_chunk\n    return chunks\n\n\nfor tokens in [2_000, 20_000, 100_000]:\n    print(request_cost(tokens))\n\nschedule = chunked_prefill_schedule(100_000, chunk_size=8_000)\nprint(f\"{len(schedule)} chunks, each interleavable with other requests' decode steps\")\n```\n\n`request_cost` shows both `kv_cache_mb` and `prefill_ms` scaling linearly with `context_tokens`, so the 100,000-token request needs roughly 50 times the KV cache memory and prefill time of the 2,000-token one. `chunked_prefill_schedule` breaks that same long request into fixed-size pieces instead of one uninterrupted burst, which is the toy version of chunked prefill interleaving a long request's prefill work with other requests' decode steps."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming a 100,000-token request costs \"about the same\" as ten 10,000-token requests.** Per the lesson, one long request consumes disproportionately more KV cache memory and prefill time than several shorter requests combined — treating them as equivalent underestimates the real impact of long-context traffic.\n\n**Giving every request class access to the same shared capacity pool with no limits.** A handful of very long requests can crowd out many shorter ones, degrading service for everyone sharing the pool, unless dedicated pools or context-length limits are in place.\n\n**Treating chunked prefill as a pure latency optimization instead of a fairness mechanism.** Its main benefit per the lesson is improving fairness across requests sharing a pool, not necessarily making any single request finish faster.\n\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "inf_handling_long_context_at_scale_quiz",
+        "questions": [
+          {
+            "question": "Why does a long-context request consume disproportionately more resources than several short requests combined?",
+            "options": [
+              "It increases both prefill time and KV cache memory usage well beyond what shorter requests require",
+              "It always completes faster than a short request",
+              "It uses no additional KV cache memory at all",
+              "It only affects the tokenizer, not GPU memory or compute"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Both processing time (prefill) and memory (KV cache) scale with context length, making very long requests disproportionately resource-hungry.",
+            "id": "q1"
+          },
+          {
+            "question": "What is the 'noisy neighbor'-style problem that long-context requests can create in a shared serving pool?",
+            "options": [
+              "A handful of long requests can consume enough KV cache capacity to degrade service for many other shorter requests sharing the pool",
+              "Long requests always run on a completely separate GPU with no shared resources",
+              "Long requests never affect any other request's performance",
+              "Short requests always dominate over long ones by default"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Shared capacity means one resource-heavy class of requests can crowd out others, mirroring multi-tenancy fairness concerns from cloud infrastructure generally.",
+            "id": "q2"
+          },
+          {
+            "question": "What does chunked prefill do to help with long-context fairness?",
+            "options": [
+              "Breaks a long prompt's prefill work into smaller pieces interleaved with other requests' decode steps",
+              "Deletes part of the prompt to shorten it automatically",
+              "Runs the entire long request on a separate, unshared GPU by default",
+              "Increases the KV cache size available to long requests only"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Interleaving prefill work for long requests with other requests' decode steps avoids one long request monopolizing the GPU during its entire prefill phase.",
+            "id": "q3"
+          },
+          {
+            "question": "Per the lesson, what is one way a shared serving pool can protect short requests from being crowded out by long ones?",
+            "options": [
+              "Dedicated capacity pools for long-context requests, separate from the pool serving short requests",
+              "Deleting all long-context requests automatically",
+              "Doubling the KV cache size available to every request",
+              "There is no way to protect short requests from long ones"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson lists dedicated capacity pools for long-context requests, separate from the pool serving typical short requests, as a mitigation strategy.",
+            "id": "q4"
+          },
+          {
+            "question": "Per the lesson, what kind of limit can help shared, cost-sensitive tiers of service manage long-context requests?",
+            "options": [
+              "Request-level limits on maximum context length",
+              "A limit on the total number of GPUs in the cluster",
+              "A limit on how many users can log in per day",
+              "There are no useful limits available for this problem"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson names request-level limits on maximum context length for shared, cost-sensitive tiers of service as a mitigation strategy.",
+            "id": "q5"
+          },
+          {
+            "question": "In request_cost, what happens to kv_cache_mb and prefill_ms as context_tokens increases from 2,000 to 100,000 in the example?",
+            "options": [
+              "Both scale up roughly linearly with the number of context tokens",
+              "Both stay exactly constant regardless of context_tokens",
+              "prefill_ms decreases while kv_cache_mb increases",
+              "kv_cache_mb becomes zero once context_tokens exceeds 10,000"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Both kv_cache_mb and prefill_ms are computed as context_tokens multiplied by a fixed per-token constant, so both grow linearly with context length.",
+            "id": "q6"
+          },
+          {
+            "question": "Given chunked_prefill_schedule(100_000, chunk_size=8_000), how many chunks does the function produce?",
+            "options": [
+              "13",
+              "12",
+              "8",
+              "100"
+            ],
+            "correctAnswer": 0,
+            "explanation": "100,000 tokens split into chunks of 8,000 gives twelve full chunks of 8,000 (96,000 tokens) plus one final chunk of 4,000, for 13 chunks total.",
+            "id": "q7"
+          },
+          {
+            "question": "Per 'Common mistakes', why is treating chunked prefill purely as a latency optimization a mistake?",
+            "options": [
+              "Because its main benefit is improving fairness across requests sharing a pool, not necessarily making any single request finish faster",
+              "Because chunked prefill actually increases KV cache memory usage",
+              "Because chunked prefill is only usable with dedicated hardware pools",
+              "Because chunked prefill has no relationship to request scheduling at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The mistakes section clarifies that chunked prefill's main benefit per the lesson is fairness among sharing requests, not raw single-request speed.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "inf_building_an_inference_slo",
+      "title": "Building an Inference SLO",
+      "description": "Pulling every lesson in this course into one concrete service-level objective document.",
+      "duration": 13,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Draft the key components of a service-level objective for an LLM inference system, drawing on the whole course."
+          },
+          {
+            "title": "📋 What an inference SLO should specify",
+            "content": "Latency targets: p50/p99 time-to-first-token and time-per-output-token, chosen for your specific product (Module 0). Throughput/capacity targets: tokens per second the system must sustain at expected peak concurrency (Modules 2 and 4). Quality floor: an evaluation score threshold that any precision or compression choice must not fall below (Module 3). Cost ceiling: a target cost per token or per request (this module's cost-modeling lesson)."
+          },
+          {
+            "title": "🔗 Every earlier lesson is a lever against one of these targets",
+            "content": "PagedAttention and continuous batching push throughput up without hurting latency. Quantization and distillation reduce cost, with a quality trade-off that must stay above your floor. Autoscaling and draining keep latency stable under variable load without dropping in-flight requests. Observability (the first lesson of this module) is what tells you whether you're actually meeting the SLO you wrote down, in real time."
+          },
+          {
+            "title": "🎓 Closing the loop on this course",
+            "content": "This is the same 'define the target, then choose techniques that hit it, then measure continuously' discipline that ran through the RAG, Fine-Tuning, MLOps, and LLMOps courses, applied here specifically to the layer that turns a trained model into something users can actually talk to, fast enough and cheaply enough to be a real product."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "A small SLO-evaluation function that checks measured latency, throughput, and error rate against a target:\n\n```python\n# A small SLO-evaluation function (NOT production code).\n\nslo_targets = {\n    \"ttft_p50_ms\": 200,\n    \"ttft_p99_ms\": 600,\n    \"tpot_p50_ms\": 30,\n    \"tpot_p99_ms\": 80,\n    \"min_throughput_tps\": 4000,\n    \"max_error_rate\": 0.01,\n}\n\nmeasured = {\n    \"ttft_p50_ms\": 180,\n    \"ttft_p99_ms\": 720,\n    \"tpot_p50_ms\": 28,\n    \"tpot_p99_ms\": 75,\n    \"throughput_tps\": 4200,\n    \"error_rate\": 0.004,\n}\n\n\ndef evaluate_slo(targets, measured):\n    violations = []\n\n    if measured[\"ttft_p50_ms\"] > targets[\"ttft_p50_ms\"]:\n        violations.append(\"ttft_p50\")\n    if measured[\"ttft_p99_ms\"] > targets[\"ttft_p99_ms\"]:\n        violations.append(\"ttft_p99\")\n    if measured[\"tpot_p50_ms\"] > targets[\"tpot_p50_ms\"]:\n        violations.append(\"tpot_p50\")\n    if measured[\"tpot_p99_ms\"] > targets[\"tpot_p99_ms\"]:\n        violations.append(\"tpot_p99\")\n    if measured[\"throughput_tps\"] < targets[\"min_throughput_tps\"]:\n        violations.append(\"throughput\")\n    if measured[\"error_rate\"] > targets[\"max_error_rate\"]:\n        violations.append(\"error_rate\")\n\n    return {\"met\": len(violations) == 0, \"violations\": violations}\n\n\nprint(evaluate_slo(slo_targets, measured))\n```\n\n`evaluate_slo` checks every measured value against its matching target from the same four categories the lesson lists — latency (TTFT and TPOT, at p50 and p99), throughput, and error rate standing in for the quality/reliability floor — and reports which specific target was missed rather than only a pass/fail flag. In the example, only `ttft_p99_ms` (720 vs. a 600 target) fails, so `met` comes back `False` even though every other number is within budget."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Writing an SLO with only a latency target and no cost ceiling.** Per the lesson, cost ceiling is one of the four core components; leaving it out lets latency-focused decisions quietly blow through the budget.\n\n**Setting a quality floor that isn't actually enforced anywhere in the pipeline.** A quality floor written in a document but never checked against real eval scores after a quantization or distillation change doesn't protect anything.\n\n**Evaluating the SLO once at launch and never again.** The lesson frames observability as what tells you whether you're actually meeting the SLO in real time — an SLO checked only once isn't being observed at all.\n\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "inf_building_an_inference_slo_quiz",
+        "questions": [
+          {
+            "question": "What are the four core components a well-formed inference SLO should specify?",
+            "options": [
+              "Latency targets, throughput/capacity targets, a quality floor, and a cost ceiling",
+              "Only the total number of GPUs owned",
+              "Only the model's parameter count",
+              "Only the programming language used to build the serving stack"
+            ],
+            "correctAnswer": 0,
+            "explanation": "A complete SLO ties together speed, capacity, quality, and cost — the four dimensions every technique in this course ultimately trades against.",
+            "id": "q1"
+          },
+          {
+            "question": "Why must a quality floor be part of the SLO alongside a cost ceiling?",
+            "options": [
+              "Because compression techniques like quantization and distillation reduce cost at some risk to quality, which must not fall below what the product needs",
+              "Because quality and cost are always perfectly correlated, so only one needs tracking",
+              "Because quality floors are only relevant during model training, not serving",
+              "Because cost ceilings automatically guarantee quality is preserved"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Without an explicit quality floor, cost-saving techniques could be pushed too far, degrading the product even while technically meeting a cost target.",
+            "id": "q2"
+          },
+          {
+            "question": "This closing lesson's 'define target, choose techniques, measure continuously' pattern echoes which other courses in this curriculum?",
+            "options": [
+              "RAG, Fine-Tuning, MLOps, and LLMOps",
+              "Only the SQL course",
+              "Only the Math course",
+              "No other course follows a similar pattern"
+            ],
+            "correctAnswer": 0,
+            "explanation": "This same discipline — concrete targets driving technique choice, validated by ongoing measurement — has recurred across multiple courses in this curriculum, now applied to the inference layer.",
+            "id": "q3"
+          },
+          {
+            "question": "Per the lesson, which module's material does the SLO's throughput/capacity target draw on?",
+            "options": [
+              "Modules 2 and 4",
+              "Module 0 only",
+              "Module 3 only",
+              "No earlier module — throughput targets are introduced for the first time here"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson attributes the throughput/capacity target — tokens per second sustained at expected peak concurrency — to Modules 2 and 4.",
+            "id": "q4"
+          },
+          {
+            "question": "Per the lesson, what specifically keeps latency stable under variable load without dropping in-flight requests?",
+            "options": [
+              "Autoscaling and draining",
+              "Quantization and distillation",
+              "PagedAttention alone",
+              "Observability dashboards alone"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson credits autoscaling and draining with keeping latency stable under variable load without dropping in-flight requests.",
+            "id": "q5"
+          },
+          {
+            "question": "In evaluate_slo, what does the function append to the violations list for a given metric?",
+            "options": [
+              "The metric's name, whenever the measured value fails to meet its target",
+              "The numeric difference between the measured value and the target",
+              "The entire measured dictionary",
+              "Nothing — violations is never appended to"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Each check appends a short string naming the metric (e.g. \"ttft_p99\") to violations only when the measured value fails the comparison against its target.",
+            "id": "q6"
+          },
+          {
+            "question": "Given the example measured and slo_targets values in the code, what does evaluate_slo(slo_targets, measured) return?",
+            "options": [
+              "{'met': False, 'violations': ['ttft_p99']}",
+              "{'met': True, 'violations': []}",
+              "{'met': False, 'violations': ['throughput', 'error_rate']}",
+              "{'met': False, 'violations': ['tpot_p50', 'tpot_p99']}"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Only ttft_p99_ms (measured 720 vs. target 600) exceeds its target; every other measured value is within its target, so violations contains just 'ttft_p99' and met is False.",
+            "id": "q7"
+          },
+          {
+            "question": "Per 'Common mistakes', why is evaluating an SLO only once at launch a problem?",
+            "options": [
+              "Because observability is what tells you whether you're actually meeting the SLO in real time, so a one-time check isn't real observability",
+              "Because SLOs automatically expire and become invalid after 24 hours",
+              "Because evaluating an SLO more than once is technically impossible",
+              "Because launch-time measurements are always more accurate than later ones"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The mistakes section ties this back to the lesson's point that observability is what tells you whether you're meeting the SLO in real time, not just at one point in time.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

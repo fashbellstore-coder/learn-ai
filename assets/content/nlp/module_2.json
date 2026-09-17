@@ -1,0 +1,547 @@
+{
+  "id": "module_2",
+  "title": "Word Embeddings",
+  "description": "Move beyond word counts to representations that capture meaning: Word2Vec, GloVe, FastText, and how to use pretrained embeddings with cosine similarity in practice.",
+  "icon": "🧭",
+  "color": "#00897B",
+  "order": 2,
+  "estimatedHours": 2,
+  "difficulty": "Intermediate",
+  "prerequisites": [
+    "module_1"
+  ],
+  "lessons": [
+    {
+      "id": "nlp_bow_limitations",
+      "title": "Why Bag-of-Words Isn't Enough",
+      "description": "Understand the deeper limitation that motivated a completely different way of representing words.",
+      "duration": "7 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain why bag-of-words and TF-IDF have no concept of word meaning or similarity."
+          },
+          {
+            "title": "🙈 No sense of meaning",
+            "content": "In a bag-of-words or TF-IDF vector, every word is just an independent slot in a big vocabulary list. \"Great\" and \"excellent\" — words with very similar meanings — are treated as completely unrelated, just as unrelated as \"great\" and \"bicycle.\" The representation has no built-in concept of which words mean similar things."
+          },
+          {
+            "title": "📈 The vocabulary explosion problem",
+            "content": "Bag-of-words and TF-IDF vectors are as long as the entire vocabulary — often tens of thousands of dimensions for a real corpus — and almost entirely zeros for any single document (a **sparse** representation). This is computationally wasteful and doesn't scale gracefully as vocabulary grows."
+          },
+          {
+            "title": "🆕 The out-of-vocabulary problem",
+            "content": "If a word never appeared in the training data, bag-of-words and TF-IDF have no way to represent it at all — it's simply unknown. This is a real practical problem: new words, slang, and typos are constant in real-world text, and this approach can't gracefully handle any of them."
+          },
+          {
+            "title": "💡 What's actually needed: a notion of similarity",
+            "content": "What would genuinely help is a representation where similar words end up close together in some meaningful space — so a model could generalize from \"the movie was great\" to correctly handle \"the movie was excellent\" even if it only ever saw \"great\" during training. This is exactly the motivation behind **word embeddings**, covered starting next lesson — dense, learned numerical representations where semantic similarity is captured directly in the numbers themselves."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming TF-IDF's cleverness with word weighting solves the meaning problem too.** TF-IDF only reweights raw counts — it still has zero concept of which words are similar in meaning to each other.\n\n**Underestimating how often out-of-vocabulary words show up in real-world text.** Typos, slang, new terminology, and names are constant in real data — a representation that can't handle unseen words at all is a real practical limitation.\n\n**Not connecting this to something concrete.** Try to imagine a bag-of-words classifier trained only on the word 'happy' encountering the word 'joyful' for the first time at prediction time — it has genuinely no idea these are related."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "nlp_bow_limitations_quiz",
+        "questions": [
+          {
+            "question": "Why do bag-of-words and TF-IDF treat 'great' and 'excellent' as completely unrelated?",
+            "options": [
+              "Because the two words are actually spelled very differently",
+              "Because each word is just an independent slot in the vocabulary vector, with no built-in notion of which words are similar in meaning",
+              "Because they always appear in different documents",
+              "There's no real issue — these representations do capture word similarity"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Bag-of-words and TF-IDF represent each vocabulary word as its own independent dimension — there's no mechanism in either representation for capturing that two different words might have similar meanings.",
+            "id": "q1"
+          },
+          {
+            "question": "What is the out-of-vocabulary problem?",
+            "options": [
+              "A model running out of computer memory",
+              "A word that never appeared in the training data has no representation at all in a bag-of-words or TF-IDF vector",
+              "Too many documents being processed at once",
+              "A vocabulary that's too small to be useful"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since bag-of-words and TF-IDF vectors are built around a fixed vocabulary learned from training data, any word not seen during that training (like new slang or a typo) simply has no way to be represented.",
+            "id": "q2"
+          },
+          {
+            "question": "What kind of representation would directly address bag-of-words' lack of a notion of word similarity?",
+            "options": [
+              "An even larger bag-of-words vocabulary",
+              "A representation where similar words end up numerically close together, capturing semantic similarity directly — like word embeddings",
+              "Removing all stop words before vectorizing",
+              "Using only unigrams instead of n-grams"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The core limitation is the absence of any built-in similarity between related words — word embeddings are specifically designed to place semantically similar words near each other in a learned numerical space, directly solving this problem.",
+            "id": "q3"
+          },
+          {
+            "question": "What does it mean that bag-of-words vectors are 'sparse'?",
+            "options": [
+              "Every dimension has a large nonzero value",
+              "The vectors are as long as the entire vocabulary and almost entirely zeros for any single document",
+              "Sparse vectors cannot be computed at all",
+              "Sparsity only applies to TF-IDF, not bag of words"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since most documents only use a small fraction of the overall vocabulary, most entries in a bag-of-words vector are zero, making it a sparse representation.",
+            "id": "q4"
+          },
+          {
+            "question": "What is the out-of-vocabulary problem specifically caused by?",
+            "options": [
+              "Too many documents being processed simultaneously",
+              "A fixed vocabulary that has no way to represent a word never seen during training",
+              "Bag of words being too complex to compute",
+              "TF-IDF assigning too much weight to rare words"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Because bag-of-words and TF-IDF rely on a fixed vocabulary derived from the training data, any new word not seen during training simply has no representation.",
+            "id": "q5"
+          },
+          {
+            "question": "According to the lesson, what would a bag-of-words classifier trained only on 'happy' do when it sees 'joyful' for the first time?",
+            "options": [
+              "It would immediately recognize the similarity in meaning",
+              "It would have no idea these words are related",
+              "It would automatically translate 'joyful' to 'happy'",
+              "It would treat 'joyful' exactly the same as 'happy'"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since bag-of-words has no built-in notion of word similarity, it cannot recognize that 'joyful' and 'happy' are semantically related if 'joyful' wasn't part of its training vocabulary.",
+            "id": "q6"
+          },
+          {
+            "question": "Why doesn't TF-IDF solve the meaning problem that motivates word embeddings?",
+            "options": [
+              "TF-IDF eliminates the need for a vocabulary entirely",
+              "TF-IDF only reweights raw counts — it still has no concept of which words are similar in meaning",
+              "TF-IDF actually already captures full semantic meaning",
+              "TF-IDF cannot be computed for real text"
+            ],
+            "correctAnswer": 1,
+            "explanation": "While TF-IDF cleverly reweights word counts by their informativeness, it remains fundamentally a counting technique with no built-in understanding of semantic similarity between different words.",
+            "id": "q7"
+          },
+          {
+            "question": "What is the vocabulary explosion problem associated with bag-of-words and TF-IDF?",
+            "options": [
+              "Vocabulary size shrinks as more documents are added",
+              "Vectors can reach tens of thousands of dimensions for a real corpus, which is computationally wasteful and doesn't scale gracefully",
+              "Vocabulary size has no effect on computation",
+              "Vocabulary explosion only affects character-level tokenization"
+            ],
+            "correctAnswer": 1,
+            "explanation": "As a corpus grows, the vocabulary (and thus vector length) for bag-of-words and TF-IDF representations can grow very large, creating computational and scaling challenges.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "nlp_word2vec",
+      "title": "Word2Vec: Learning Meaning from Context",
+      "description": "Learn how a clever training trick produces word vectors that actually capture meaning.",
+      "duration": "10 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain the core idea behind Word2Vec and what makes its resulting word vectors useful."
+          },
+          {
+            "title": "💡 The key insight: \"a word is known by the company it keeps\"",
+            "content": "**Word2Vec** is built on a simple but powerful linguistic idea: words that appear in similar contexts tend to have similar meanings. \"Great\" and \"excellent\" often show up surrounded by similar neighboring words (\"the movie was great/excellent\", \"a great/excellent choice\") — so a model trained to predict a word's context should naturally learn that these two words are related."
+          },
+          {
+            "title": "🎯 How training actually works",
+            "content": "Word2Vec trains a small neural network on one of two related tasks:\n\n• **Skip-gram** — given a word, predict the words likely to appear around it\n• **CBOW (Continuous Bag of Words)** — given the surrounding words, predict the word in the middle\n\nThe network never directly outputs a final \"meaning\" for a word — the useful byproduct is the network's internal weights themselves. After training on a huge amount of text, the learned weight vector for each word (typically 100-300 numbers) becomes that word's **embedding**, and these turn out to capture meaningful semantic relationships."
+          },
+          {
+            "title": "📐 What makes embeddings so useful: geometry captures meaning",
+            "content": "Words with similar meanings end up close together in this learned vector space, and — remarkably — some semantic relationships even show up as consistent *directions*.\n\n```python\n# The famous (if slightly idealized) example:\n# vector(\"king\") - vector(\"man\") + vector(\"woman\") ≈ vector(\"queen\")\n\n# Measuring similarity between word vectors, typically via cosine similarity:\n# similarity(\"great\", \"excellent\")  → high\n# similarity(\"great\", \"bicycle\")    → low\n```\n\nThis is a fundamentally different kind of representation than bag-of-words — meaning is encoded directly in the geometry of the vector space, not just in raw word counts."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming embeddings understand meaning the way humans do.** They capture statistical patterns of word co-occurrence in the training text — extremely useful, but ultimately still a mathematical byproduct of prediction, not true understanding.\n\n**Forgetting embeddings can encode biases present in the training text.** If certain associations are common (and potentially unfair or stereotypical) in the training data, the resulting embeddings can reflect and even amplify them — a genuine and actively studied concern in NLP.\n\n**Treating the king-queen analogy example as something that works perfectly every time.** It's a famous, real, and impressive illustration of the geometry embeddings can capture, but such clean, perfect relationships aren't guaranteed for every word pair."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "nlp_word2vec_quiz",
+        "questions": [
+          {
+            "question": "What core idea does Word2Vec's training rely on?",
+            "options": [
+              "Words that appear in similar contexts tend to have similar meanings",
+              "Every word should be assigned a completely random vector",
+              "Word meaning can be looked up directly from a dictionary",
+              "Longer words are always more important than shorter ones"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Word2Vec is built around the distributional hypothesis — words appearing in similar contexts tend to be semantically related — and trains a model to predict context, with the useful byproduct being meaningful word vectors.",
+            "id": "q1"
+          },
+          {
+            "question": "What actually becomes a word's embedding after Word2Vec training?",
+            "options": [
+              "The word's dictionary definition, converted to numbers",
+              "The learned internal weights of the small neural network trained to predict context, associated with that word",
+              "A random number assigned before training begins",
+              "The word's frequency count in the training text"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Word2Vec trains a small network on a context-prediction task, and the useful output isn't the network's direct predictions — it's the internal weight vector learned for each word, which becomes that word's embedding.",
+            "id": "q2"
+          },
+          {
+            "question": "What does it mean that embeddings can encode biases present in the training text?",
+            "options": [
+              "Embeddings are always perfectly neutral and unbiased",
+              "Since embeddings are learned purely from patterns in the training text, any biased or stereotypical associations present in that text can be reflected in the resulting word vectors",
+              "Bias only affects bag-of-words representations, not embeddings",
+              "This is not an actual concern with word embeddings"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Because embeddings are learned entirely from statistical patterns in real-world text, any biases present in that text (including unfair stereotypical associations) can be absorbed into the resulting vectors — a genuine, actively studied issue in NLP.",
+            "id": "q3"
+          },
+          {
+            "question": "What are the two related training tasks Word2Vec can use?",
+            "options": [
+              "Sentiment analysis and translation",
+              "Skip-gram and CBOW (Continuous Bag of Words)",
+              "Stemming and lemmatization",
+              "BLEU and ROUGE"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Word2Vec trains using either the skip-gram approach (predict surrounding words from a given word) or CBOW (predict a word from its surrounding context).",
+            "id": "q4"
+          },
+          {
+            "question": "In the skip-gram approach, what does the model predict?",
+            "options": [
+              "The entire document's topic",
+              "The words likely to appear around a given word",
+              "A translation of the word",
+              "The word's part of speech"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Skip-gram takes a single word as input and trains the model to predict the words likely to appear in its surrounding context.",
+            "id": "q5"
+          },
+          {
+            "question": "What is the typical dimensionality range for Word2Vec word embeddings, according to the lesson?",
+            "options": [
+              "1-2 numbers",
+              "100-300 numbers",
+              "1 million numbers",
+              "Exactly 4 numbers, matching classification options"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson states that the learned weight vector for each word typically consists of 100-300 numbers, forming that word's embedding.",
+            "id": "q6"
+          },
+          {
+            "question": "What does the famous 'king - man + woman ≈ queen' example illustrate about word embeddings?",
+            "options": [
+              "Embeddings cannot be combined mathematically",
+              "Some semantic relationships show up as consistent directions in the embedding vector space",
+              "This equation always produces exactly the vector for 'queen' with no error",
+              "Word embeddings have no relationship to word meaning"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This example illustrates how certain analogical relationships between word meanings can be captured as consistent geometric directions in the learned embedding space, though it's a somewhat idealized illustration.",
+            "id": "q7"
+          },
+          {
+            "question": "What is used to measure similarity between two word embedding vectors, as introduced in this lesson?",
+            "options": [
+              "Word count difference",
+              "Cosine similarity",
+              "Character length difference",
+              "Alphabetical order"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson introduces cosine similarity as the typical way to measure how similar two word embedding vectors are to each other.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "nlp_glove_fasttext",
+      "title": "GloVe and FastText",
+      "description": "Learn two more influential embedding approaches and what makes each one distinct.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can describe how GloVe and FastText differ from Word2Vec and from each other."
+          },
+          {
+            "title": "🌍 GloVe: learning from global word co-occurrence statistics",
+            "content": "**GloVe (Global Vectors)** takes a somewhat different approach from Word2Vec's local context-window prediction: it starts by building a large matrix of how often every pair of words co-occurs across the *entire* corpus, then learns word vectors that best explain those global co-occurrence statistics.\n\n```\n# Conceptual co-occurrence counting (simplified)\n# how many times does \"ice\" appear near \"cold\"? near \"hot\"?\n# how many times does \"steam\" appear near \"cold\"? near \"hot\"?\n# GloVe learns vectors consistent with these global count patterns\n```\n\nIn practice, GloVe and Word2Vec often produce embeddings of broadly similar quality and usefulness, despite their different underlying training approaches — both remain widely used pretrained embedding options."
+          },
+          {
+            "title": "🧩 FastText: handling words at the subword level",
+            "content": "**FastText** extends the Word2Vec idea by representing each word as a combination of its **character n-grams** (small chunks of characters), rather than treating each word as one indivisible unit.\n\n```\n# \"apple\" might be broken into character n-grams like:\n# \"app\", \"ppl\", \"ple\", plus the whole word itself\n```\n\nThis has a major practical advantage: FastText can construct a reasonable embedding for a word it has *never seen before*, by combining the embeddings of its familiar character n-grams — directly addressing the out-of-vocabulary problem that plagued bag-of-words, and that plain Word2Vec/GloVe still share."
+          },
+          {
+            "title": "🎯 Choosing between them",
+            "content": "• **Word2Vec** — the original, widely understood approach; a solid default\n• **GloVe** — often comparably strong, built on global co-occurrence statistics\n• **FastText** — the best choice when handling rare words, typos, or morphologically rich languages (where words can take many different forms) matters for your task\n\nAll three produce **static embeddings** — each word gets exactly one fixed vector, regardless of context. This is a real limitation (\"bank\" the riverbank and \"bank\" the financial institution get the same vector) that later modules and future courses address with *contextual* embeddings."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming one of these three is always strictly the best choice.** The right choice depends on the task, language, and how much out-of-vocabulary handling matters.\n\n**Forgetting these are all static embeddings.** Every occurrence of a word gets the identical vector, no matter its context — a real limitation worth remembering as later material builds toward contextual alternatives.\n\n**Not considering using pretrained embeddings rather than training your own.** For many tasks, downloading embeddings pretrained on a massive general corpus works better (and is far cheaper) than training new embeddings from a smaller task-specific dataset."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "nlp_glove_fasttext_quiz",
+        "questions": [
+          {
+            "question": "How does GloVe's approach to learning embeddings differ from Word2Vec's?",
+            "options": [
+              "GloVe doesn't use any numerical vectors at all",
+              "GloVe learns from global word co-occurrence statistics across the whole corpus, while Word2Vec predicts context using local context windows",
+              "GloVe can only be used for images, not text",
+              "There's no real difference between the two approaches"
+            ],
+            "correctAnswer": 1,
+            "explanation": "While Word2Vec trains by predicting words within a local context window, GloVe instead builds a global co-occurrence matrix across the entire corpus and learns vectors that best explain those overall statistics — a different but related approach to producing similar-quality embeddings.",
+            "id": "q1"
+          },
+          {
+            "question": "What key advantage does FastText have over Word2Vec and GloVe?",
+            "options": [
+              "It trains significantly faster in every case",
+              "It can construct reasonable embeddings for words it has never seen before, by combining embeddings of familiar character n-grams",
+              "It doesn't require any training data at all",
+              "It only works for single-character words"
+            ],
+            "correctAnswer": 1,
+            "explanation": "By representing words as combinations of character n-grams rather than indivisible units, FastText can build an embedding for a new, unseen word from the pieces it does recognize — directly addressing the out-of-vocabulary problem that Word2Vec and GloVe still face.",
+            "id": "q2"
+          },
+          {
+            "question": "What limitation do Word2Vec, GloVe, and FastText all share?",
+            "options": [
+              "None of them can be used for real NLP tasks",
+              "They all produce static embeddings — each word gets exactly one fixed vector regardless of the context it appears in",
+              "They all require labeled training data",
+              "They can only represent numbers, not words"
+            ],
+            "correctAnswer": 1,
+            "explanation": "All three approaches assign a single fixed vector per word, so a word with multiple meanings (like 'bank') gets the same representation in every context — a real limitation that later contextual embedding approaches are designed to address.",
+            "id": "q3"
+          },
+          {
+            "question": "What kind of statistics does GloVe use to learn word vectors?",
+            "options": [
+              "Local context window predictions only",
+              "Global word co-occurrence statistics across the entire corpus",
+              "Random statistics unrelated to the text",
+              "Only the frequency of individual characters"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Unlike Word2Vec's local context-window approach, GloVe builds a large co-occurrence matrix across the whole corpus and learns vectors consistent with those global statistics.",
+            "id": "q4"
+          },
+          {
+            "question": "What are FastText's embeddings built from?",
+            "options": [
+              "Whole documents only",
+              "Character n-grams, small chunks of characters within each word",
+              "Randomly generated numbers",
+              "Only punctuation marks"
+            ],
+            "correctAnswer": 1,
+            "explanation": "FastText represents each word as a combination of its character n-grams, rather than treating the whole word as one indivisible unit.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is FastText particularly useful for morphologically rich languages?",
+            "options": [
+              "It can only process English text",
+              "Words can take many different forms, and FastText's subword approach helps handle unfamiliar variants",
+              "FastText ignores word forms entirely",
+              "Morphologically rich languages have no words at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since FastText builds embeddings from character n-grams, it can construct reasonable representations for word variants and rare forms common in morphologically rich languages.",
+            "id": "q6"
+          },
+          {
+            "question": "What do Word2Vec, GloVe, and FastText all have in common regarding context?",
+            "options": [
+              "They all produce a different vector for every context a word appears in",
+              "They all produce static embeddings — one fixed vector per word regardless of context",
+              "None of them can be pretrained",
+              "They all require labeled data to train"
+            ],
+            "correctAnswer": 1,
+            "explanation": "All three approaches assign each word exactly one fixed vector, meaning they don't account for a word's meaning changing based on its specific context — a limitation contextual embeddings later address.",
+            "id": "q7"
+          },
+          {
+            "question": "Why might someone choose to use pretrained embeddings rather than training their own from scratch?",
+            "options": [
+              "Pretrained embeddings are always illegal to use",
+              "Downloading embeddings pretrained on a massive general corpus is often better and cheaper than training on a smaller task-specific dataset",
+              "Custom-trained embeddings always outperform pretrained ones",
+              "Pretrained embeddings cannot be loaded into any project"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson recommends using pretrained embeddings for many tasks, since training high-quality embeddings requires far more data and compute than most individual projects have available.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "nlp_using_embeddings",
+      "title": "Using Pretrained Embeddings and Measuring Similarity",
+      "description": "Learn how to practically use embeddings in a project, and the standard way to measure how similar two word vectors are.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain cosine similarity and describe how pretrained embeddings are typically used in practice."
+          },
+          {
+            "title": "📥 Loading pretrained embeddings",
+            "content": "Training high-quality embeddings from scratch requires an enormous amount of text and compute — in practice, most projects load **pretrained embeddings**, trained by others on massive general-purpose text corpora (like Wikipedia or huge web crawls), rather than training their own.\n\n```python\n# Conceptual usage\n# embeddings = load_pretrained_embeddings(\"glove-wiki-gigaword-100\")\n# vector = embeddings[\"excellent\"]   # a 100-dimensional vector\n```"
+          },
+          {
+            "title": "📐 Cosine similarity: measuring how alike two vectors are",
+            "content": "**Cosine similarity** measures the angle between two vectors, ignoring their magnitude — it's the standard way to compare how similar two word embeddings are.\n\n```python\nimport numpy as np\n\ndef cosine_similarity(vec1, vec2):\n    return np.dot(vec1, vec2) / (np.linalg.norm(vec1) * np.linalg.norm(vec2))\n\n# similarity(\"great\", \"excellent\")  → close to 1 (very similar direction)\n# similarity(\"great\", \"bicycle\")    → close to 0 (mostly unrelated)\n```\n\n• A cosine similarity near **1** means the vectors point in nearly the same direction (very similar)\n• A cosine similarity near **0** means they're roughly unrelated\n• A cosine similarity near **-1** means they point in nearly opposite directions"
+          },
+          {
+            "title": "🛠️ Using embeddings as features for a downstream model",
+            "content": "A common approach for building a document-level representation from word embeddings: average (or otherwise combine) the embeddings of all words in a document into a single vector, then use that as input to a classifier.\n\n```python\n# Conceptual: average word embeddings to represent a whole sentence\n# sentence = \"the movie was excellent\"\n# sentence_vector = average([embeddings[w] for w in tokenize(sentence)])\n# classifier.predict(sentence_vector)\n```\n\nThis simple averaging approach is a reasonable baseline, though it — like bag-of-words — still loses word order information; more sophisticated approaches (covered in upcoming modules and later courses) handle this more effectively."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Training embeddings from scratch on a small, task-specific dataset by default.** Pretrained embeddings, trained on vastly more text, usually generalize better unless your domain is very unusual (like a highly specialized technical or medical vocabulary).\n\n**Using Euclidean distance instead of cosine similarity without a clear reason.** Cosine similarity is standard for comparing embeddings because it focuses on direction (meaning) rather than magnitude, which isn't always meaningfully comparable across vectors.\n\n**Forgetting that averaging word embeddings still discards word order.** It's a useful, simple baseline — but it inherits some of the same order-blindness limitations as bag-of-words."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "nlp_using_embeddings_quiz",
+        "questions": [
+          {
+            "question": "Why do most projects use pretrained embeddings rather than training their own from scratch?",
+            "options": [
+              "Training embeddings from scratch is technically impossible",
+              "Training high-quality embeddings requires enormous amounts of text and compute, which pretrained embeddings (trained by others on massive corpora) already provide",
+              "Pretrained embeddings are always required by licensing law",
+              "Custom embeddings can never be as good as pretrained ones"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Producing genuinely useful embeddings typically requires training on huge amounts of text — reusing embeddings someone else already trained on a massive corpus is far more practical for most projects than training from scratch.",
+            "id": "q1"
+          },
+          {
+            "question": "What does cosine similarity measure between two word vectors?",
+            "options": [
+              "The exact numeric difference between every dimension",
+              "The angle between the two vectors, capturing how similar their direction is, regardless of their magnitude",
+              "The number of words in the vocabulary",
+              "Whether the two words are spelled similarly"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Cosine similarity focuses on the angle between vectors rather than their length, which is well suited to comparing embeddings since it's the direction in the vector space — not the magnitude — that tends to capture semantic similarity.",
+            "id": "q2"
+          },
+          {
+            "question": "What limitation does simply averaging word embeddings to represent a sentence still share with bag-of-words?",
+            "options": [
+              "It requires labeled data to compute",
+              "It still discards the order in which words appeared in the sentence",
+              "It can't be used as input to a classifier",
+              "It only works for single-word inputs"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Averaging individual word vectors together loses any information about the order those words appeared in — much like bag-of-words, this simple approach can't distinguish sentences that use the same words in a different order.",
+            "id": "q3"
+          },
+          {
+            "question": "What does a cosine similarity value close to 0 indicate about two word vectors?",
+            "options": [
+              "The vectors point in nearly the same direction",
+              "The vectors are roughly unrelated",
+              "The vectors point in nearly opposite directions",
+              "The words have identical spelling"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A cosine similarity near 0 indicates the two vectors are roughly orthogonal in direction, suggesting the words are largely unrelated in meaning.",
+            "id": "q4"
+          },
+          {
+            "question": "What is a common approach for building a document-level representation from individual word embeddings?",
+            "options": [
+              "Randomly selecting one word's embedding to represent the whole document",
+              "Averaging (or otherwise combining) the embeddings of all words in the document into a single vector",
+              "Concatenating every word's embedding into an infinitely long vector",
+              "Ignoring embeddings entirely for document-level tasks"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A common baseline approach averages the embeddings of all words in a document to produce a single vector representing the whole document, which can then feed into a classifier.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does cosine similarity focus on the angle between vectors rather than their magnitude?",
+            "options": [
+              "Because magnitude is always more informative than direction for embeddings",
+              "Because direction, not magnitude, tends to capture semantic similarity between embeddings",
+              "Because angles cannot be computed mathematically",
+              "Cosine similarity actually only considers magnitude, not angle"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The direction a word vector points in tends to be what captures its meaning most effectively, which is why cosine similarity (focused on direction) is the standard comparison method for embeddings, rather than raw distance.",
+            "id": "q6"
+          },
+          {
+            "question": "What is a limitation of simply averaging word embeddings to represent a whole document?",
+            "options": [
+              "It requires far more compute than any other approach",
+              "It still discards word order information, similar to bag-of-words",
+              "It cannot be used as input to any classifier",
+              "Averaging embeddings is mathematically impossible"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Averaging word vectors together loses information about the sequence in which words appeared, inheriting some of the same order-blindness that limits bag-of-words.",
+            "id": "q7"
+          },
+          {
+            "question": "When might training custom embeddings from scratch make more sense than using pretrained ones?",
+            "options": [
+              "Never — pretrained embeddings are always strictly better in every situation",
+              "When the domain is very unusual, like a highly specialized technical or medical vocabulary",
+              "Only when there is no available text data at all",
+              "Custom embeddings can never be trained successfully"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson notes that pretrained embeddings usually generalize better, except in cases involving a very unusual or specialized domain vocabulary not well represented in general-purpose training corpora.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

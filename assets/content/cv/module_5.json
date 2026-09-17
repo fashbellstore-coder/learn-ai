@@ -1,0 +1,551 @@
+{
+  "id": "module_5",
+  "title": "Modern Vision Architectures",
+  "description": "Vision Transformers and beyond: how attention was adapted for images, choosing between CNNs and ViTs, a preview of multimodal vision-language models, and a complete project workflow tying the whole course together.",
+  "icon": "✨",
+  "color": "#5C6BC0",
+  "order": 5,
+  "estimatedHours": 2,
+  "difficulty": "Advanced",
+  "prerequisites": [
+    "module_4"
+  ],
+  "lessons": [
+    {
+      "id": "cv_vision_transformers",
+      "title": "Vision Transformers (ViT)",
+      "description": "Learn how the attention-based architecture from NLP was adapted to work directly on images.",
+      "duration": "9 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain the core idea behind Vision Transformers and how they represent an image differently than a CNN does."
+          },
+          {
+            "title": "🧩 A surprising idea: treat an image like a sequence",
+            "content": "Recall attention and the Transformer architecture from the NLP course, built for processing sequences of text tokens. The **Vision Transformer (ViT)** applies this same fundamental architecture to images, by first converting an image into something that looks like a sequence: it splits the image into a grid of fixed-size **patches** (like 16×16 pixel squares), then treats each flattened patch as if it were a single \"token\" — directly analogous to how a sentence is a sequence of word tokens."
+          },
+          {
+            "title": "🔲 Patches as tokens",
+            "content": "```\nImage (e.g. 224x224) → split into a grid of 16x16 patches\n→ 14x14 = 196 patches total, each flattened into a vector\n→ these 196 patch \"tokens\" are fed into a standard Transformer\n   encoder (attention layers, exactly as in the NLP course)\n```\n\nEach patch gets an embedding (recall embeddings from the NLP course, now applied to image patches instead of words), plus positional information (since, just like word order in NLP, patch position/location matters for understanding the image)."
+          },
+          {
+            "title": "👀 What attention buys a vision model",
+            "content": "Recall attention's core benefit from the NLP course: it lets a model directly relate any two elements to each other, regardless of distance, rather than having to build up long-range relationships gradually through many stacked local layers, the way a CNN does through repeated convolutions. Applied to images, this means a ViT can directly relate a patch in one corner of an image to a patch in a completely different corner in a single attention step — potentially capturing certain long-range visual relationships more directly than a CNN's inherently local, stacked-layer approach."
+          },
+          {
+            "title": "⚖️ ViT vs. CNN: a genuine tradeoff, not a strict replacement",
+            "content": "ViTs generally need *more* training data than CNNs to reach comparable performance, since they lack CNNs' built-in assumptions about images (like local pattern reuse, baked directly into convolution) — a ViT has to learn these useful patterns from data instead of having them built into its architecture from the start. With enough training data, though, ViTs have matched or exceeded CNN performance on many vision benchmarks — this is an active, evolving area, with both architecture families remaining genuinely relevant, and hybrid approaches combining ideas from both increasingly common."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming ViTs have made CNNs obsolete.** Both remain genuinely useful, competitive architecture choices — the right pick depends on available training data, computational budget, and the specific task.\n\n**Forgetting ViTs generally need more training data than CNNs to perform comparably well.** Without CNNs' built-in local-pattern assumptions, a ViT has to learn more from data alone.\n\n**Not connecting this back to the NLP course's attention lesson.** ViT is a genuinely direct, elegant application of that same underlying idea — patches simply take the place tokens played there."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "cv_vision_transformers_quiz",
+        "questions": [
+          {
+            "question": "How does a Vision Transformer initially process an input image?",
+            "options": [
+              "It applies a sequence of convolutional filters, exactly like a CNN",
+              "It splits the image into a grid of fixed-size patches and treats each patch as a token, similar to how a sentence is a sequence of word tokens",
+              "It converts the image directly into text before processing",
+              "It only processes a single central pixel of the image"
+            ],
+            "correctAnswer": 1,
+            "explanation": "ViT's key innovation is treating an image as a sequence of patch 'tokens,' directly analogous to how NLP Transformers process a sequence of word tokens — each image patch is flattened and embedded, much like a word.",
+            "id": "q1"
+          },
+          {
+            "question": "What key advantage does attention give a Vision Transformer compared to a CNN's local, stacked-layer approach?",
+            "options": [
+              "Attention makes the model require less training data than a CNN",
+              "Attention can directly relate any two patches to each other regardless of their distance in the image, rather than needing to build up long-range relationships gradually through many stacked local layers",
+              "Attention eliminates the need for any positional information",
+              "Attention only works on grayscale images"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Unlike a CNN, which builds up larger receptive fields gradually through stacked local convolutions, attention lets a ViT directly relate any two patches (even ones far apart in the image) in a single step — potentially capturing certain long-range relationships more directly.",
+            "id": "q2"
+          },
+          {
+            "question": "Why do ViTs generally need more training data than CNNs to reach comparable performance?",
+            "options": [
+              "ViTs are technically incapable of learning from image data",
+              "CNNs have built-in assumptions about images (like local pattern reuse via convolution) baked into their architecture, while a ViT has to learn these useful patterns from data instead",
+              "ViTs always perform worse than CNNs regardless of data amount",
+              "Training data amount has no actual effect on either architecture"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A CNN's convolutional structure directly encodes an assumption that local patterns matter and can be reused across positions — a ViT lacks this built-in bias and instead needs to learn similar useful patterns from data, which generally requires having more of it available.",
+            "id": "q3"
+          },
+          {
+            "question": "What is a ViT's fixed-size image patch conceptually equivalent to in NLP?",
+            "options": [
+              "A whole document",
+              "A single token, like a word in a sentence",
+              "A loss function",
+              "An optimizer"
+            ],
+            "correctAnswer": 1,
+            "explanation": "ViT treats each flattened image patch as a token, directly analogous to how a word functions as a token in an NLP Transformer's input sequence.",
+            "id": "q4"
+          },
+          {
+            "question": "In the example given, how many patches result from splitting a 224x224 image into 16x16 patches?",
+            "options": [
+              "16",
+              "196",
+              "224",
+              "1000"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson computes 14x14 = 196 patches total when dividing a 224x224 image into a grid of 16x16 patches.",
+            "id": "q5"
+          },
+          {
+            "question": "What information, besides a patch's embedding, does a ViT provide for each patch, mirroring word order in NLP?",
+            "options": [
+              "The patch's average brightness only",
+              "Positional information, since patch position/location matters for understanding the image",
+              "The patch's file compression ratio",
+              "A random noise vector"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Just as word order matters in NLP, patch position matters for images, so ViT adds positional information alongside each patch's embedding.",
+            "id": "q6"
+          },
+          {
+            "question": "What does the lesson identify as an active, evolving relationship between ViTs and CNNs?",
+            "options": [
+              "ViTs have made CNNs completely obsolete with no remaining use",
+              "Both architecture families remain genuinely relevant, with hybrid approaches combining ideas from both increasingly common",
+              "CNNs have made ViTs completely obsolete with no remaining use",
+              "The two architectures cannot be compared in any meaningful way"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson explicitly frames this as an active, evolving area where both CNNs and ViTs remain relevant, with hybrid approaches becoming increasingly common.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does a ViT generally need more training data than a CNN to reach comparable performance?",
+            "options": [
+              "ViTs are fundamentally incapable of learning from images",
+              "ViTs lack CNNs' built-in assumptions about local pattern reuse, so they must learn these useful patterns from data instead",
+              "CNNs always require more data than ViTs, not the other way around",
+              "Training data amount has no effect on either architecture's performance"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Without convolution's built-in bias toward local, reusable patterns, a ViT has to learn similar useful structure purely from data, generally requiring more training examples to do so effectively.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "cv_cnn_vs_vit",
+      "title": "CNNs vs. ViTs: Choosing an Architecture",
+      "description": "Get practical guidance for choosing between these two major architecture families for a real project.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can list practical considerations for choosing between a CNN and a ViT for a computer vision project."
+          },
+          {
+            "title": "📊 Data availability",
+            "content": "As covered in the previous lesson: ViTs generally need more training data to perform well, since they lack CNNs' built-in local-pattern assumptions. For projects with limited task-specific data, a CNN (especially via transfer learning, module 1) is often the more practical, reliable starting choice."
+          },
+          {
+            "title": "💻 Computational resources",
+            "content": "Both architecture families have efficient and resource-heavy variants, but historically, well-optimized CNNs (especially smaller ones like MobileNet, from module 1) have had a slight edge for very resource-constrained deployments (mobile, edge devices) — though this gap has been narrowing as efficient ViT variants continue to be developed."
+          },
+          {
+            "title": "🎯 Pretrained model availability",
+            "content": "Just as with CNN backbones (module 1), the practical availability of strong pretrained weights matters enormously. Both CNNs and ViTs now have widely available pretrained options for common tasks — checking what's readily available for your specific use case is often more decisive in practice than a purely theoretical architecture comparison."
+          },
+          {
+            "title": "🛠️ A practical decision framework",
+            "content": "• **Limited data, need a reliable, well-understood default** → a pretrained CNN (like ResNet-50) via transfer learning is a very safe, well-tested choice\n• **Large dataset available, want to push toward the best possible accuracy** → a ViT (or a hybrid architecture) is worth strongly considering\n• **Resource-constrained deployment** (mobile, edge, real-time) → check specifically for efficient variants of either family designed for that exact constraint, rather than assuming one family is inherently better\n• **When genuinely unsure** → start with a well-established, strong pretrained CNN baseline (mirroring the machine learning course's general \"start simple, escalate as needed\" advice), then experiment further from there if there's a clear, specific reason to"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Choosing an architecture based purely on which one is more \"impressive\" or recent, rather than actual project constraints.** Data availability, compute budget, and pretrained model access are usually far more decisive factors in practice than architectural novelty alone.\n\n**Assuming the CNN-vs-ViT choice is permanent and irreversible.** Many projects can and do experiment with both, especially once a working baseline pipeline already exists — switching architectures later is often more feasible than it might seem.\n\n**Ignoring this course's general \"start simple\" theme.** Just as with the machine learning course's guidance on classical baselines, starting with a well-established, simpler default (a pretrained CNN) is often the most practical first step, adding complexity only when there's a clear, specific reason to."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "cv_cnn_vs_vit_quiz",
+        "questions": [
+          {
+            "question": "Why might a project with a limited, small task-specific dataset favor a CNN over a ViT?",
+            "options": [
+              "CNNs cannot be used with small datasets at all",
+              "ViTs generally need more training data to perform well, since they lack CNNs' built-in assumptions about local image patterns — a CNN (especially via transfer learning) is often more practical with limited data",
+              "ViTs are always slower to train regardless of dataset size",
+              "CNNs cannot use pretrained weights, unlike ViTs"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since ViTs must learn useful spatial patterns from data alone (lacking a CNN's built-in convolutional bias), they generally need more training examples to perform comparably well — making a pretrained CNN a more practical, reliable choice when task-specific data is limited.",
+            "id": "q1"
+          },
+          {
+            "question": "According to the practical decision framework, what's a reasonable default starting point when genuinely unsure which architecture to choose?",
+            "options": [
+              "Always choose the newest, most complex architecture available regardless of the situation",
+              "Start with a well-established, strong pretrained CNN baseline, then experiment further if there's a clear, specific reason to",
+              "Train a completely new architecture from scratch without any pretrained weights",
+              "Randomly select between a CNN and a ViT with no further consideration"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Mirroring the 'start simple' theme from the machine learning course, beginning with a well-tested, reliable pretrained CNN baseline is a practical default — additional complexity (like switching to a ViT) can be considered later if there's a specific, clear reason to.",
+            "id": "q2"
+          },
+          {
+            "question": "What factor is often more decisive in practice than a purely theoretical CNN-vs-ViT comparison?",
+            "options": [
+              "The color of the icons representing each architecture in a diagram",
+              "Practical considerations like data availability, computational resources, and the availability of strong pretrained weights for your specific use case",
+              "Which architecture was published in a research paper more recently",
+              "The number of letters in the architecture's name"
+            ],
+            "correctAnswer": 1,
+            "explanation": "In real projects, practical constraints — how much data you have, what compute is available, and what pretrained options exist for your task — usually matter more for the actual outcome than an abstract theoretical comparison of the two architecture families.",
+            "id": "q3"
+          },
+          {
+            "question": "According to the practical decision framework, what should a project with large available data and a goal of pushing accuracy consider?",
+            "options": [
+              "Only ever using the smallest possible CNN",
+              "A ViT (or a hybrid architecture) is worth strongly considering",
+              "Avoiding any pretrained weights entirely",
+              "Skipping model training altogether"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The framework recommends considering a ViT or hybrid architecture specifically when a large dataset is available and pushing toward the best possible accuracy is the goal.",
+            "id": "q4"
+          },
+          {
+            "question": "Historically, which architecture family had a slight edge for very resource-constrained deployments like mobile devices?",
+            "options": [
+              "ViTs, due to their attention mechanism",
+              "Well-optimized, smaller CNNs like MobileNet",
+              "Neither family could run on mobile devices",
+              "Only hybrid architectures could run on mobile devices"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson notes that historically, well-optimized smaller CNNs like MobileNet had a slight edge for resource-constrained deployments, though this gap has been narrowing with efficient ViT variants.",
+            "id": "q5"
+          },
+          {
+            "question": "Is the choice between a CNN and a ViT for a project considered permanent, according to the lesson?",
+            "options": [
+              "Yes, once chosen it can never be changed",
+              "No — many projects experiment with both, and switching architectures later is often more feasible than it might seem",
+              "The choice is made entirely at random with no real consequence",
+              "Only ViTs can ever be adopted once a CNN baseline exists"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson explicitly cautions against assuming the choice is permanent, noting that many projects experiment with both architectures, especially once a working baseline pipeline exists.",
+            "id": "q6"
+          },
+          {
+            "question": "What mistake does the lesson warn against regarding architecture selection based on novelty?",
+            "options": [
+              "Always choosing the most established, proven architecture available",
+              "Choosing an architecture based purely on which one is more 'impressive' or recent, rather than actual project constraints",
+              "Considering data availability and compute budget when choosing an architecture",
+              "Starting with a simple, well-tested baseline"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson warns against choosing based on novelty or impressiveness alone, emphasizing that practical constraints like data and compute are usually more decisive factors.",
+            "id": "q7"
+          },
+          {
+            "question": "What does the lesson say about the availability of pretrained weights for CNNs and ViTs today?",
+            "options": [
+              "Only CNNs have any pretrained options available",
+              "Both CNNs and ViTs now have widely available pretrained options for common tasks",
+              "Only ViTs have any pretrained options available",
+              "Neither architecture family has pretrained weights available"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson notes that both CNNs and ViTs now have widely available pretrained options, making pretrained weight availability for your specific use case an important practical consideration for either choice.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "cv_multimodal_preview",
+      "title": "A Preview of Multimodal Vision",
+      "description": "Get a glimpse of how vision and language are increasingly being combined into unified models.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain the core idea behind connecting vision and language in a shared representation space."
+          },
+          {
+            "title": "🔗 Beyond vision alone: connecting images and text",
+            "content": "Everything in this course so far has focused on vision in isolation — an image goes in, a prediction (label, boxes, mask) comes out. A significant and rapidly growing area combines vision with the NLP course's language techniques, building models that understand images and text *together*, in a shared, unified way."
+          },
+          {
+            "title": "🤝 The core idea: a shared embedding space",
+            "content": "Recall embeddings from the NLP course — words represented as vectors where similar meanings end up close together. Multimodal vision-language models extend this same idea across two different types of data: both images and text descriptions get mapped into the *same* shared vector space, positioned so that an image and a caption describing it correctly end up close together in that space, while an image and an unrelated, mismatched caption end up far apart.\n\n```\n# Conceptual: a shared embedding space\n# embed(photo of a dog) ≈ embed(\"a photo of a dog\")   ← close together\n# embed(photo of a dog) ≠ embed(\"a photo of a car\")     ← far apart\n```\n\nA well-known example of this general approach is **CLIP**, which learns this shared space from a massive number of naturally-occurring image-caption pairs (like images and their captions found across the web)."
+          },
+          {
+            "title": "🚀 What this unlocks",
+            "content": "Once images and text share a common representation space, a range of powerful capabilities become possible: searching for images using a natural-language text description, **zero-shot classification** (classifying an image into categories it was never specifically trained on, just by comparing it against text descriptions of those categories), and, as a much later course covers, generating entirely new images directly from text descriptions. This represents a genuinely different paradigm from the single-modality vision techniques covered throughout the rest of this course."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming multimodal models replace everything covered in this course.** Single-modality vision techniques (classification, detection, segmentation) remain highly relevant and often more practical and efficient for many focused, well-defined tasks — multimodal approaches shine for genuinely open-ended, flexible, or language-connected use cases.\n\n**Underestimating how significant a shift a shared embedding space represents.** It fundamentally connects two, previously mostly separate, courses' worth of concepts (vision and NLP) into one unified representation, unlocking capabilities neither could achieve as effectively alone.\n\n**Expecting to fully master multimodal models from this brief preview.** This lesson is intentionally just a glimpse — dedicated later courses on generative AI go into these ideas in much greater depth, once this course's and the NLP course's foundations have had time to fully sink in."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "cv_multimodal_preview_quiz",
+        "questions": [
+          {
+            "question": "What is the core idea behind a shared embedding space connecting vision and language?",
+            "options": [
+              "Images and text are processed by completely separate, unrelated systems with no connection between them",
+              "Both images and text are mapped into the same vector space, positioned so a matching image-caption pair ends up close together and mismatched pairs end up far apart",
+              "Text descriptions are simply appended as extra pixels onto an image",
+              "Images are converted directly into audio before processing"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Multimodal vision-language models like CLIP learn to represent both images and their text descriptions in one shared space, where semantic similarity between an image and matching text corresponds to being positioned close together in that space.",
+            "id": "q1"
+          },
+          {
+            "question": "What does zero-shot classification allow a multimodal model to do?",
+            "options": [
+              "Classify images only into categories it was explicitly trained on with many labeled examples",
+              "Classify an image into categories it was never specifically trained on, by comparing it against text descriptions of those categories in the shared embedding space",
+              "Generate completely new images from scratch with no text input",
+              "Convert an image into a completely different image format"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Because a model like CLIP maps both images and arbitrary text descriptions into the same space, it can compare a new image against text descriptions of categories it never explicitly trained on, enabling classification without task-specific training examples for those categories — hence 'zero-shot.'",
+            "id": "q2"
+          },
+          {
+            "question": "How does connecting vision and language in a shared embedding space relate to the NLP course's concept of embeddings?",
+            "options": [
+              "It has no actual connection to embeddings from the NLP course",
+              "It extends the same core idea of embeddings — representing semantically similar things close together in a vector space — across two different types of data (images and text) simultaneously",
+              "Embeddings only apply to text and cannot be extended to any other data type",
+              "This approach replaces the need for embeddings entirely"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This is a direct extension of the embedding concept from the NLP course — instead of just placing similar words close together, multimodal models place semantically matching images and text close together in one shared space, unifying two previously separate representation spaces.",
+            "id": "q3"
+          },
+          {
+            "question": "What well-known model does the lesson give as an example of learning a shared vision-language embedding space?",
+            "options": [
+              "ResNet",
+              "CLIP",
+              "YOLO",
+              "LeNet"
+            ],
+            "correctAnswer": 1,
+            "explanation": "CLIP is given as a well-known example of a model that learns a shared embedding space from a massive number of image-caption pairs.",
+            "id": "q4"
+          },
+          {
+            "question": "What data does CLIP learn its shared embedding space from, according to the lesson?",
+            "options": [
+              "Only hand-labeled, curated datasets with strict formatting",
+              "A massive number of naturally-occurring image-caption pairs, like images and captions found across the web",
+              "Only grayscale medical images",
+              "Randomly generated synthetic images with no real captions"
+            ],
+            "correctAnswer": 1,
+            "explanation": "CLIP learns its shared vision-language space from a massive number of naturally-occurring image-caption pairs collected from sources like the web.",
+            "id": "q5"
+          },
+          {
+            "question": "What capability does zero-shot classification unlock, according to the lesson?",
+            "options": [
+              "Classifying images only into categories with abundant labeled training examples",
+              "Classifying an image into categories it was never specifically trained on, by comparing it against text descriptions",
+              "Automatically generating new training labels for any dataset",
+              "Converting an image directly into audio"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Zero-shot classification allows classifying an image into categories never specifically trained on, simply by comparing the image against text descriptions of those categories in the shared embedding space.",
+            "id": "q6"
+          },
+          {
+            "question": "According to the lesson, do multimodal models replace everything covered earlier in the computer vision course?",
+            "options": [
+              "Yes, single-modality vision techniques are now entirely obsolete",
+              "No — single-modality techniques remain highly relevant and often more practical for many focused, well-defined tasks",
+              "Multimodal models can only be used for text, not vision at all",
+              "There is no meaningful difference between multimodal and single-modality approaches"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson explicitly warns against assuming multimodal models replace single-modality techniques, which remain more practical and efficient for many focused tasks.",
+            "id": "q7"
+          },
+          {
+            "question": "What future capability does the lesson mention as being covered in a much later course, building on this multimodal preview?",
+            "options": [
+              "Classic edge detection with Sobel filters",
+              "Generating entirely new images directly from text descriptions",
+              "Basic image resizing techniques",
+              "Computing IoU between two bounding boxes"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson mentions that generating new images from text descriptions is covered in a much later course, building on the multimodal foundations introduced here.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "cv_project_workflow",
+      "title": "Putting It Together: A Computer Vision Project Workflow",
+      "description": "Bring every concept in this course together into one coherent, practical project checklist.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can outline the key stages of a typical computer vision project from start to finish."
+          },
+          {
+            "title": "🗺️ The typical stages",
+            "content": "1. **Define the task** — classification, detection, segmentation, pose estimation, or something else? This decision shapes everything that follows\n2. **Assess your data** — how much labeled data is available, and how well does it represent real deployment conditions (module 4's pitfalls lesson)?\n3. **Choose an architecture** — a CNN backbone or a ViT (module 5), likely via transfer learning (module 1) unless you have a very large task-specific dataset\n4. **Preprocess consistently** — resizing, normalization, and color handling matched precisely to what your chosen model expects (module 0)\n5. **Augment thoughtfully** — task-appropriate augmentations (module 0) to improve robustness, without distorting labels\n6. **Train and monitor** — watching for overfitting exactly as covered in the deep learning course, using dropout, early stopping, and other regularization techniques as needed\n7. **Evaluate with the right metrics** — accuracy/precision/recall for classification, mAP for detection, IoU/Dice for segmentation (module 4)\n8. **Test under realistic, representative conditions** — not just clean, ideal images, but the messier lighting, occlusion, and diversity your actual deployment will encounter (module 4)"
+          },
+          {
+            "title": "🎯 Cross-cutting themes worth restating",
+            "content": "• **This course builds directly on deep learning, machine learning, and data science.** CNNs and ViTs are deep learning architectures; evaluation metrics extend directly from the ML course's precision/recall/F1 concepts; data quality and representativeness concerns are exactly the data science course's guidance, just applied specifically to images\n• **Transfer learning is usually the practical default**, not training from scratch — this holds just as strongly here as it did in the deep learning course generally\n• **Real-world performance depends heavily on how representative your training and evaluation data actually are** — this is worth restating specifically for vision, given how much lighting, angle, occlusion, and equipment variation exists in real deployment conditions"
+          },
+          {
+            "title": "🚀 Where computer vision goes from here",
+            "content": "This course covered the foundational building blocks: image representation, CNN architectures, detection, segmentation, evaluation, and a preview of ViTs and multimodal models. The multimodal preview in this module connects directly into the generative AI and large language model courses ahead — many of the most exciting recent developments in AI combine vision and language capabilities together, building on exactly the foundations from this course and the NLP course before it."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Jumping straight to a complex architecture without a simple, well-established baseline first.** A pretrained CNN baseline (module 1/5) quickly reveals whether a task is even tractable with the available data, before investing in something more elaborate.\n\n**Forgetting that computer vision doesn't exist in isolation from the rest of this learning path.** It's built directly on deep learning's architectures and training techniques, machine learning's evaluation principles, and data science's data-quality concerns — treating it as a completely separate, standalone topic misses how much foundation it's genuinely built on.\n\n**Evaluating and celebrating results only under ideal, curated test conditions.** As module 4 covered at length, real deployment conditions are almost always messier and more varied than a clean benchmark dataset — realistic testing matters enormously for actually trustworthy results."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "cv_project_workflow_quiz",
+        "questions": [
+          {
+            "question": "What is typically the practical default choice for a new computer vision project, rather than training a large model completely from scratch?",
+            "options": [
+              "Always building an entirely new architecture from scratch for every project",
+              "Transfer learning — starting from a pretrained backbone (CNN or ViT) and adapting it to the specific task",
+              "Skipping model training entirely and using only classic image processing techniques",
+              "Using the largest possible model regardless of available data"
+            ],
+            "correctAnswer": 1,
+            "explanation": "As covered throughout this course, transfer learning from a pretrained backbone is usually the practical default, since training a large vision model entirely from scratch typically requires far more data and compute than most projects have available.",
+            "id": "q1"
+          },
+          {
+            "question": "How does computer vision, as covered in this course, relate to the machine learning and data science courses that came before it?",
+            "options": [
+              "Computer vision is a completely separate, unrelated field with no real connection to those earlier courses",
+              "Computer vision builds directly on deep learning's architectures, machine learning's evaluation principles (precision/recall/F1), and data science's data-quality and representativeness concerns, all applied specifically to images",
+              "Only the deep learning course is relevant to computer vision; the other courses don't apply at all",
+              "Computer vision replaces the need for everything covered in the earlier courses"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This course consistently builds on and extends ideas from the earlier courses — CNN/ViT architectures come from deep learning, detection/segmentation evaluation metrics extend the ML course's precision/recall/F1 concepts, and concerns about representative, unbiased data connect directly to the data science course's guidance.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is testing a vision model under realistic, representative conditions (not just clean, ideal images) especially important?",
+            "options": [
+              "Clean, ideal test conditions always accurately predict real-world deployment performance",
+              "Real deployment conditions are typically messier and more varied (lighting, occlusion, camera differences) than curated benchmark datasets, so realistic testing is essential for trustworthy results",
+              "Testing conditions have no actual effect on how a model performs once deployed",
+              "Realistic testing is only relevant for segmentation tasks, not classification or detection"
+            ],
+            "correctAnswer": 1,
+            "explanation": "As module 4 covered extensively, real-world deployment involves much more variability (lighting, occlusion, equipment, environment) than clean benchmark test sets typically capture — evaluating only under ideal conditions risks a significantly overoptimistic picture of true real-world performance.",
+            "id": "q3"
+          },
+          {
+            "question": "What is the very first stage of the typical computer vision project workflow described in the lesson?",
+            "options": [
+              "Choosing an architecture immediately",
+              "Defining the task — classification, detection, segmentation, pose estimation, or something else",
+              "Training and monitoring the model",
+              "Evaluating with the right metrics"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The workflow begins with defining the task, since this fundamental decision shapes every subsequent stage of the project.",
+            "id": "q4"
+          },
+          {
+            "question": "Which metric is specifically recommended for evaluating detection tasks in the project workflow?",
+            "options": [
+              "Dice score",
+              "mAP",
+              "BLEU",
+              "Perplexity"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The workflow lists mAP as the appropriate metric for detection tasks, while IoU/Dice are for segmentation and accuracy/precision/recall/F1 are for classification.",
+            "id": "q5"
+          },
+          {
+            "question": "According to the lesson, what is usually the practical default architecture choice, rather than training from scratch?",
+            "options": [
+              "Always building a brand-new architecture from scratch",
+              "Transfer learning via a pretrained CNN or ViT backbone, unless a very large task-specific dataset is available",
+              "Skipping model training entirely",
+              "Using only classic image processing techniques with no learned model"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The workflow states transfer learning is the practical default choice unless a very large task-specific dataset is available, echoing the deep learning course's general guidance.",
+            "id": "q6"
+          },
+          {
+            "question": "How does the project workflow describe the relationship between computer vision and the machine learning, deep learning, and data science courses?",
+            "options": [
+              "Computer vision is entirely separate and unrelated to those courses",
+              "Computer vision builds directly on all three: CNN/ViT architectures from deep learning, evaluation principles from ML, and data quality concerns from data science",
+              "Only the data science course's concepts are relevant to computer vision",
+              "Computer vision replaces the need for those earlier courses entirely"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson explicitly connects computer vision to deep learning's architectures, machine learning's evaluation principles, and data science's data-quality guidance, all applied specifically to images.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does the lesson emphasize testing under realistic, representative conditions as a final workflow stage?",
+            "options": [
+              "Realistic testing conditions are never actually necessary",
+              "Real deployment conditions are typically messier and more varied than curated benchmark datasets, so realistic testing is essential for trustworthy results",
+              "Testing conditions have no bearing on how a model will perform after deployment",
+              "Only clean, ideal images need to be used for testing"
+            ],
+            "correctAnswer": 1,
+            "explanation": "As emphasized throughout module 4, evaluating only under ideal conditions risks an overly optimistic picture of real-world performance — realistic testing is essential for trustworthy conclusions.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

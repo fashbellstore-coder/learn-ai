@@ -1,0 +1,543 @@
+{
+  "id": "module_2",
+  "title": "Object Detection",
+  "description": "Going beyond a single label: bounding boxes, IoU, the two-stage vs. one-stage design split, and YOLO's real-time, single-pass detection approach.",
+  "icon": "📦",
+  "color": "#5C6BC0",
+  "order": 2,
+  "estimatedHours": 2,
+  "difficulty": "Intermediate",
+  "prerequisites": [
+    "module_1"
+  ],
+  "lessons": [
+    {
+      "id": "cv_detection_intro",
+      "title": "From Classification to Detection: What's Different",
+      "description": "Understand how object detection is a fundamentally different (and harder) task than classification.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain how object detection differs from image classification in both output and difficulty."
+          },
+          {
+            "title": "🖼️ Classification: one label per image",
+            "content": "Image classification (covered in module 1) answers: \"what is the single main subject of this image?\" — producing one label (or one probability distribution over labels) for the whole image."
+          },
+          {
+            "title": "📦 Detection: multiple objects, with locations",
+            "content": "**Object detection** answers a much richer question: \"what objects are in this image, and *where* is each one?\" The output isn't a single label — it's a *list* of detected objects, each with both a category label and a **bounding box** describing its location.\n\n```\nDetection output for one image:\n[\n  {\"label\": \"dog\", \"box\": [50, 30, 200, 180], \"confidence\": 0.94},\n  {\"label\": \"person\", \"box\": [180, 20, 350, 400], \"confidence\": 0.89},\n]\n```\n\nA single image might contain zero, one, or many objects — detection has to handle all of these cases, unlike classification's fixed \"exactly one label per image\" output."
+          },
+          {
+            "title": "🤔 Why this is a genuinely harder problem",
+            "content": "Detection has to solve two problems simultaneously: **what** is in the image (classification) and **where** each object is (localization) — for a variable, unknown number of objects. This means the model can't just output a fixed-size prediction the way a classifier does; it needs an architecture specifically designed to propose and evaluate many possible object locations across the image."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Confusing detection with classification.** They build on the same CNN foundations, but detection is a structurally different task requiring a different kind of output and architecture.\n\n**Assuming an image always contains exactly one object to detect.** Real-world images often contain multiple objects, overlapping objects, or sometimes none at all — detection systems need to handle all of these gracefully.\n\n**Underestimating the added complexity of predicting locations, not just labels.** Getting both the category *and* an accurate bounding box right, for a variable number of objects, is meaningfully harder than single-label classification."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "cv_detection_intro_quiz",
+        "questions": [
+          {
+            "question": "What is the key difference between image classification and object detection?",
+            "options": [
+              "They are actually the same task with different names",
+              "Classification produces one label for the whole image; detection produces a list of individual objects, each with a label and a location (bounding box)",
+              "Detection can only be used on grayscale images",
+              "Classification requires more training data than detection"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Classification answers 'what is this image mainly of' with a single label, while detection answers 'what objects are present and where is each one,' producing a variable-length list of labeled, located objects.",
+            "id": "q1"
+          },
+          {
+            "question": "Why does object detection need to handle a variable number of objects per image?",
+            "options": [
+              "Every image always contains exactly one object",
+              "Real-world images can contain zero, one, or many objects, and detection needs an output structure that can represent all of these cases, unlike classification's fixed single-label output",
+              "Object detection is only used on images guaranteed to contain exactly 5 objects",
+              "Variable object counts are not actually a real consideration"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Unlike classification's single fixed-size prediction, detection's output naturally varies in length depending on how many objects are actually present in a given image — the architecture needs to accommodate this.",
+            "id": "q2"
+          },
+          {
+            "question": "What two problems does object detection need to solve simultaneously?",
+            "options": [
+              "Resizing and normalizing the image",
+              "What objects are present (classification) and where each one is located (localization)",
+              "Choosing a learning rate and a batch size",
+              "Converting the image to grayscale and back to color"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Detection combines classification (identifying what an object is) with localization (determining where it is, via a bounding box) — solving both together, for a variable number of objects, is what makes detection a meaningfully harder task than classification alone.",
+            "id": "q3"
+          },
+          {
+            "question": "What does the output of an object detection model typically look like, compared to a classifier's output?",
+            "options": [
+              "A single label for the whole image, just like classification",
+              "A list of detected objects, each with a category label and a bounding box",
+              "A single numeric score with no further detail",
+              "An entirely new generated image"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Unlike classification's single label per image, detection produces a variable-length list of objects, each with its own label and location (bounding box).",
+            "id": "q4"
+          },
+          {
+            "question": "How many objects can a single image contain, according to the lesson?",
+            "options": [
+              "Exactly one, always",
+              "Zero, one, or many — detection has to handle all of these cases",
+              "Exactly two, always",
+              "Detection only works on images with no objects"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson explicitly notes that a single image might contain zero, one, or many objects, and detection systems must handle all of these cases gracefully.",
+            "id": "q5"
+          },
+          {
+            "question": "What two problems does object detection need to solve at the same time?",
+            "options": [
+              "Resizing and normalizing the image",
+              "What is in the image (classification) and where each object is (localization)",
+              "Choosing a batch size and a learning rate",
+              "Converting the image to grayscale and back"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Detection combines classification (identifying object categories) with localization (determining where each object is), solved simultaneously for a variable number of objects.",
+            "id": "q6"
+          },
+          {
+            "question": "Why can't a detection model just output a fixed-size prediction the way a classifier does?",
+            "options": [
+              "Fixed-size predictions are always used for detection too",
+              "The number of objects in an image varies, so detection needs an architecture that can propose and evaluate many possible object locations",
+              "Detection models never produce any numeric output",
+              "Classifiers also use a variable-size output"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since the number of objects varies from image to image, detection requires an architecture capable of proposing and evaluating a variable number of candidate object locations, unlike a classifier's fixed-size output.",
+            "id": "q7"
+          },
+          {
+            "question": "Why is object detection described as building on the same CNN foundations as classification, while still being structurally different?",
+            "options": [
+              "Detection uses an entirely unrelated technology with no shared foundation",
+              "Both rely on CNN-based feature extraction, but detection requires a different kind of output and architecture to handle locations and variable object counts",
+              "Classification and detection are exactly the same task with different names",
+              "Detection cannot use convolutional layers at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson notes that detection builds on the same CNN foundations as classification but requires a structurally different architecture and output format to handle object locations and variable counts.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "cv_bounding_boxes_iou",
+      "title": "Bounding Boxes and IoU",
+      "description": "Learn how object locations are represented and how detection accuracy is actually measured.",
+      "duration": "9 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can describe how bounding boxes are represented and compute Intersection over Union (IoU) conceptually."
+          },
+          {
+            "title": "📦 Representing a bounding box",
+            "content": "A **bounding box** is typically represented by four numbers describing a rectangle around an object — commonly either (x_min, y_min, x_max, y_max) — the top-left and bottom-right corners — or (x_center, y_center, width, height) — the center point plus dimensions. Different detection systems and libraries use different conventions, so it's worth checking which one you're working with.\n\n```python\n# Corner format\nbox = {\"x_min\": 50, \"y_min\": 30, \"x_max\": 200, \"y_max\": 180}\n\n# Center format (equivalent box, different representation)\nbox = {\"x_center\": 125, \"y_center\": 105, \"width\": 150, \"height\": 150}\n```"
+          },
+          {
+            "title": "📐 IoU: measuring how well two boxes overlap",
+            "content": "**Intersection over Union (IoU)** measures how well a predicted bounding box overlaps with the true (ground truth) bounding box — the standard way to judge whether a detection's *location* is accurate, not just whether its label is correct.\n\n```\nIoU = (area of overlap between the two boxes) / (area of their combined union)\n```\n\n```python\ndef compute_iou(box1, box2):\n    x_left = max(box1[\"x_min\"], box2[\"x_min\"])\n    y_top = max(box1[\"y_min\"], box2[\"y_min\"])\n    x_right = min(box1[\"x_max\"], box2[\"x_max\"])\n    y_bottom = min(box1[\"y_max\"], box2[\"y_max\"])\n\n    if x_right < x_left or y_bottom < y_top:\n        return 0.0  # no overlap at all\n\n    intersection = (x_right - x_left) * (y_bottom - y_top)\n    area1 = (box1[\"x_max\"] - box1[\"x_min\"]) * (box1[\"y_max\"] - box1[\"y_min\"])\n    area2 = (box2[\"x_max\"] - box2[\"x_min\"]) * (box2[\"y_max\"] - box2[\"y_min\"])\n    union = area1 + area2 - intersection\n\n    return intersection / union\n```\n\n• IoU = 1.0 means a perfect match (identical boxes)\n• IoU = 0.0 means no overlap at all\n• A common threshold (like IoU ≥ 0.5) is used to decide whether a predicted box \"counts\" as correctly locating the object"
+          },
+          {
+            "title": "🎯 Why IoU is central to detection evaluation",
+            "content": "A detection is typically only counted as \"correct\" if *both* its predicted label matches the true label *and* its IoU with the true bounding box exceeds some threshold (commonly 0.5). This two-part correctness requirement (right label AND well-located box) is exactly why detection evaluation is more involved than plain classification accuracy — it's covered in more depth in the metrics lesson later this module."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Confusing the two common bounding box formats.** Mixing up (x_min, y_min, x_max, y_max) with (x_center, y_center, width, height) is a frequent source of bugs — always check which convention a library or dataset expects.\n\n**Assuming any overlap counts as a correct detection.** A prediction with only a small sliver of overlap (very low IoU) shouldn't be counted as accurately locating the object — a proper IoU threshold is needed.\n\n**Forgetting that IoU alone doesn't account for the predicted label.** A perfectly located box with the wrong class label is still an incorrect detection — both location (IoU) and classification need to be right."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "cv_bounding_boxes_iou_quiz",
+        "questions": [
+          {
+            "question": "What does Intersection over Union (IoU) measure?",
+            "options": [
+              "The total number of objects detected in an image",
+              "How well a predicted bounding box overlaps with the true (ground truth) bounding box",
+              "The confidence score of a detection",
+              "The size of the image in pixels"
+            ],
+            "correctAnswer": 1,
+            "explanation": "IoU is computed as the overlapping area between two boxes divided by their combined (union) area, giving a standard way to measure how accurately a predicted box's location matches the true box.",
+            "id": "q1"
+          },
+          {
+            "question": "What does an IoU value of 1.0 indicate?",
+            "options": [
+              "The two boxes have no overlap at all",
+              "The predicted box perfectly matches the ground truth box",
+              "The detection has the wrong label",
+              "The image contains no objects"
+            ],
+            "correctAnswer": 1,
+            "explanation": "An IoU of 1.0 means the intersection and union areas are identical, which happens only when the two boxes are exactly the same — a perfect location match.",
+            "id": "q2"
+          },
+          {
+            "question": "For a detection to typically be counted as 'correct' in evaluation, what two conditions usually both need to be met?",
+            "options": [
+              "The image must be grayscale and the box must be square",
+              "The predicted label must match the true label, and the IoU between predicted and true boxes must exceed some threshold (like 0.5)",
+              "The box must be centered exactly in the image",
+              "The detection must have exactly 100% confidence"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A detection is typically only counted as correct if it gets both parts right: correctly classifying what the object is, and locating it accurately enough (measured by IoU exceeding a threshold) — getting only one right isn't sufficient.",
+            "id": "q3"
+          },
+          {
+            "question": "What are the two common bounding box representation formats mentioned in the lesson?",
+            "options": [
+              "RGB and BGR",
+              "(x_min, y_min, x_max, y_max) corner format and (x_center, y_center, width, height) center format",
+              "Grayscale and color format",
+              "JPEG and PNG format"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson describes two common conventions for representing a bounding box: corner coordinates or center coordinates plus width and height.",
+            "id": "q4"
+          },
+          {
+            "question": "What does an IoU value of 0.0 indicate?",
+            "options": [
+              "A perfect match between two boxes",
+              "No overlap at all between the two boxes",
+              "The boxes are identical in size but different colors",
+              "The detection has 100% confidence"
+            ],
+            "correctAnswer": 1,
+            "explanation": "An IoU of 0.0 means there is no overlapping area between the two boxes at all, according to the IoU formula.",
+            "id": "q5"
+          },
+          {
+            "question": "What common IoU threshold is mentioned for deciding whether a predicted box 'counts' as correctly locating an object?",
+            "options": [
+              "IoU ≥ 0.01",
+              "IoU ≥ 0.5",
+              "IoU ≥ 100",
+              "IoU ≥ -1"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson mentions IoU ≥ 0.5 as a common threshold used to decide whether a predicted bounding box counts as correctly locating an object.",
+            "id": "q6"
+          },
+          {
+            "question": "Why isn't a perfectly located bounding box with the wrong class label counted as a correct detection?",
+            "options": [
+              "Class labels don't actually matter for detection evaluation",
+              "A detection is typically only correct if both the label matches AND the IoU exceeds the threshold — location alone isn't sufficient",
+              "IoU already accounts for class label accuracy",
+              "Bounding boxes cannot have associated class labels"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson explicitly states both conditions (correct label and sufficient IoU) must be met — a well-located box with the wrong label still counts as an incorrect detection.",
+            "id": "q7"
+          },
+          {
+            "question": "What is intersection over union computed as, according to the formula in the lesson?",
+            "options": [
+              "The sum of the two boxes' areas",
+              "The area of overlap between the two boxes divided by the area of their combined union",
+              "The difference between the box widths",
+              "The number of pixels in the smaller box"
+            ],
+            "correctAnswer": 1,
+            "explanation": "IoU is defined as the overlapping area between the predicted and ground truth boxes divided by the total area covered by their union.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "cv_detector_approaches",
+      "title": "Two-Stage vs. One-Stage Detectors",
+      "description": "Learn the two fundamental design philosophies behind modern object detection systems.",
+      "duration": "9 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain the core difference between two-stage and one-stage detection approaches and their tradeoffs."
+          },
+          {
+            "title": "🎯 Two-stage detectors: propose, then classify",
+            "content": "**Two-stage detectors** (like the R-CNN family) split the problem into two sequential steps:\n\n1. **Region proposal** — first, identify a set of candidate regions in the image that might contain an object (without yet knowing what that object is)\n2. **Classification and refinement** — for each candidate region, classify what object it contains (if any) and refine the exact bounding box\n\nThis two-step approach tends to be more accurate, since each stage can focus on doing its specific job well — but it's slower, since it involves running significant computation for potentially many candidate regions."
+          },
+          {
+            "title": "⚡ One-stage detectors: predict everything at once",
+            "content": "**One-stage detectors** (like YOLO and SSD) skip the separate proposal step entirely, predicting object classes and bounding boxes directly and simultaneously across the whole image in a single pass.\n\nThis is significantly faster — often fast enough for real-time video applications — historically at some cost to accuracy compared to two-stage approaches, though modern one-stage detectors have substantially closed this gap over time."
+          },
+          {
+            "title": "⚖️ The core tradeoff: speed vs. accuracy",
+            "content": "• **Two-stage** — generally higher accuracy, especially for small or overlapping objects; slower, better suited to offline or non-real-time processing\n• **One-stage** — generally faster, often dramatically so; historically somewhat less accurate, though the gap has narrowed considerably with modern architectures; well suited to real-time applications like live video or robotics\n\nThis mirrors a familiar theme from the machine learning course: there's rarely a single \"best\" choice — the right one depends on your specific speed and accuracy requirements for the actual application."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming one-stage detectors are always meaningfully less accurate.** This was a bigger gap historically — modern one-stage architectures have narrowed it substantially, and are the standard practical choice for many applications today.\n\n**Choosing a two-stage detector for a real-time application without checking whether it can actually run fast enough.** If genuine real-time performance (like live video analysis) is required, speed constraints often rule out slower two-stage approaches regardless of their accuracy advantage.\n\n**Not considering the specific deployment constraints of the actual application.** As with backbone selection in module 1, the right detector architecture choice depends on real, concrete requirements — not just which one scores highest on a general benchmark."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "cv_detector_approaches_quiz",
+        "questions": [
+          {
+            "question": "How do two-stage detectors approach the detection problem?",
+            "options": [
+              "They predict everything in a single pass with no separate steps",
+              "They first propose candidate regions that might contain an object, then classify and refine each candidate region in a second step",
+              "They only work on images with exactly one object",
+              "They skip bounding box prediction entirely"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Two-stage detectors (like the R-CNN family) split the task into a region proposal step followed by a classification-and-refinement step, allowing each stage to specialize — generally at the cost of additional computation and speed.",
+            "id": "q1"
+          },
+          {
+            "question": "What is the main advantage of one-stage detectors like YOLO?",
+            "options": [
+              "They are always more accurate than two-stage detectors",
+              "They predict classes and bounding boxes directly in a single pass, making them significantly faster — often fast enough for real-time applications",
+              "They require no training data",
+              "They can only detect one object per image"
+            ],
+            "correctAnswer": 1,
+            "explanation": "By skipping the separate region proposal stage and predicting everything simultaneously, one-stage detectors achieve much faster inference, which is why they're the go-to choice for real-time applications like live video.",
+            "id": "q2"
+          },
+          {
+            "question": "Why might a real-time video application favor a one-stage detector over a two-stage one, even if the two-stage detector is somewhat more accurate?",
+            "options": [
+              "Two-stage detectors cannot process video at all",
+              "Real-time applications have strict speed requirements that a slower two-stage detector may not be able to meet, making the faster one-stage approach more practical despite a potential accuracy tradeoff",
+              "One-stage detectors are always more accurate in every case",
+              "Speed has no actual bearing on which detector to choose"
+            ],
+            "correctAnswer": 1,
+            "explanation": "When an application genuinely requires real-time performance, meeting that speed constraint often takes priority — a highly accurate but too-slow detector simply isn't usable for that use case, making a faster one-stage detector the more practical choice despite potentially somewhat lower accuracy.",
+            "id": "q3"
+          },
+          {
+            "question": "What is the first step in a two-stage detector's pipeline?",
+            "options": [
+              "Directly predicting classes and boxes in a single pass",
+              "Region proposal — identifying candidate regions that might contain an object",
+              "Non-Maximum Suppression",
+              "Converting the image to grayscale"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Two-stage detectors first perform region proposal, identifying candidate regions that might contain objects, before classifying and refining them in a second step.",
+            "id": "q4"
+          },
+          {
+            "question": "What historically was the main tradeoff of one-stage detectors compared to two-stage detectors?",
+            "options": [
+              "One-stage detectors were always more accurate with no downsides",
+              "One-stage detectors were significantly faster but historically somewhat less accurate, though the gap has narrowed",
+              "One-stage detectors could not process video at all",
+              "There was never any tradeoff between the two approaches"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson explains that one-stage detectors traded some accuracy for a significant speed advantage historically, though modern one-stage detectors have substantially closed that gap.",
+            "id": "q5"
+          },
+          {
+            "question": "Which family of detectors does the lesson give as an example of the two-stage approach?",
+            "options": [
+              "YOLO",
+              "The R-CNN family",
+              "SSD",
+              "ViT"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The R-CNN family is given as the example of two-stage detectors, which use a region proposal step followed by classification and refinement.",
+            "id": "q6"
+          },
+          {
+            "question": "Why might a two-stage detector be preferred for offline processing of images with small or overlapping objects?",
+            "options": [
+              "Two-stage detectors cannot process small objects at all",
+              "Two-stage detectors generally achieve higher accuracy, especially for small or overlapping objects, at the cost of speed, which is acceptable for non-real-time processing",
+              "Offline processing requires the fastest possible detector regardless of accuracy",
+              "Two-stage detectors are always faster than one-stage detectors"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since two-stage detectors tend to be more accurate especially for challenging cases like small or overlapping objects, and offline processing doesn't have strict real-time speed constraints, the accuracy advantage can be worth the added computation.",
+            "id": "q7"
+          },
+          {
+            "question": "What does the lesson say determines the 'right' detector architecture choice for an application?",
+            "options": [
+              "Always choosing whichever detector scores highest on a general benchmark",
+              "The specific speed and accuracy requirements of the actual application",
+              "The detector's publication date",
+              "The number of letters in the detector's name"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson emphasizes that the right detector choice depends on the actual application's specific speed and accuracy requirements, not a one-size-fits-all answer or benchmark ranking alone.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "cv_yolo",
+      "title": "YOLO: Real-Time Object Detection",
+      "description": "Get an intuitive understanding of the influential one-stage detector that made real-time detection practical.",
+      "duration": "9 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain the core intuition behind how YOLO detects objects in a single pass."
+          },
+          {
+            "title": "👀 YOLO: You Only Look Once",
+            "content": "**YOLO** gets its name from its central idea: rather than scanning the image piece by piece or running a separate region-proposal step, it looks at the entire image *once*, dividing it into a grid, and has each grid cell directly predict whether an object's center falls there, along with that object's bounding box and class — all in a single forward pass through the network."
+          },
+          {
+            "title": "🎲 The grid-based prediction idea",
+            "content": "```\nImage divided into a grid, e.g. 7x7 cells:\n[ .  .  .  .  .  .  . ]\n[ .  .  🐕 .  .  .  . ]   ← this cell predicts: \"dog\", with a box, if an object's center lands here\n[ .  .  .  .  .  .  . ]\n[ .  .  .  .  🧍 .  . ]   ← this cell predicts: \"person\"\n[ .  .  .  .  .  .  . ]\n```\n\nEach grid cell predicts (a) whether it contains the center of an object, (b) that object's bounding box coordinates, and (c) what class it belongs to — all computed simultaneously across the whole grid in one pass, which is exactly why YOLO is so fast."
+          },
+          {
+            "title": "🧹 Cleaning up predictions: Non-Maximum Suppression",
+            "content": "A single object often triggers multiple overlapping candidate detections from nearby grid cells. **Non-Maximum Suppression (NMS)** cleans this up: it keeps only the highest-confidence detection among a group of heavily overlapping predictions (measured using IoU from the earlier lesson) and discards the redundant, lower-confidence overlapping ones.\n\n```python\n# Conceptual NMS process\n# 1. Sort all candidate detections by confidence, highest first\n# 2. Keep the highest-confidence detection\n# 3. Remove any remaining candidates that overlap it heavily (high IoU)\n# 4. Repeat with the next highest-confidence remaining detection\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming YOLO literally examines each grid cell in sequence, one at a time.** All predictions across the entire grid are computed together in a single forward pass — the \"grid\" is a way of structuring the output, not a step-by-step scanning process.\n\n**Forgetting Non-Maximum Suppression is a necessary cleanup step.** Without it, a single real object would often be reported as several duplicate, overlapping detections.\n\n**Assuming YOLO's grid-based approach struggles equally with all object sizes.** Different YOLO versions and variants have specifically evolved (with techniques beyond this lesson's scope) to better handle detecting both small and large objects within the same grid-based framework."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "cv_yolo_quiz",
+        "questions": [
+          {
+            "question": "What does YOLO's name (\"You Only Look Once\") reflect about its approach?",
+            "options": [
+              "It can only be used on a single image ever",
+              "It predicts objects and their locations in a single forward pass through the network, rather than using a separate region-proposal step or scanning the image multiple times",
+              "It only detects exactly one object per image",
+              "It requires looking at the same image multiple times for accuracy"
+            ],
+            "correctAnswer": 1,
+            "explanation": "YOLO processes the entire image in one single pass, directly predicting all object locations and classes at once — this single-pass efficiency is exactly what gives it its name and its speed advantage over two-stage approaches.",
+            "id": "q1"
+          },
+          {
+            "question": "What problem does Non-Maximum Suppression (NMS) solve?",
+            "options": [
+              "It speeds up the initial image loading process",
+              "It removes redundant, overlapping duplicate detections of the same object, keeping only the highest-confidence one",
+              "It converts the image to grayscale before detection",
+              "It resizes the image to the model's expected input size"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since nearby grid cells can each trigger a detection for the same real object, NMS cleans up these overlapping duplicate predictions by keeping only the highest-confidence detection and discarding heavily overlapping (high IoU) redundant ones.",
+            "id": "q2"
+          },
+          {
+            "question": "What does each grid cell in YOLO's grid-based approach predict?",
+            "options": [
+              "The entire image's overall classification label",
+              "Whether an object's center falls in that cell, along with that object's bounding box and class, if so",
+              "The exact pixel values of the whole image",
+              "Only whether the cell is empty or not, with no other information"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Each cell in YOLO's grid is responsible for predicting whether an object's center lands within it, and if so, that object's bounding box coordinates and class — all cells make these predictions simultaneously in a single pass.",
+            "id": "q3"
+          },
+          {
+            "question": "How many forward passes through the network does YOLO typically need to detect all objects in an image?",
+            "options": [
+              "One single pass",
+              "One pass per object in the image",
+              "Multiple passes, once per grid cell",
+              "An unlimited number of passes"
+            ],
+            "correctAnswer": 0,
+            "explanation": "YOLO's key innovation is predicting all objects and their locations in a single forward pass through the network, which is reflected in its name.",
+            "id": "q4"
+          },
+          {
+            "question": "What three things does each grid cell in YOLO predict?",
+            "options": [
+              "The image's file format, resolution, and color depth",
+              "Whether an object's center falls there, that object's bounding box, and its class",
+              "The total number of objects in the entire image",
+              "The camera settings used to take the photo"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Each grid cell predicts whether an object's center is located there, along with that object's bounding box coordinates and class, computed simultaneously across the grid.",
+            "id": "q5"
+          },
+          {
+            "question": "What does Non-Maximum Suppression use to decide which overlapping detections to discard?",
+            "options": [
+              "Random selection",
+              "IoU between overlapping candidate detections, keeping the highest-confidence one",
+              "The alphabetical order of the class labels",
+              "The file size of the image"
+            ],
+            "correctAnswer": 1,
+            "explanation": "NMS uses IoU to identify heavily overlapping candidate detections and keeps only the highest-confidence one among them, discarding the rest as redundant.",
+            "id": "q6"
+          },
+          {
+            "question": "Why is it inaccurate to think of YOLO as scanning an image's grid cells one at a time in sequence?",
+            "options": [
+              "YOLO doesn't actually use a grid at all",
+              "All predictions across the entire grid are computed together in a single forward pass — the grid structures the output, not a step-by-step scanning process",
+              "YOLO processes only a single grid cell per image",
+              "Grid cells are processed in a random order each time"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson explicitly warns against this misconception: the grid is a way of structuring simultaneous predictions across the whole image, not a sequential scan.",
+            "id": "q7"
+          },
+          {
+            "question": "Without Non-Maximum Suppression, what problem would likely occur with YOLO's raw predictions?",
+            "options": [
+              "The model would fail to detect any objects at all",
+              "A single real object would often be reported as multiple duplicate, overlapping detections",
+              "The image would be resized incorrectly",
+              "The model would only work on grayscale images"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since nearby grid cells often trigger overlapping detections for the same real object, NMS is necessary to clean up these duplicates — without it, a single object could be reported multiple times.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

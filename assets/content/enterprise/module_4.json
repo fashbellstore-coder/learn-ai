@@ -1,0 +1,563 @@
+{
+  "id": "ent_gpu_clusters",
+  "title": "GPU Clusters & Scaling",
+  "description": "Cluster scheduling for ML workloads, multi-node training/serving, resource quotas and fair-share scheduling, and capacity planning.",
+  "icon": "🖧",
+  "color": "#4A148C",
+  "order": 4,
+  "estimatedHours": 4,
+  "difficulty": "advanced",
+  "prerequisites": [
+    "ent_high_availability"
+  ],
+  "lessons": [
+    {
+      "id": "ent_cluster_scheduling_for_ml_workloads",
+      "title": "Cluster Scheduling for ML Workloads",
+      "description": "When dozens of teams share one expensive GPU cluster, something has to decide who gets to run what, when.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain why ML workload scheduling on a shared GPU cluster differs from typical Kubernetes pod scheduling.\n"
+          },
+          {
+            "title": "🎫 The scarcity problem, at cluster scale",
+            "content": "The Inference course's request-scheduling lesson covered scheduling individual serving requests onto available capacity; at the cluster level, an enterprise faces a broader version of the same problem — many teams submitting training jobs, fine-tuning runs, and inference deployments, all competing for a shared, expensive, and limited pool of GPUs across the whole organization.\n"
+          },
+          {
+            "title": "⏳ Batch scheduling vs. always-on serving",
+            "content": "Training and fine-tuning jobs are typically **batch workloads** — they run to completion and then release their GPUs, unlike an always-on inference service that holds capacity continuously. A cluster scheduler needs to handle both patterns well: queuing and prioritizing batch jobs fairly, while still reserving guaranteed capacity for latency-sensitive serving that can't tolerate being queued behind someone else's training run.\n"
+          },
+          {
+            "title": "🛠️ Specialized ML scheduling tools",
+            "content": "General-purpose Kubernetes scheduling (Cloud course) handles typical workloads reasonably well, but ML-specific schedulers (like Kubeflow's scheduling extensions, or dedicated tools like Slurm in HPC-adjacent environments) add ML-aware features standard Kubernetes lacks by default — **gang scheduling** (all-or-nothing allocation for a multi-GPU job that needs every worker to start together, directly relevant to the tensor-parallelism material from the Inference course) and awareness of GPU topology, not just raw GPU count.\n"
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "Here's a simplified simulation of gang scheduling, contrasting a naive scheduler that starts workers as GPUs free up with one that only starts a job once every worker's GPU is simultaneously available:\n\n```python\navailable_gpus = 6\n\ndef naive_schedule(job_workers_needed, available_gpus):\n    started = min(job_workers_needed, available_gpus)\n    return {\"workers_started\": started, \"all_started_together\": started == job_workers_needed}\n\ndef gang_schedule(job_workers_needed, available_gpus):\n    if available_gpus < job_workers_needed:\n        return {\"workers_started\": 0, \"all_started_together\": False, \"status\": \"queued, waiting for all GPUs\"}\n    return {\"workers_started\": job_workers_needed, \"all_started_together\": True, \"status\": \"running\"}\n\njob_workers_needed = 8  # a tensor-parallel job needing 8 GPUs simultaneously\n\nprint(\"naive:\", naive_schedule(job_workers_needed, available_gpus))\nprint(\"gang:\", gang_schedule(job_workers_needed, available_gpus))\n```\n\nWith `available_gpus=6` and `job_workers_needed=8`, `naive_schedule` starts `min(8, 6) = 6` workers — leaving `all_started_together=False`, meaning 6 of the 8 tensor-parallel workers are running while 2 are missing, which for a job that needs every worker present to function correctly is effectively broken or stalled. `gang_schedule` instead checks `available_gpus < job_workers_needed` (6 < 8 is `True`) and refuses to start any workers at all, returning `\"queued, waiting for all GPUs\"` — avoiding the naive scheduler's partial-start problem entirely by waiting until all 8 GPUs are available simultaneously.\n"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Using a naive, GPU-count-based scheduler for a job that needs gang scheduling.** As the code example shows, partially starting a tensor-parallel job's workers wastes the GPUs that did start, since the job can't make progress without every worker present — those partially-allocated GPUs sit uselessly occupied.\n\n**Only accounting for raw GPU count, not GPU topology.** Two available GPUs on the same fast local interconnect behave very differently from two GPUs on separate, distant nodes for a job sensitive to communication latency — a scheduler that ignores topology can allocate technically-sufficient but practically-poor GPU placements.\n\n**Treating batch and serving workloads with the same scheduling priority rules.** Queuing a latency-sensitive serving deployment behind a long-running training job (or vice versa, letting serving starve batch jobs indefinitely) ignores that the two workload types have fundamentally different tolerance for delay.\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ent_cluster_scheduling_for_ml_workloads_quiz",
+        "questions": [
+          {
+            "question": "How does cluster-level GPU scheduling extend the request-scheduling problem from the Inference course?",
+            "options": [
+              "It's a broader version of the same scarce-resource allocation problem, now across many teams' training, fine-tuning, and serving workloads competing for a shared organizational GPU pool",
+              "Cluster scheduling and request scheduling are entirely unrelated problems",
+              "Cluster scheduling only applies to a single team's workloads, never multiple teams",
+              "The Inference course's scheduling concepts have no relevance at the cluster level"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Both problems are fundamentally about allocating scarce compute fairly and efficiently — the cluster-level version just operates at a larger, multi-team, multi-workload-type scale.",
+            "id": "q1"
+          },
+          {
+            "question": "In the code example, why does `naive_schedule(8, 6)` result in `all_started_together=False`?",
+            "options": [
+              "Because `started = min(8, 6) = 6`, which is less than `job_workers_needed` (8), so the equality check `started == job_workers_needed` is `False`",
+              "Because `naive_schedule` always returns `False` for this field",
+              "Because `available_gpus` is actually greater than `job_workers_needed`",
+              "Because the function raises an exception before returning"
+            ],
+            "correctAnswer": 0,
+            "explanation": "`started = min(job_workers_needed, available_gpus) = min(8, 6) = 6`; since `6 != 8`, `all_started_together` evaluates to `False`.",
+            "id": "q2"
+          },
+          {
+            "question": "In the code example, why does `gang_schedule(8, 6)` return `\"workers_started\": 0` instead of starting the 6 available workers?",
+            "options": [
+              "Because `available_gpus < job_workers_needed` (6 < 8) is `True`, triggering the branch that refuses to start any workers and returns the queued status instead",
+              "Because `gang_schedule` has the same logic as `naive_schedule`",
+              "Because there are actually 0 GPUs available in this example",
+              "Because `job_workers_needed` is 0"
+            ],
+            "correctAnswer": 0,
+            "explanation": "`gang_schedule` explicitly checks whether `available_gpus` is sufficient for the full job before starting anything; since it isn't (6 < 8), it returns zero workers started and a queued status rather than a partial allocation.",
+            "id": "q3"
+          },
+          {
+            "question": "What does the contrast between `naive_schedule` and `gang_schedule` in the code example illustrate about why gang scheduling matters for tensor-parallel jobs?",
+            "options": [
+              "That both scheduling approaches produce functionally equivalent outcomes for a multi-GPU job",
+              "That a naive scheduler can leave a tensor-parallel job partially started (6 of 8 workers) in a state where it can't actually make progress, while gang scheduling avoids wasting GPUs on a partial, non-functional allocation by waiting for full availability",
+              "That gang scheduling always uses more GPUs than a naive scheduler",
+              "That naive scheduling is always preferable because it starts workers sooner"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The two functions' outputs for the identical scenario (8 needed, 6 available) show the practical difference: naive scheduling wastes 6 occupied-but-useless GPUs, while gang scheduling avoids that waste by not starting until all 8 are available.",
+            "id": "q4"
+          },
+          {
+            "question": "Why does a cluster scheduler need to treat batch training jobs differently from always-on inference serving?",
+            "options": [
+              "Training jobs run to completion and release GPUs, while serving holds capacity continuously — a scheduler needs to fairly queue batch work while still reserving capacity for latency-sensitive serving",
+              "Training jobs and serving workloads have identical resource patterns requiring no special handling",
+              "Batch jobs never actually need any GPU resources",
+              "Serving workloads should always be queued behind training jobs with no exception"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The fundamentally different resource patterns — transient batch work versus continuous serving — require a scheduler that can accommodate both without one starving the other.",
+            "id": "q5"
+          },
+          {
+            "question": "What does 'gang scheduling' provide that's directly relevant to multi-GPU tensor-parallel training or serving from the Inference course?",
+            "options": [
+              "All-or-nothing allocation, ensuring every worker a multi-GPU job needs starts together rather than partially",
+              "The ability to run a job using zero GPUs at all",
+              "Automatic conversion of a multi-GPU job into a single-GPU job",
+              "Prioritization based solely on which team submitted the job first"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Gang scheduling directly addresses the coordination need of tensor-parallel jobs, which require all their GPU workers to be available simultaneously to function correctly, as covered in the Inference course's multi-GPU lesson.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does the lesson warn against using a naive, GPU-count-based scheduler for a job that needs gang scheduling?",
+            "options": [
+              "Because, as the code example shows, partially starting a tensor-parallel job's workers wastes the GPUs that did start, since the job can't make progress without every worker present",
+              "Because naive schedulers are always slower than gang schedulers regardless of job type",
+              "Because gang scheduling is technically incompatible with any Kubernetes cluster",
+              "Because naive scheduling always allocates more GPUs than the job actually needs"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The common mistakes section connects directly to the code example: a partial start leaves occupied GPUs unable to contribute to actual progress, wasting scarce and expensive resources.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does the lesson warn against only accounting for raw GPU count and ignoring GPU topology?",
+            "options": [
+              "Because two available GPUs on the same fast local interconnect behave very differently from two GPUs on separate, distant nodes for a job sensitive to communication latency, so count alone can lead to technically-sufficient but practically-poor placements",
+              "Because GPU topology has no effect on any workload's performance",
+              "Because raw GPU count is always a perfect predictor of job performance",
+              "Because topology-aware scheduling is impossible to implement"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly calls out topology awareness as something standard Kubernetes lacks by default — matching count alone can miss that placement quality matters just as much for latency-sensitive multi-GPU jobs.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ent_multi_node_training_and_serving_basics",
+      "title": "Multi-Node Training and Serving Basics",
+      "description": "When a workload outgrows a single machine's GPUs entirely, not just a single GPU's memory.",
+      "duration": 13,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Distinguish multi-GPU-single-node from multi-node distributed workloads and name the added challenge multi-node introduces.\n"
+          },
+          {
+            "title": "🖥️ From one machine's GPUs to many machines' GPUs",
+            "content": "The Inference course's tensor and pipeline parallelism lessons covered splitting a workload across multiple GPUs within one machine. **Multi-node scaling** goes further: splitting a workload across GPUs on entirely separate machines, needed when a workload's total resource requirements exceed what any single machine (even one with many GPUs) can provide.\n"
+          },
+          {
+            "title": "🌐 The network becomes the primary bottleneck",
+            "content": "Within a single machine, GPUs communicate over a fast local interconnect (like NVLink, from the Inference course's multi-GPU lesson); across machines, communication happens over the network, which is typically much slower — making network bandwidth and topology a first-order design concern for multi-node training in a way it wasn't for single-node multi-GPU work.\n"
+          },
+          {
+            "title": "🔧 Data parallelism as a multi-node-friendly pattern",
+            "content": "Unlike tensor parallelism (which needs frequent, low-latency communication ill-suited to slower cross-machine networking), **data parallelism** — each node processing a different batch of data with the same full model, synchronizing gradients periodically rather than constantly — tolerates the higher latency of cross-machine communication much better, which is why it's a common pattern specifically for multi-node training setups.\n"
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "Here's a simplified simulation comparing the communication cost of tensor parallelism versus data parallelism when run across multiple nodes with a slower network link:\n\n```python\ndef training_step_time_ms(compute_ms, sync_calls_per_step, sync_latency_ms):\n    return compute_ms + (sync_calls_per_step * sync_latency_ms)\n\nlocal_interconnect_latency_ms = 0.1   # fast, within one machine\ncross_node_network_latency_ms = 5.0   # much slower, across machines\n\n# tensor parallelism: many frequent sync calls per step\ntp_single_node = training_step_time_ms(compute_ms=50, sync_calls_per_step=20, sync_latency_ms=local_interconnect_latency_ms)\ntp_multi_node = training_step_time_ms(compute_ms=50, sync_calls_per_step=20, sync_latency_ms=cross_node_network_latency_ms)\n\n# data parallelism: one sync call per step (gradient sync)\ndp_multi_node = training_step_time_ms(compute_ms=50, sync_calls_per_step=1, sync_latency_ms=cross_node_network_latency_ms)\n\nprint(\"tensor-parallel, single node:\", tp_single_node, \"ms\")\nprint(\"tensor-parallel, multi-node:\", tp_multi_node, \"ms\")\nprint(\"data-parallel, multi-node:\", dp_multi_node, \"ms\")\n```\n\n`tp_single_node = 50 + (20 * 0.1) = 50 + 2.0 = 52.0` ms — the fast local interconnect barely adds overhead to the 20 frequent sync calls tensor parallelism needs. `tp_multi_node = 50 + (20 * 5.0) = 50 + 100.0 = 150.0` ms — the same 20 sync calls over the slower cross-node network nearly triple the step time, since tensor parallelism's frequent communication pattern is exactly what the slower network punishes hardest. `dp_multi_node = 50 + (1 * 5.0) = 50 + 5.0 = 55.0` ms — data parallelism's single gradient-sync call per step keeps the multi-node overhead small even over the same slow network, which is exactly why the lesson describes it as tolerating cross-machine latency much better.\n"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Using tensor parallelism across multiple nodes without accounting for the network latency penalty.** As the code example shows, tensor parallelism's frequent synchronization pattern is disproportionately hurt by the slower cross-node network — a step time that's barely affected within one machine can nearly triple across machines.\n\n**Assuming any parallelism strategy that works well single-node will scale the same way multi-node.** The lesson is explicit that the network becomes a first-order concern multi-node in a way it simply isn't within one machine — a strategy validated only single-node hasn't been tested against this constraint.\n\n**Not considering data parallelism for a workload that could tolerate its infrequent synchronization.** When a workload doesn't strictly need tensor parallelism's tighter coupling, defaulting to it anyway for multi-node work leaves an easy latency-tolerance win on the table.\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ent_multi_node_training_and_serving_basics_quiz",
+        "questions": [
+          {
+            "question": "What new challenge does multi-node scaling introduce beyond multi-GPU-single-node scaling?",
+            "options": [
+              "Communication now happens over a network between separate machines, which is typically much slower than the fast local interconnect within one machine",
+              "Multi-node scaling requires no communication between GPUs at all",
+              "Multi-node scaling eliminates the need for any GPUs whatsoever",
+              "Multi-node and multi-GPU-single-node scaling face identical challenges with no difference"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The shift from a fast intra-machine interconnect to a comparatively slower inter-machine network is the defining new challenge multi-node scaling introduces.",
+            "id": "q1"
+          },
+          {
+            "question": "In the code example, why is `tp_multi_node` (150.0 ms) so much larger than `tp_single_node` (52.0 ms)?",
+            "options": [
+              "Because `compute_ms` changes between the two calls",
+              "Because both use `sync_calls_per_step=20`, but `tp_multi_node` uses `sync_latency_ms=5.0` (cross-node) instead of `0.1` (local interconnect), and that latency is multiplied by 20 frequent sync calls",
+              "Because `tp_multi_node` uses fewer sync calls per step than `tp_single_node`",
+              "Because `training_step_time_ms` behaves differently for multi-node calls"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Both calls share `compute_ms=50` and `sync_calls_per_step=20`; only `sync_latency_ms` differs (`0.1` vs `5.0`), and since that's multiplied by 20 calls, the 50x latency increase translates into a large difference in total sync overhead (`2.0` ms vs `100.0` ms).",
+            "id": "q2"
+          },
+          {
+            "question": "In the code example, why does `dp_multi_node` (55.0 ms) stay much closer to the single-node tensor-parallel time (52.0 ms) than `tp_multi_node` (150.0 ms) does, despite using the same slow cross-node latency?",
+            "options": [
+              "Because `dp_multi_node` uses `sync_calls_per_step=1` instead of 20, so even the slower `5.0` ms latency only adds `5.0` ms total instead of `100.0` ms",
+              "Because `dp_multi_node` doesn't use the network at all",
+              "Because `dp_multi_node` uses a faster latency value than `tp_multi_node`",
+              "Because `compute_ms` is lower for data parallelism"
+            ],
+            "correctAnswer": 0,
+            "explanation": "`dp_multi_node = 50 + (1 * 5.0) = 55.0`; with only one sync call per step instead of 20, the same per-call latency contributes far less total overhead than tensor parallelism's frequent synchronization does.",
+            "id": "q3"
+          },
+          {
+            "question": "What does the code example demonstrate about why data parallelism is described as more multi-node-friendly than tensor parallelism?",
+            "options": [
+              "That both parallelism strategies are equally affected by cross-node network latency",
+              "That data parallelism's much less frequent synchronization (1 call per step vs. 20) means the same slow network latency contributes far less total overhead per training step, making it far more tolerant of multi-node networking's slower communication",
+              "That tensor parallelism doesn't require any network communication at all",
+              "That data parallelism requires more sync calls than tensor parallelism"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The stark difference between `tp_multi_node` (150.0 ms) and `dp_multi_node` (55.0 ms), despite using the identical `cross_node_network_latency_ms`, comes entirely from the difference in `sync_calls_per_step` — exactly the communication-frequency point the lesson makes.",
+            "id": "q4"
+          },
+          {
+            "question": "Why is data parallelism often better suited to multi-node setups than tensor parallelism?",
+            "options": [
+              "Because it only needs periodic gradient synchronization rather than the frequent, low-latency communication tensor parallelism requires, tolerating slower cross-machine networking better",
+              "Because data parallelism requires no communication between nodes whatsoever",
+              "Because tensor parallelism was specifically designed for multi-node setups, unlike data parallelism",
+              "Because data parallelism cannot be used with more than one GPU"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Data parallelism's less frequent communication pattern is a better fit for the higher latency of cross-machine networking compared to tensor parallelism's tighter coupling requirements.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is network bandwidth and topology a bigger design concern for multi-node training than for single-node multi-GPU training?",
+            "options": [
+              "Because cross-machine communication is typically much slower than the fast local interconnect (like NVLink) available within a single machine",
+              "Because network bandwidth has no relationship to training performance at any scale",
+              "Because single-node setups also rely primarily on network communication between GPUs",
+              "Because multi-node setups never need to communicate any data between nodes"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The comparatively slow network link between separate machines makes bandwidth and topology choices much more consequential for multi-node performance than they are within a single machine's fast local interconnect.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does the lesson warn against using tensor parallelism across multiple nodes without accounting for the network latency penalty?",
+            "options": [
+              "Because, as the code example shows, tensor parallelism's frequent synchronization pattern is disproportionately hurt by the slower cross-node network — a step time barely affected within one machine can nearly triple across machines",
+              "Because tensor parallelism cannot technically be run across multiple nodes at all",
+              "Because network latency has no effect on tensor-parallel training performance",
+              "Because tensor parallelism always performs better multi-node than single-node"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The common mistakes section directly reflects the code example's near-tripling of step time when tensor parallelism's frequent syncs move from the local interconnect to the slower cross-node network.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does the lesson warn against assuming a parallelism strategy that works well single-node will scale the same way multi-node?",
+            "options": [
+              "Because the network becomes a first-order concern multi-node in a way it simply isn't within one machine — a strategy validated only single-node hasn't been tested against this constraint",
+              "Because single-node and multi-node performance are always identical for any parallelism strategy",
+              "Because multi-node setups never actually use any parallelism strategy",
+              "Because network latency only matters for data parallelism, never tensor parallelism"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson and code example together establish that network latency is a distinct, newly-relevant factor multi-node — a strategy's single-node performance says little about how it will hold up once communication crosses machines.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ent_resource_quotas_and_fair_share_scheduling",
+      "title": "Resource Quotas and Fair-Share Scheduling",
+      "description": "Preventing one team's enthusiastic GPU usage from starving every other team on the same shared cluster.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain what resource quotas and fair-share scheduling each solve for a shared enterprise GPU cluster.\n"
+          },
+          {
+            "title": "📏 Resource quotas: hard limits per team or project",
+            "content": "A **resource quota** caps how much of a shared resource (GPU count, memory, storage) a specific team or project can consume at once — a hard ceiling that prevents one team's workload, whether by legitimate need or a runaway bug, from consuming the entire shared cluster and starving every other team's work.\n"
+          },
+          {
+            "title": "⚖️ Fair-share scheduling: dynamic fairness over time",
+            "content": "Rather than (or in addition to) hard quotas, **fair-share scheduling** dynamically adjusts priority based on how much of the shared resource a team has already consumed recently — a team that's been using little of the cluster gets prioritized over a team that's already consumed a large share, balancing utilization against fairness over a rolling window rather than a fixed hard cap.\n"
+          },
+          {
+            "title": "📊 Why this matters more for GPUs than most other shared resources",
+            "content": "GPUs are dramatically more expensive and scarcer than most other infrastructure resources this curriculum has discussed, so poor allocation has an outsized cost — an idle, over-provisioned quota sitting unused while another team's important work queues is a very expensive form of waste, which is exactly why enterprises invest specifically in tools and policies for this problem rather than leaving GPU allocation to informal, first-come-first-served norms.\n"
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "Here's a simplified simulation contrasting a hard quota with fair-share scheduling's rolling-window priority adjustment:\n\n```python\nTEAM_QUOTA_GPUS = {\"research\": 20, \"platform\": 10}\n\ndef quota_allows(team, requested_gpus, currently_used):\n    return currently_used + requested_gpus <= TEAM_QUOTA_GPUS[team]\n\nrecent_usage_gpu_hours = {\"research\": 800, \"platform\": 50}\n\ndef fair_share_priority(team, recent_usage):\n    # lower recent usage -> higher priority (lower number = scheduled first)\n    return recent_usage[team]\n\nprint(\"research requesting 5 more GPUs (18 in use):\", quota_allows(\"research\", 5, 18))\nprint(\"platform requesting 1 more GPU (8 in use):\", quota_allows(\"platform\", 1, 8))\n\nteams_waiting = [\"research\", \"platform\"]\nteams_waiting.sort(key=lambda t: fair_share_priority(t, recent_usage_gpu_hours))\nprint(\"scheduling order (fair-share):\", teams_waiting)\n```\n\nFor the quota check, `research` requesting 5 more GPUs with 18 already in use: `18 + 5 = 23 > 20`, so `quota_allows` returns `False` — the hard ceiling blocks the request even if GPUs happen to be physically free elsewhere in the cluster. `platform` requesting 1 more GPU with 8 in use: `8 + 1 = 9 <= 10` is `True`, so this request is allowed — platform still has quota headroom even though research, with a larger quota, has none left for its own request. For fair-share scheduling, sorting `teams_waiting` by `fair_share_priority` (which just returns `recent_usage[team]`) puts `platform` (50 recent GPU-hours) before `research` (800 recent GPU-hours) — `platform` gets scheduled first specifically because it has used dramatically less of the cluster recently, independent of any hard quota.\n"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Relying on quotas alone without any fair-share mechanism.** A team that's under its hard quota can still monopolize the cluster relative to a team that's used far less recently — quotas prevent the worst-case monopolization but don't by themselves produce fair scheduling moment to moment.\n\n**Setting quotas so conservatively that legitimate spikes in need get blocked.** As the quota check in the code example shows, a hard ceiling blocks a request even when the cluster has physically free capacity elsewhere — quotas set too low waste that available capacity on paper-thin restrictions.\n\n**Leaving GPU allocation to informal, first-come-first-served norms instead of investing in real tooling.** Given how expensive and scarce GPUs are compared to most other infrastructure resources, informal allocation risks exactly the kind of expensive idle-quota-while-others-queue waste the lesson warns about.\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ent_resource_quotas_and_fair_share_scheduling_quiz",
+        "questions": [
+          {
+            "question": "What does a resource quota prevent on a shared GPU cluster?",
+            "options": [
+              "One team's workload, whether from legitimate need or a runaway bug, from consuming the entire shared cluster and starving other teams",
+              "Any team from ever using the cluster at all",
+              "The cluster from ever running more than one job total",
+              "GPUs from ever being shared between any two jobs"
+            ],
+            "correctAnswer": 0,
+            "explanation": "A quota's hard ceiling directly prevents one team's usage — intentional or accidental — from monopolizing shared, scarce GPU capacity.",
+            "id": "q1"
+          },
+          {
+            "question": "In the code example, why does `quota_allows(\"research\", 5, 18)` return `False`?",
+            "options": [
+              "Because `currently_used + requested_gpus = 18 + 5 = 23`, which exceeds `TEAM_QUOTA_GPUS[\"research\"]` (20)",
+              "Because `research` has no entry in `TEAM_QUOTA_GPUS`",
+              "Because `requested_gpus` is negative",
+              "Because `quota_allows` always returns `False` for `research`"
+            ],
+            "correctAnswer": 0,
+            "explanation": "`quota_allows` checks `currently_used + requested_gpus <= TEAM_QUOTA_GPUS[team]`; `18 + 5 = 23 > 20`, so the check fails and the function returns `False`.",
+            "id": "q2"
+          },
+          {
+            "question": "In the code example, after sorting `teams_waiting` by `fair_share_priority`, why does `\"platform\"` come before `\"research\"`?",
+            "options": [
+              "Because `fair_share_priority` returns `recent_usage[team]`, and `platform`'s recent usage (50 GPU-hours) is much lower than `research`'s (800 GPU-hours), so sorting ascending by that value puts platform first",
+              "Because `platform` has a larger `TEAM_QUOTA_GPUS` value than `research`",
+              "Because the teams are sorted alphabetically",
+              "Because `research` requested more GPUs than `platform`"
+            ],
+            "correctAnswer": 0,
+            "explanation": "`teams_waiting.sort(key=...)` sorts ascending by `fair_share_priority`, and since lower recent usage means higher priority (lower sort key), `platform`'s `50` sorts before `research`'s `800`.",
+            "id": "q3"
+          },
+          {
+            "question": "What does the contrast between the quota check and the fair-share sort in the code example illustrate about how the two mechanisms operate?",
+            "options": [
+              "That quotas and fair-share scheduling are the exact same mechanism expressed differently",
+              "That a quota is a fixed ceiling checked against a specific request, while fair-share priority is a relative, dynamic ranking based on recent consumption across teams — two different kinds of allocation control",
+              "That fair-share scheduling replaces the need for any quota at all",
+              "That quotas only apply to the `platform` team"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The quota check (`quota_allows`) is a binary pass/fail against a fixed number, while `fair_share_priority` produces a relative ranking based on recent usage — the code demonstrates these are structurally different allocation mechanisms that can be used together.",
+            "id": "q4"
+          },
+          {
+            "question": "How does fair-share scheduling differ from a simple fixed resource quota?",
+            "options": [
+              "It dynamically adjusts priority based on recent consumption, prioritizing teams that have used less over teams that have already consumed a large share",
+              "Fair-share scheduling and fixed quotas are identical mechanisms with no difference",
+              "Fair-share scheduling removes all limits on resource consumption",
+              "Fair-share scheduling only applies to non-GPU resources"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Fair-share is a dynamic, usage-history-aware approach to balancing access, contrasting with a quota's fixed, static ceiling.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does poor GPU allocation carry an outsized cost compared to poor allocation of most other infrastructure resources?",
+            "options": [
+              "Because GPUs are dramatically more expensive and scarcer than most other resources, so waste or starvation has a larger financial and productivity impact",
+              "Because GPUs are actually cheaper than most other infrastructure resources",
+              "Because GPU allocation has no cost implications at all",
+              "Because GPUs can always be provisioned instantly with no scarcity"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The comparative expense and scarcity of GPUs, covered earlier in this curriculum's Cloud course, is exactly why careful allocation policy matters more here than for cheaper, more abundant resources.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does the lesson warn against relying on quotas alone without any fair-share mechanism?",
+            "options": [
+              "Because a team that's under its hard quota can still monopolize the cluster relative to a team that's used far less recently — quotas prevent worst-case monopolization but don't by themselves produce fair moment-to-moment scheduling",
+              "Because quotas are technically incompatible with fair-share scheduling",
+              "Because fair-share scheduling always produces worse outcomes than quotas alone",
+              "Because quotas make fair-share scheduling unnecessary in every scenario"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The common mistakes section makes this exact point — a hard ceiling alone doesn't address relative fairness in usage between teams both operating under their respective quotas.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does the lesson warn against setting quotas so conservatively that legitimate spikes in need get blocked?",
+            "options": [
+              "Because, as the quota check in the code example shows, a hard ceiling blocks a request even when the cluster has physically free capacity elsewhere — quotas set too low waste that available capacity",
+              "Because conservative quotas always improve overall cluster utilization",
+              "Because quotas have no effect on whether a request is allowed",
+              "Because legitimate spikes in need never actually occur in practice"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The common mistakes section connects to the quota check's behavior: a request can be blocked purely by the ceiling even when actual physical capacity would allow it, wasting that available capacity.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ent_capacity_planning",
+      "title": "Capacity Planning",
+      "description": "Closing this module by turning 'we might need more GPUs eventually' into an actual forecast someone can budget against.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Describe the inputs to a GPU capacity planning process and why it matters especially for enterprise AI infrastructure.\n"
+          },
+          {
+            "title": "📈 Forecasting demand, not just reacting to it",
+            "content": "Unlike the reactive autoscaling from the Inference course (which responds to load that's already arrived), **capacity planning** is about forecasting future demand — new projects in the pipeline, expected growth in existing usage, planned model upgrades that might change resource requirements — far enough ahead that the multi-month lead time often involved in acquiring more GPU capacity doesn't become a blocker when the demand actually materializes.\n"
+          },
+          {
+            "title": "⏳ Why GPU capacity has a long lead time",
+            "content": "Unlike scaling a typical cloud web service (often minutes), acquiring significant new GPU capacity can take months — negotiating with a cloud provider for additional quota, or, for on-premises infrastructure, actual hardware procurement and data center space. This long lead time is exactly why capacity planning has to be a forward-looking, deliberate practice rather than a reactive one.\n"
+          },
+          {
+            "title": "📊 Balancing utilization against headroom",
+            "content": "Planning for 100% average utilization leaves no room for unexpected spikes or new projects; planning for very low average utilization wastes expensive GPU capacity sitting idle. Finding the right utilization target — informed by the fair-share and quota policies from the previous lesson, and the cost-modeling discipline from the Inference course — is the core tension capacity planning has to navigate.\n"
+          },
+          {
+            "title": "🎓 Closing this module's arc",
+            "content": "This module moved from scheduling shared GPU capacity fairly (Lessons 1-3) to planning how much of that capacity the organization needs in the first place — completing the resource-management story for enterprise-scale AI infrastructure, before this course's final module turns to the governance and organizational practices that tie the whole enterprise AI platform together.\n"
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "Here's a simplified simulation forecasting when current GPU capacity will be exhausted given growth trends, and comparing that against the procurement lead time:\n\n```python\ncurrent_capacity_gpus = 200\ncurrent_usage_gpus = 160\nmonthly_growth_rate = 0.08  # 8% month-over-month growth in demand\nprocurement_lead_time_months = 4\n\ndef months_until_capacity_exhausted(usage, capacity, growth_rate):\n    months = 0\n    while usage < capacity:\n        usage *= (1 + growth_rate)\n        months += 1\n    return months\n\nmonths_left = months_until_capacity_exhausted(current_usage_gpus, current_capacity_gpus, monthly_growth_rate)\nprint(f\"months until capacity exhausted: {months_left}\")\nprint(f\"procurement lead time: {procurement_lead_time_months} months\")\nprint(\"order more capacity now:\", months_left <= procurement_lead_time_months)\n```\n\nStarting at `usage=160`, each iteration multiplies by `1.08`: after month 1, `usage ≈ 172.8`; month 2, `≈ 186.6`; month 3, `≈ 201.6`, which exceeds `capacity=200`, so the loop stops and `months_until_capacity_exhausted` returns `3`. Comparing `3 <= procurement_lead_time_months` (4) is `True` — the forecasted exhaustion point (3 months away) is sooner than the 4-month lead time needed to acquire more capacity, meaning an order placed today would still arrive roughly a month after capacity actually runs out. This is exactly the scenario the lesson warns about: waiting until demand materializes to start procurement would already be too late.\n"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Starting the procurement process only after capacity is already exhausted.** As the code example shows, when the forecasted exhaustion point is sooner than the procurement lead time, waiting for demand to actually arrive before ordering guarantees a capacity gap.\n\n**Ignoring compounding growth when forecasting demand.** A flat, linear projection of growth understates how quickly usage can approach capacity when growth compounds month over month, as the `*= (1 + growth_rate)` calculation in the code example shows.\n\n**Planning for a fixed utilization target without revisiting it as growth trends change.** A utilization target that made sense at a stable, slow-growth stage may need to be more conservative once growth accelerates, to preserve enough lead time for procurement to keep pace.\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ent_capacity_planning_quiz",
+        "questions": [
+          {
+            "question": "How does capacity planning differ from the reactive autoscaling covered in the Inference course?",
+            "options": [
+              "Capacity planning forecasts future demand far enough ahead to account for GPU procurement's long lead time, rather than reacting to load that's already arrived",
+              "Capacity planning and autoscaling are identical processes with no distinction",
+              "Capacity planning only applies to CPU resources, never GPUs",
+              "Autoscaling eliminates any need for capacity planning at any scale"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The forward-looking, forecast-based nature of capacity planning is what distinguishes it from autoscaling's reactive response to already-arrived demand.",
+            "id": "q1"
+          },
+          {
+            "question": "In the code example, why does `months_until_capacity_exhausted(160, 200, 0.08)` return 3?",
+            "options": [
+              "Because after 3 iterations of multiplying `usage` by `1.08`, usage grows from 160 to roughly 201.6, which exceeds `capacity=200`, stopping the `while` loop",
+              "Because `capacity` is set to exactly 3",
+              "Because the function always returns 3 regardless of input",
+              "Because `growth_rate` is applied only once"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Each loop iteration compounds `usage *= 1.08`; after 3 iterations `usage` crosses above 200 (≈201.6), at which point `usage < capacity` becomes `False` and the loop exits, having incremented `months` three times.",
+            "id": "q2"
+          },
+          {
+            "question": "In the code example, why does `months_left <= procurement_lead_time_months` evaluate to `True`, and what does that mean practically?",
+            "options": [
+              "Because `3 <= 4` is `True`; practically, this means capacity is forecast to run out sooner than new capacity could arrive if ordered today, signaling that procurement should start immediately",
+              "Because `months_left` is greater than `procurement_lead_time_months`",
+              "Because the two values are unrelated to any procurement decision",
+              "Because `procurement_lead_time_months` is always less than `months_left`"
+            ],
+            "correctAnswer": 0,
+            "explanation": "`months_left=3` and `procurement_lead_time_months=4`; since 3 is less than or equal to 4, the forecasted exhaustion arrives before new capacity could be acquired if ordering started only now — exactly the gap the lesson warns capacity planning needs to prevent.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, why does `usage` grow to approximately 201.6 after 3 months rather than a simple linear increase?",
+            "options": [
+              "Because `usage *= (1 + growth_rate)` multiplies the current (already-grown) usage by 1.08 each iteration, compounding the growth rather than adding a fixed amount each month",
+              "Because `usage` is reset to 160 at the start of each iteration",
+              "Because `growth_rate` increases with each iteration",
+              "Because the loop adds a fixed 8 GPUs per month instead of a percentage"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The multiplicative update `usage *= (1 + growth_rate)` applies the 8% growth to the current, already-compounded usage value each iteration, producing exponential rather than linear growth: 160 → ~172.8 → ~186.6 → ~201.6.",
+            "id": "q4"
+          },
+          {
+            "question": "What does the code example demonstrate about the relationship between forecasted exhaustion time and procurement lead time?",
+            "options": [
+              "That they should always be equal for a healthy capacity plan",
+              "That when the forecasted exhaustion time is less than or equal to the procurement lead time, ordering needs to start immediately rather than waiting for demand to actually materialize",
+              "That procurement lead time has no bearing on when to order more capacity",
+              "That forecasted exhaustion time is always longer than procurement lead time"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The comparison `months_left <= procurement_lead_time_months` is exactly the trigger the lesson describes for needing to act now rather than reactively — this example shows that condition being met.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does GPU capacity's long lead time make capacity planning especially important?",
+            "options": [
+              "Because acquiring significant new GPU capacity can take months, so waiting until demand actually arrives to start planning risks a real bottleneck",
+              "Because GPU capacity can always be acquired instantly with no lead time at all",
+              "Because lead time has no bearing on when capacity planning should happen",
+              "Because GPU procurement is always faster than scaling a typical cloud web service"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The multi-month acquisition timeline for meaningful new GPU capacity is exactly why proactive forecasting matters more here than for resources that scale quickly on demand.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does the lesson warn against starting the procurement process only after capacity is already exhausted?",
+            "options": [
+              "Because, as the code example shows, when the forecasted exhaustion point is sooner than the procurement lead time, waiting for demand to actually arrive before ordering guarantees a capacity gap",
+              "Because procurement processes always complete instantly regardless of when they start",
+              "Because capacity exhaustion never actually causes any practical problems",
+              "Because starting procurement early always wastes money unnecessarily"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The common mistakes section restates the code example's core finding: a reactive procurement trigger arrives too late once the lead time exceeds the remaining runway before exhaustion.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does the lesson warn against ignoring compounding growth when forecasting GPU demand?",
+            "options": [
+              "Because, as the `*= (1 + growth_rate)` calculation in the code example shows, a flat linear projection understates how quickly usage can approach capacity when growth compounds month over month",
+              "Because compounding growth always produces a lower forecast than linear growth",
+              "Because growth rate has no effect on how quickly capacity is exhausted",
+              "Because linear projections are always more accurate than compounding ones"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The code example's exponential growth calculation demonstrates concretely why a naive linear forecast would underestimate how soon capacity is actually exhausted.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

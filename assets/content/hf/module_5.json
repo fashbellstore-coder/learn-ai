@@ -1,0 +1,525 @@
+{
+  "id": "module_5",
+  "title": "Sharing and Practical Deployment",
+  "description": "Why safetensors replaced pickle for safety, how to publish a model to the Hub, how to write a real license and model card for your own work, and how Spaces provide lightweight demo deployment.",
+  "icon": "🚀",
+  "color": "#6D4C41",
+  "order": 5,
+  "estimatedHours": 2,
+  "difficulty": "Intermediate",
+  "prerequisites": [],
+  "lessons": [
+    {
+      "id": "hf_safetensors",
+      "title": "Safetensors vs. Pickle: Why the Format Matters",
+      "description": "Understand why safetensors replaced pickle as the standard way to store model weights.",
+      "duration": "6 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain why safetensors is preferred over Python's pickle format for sharing model weights."
+          },
+          {
+            "title": "⚠️ Pickle can execute arbitrary code",
+            "content": "Python's `pickle` format, historically used to save PyTorch weights (`.bin` / `.pt` files), can execute arbitrary code when loaded — a serious security risk if you load a checkpoint from an untrusted source. This isn't a theoretical concern; it's a real supply-chain risk for anyone downloading models from the internet."
+          },
+          {
+            "title": "🔒 Safetensors: data only, no code execution",
+            "content": "The `.safetensors` format stores only tensor data — no executable code path — making it much safer to load from an unverified source, and often faster to load too since it avoids pickle's more general (and slower) deserialization.\n\n```python\nfrom safetensors.torch import save_file, load_file\n\nsave_file(model.state_dict(), \"model.safetensors\")\nstate_dict = load_file(\"model.safetensors\")\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Loading an untrusted `.bin`/`.pt` checkpoint without checking its source.** This is exactly the risk safetensors exists to remove — prefer safetensors files when available.\n\n**Assuming all older models have a safetensors version.** Some older repos only ship pickle-format weights; check before assuming.\n\n**Ignoring `use_safetensors=True` (or automatic preference) when it's available.** Most Hub tooling now prefers safetensors automatically, but it's worth confirming which format you're actually loading."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "hf_safetensors_quiz",
+        "questions": [
+          {
+            "question": "Why is loading a pickle-format (`.bin`/`.pt`) model checkpoint from an untrusted source a security risk?",
+            "options": [
+              "It isn't a risk at all — pickle files are completely safe",
+              "Pickle deserialization can execute arbitrary code, so a malicious checkpoint could run harmful code just by being loaded",
+              "Pickle files are always larger, which is the only downside",
+              "This risk only applies to image models, not language models"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Pickle's deserialization process can execute code embedded in the file, meaning a malicious actor could craft a checkpoint that runs arbitrary code the moment it's loaded — a real supply-chain risk for downloaded weights.",
+            "id": "q1"
+          },
+          {
+            "question": "What does the safetensors format specifically avoid that makes it safer than pickle?",
+            "options": [
+              "It avoids storing any tensor data at all",
+              "It stores only tensor data with no executable code path, so loading it can't trigger arbitrary code execution",
+              "It avoids using any file format standards",
+              "It avoids working with PyTorch models"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Safetensors is a data-only format — there's no code execution path involved in loading it, which removes the arbitrary-code-execution risk that comes with pickle-based checkpoint files.",
+            "id": "q2"
+          },
+          {
+            "question": "What should you do when you're not sure whether a Hub model ships weights in safetensors format?",
+            "options": [
+              "Assume it's always safetensors and never check",
+              "Check the repo's files, since some older repos only ship pickle-format weights, and prefer safetensors when both are available",
+              "Never use that model regardless of format",
+              "Format doesn't matter and can be safely ignored"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Not every repo has migrated to safetensors, so it's worth checking which format is actually available and preferring safetensors for the security and loading-speed benefits when it exists.",
+            "id": "q3"
+          },
+          {
+            "question": "Why is loading a pickle-format (`.bin`/`.pt`) model checkpoint from an untrusted source a security risk?",
+            "options": [
+              "It isn't a risk at all; pickle files are completely safe",
+              "Pickle deserialization can execute arbitrary code, so a malicious checkpoint could run harmful code just by being loaded",
+              "Pickle files are always larger, which is the only real downside",
+              "This risk only applies to image models, not language models"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Pickle's deserialization process can execute code embedded in the file, meaning a malicious checkpoint could run arbitrary code the moment it's loaded — a real supply-chain risk for downloaded weights.",
+            "id": "q4"
+          },
+          {
+            "question": "What does the safetensors format specifically avoid that makes it safer than pickle?",
+            "options": [
+              "It avoids storing any tensor data at all",
+              "It stores only tensor data with no executable code path, so loading it can't trigger arbitrary code execution",
+              "It avoids using any established file format standards",
+              "It avoids working with PyTorch models entirely"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Safetensors is a data-only format with no code execution path involved in loading it, which removes the arbitrary-code-execution risk that comes with pickle-based checkpoint files.",
+            "id": "q5"
+          },
+          {
+            "question": "Besides safety, what other practical advantage does safetensors often have over pickle?",
+            "options": [
+              "It is always slower to load than pickle",
+              "It's often faster to load, since it avoids pickle's more general (and slower) deserialization process",
+              "It requires significantly more disk space than pickle",
+              "It cannot store the same tensor data that pickle can"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Beyond safety, safetensors is often faster to load than pickle since it avoids pickle's more general and slower deserialization process.",
+            "id": "q6"
+          },
+          {
+            "question": "What should you do when you're unsure whether a Hub model ships weights in safetensors format?",
+            "options": [
+              "Always assume it's safetensors and never check",
+              "Check the repo's files, since some older repos only ship pickle-format weights, and prefer safetensors when both are available",
+              "Never use that model regardless of the format it uses",
+              "Format is irrelevant and can always be safely ignored"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Not every repo has migrated to safetensors, so it's worth checking which format is actually available and preferring safetensors for its security and loading-speed benefits when it exists.",
+            "id": "q7"
+          },
+          {
+            "question": "What kind of files does this lesson identify as historically used to save PyTorch weights, before safetensors?",
+            "options": [
+              "Only .json files",
+              "`.bin` / `.pt` files, using Python's pickle format",
+              "Only .csv files",
+              "Only .safetensors files, from the very beginning"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson identifies .bin and .pt files, based on Python's pickle format, as the format historically used to save PyTorch weights before safetensors became the safer standard.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "hf_push_to_hub",
+      "title": "Publishing a Model to the Hub",
+      "description": "Push a fine-tuned model to the Hub so it can be loaded like any other repo.",
+      "duration": "6 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can describe the steps to publish a fine-tuned model to the Hugging Face Hub."
+          },
+          {
+            "title": "📤 push_to_hub in one call",
+            "content": "Both `Trainer` and PEFT models support `.push_to_hub(repo_id)`, which uploads the model weights, config, and tokenizer to a new or existing Hub repo — the same repo structure you learned to read in the very first lesson of this course, just from the publishing side now.\n\n```python\ntrainer.push_to_hub(\"your-username/my-fine-tuned-model\")\n# or, for a PEFT/LoRA adapter:\npeft_model.push_to_hub(\"your-username/my-lora-adapter\")\n```"
+          },
+          {
+            "title": "📝 Writing your own model card",
+            "content": "Publishing without a model card leaves future users (including future you) without the training data, intended use, and limitations context that the earlier model-cards lesson taught you to look for in other people's models. Writing your own is the same discipline, applied to your own work."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Publishing without any model card at all.** Even a few sentences about training data and intended use is far better than nothing.\n\n**Forgetting to set the repo's visibility intentionally.** Public vs. private matters for anything containing sensitive or proprietary training data.\n\n**Publishing a model you haven't evaluated.** Push a model only after checking its metrics — publishing is a form of making a claim about what the model does."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "hf_push_to_hub_quiz",
+        "questions": [
+          {
+            "question": "What does `trainer.push_to_hub(repo_id)` upload?",
+            "options": [
+              "Only the training logs, nothing else",
+              "The model weights, config, and tokenizer to a new or existing Hub repo",
+              "Nothing — push_to_hub only validates the model without uploading",
+              "Only the dataset used for training"
+            ],
+            "correctAnswer": 1,
+            "explanation": "push_to_hub bundles up everything needed to reload the model elsewhere — weights, config, and tokenizer — and uploads it to the specified Hub repo.",
+            "id": "q1"
+          },
+          {
+            "question": "Why should you write a model card when publishing your own fine-tuned model?",
+            "options": [
+              "Model cards are purely optional decoration with no real use",
+              "It gives future users (including yourself later) the training data, intended use, and limitations context needed to use the model responsibly — the same information you learned to look for in others' models",
+              "Model cards are only required for datasets, not models",
+              "Writing a model card is required by the Hub's technical infrastructure to make the repo function"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The same information you check for in a model card when evaluating someone else's model (training data, intended use, limitations) is exactly what you owe to anyone who might later use a model you publish, including your future self.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is it a mistake to publish a model before evaluating it?",
+            "options": [
+              "It's not a mistake — evaluation can always happen after publishing with no downside",
+              "Publishing effectively makes an implicit claim about what the model does, so publishing without evaluation risks sharing a model you haven't verified actually works as intended",
+              "Models cannot be evaluated once they're published",
+              "Evaluation is only relevant for very large models"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Once published, others may rely on your model's stated capabilities. Evaluating before publishing ensures the model actually does what you're implicitly claiming it does, rather than shipping unverified results.",
+            "id": "q3"
+          },
+          {
+            "question": "What does `trainer.push_to_hub(repo_id)` upload?",
+            "options": [
+              "Only the training logs, nothing else",
+              "The model weights, config, and tokenizer to a new or existing Hub repo",
+              "Nothing — push_to_hub only validates the model without uploading anything",
+              "Only the dataset used for training"
+            ],
+            "correctAnswer": 1,
+            "explanation": "push_to_hub bundles up everything needed to reload the model elsewhere — weights, config, and tokenizer — and uploads it to the specified Hub repo.",
+            "id": "q4"
+          },
+          {
+            "question": "Can a PEFT/LoRA model also be published with `push_to_hub`, according to this lesson?",
+            "options": [
+              "No, push_to_hub only works for full Trainer-based models",
+              "Yes — peft_model.push_to_hub(repo_id) publishes a LoRA adapter the same way",
+              "PEFT models cannot be published to the Hub under any method",
+              "Only Trainer objects can ever call push_to_hub"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson's example shows both trainer.push_to_hub() for a full model and peft_model.push_to_hub() for a LoRA adapter, confirming both can be published this way.",
+            "id": "q5"
+          },
+          {
+            "question": "Why should you write a model card when publishing your own fine-tuned model?",
+            "options": [
+              "Model cards are purely optional decoration with no real use",
+              "It gives future users (including yourself later) the training data, intended use, and limitations context needed to use the model responsibly",
+              "Model cards are only required for datasets, never for models",
+              "Writing a model card is required by the Hub's technical infrastructure to function at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The same information you check for in a model card when evaluating someone else's model is exactly what you owe to anyone who might later use a model you publish, including your future self.",
+            "id": "q6"
+          },
+          {
+            "question": "Why is it a mistake to publish a model before evaluating it?",
+            "options": [
+              "It's not a mistake; evaluation can always happen after publishing with no downside",
+              "Publishing effectively makes an implicit claim about what the model does, so publishing without evaluation risks sharing an unverified model",
+              "Models cannot technically be evaluated once they're published",
+              "Evaluation is only relevant for very large models"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Once published, others may rely on your model's stated capabilities — evaluating before publishing ensures the model actually does what you're implicitly claiming it does.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does the lesson emphasize setting a repo's visibility (public vs. private) intentionally when publishing?",
+            "options": [
+              "Visibility settings have no real consequence for any repo",
+              "Visibility matters for anything containing sensitive or proprietary training data, so it shouldn't be left to a careless default",
+              "All repos are automatically private and cannot be changed",
+              "Only datasets have a visibility setting, not models"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson warns against forgetting to set visibility intentionally, since public vs. private status matters significantly when a model involves sensitive or proprietary training data.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "hf_licensing_practice",
+      "title": "Licensing and Model Cards in Practice",
+      "description": "Choose a license for your own model and write a model card that actually helps future users.",
+      "duration": "6 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can choose an appropriate license for a model you publish and write a model card that covers the essentials."
+          },
+          {
+            "title": "⚖️ Picking a license for your own work",
+            "content": "When you publish, you choose the license — the same categories from the earlier lesson (permissive like Apache 2.0/MIT, or more restrictive) now apply to a decision you're making rather than one you're evaluating. Consider what training data you used: if it came with its own license restrictions, your fine-tuned model may inherit constraints from it."
+          },
+          {
+            "title": "📋 A minimal but real model card",
+            "content": "At minimum, a useful model card states: what the model does, what data it was fine-tuned on, what metrics it achieves, and known limitations. This is the same checklist from the earlier model-cards lesson, just written from the author's side.\n\n```markdown\n## Model Card: sentiment-classifier-v1\n- Base model: bert-base-uncased\n- Fine-tuned on: IMDB movie reviews (50k examples)\n- Metrics: 91% accuracy, 0.90 F1 on held-out test set\n- Limitations: English only; may underperform on sarcasm and mixed-sentiment text\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Choosing a license without checking your training data's license.** If your training data has usage restrictions, your model may need to inherit them.\n\n**Writing a model card with no metrics.** 'It works well' isn't a metric — report the actual numbers from your evaluation.\n\n**Copying a generic model card template without customizing the limitations section.** Generic limitations don't help users who need to know about your specific model's actual failure modes."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "hf_licensing_practice_quiz",
+        "questions": [
+          {
+            "question": "Why might the license of your training data affect the license you choose for your fine-tuned model?",
+            "options": [
+              "Training data licenses never affect the resulting model's license",
+              "If the training data carries usage restrictions, the fine-tuned model may need to inherit or respect those same constraints",
+              "Only the base model's license matters, never the data's",
+              "Licensing only applies to code, never to trained models"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Just as understanding a model's license mattered when using someone else's model, the license terms attached to your training data can carry forward restrictions that affect how you're allowed to license and distribute your fine-tuned result.",
+            "id": "q1"
+          },
+          {
+            "question": "What should a minimal but genuinely useful model card include?",
+            "options": [
+              "Nothing beyond the model's name",
+              "What the model does, what data it was fine-tuned on, what metrics it achieves, and known limitations",
+              "Only the file size of the model weights",
+              "A list of every hyperparameter tried during experimentation, with no summary"
+            ],
+            "correctAnswer": 1,
+            "explanation": "These four elements — purpose, training data, metrics, and limitations — mirror the same checklist you learned to look for in others' model cards, giving future users the essentials to decide if the model fits their needs.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is writing 'it works well' in a model card's metrics section insufficient?",
+            "options": [
+              "It's actually a complete and sufficient description",
+              "It provides no concrete, comparable information — actual numbers (like accuracy or F1 on a specific test set) are what let someone judge the model's real performance",
+              "Model cards should never contain any numbers",
+              "Metrics sections are optional and can be left blank instead"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A vague claim gives no way to compare or verify performance. Concrete metrics — like a specific accuracy or F1 score on a stated test set — are what actually let a future user judge whether the model fits their needs.",
+            "id": "q3"
+          },
+          {
+            "question": "Why might the license of your training data affect the license you choose for your fine-tuned model?",
+            "options": [
+              "Training data licenses never affect the resulting model's license",
+              "If the training data carries usage restrictions, the fine-tuned model may need to inherit or respect those same constraints",
+              "Only the base model's license matters, never the data's license",
+              "Licensing only applies to code, never to trained models"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Just as understanding a model's license mattered when using someone else's model, restrictions on your training data's license can carry forward and affect how you're allowed to license your fine-tuned result.",
+            "id": "q4"
+          },
+          {
+            "question": "What should a minimal but genuinely useful model card include, according to this lesson?",
+            "options": [
+              "Nothing beyond the model's name",
+              "What the model does, what data it was fine-tuned on, what metrics it achieves, and known limitations",
+              "Only the file size of the model weights",
+              "A list of every hyperparameter tried, with no summary of results"
+            ],
+            "correctAnswer": 1,
+            "explanation": "These four elements — purpose, training data, metrics, and limitations — mirror the same checklist you learned to look for in others' model cards.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is writing 'it works well' in a model card's metrics section insufficient?",
+            "options": [
+              "It's actually a complete and sufficient description of performance",
+              "It provides no concrete, comparable information — actual numbers like accuracy or F1 are what let someone judge real performance",
+              "Model cards should never contain any numbers at all",
+              "Metrics sections are entirely optional and can be left blank"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A vague claim gives no way to compare or verify performance; concrete metrics like a specific accuracy or F1 score on a stated test set are what actually let a future user judge whether the model fits their needs.",
+            "id": "q6"
+          },
+          {
+            "question": "What mistake does this lesson warn against regarding copying a generic model card template?",
+            "options": [
+              "Using a template is always forbidden and should never be done",
+              "Copying a generic template without customizing the limitations section fails to convey the specific model's actual failure modes",
+              "Templates automatically fill in accurate limitations for every model",
+              "Only the metrics section ever needs customization, never the limitations"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Generic limitations copied from a template don't help users who need to know about the specific model's actual, particular failure modes rather than boilerplate text.",
+            "id": "q7"
+          },
+          {
+            "question": "What license categories does this lesson reference as applying to a decision you're now making as the model's author?",
+            "options": [
+              "Only research-only licenses exist as an option",
+              "The same categories from the earlier lesson — permissive licenses like Apache 2.0/MIT, or more restrictive ones",
+              "Licensing categories only ever apply to datasets, never to models you publish",
+              "There is only a single universal license type for all models"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson notes that the same license categories from the earlier model-cards lesson (permissive like Apache 2.0/MIT, or more restrictive) now apply to a decision you're actively making as the author, not just evaluating.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "hf_spaces_deployment",
+      "title": "Spaces and Lightweight Deployment",
+      "description": "Turn a model into a shareable demo without building a full backend from scratch.",
+      "duration": "6 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can describe what a Hugging Face Space is and when it's a good fit for showing off a model."
+          },
+          {
+            "title": "🖥️ A demo app, hosted for you",
+            "content": "A **Space** is a small hosted app (commonly built with Gradio or Streamlit) that runs alongside a model repo. It's the fastest way to give someone a working, in-browser demo of a model without building and hosting your own web server.\n\n```python\n# app.py for a simple Gradio Space\nimport gradio as gr\nfrom transformers import pipeline\n\nclassifier = pipeline(\"sentiment-analysis\")\n\ndef predict(text):\n    return classifier(text)[0]\n\ngr.Interface(fn=predict, inputs=\"text\", outputs=\"json\").launch()\n```"
+          },
+          {
+            "title": "🚦 Demo vs. production, one more time",
+            "content": "A Space is perfect for showing a model works and letting people try it. It is not, by itself, a production-scale deployment — for real traffic, you'd move to a dedicated inference setup (covered in the inference and LLMOps tracks) with proper scaling, monitoring, and reliability guarantees."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Treating a Space as production infrastructure.** It's built for demos and light usage, not guaranteed uptime or high throughput.\n\n**Loading a large model on a free-tier Space without checking hardware limits.** Free Spaces have limited compute; a large model may need a paid hardware tier or a smaller/quantized model.\n\n**Forgetting to pin dependencies in the Space's requirements file.** An unpinned dependency update can silently break a working demo."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "hf_spaces_deployment_quiz",
+        "questions": [
+          {
+            "question": "What is a Hugging Face Space?",
+            "options": [
+              "A place to store training data only",
+              "A small hosted app, commonly built with Gradio or Streamlit, that runs alongside a model repo to provide an in-browser demo",
+              "A type of model architecture",
+              "A production-grade load balancer"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A Space hosts a small interactive app — frequently a Gradio or Streamlit interface — letting anyone try a model in their browser without needing to set up their own server.",
+            "id": "q1"
+          },
+          {
+            "question": "Why shouldn't a Space typically be treated as production infrastructure?",
+            "options": [
+              "Spaces are actually designed for and guarantee production-scale reliability",
+              "Spaces are built for demos and light usage, not guaranteed uptime, high throughput, or the scaling and monitoring a production deployment needs",
+              "Spaces cannot host any model at all",
+              "There is no difference between a Space and a production deployment"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A Space is optimized for quickly showing that something works, not for the reliability, scaling, and monitoring guarantees a real production system needs — that gap is exactly what dedicated inference and LLMOps setups are built to close.",
+            "id": "q2"
+          },
+          {
+            "question": "Why does pinning dependencies in a Space's requirements file matter?",
+            "options": [
+              "It has no effect on whether the Space works",
+              "An unpinned dependency can update unexpectedly and silently break a previously working demo",
+              "Pinning dependencies is required by Hugging Face's terms of service only",
+              "Dependencies are automatically pinned and cannot be changed"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Without pinned versions, a library update could change behavior or break compatibility, causing a demo that worked yesterday to fail today with no code change on your part — pinning avoids this kind of silent breakage.",
+            "id": "q3"
+          },
+          {
+            "question": "What is a Hugging Face Space, according to this lesson?",
+            "options": [
+              "A place to store training data only",
+              "A small hosted app, commonly built with Gradio or Streamlit, that runs alongside a model repo to provide an in-browser demo",
+              "A specific type of model architecture",
+              "A production-grade load balancer"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A Space hosts a small interactive app, frequently built with Gradio or Streamlit, letting anyone try a model in their browser without setting up their own server.",
+            "id": "q4"
+          },
+          {
+            "question": "What two frameworks does this lesson mention as commonly used to build a Space?",
+            "options": [
+              "React and Angular",
+              "Gradio and Streamlit",
+              "Django and Flask",
+              "TensorFlow and PyTorch"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson names Gradio and Streamlit as the frameworks commonly used to build the small hosted apps that run in a Space.",
+            "id": "q5"
+          },
+          {
+            "question": "Why shouldn't a Space typically be treated as production infrastructure?",
+            "options": [
+              "Spaces are actually designed to guarantee production-scale reliability",
+              "Spaces are built for demos and light usage, not guaranteed uptime, high throughput, or the scaling and monitoring a production deployment needs",
+              "Spaces cannot host any kind of model whatsoever",
+              "There is no meaningful difference between a Space and a production deployment"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A Space is optimized for quickly showing that something works, not for the reliability, scaling, and monitoring guarantees a real production system needs — that gap is closed by dedicated inference and LLMOps setups.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does pinning dependencies in a Space's requirements file matter?",
+            "options": [
+              "It has no effect on whether the Space works correctly",
+              "An unpinned dependency can update unexpectedly and silently break a previously working demo",
+              "Pinning dependencies is required only by Hugging Face's terms of service, with no functional effect",
+              "Dependencies are automatically pinned by default and cannot be changed"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Without pinned versions, a library update could change behavior or break compatibility, causing a demo that worked before to fail later with no code change on your part.",
+            "id": "q7"
+          },
+          {
+            "question": "What should you check before loading a large model on a free-tier Space, according to this lesson?",
+            "options": [
+              "Nothing — free-tier Spaces have unlimited compute for any model size",
+              "The Space's hardware limits, since a large model may need a paid hardware tier or a smaller/quantized model",
+              "Only the model's license, never its hardware needs",
+              "Whether the model has ever been used in a Space before"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson warns against loading a large model on a free-tier Space without checking hardware limits, since free Spaces have limited compute and may require a paid tier or a smaller/quantized model.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

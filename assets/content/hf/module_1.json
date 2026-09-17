@@ -1,0 +1,525 @@
+{
+  "id": "module_1",
+  "title": "Tokenizers in Practice",
+  "description": "What a tokenizer's output actually contains, how padding and truncation handle variable-length text, why batching needs attention masks, and what makes fast tokenizers fast.",
+  "icon": "🔤",
+  "color": "#FFB300",
+  "order": 1,
+  "estimatedHours": 2,
+  "difficulty": "Beginner",
+  "prerequisites": [],
+  "lessons": [
+    {
+      "id": "hf_tokenizer_basics",
+      "title": "What a Tokenizer Actually Returns",
+      "description": "Inspect the actual output of a Hugging Face tokenizer: input ids, not just tokens.",
+      "duration": "6 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain what `input_ids` are and why a tokenizer's output is a dictionary, not just a list of strings."
+          },
+          {
+            "title": "🔢 From text to input_ids",
+            "content": "In the NLP course you learned that tokenization splits text into pieces (subwords, in BERT/GPT-style tokenizers). A Hugging Face tokenizer goes one step further: it maps each token to an integer id from the model's vocabulary, called `input_ids`.\n\n```python\nfrom transformers import AutoTokenizer\n\ntokenizer = AutoTokenizer.from_pretrained(\"bert-base-uncased\")\nencoded = tokenizer(\"Tokenizers split text into pieces.\")\nprint(encoded)\n# {'input_ids': [101, 19204, 17629, ...], 'attention_mask': [1, 1, ...]}\n\ntokens = tokenizer.convert_ids_to_tokens(encoded[\"input_ids\"])\nprint(tokens)  # ['[CLS]', 'token', '##izer', '##s', ..., '[SEP]']\n```"
+          },
+          {
+            "title": "🧩 A dictionary, not just a list",
+            "content": "The tokenizer returns a dictionary with (at least) `input_ids` and `attention_mask` — the model's `forward()` call expects both. This is why you almost always call the model with `**inputs` (dictionary unpacking) rather than passing `input_ids` alone."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Confusing tokens with input_ids.** The human-readable tokens (`'token', '##izer'`) are for debugging; the model only sees the integer ids.\n\n**Forgetting the special tokens `[CLS]`/`[SEP]` (or their model's equivalent).** They're added automatically and matter to the model's behavior — don't strip them by hand.\n\n**Passing raw text where the model expects `input_ids`.** The model layer never sees text; the tokenizer is the only thing standing between raw text and numbers."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "hf_tokenizer_basics_quiz",
+        "questions": [
+          {
+            "question": "What does `input_ids` contain in a tokenizer's output?",
+            "options": [
+              "The raw, unmodified input text",
+              "A list of integers, each mapping a token to its position in the model's vocabulary",
+              "A list of file paths",
+              "The model's final predictions"
+            ],
+            "correctAnswer": 1,
+            "explanation": "input_ids are integers, not text — each one is the index of a token in the model's fixed vocabulary. This is the actual numeric representation the model operates on.",
+            "id": "q1"
+          },
+          {
+            "question": "Why does a Hugging Face tokenizer return a dictionary instead of just a list of tokens?",
+            "options": [
+              "It's an arbitrary design choice with no functional reason",
+              "Because the model's forward pass needs multiple aligned pieces of information, at minimum input_ids and attention_mask, together",
+              "Dictionaries are faster than lists in Python",
+              "Only some tokenizers return dictionaries"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A model call needs input_ids and attention_mask (and sometimes more) together, aligned position-by-position. Returning a dictionary keeps these pieces bundled so you can unpack them directly into the model call.",
+            "id": "q2"
+          },
+          {
+            "question": "Why do special tokens like `[CLS]` and `[SEP]` get added automatically, and why shouldn't you strip them?",
+            "options": [
+              "They are purely decorative and have no effect on the model",
+              "The model was trained expecting these tokens in specific positions, so removing them changes the input distribution the model was trained on",
+              "They only appear when you make a mistake",
+              "Only GPT-style models use special tokens"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Special tokens carry meaning the model was trained to use — [CLS] often represents a pooled sentence-level summary in BERT-style models. Removing them means feeding the model an input shape it never saw during training.",
+            "id": "q3"
+          },
+          {
+            "question": "What does `input_ids` contain in a Hugging Face tokenizer's output?",
+            "options": [
+              "The original raw text, unmodified",
+              "A list of integers mapping each token to its position in the model's vocabulary",
+              "A list of file paths to token definitions",
+              "The model's final predicted output"
+            ],
+            "correctAnswer": 1,
+            "explanation": "input_ids are integers, each representing the index of a token within the model's fixed vocabulary — this is the actual numeric form the model processes.",
+            "id": "q4"
+          },
+          {
+            "question": "Why does a Hugging Face tokenizer return a dictionary rather than a plain list of tokens?",
+            "options": [
+              "It's an arbitrary stylistic choice with no functional purpose",
+              "Because the model's forward pass needs multiple aligned pieces of information, at minimum input_ids and attention_mask, bundled together",
+              "Dictionaries happen to run faster in Python than lists",
+              "Only some rare tokenizers ever return dictionaries"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A model call needs input_ids and attention_mask (and sometimes more) together, aligned position by position — the dictionary keeps these bundled so you can unpack them directly into the model.",
+            "id": "q5"
+          },
+          {
+            "question": "Why shouldn't you manually strip special tokens like [CLS] and [SEP] from a tokenizer's output?",
+            "options": [
+              "They are purely decorative and never affect the model",
+              "The model was trained expecting these tokens in specific positions, so removing them changes the input distribution the model learned on",
+              "Special tokens only exist in datasets, never in tokenizer output",
+              "Stripping them always improves model accuracy"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Special tokens carry meaning the model was trained to use (like [CLS] representing a pooled summary in BERT); removing them means feeding an input shape the model never saw during training.",
+            "id": "q6"
+          },
+          {
+            "question": "Why do you almost always call a Hugging Face model with `**inputs` (dictionary unpacking) rather than passing input_ids alone?",
+            "options": [
+              "Dictionary unpacking is purely a stylistic preference with no functional reason",
+              "The model's forward() call expects the other keys too, such as attention_mask, not just input_ids by itself",
+              "Passing input_ids alone always crashes the tokenizer, not the model",
+              "**inputs disables the attention mechanism entirely"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since the tokenizer's output dictionary includes attention_mask alongside input_ids, and the model's forward() call expects both, unpacking the full dictionary ensures the model receives everything it needs.",
+            "id": "q7"
+          },
+          {
+            "question": "In the NLP course, what earlier concept does Hugging Face's tokenizer output build on?",
+            "options": [
+              "Named entity recognition specifically",
+              "Tokenization, particularly subword tokenization used by BERT/GPT-style tokenizers",
+              "TF-IDF weighting",
+              "The bag-of-words representation"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This lesson builds directly on tokenization from the NLP course, especially subword tokenization, and shows how a Hugging Face tokenizer goes further by mapping tokens to numeric ids.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "hf_special_tokens",
+      "title": "Special Tokens, Padding, and Truncation",
+      "description": "Handle variable-length text with padding and truncation the way the model expects.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain why batches need padding, and how truncation prevents inputs from exceeding a model's context length."
+          },
+          {
+            "title": "📏 Every model has a maximum length",
+            "content": "Transformer models (from the transformers course) have a fixed maximum sequence length. Real text varies in length, so tokenizers offer `padding` and `truncation` to make a batch of different-length texts fit into one fixed-size tensor.\n\n```python\nbatch = tokenizer(\n    [\"Short text.\", \"A much longer piece of text that goes on for a while.\"],\n    padding=True,\n    truncation=True,\n    max_length=16,\n    return_tensors=\"pt\",\n)\nprint(batch[\"input_ids\"].shape)  # (2, 16) — both rows padded/truncated to the same length\n```"
+          },
+          {
+            "title": "🕳️ What padding actually adds",
+            "content": "Padding adds a special `[PAD]` token (id usually 0) to shorter sequences so every row in a batch has the same length — required because tensors must be rectangular. Truncation cuts sequences longer than `max_length`, discarding the excess tokens (usually from the end)."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Padding without an attention mask.** Padding tokens carry no meaning; the attention mask tells the model to ignore them — skip this and the model attends to meaningless `[PAD]` tokens.\n\n**Silent truncation.** Cutting a long document at `max_length` can silently drop the most important part of the text — always check whether your inputs are actually being truncated.\n\n**Padding every batch to the same fixed max length.** Padding to the *longest sequence in the batch* (the default with `padding=True`) wastes far less compute than always padding to the model's absolute maximum."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "hf_special_tokens_quiz",
+        "questions": [
+          {
+            "question": "Why is padding necessary when tokenizing a batch of different-length texts?",
+            "options": [
+              "Padding is optional and never actually needed",
+              "Tensors must be rectangular, so every sequence in a batch needs to end up the same length — padding fills shorter sequences to match the longest one",
+              "Padding makes the model more accurate",
+              "Padding only applies to images, not text"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A batch is stored as a single tensor, and tensors require every row to have the same length. Padding adds filler tokens to shorter sequences so the whole batch fits into one rectangular tensor.",
+            "id": "q1"
+          },
+          {
+            "question": "What is the purpose of the attention mask when padding is used?",
+            "options": [
+              "It has no real purpose and can be safely ignored",
+              "It tells the model which positions are real tokens and which are padding, so the model doesn't attend to meaningless [PAD] tokens",
+              "It replaces the need for input_ids entirely",
+              "It only matters during training, never during inference"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Padding tokens carry no real content. The attention mask (1 for real tokens, 0 for padding) tells the model's attention mechanism to ignore the padded positions, so they don't distort the result.",
+            "id": "q2"
+          },
+          {
+            "question": "What is the risk of truncating a long document to fit `max_length`?",
+            "options": [
+              "There is no risk — truncation always preserves all important information",
+              "The cut can discard exactly the part of the text that mattered most for the task, since content is typically dropped from wherever it exceeds the limit",
+              "Truncation only affects images",
+              "Truncation makes the tokenizer run slower"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Truncation simply cuts off content beyond max_length. If the important information happens to fall in the discarded portion, the model never sees it — which is why long-document tasks often need chunking strategies instead of naive truncation.",
+            "id": "q3"
+          },
+          {
+            "question": "Why do transformer models require padding when processing a batch of different-length texts?",
+            "options": [
+              "Padding is entirely optional and never actually needed",
+              "Tensors must be rectangular, so every sequence in a batch needs to end up the same length",
+              "Padding is only used for image data, never text",
+              "Padding replaces the need for tokenization entirely"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since a batch is stored as a single tensor, and tensors require every row to be the same length, padding fills shorter sequences with filler tokens so the batch is rectangular.",
+            "id": "q4"
+          },
+          {
+            "question": "What does truncation do when a text exceeds a model's `max_length`?",
+            "options": [
+              "It automatically summarizes the text to fit",
+              "It cuts off tokens beyond max_length, usually discarding the excess from the end",
+              "It pads the text instead of cutting it",
+              "It raises an error and refuses to process the text at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Truncation cuts sequences longer than max_length, discarding the excess tokens (typically from the end) so the sequence fits within the model's maximum length.",
+            "id": "q5"
+          },
+          {
+            "question": "What token id does the [PAD] token typically use, according to this lesson?",
+            "options": [
+              "A different random id every time",
+              "Usually id 0",
+              "The same id as [CLS]",
+              "There is no consistent id for [PAD]"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson notes that padding adds a special [PAD] token, usually with id 0, to shorter sequences so every row in a batch reaches the same length.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does padding without an attention mask cause a problem?",
+            "options": [
+              "It doesn't cause any problem at all",
+              "Padding tokens carry no meaning, and without the attention mask, the model would attend to those meaningless [PAD] tokens",
+              "Padding without a mask makes the tokenizer crash immediately",
+              "Attention masks are only relevant for images, not text"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since [PAD] tokens carry no real content, the attention mask is what tells the model to ignore them — without it, the model would incorrectly attend to meaningless filler tokens.",
+            "id": "q7"
+          },
+          {
+            "question": "According to this lesson, why is padding to the batch's own longest sequence better than always padding to the model's absolute maximum length?",
+            "options": [
+              "There is no difference between the two approaches",
+              "Padding to the model's absolute maximum wastes far more compute than padding only to the batch's actual longest sequence",
+              "Padding to the absolute maximum always produces more accurate results",
+              "Padding to the batch's longest sequence is illegal under most model licenses"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Padding to the longest sequence in the batch (the default with padding=True) wastes far less compute than always padding every batch out to the model's absolute maximum length.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "hf_attention_mask",
+      "title": "Attention Masks and Batching",
+      "description": "Understand how batching multiple sequences together interacts with attention masks and speed.",
+      "duration": "7 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain why batching sequences together is faster than processing them one at a time, and what makes it work correctly."
+          },
+          {
+            "title": "🚀 Why batch at all",
+            "content": "GPUs (and even CPUs, to a lesser degree) process a batch of examples in roughly the same time as one example, up to some batch size, because they're built for parallel matrix operations. Processing 32 sentences one-by-one is far slower than processing all 32 together as a single batched tensor."
+          },
+          {
+            "title": "🎭 The attention mask makes batching correct",
+            "content": "Batching different-length sequences requires padding (previous lesson), and padding requires the attention mask to keep the model from attending to filler tokens. Together, `input_ids` + `attention_mask` let variable-length real-world text be processed efficiently in fixed-size batches without corrupting the result.\n\n```python\nbatch = tokenizer(\n    [\"short\", \"a somewhat longer sentence here\"],\n    padding=True, return_tensors=\"pt\",\n)\nprint(batch[\"attention_mask\"])\n# tensor([[1, 1, 0, 0, 0, 0],\n#         [1, 1, 1, 1, 1, 1]])\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Sorting by length for pure speed but breaking downstream ordering.** Length-sorted batching (bucketing) speeds up training but means you must track original indices if order matters for evaluation.\n\n**Choosing a batch size only for training, ignoring inference memory limits.** A batch size that trains fine on a large GPU can crash a smaller inference server.\n\n**Assuming batching never changes numerical results.** In principle it shouldn't (masking handles this correctly), but floating-point differences at the batch level can cause tiny numerical variation — rarely meaningful, but worth knowing about when debugging exact reproducibility."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "hf_attention_mask_quiz",
+        "questions": [
+          {
+            "question": "Why is processing a batch of 32 sentences together typically much faster than processing them one at a time?",
+            "options": [
+              "Batching has no speed benefit at all",
+              "Hardware like GPUs is built for parallel matrix operations, so a batch of many examples often takes roughly the same time as a single example, up to some size",
+              "Batching only works for images",
+              "Batching makes the model more accurate, which is why it seems faster"
+            ],
+            "correctAnswer": 1,
+            "explanation": "GPUs excel at parallel tensor operations. Processing many sequences as one batched tensor exploits that parallelism, so throughput per example goes up dramatically compared to one-at-a-time processing.",
+            "id": "q1"
+          },
+          {
+            "question": "What two pieces of tokenizer output work together to make batching different-length sequences correct?",
+            "options": [
+              "input_ids alone is sufficient; nothing else is needed",
+              "input_ids together with the attention_mask, so padded positions are excluded from the model's attention computation",
+              "Only the token strings, never the ids",
+              "The model's final output layer handles this automatically without any tokenizer help"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Padding makes the batch rectangular (input_ids), but the model still needs to know which positions are real content — that's exactly what the attention_mask communicates, letting it ignore the padded filler.",
+            "id": "q2"
+          },
+          {
+            "question": "Why might sorting sequences by length before batching (bucketing) require extra care?",
+            "options": [
+              "It never requires any extra care",
+              "It speeds up training by reducing wasted padding, but you must track the original order if downstream code depends on it",
+              "It's illegal to sort sequences before batching",
+              "Bucketing always corrupts the model's predictions"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Length-based bucketing reduces wasted padding and speeds up training, but shuffles the natural order of examples — so any code that depends on original ordering (like matching predictions back to inputs) needs to track indices explicitly.",
+            "id": "q3"
+          },
+          {
+            "question": "Why is processing a batch of many sentences together typically much faster than processing them one at a time?",
+            "options": [
+              "Batching provides no speed benefit whatsoever",
+              "Hardware like GPUs is built for parallel matrix operations, so a batch often takes roughly the same time as one example, up to some size",
+              "Batching only works for image data, not text",
+              "Batching makes the model more accurate, which is why it appears faster"
+            ],
+            "correctAnswer": 1,
+            "explanation": "GPUs are built for parallel matrix operations, so processing many examples as one batched tensor exploits that parallelism, dramatically increasing throughput compared to one-at-a-time processing.",
+            "id": "q4"
+          },
+          {
+            "question": "What two pieces of tokenizer output work together to make batching different-length sequences correct?",
+            "options": [
+              "input_ids alone is fully sufficient on its own",
+              "input_ids together with the attention_mask, so padded positions are excluded from the model's attention computation",
+              "Only the human-readable token strings, never the numeric ids",
+              "The model's output layer alone handles this with no tokenizer involvement"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Padding makes the batch rectangular via input_ids, but the attention_mask is what tells the model which positions are real content versus padding, keeping the batched computation correct.",
+            "id": "q5"
+          },
+          {
+            "question": "What does length-based bucketing (sorting sequences by length before batching) require extra care for?",
+            "options": [
+              "It never requires any extra care at all",
+              "It speeds up training by reducing wasted padding, but you must track the original order if downstream code depends on it",
+              "Bucketing is illegal and cannot be used in production",
+              "Bucketing always corrupts the model's predictions"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Bucketing reduces wasted padding and speeds up training, but it shuffles the natural order of examples, so any code relying on original ordering needs to track indices explicitly.",
+            "id": "q6"
+          },
+          {
+            "question": "Why might a batch size that trains fine on a large GPU cause problems on a smaller inference server?",
+            "options": [
+              "Batch size has no relationship to memory usage at all",
+              "Training and inference memory limits can differ, so a batch size chosen only for training might exceed a smaller inference server's capacity",
+              "Inference servers always have more memory than training GPUs",
+              "Batch size is fixed and cannot be changed between training and inference"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson warns against choosing batch size only for training while ignoring inference memory limits — a batch size fine for a large training GPU can crash a smaller inference server.",
+            "id": "q7"
+          },
+          {
+            "question": "According to this lesson, can batching ever introduce tiny numerical variation in results?",
+            "options": [
+              "No, batching mathematically guarantees identical results in all cases",
+              "Yes — floating-point differences at the batch level can cause small numerical variation, rarely meaningful but worth knowing about",
+              "Batching always produces completely different, unusable results",
+              "This only happens when using CPUs, never GPUs"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson notes that while masking handles correctness in principle, floating-point differences at the batch level can introduce small numerical variation, which matters mainly for exact reproducibility debugging.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "hf_fast_tokenizers",
+      "title": "Fast Tokenizers and Offsets",
+      "description": "Learn what makes 'fast' tokenizers fast, and how offset mapping links tokens back to the original text.",
+      "duration": "6 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain what a 'fast' tokenizer is and what offset mapping is used for."
+          },
+          {
+            "title": "⚡ Rust under the hood",
+            "content": "Hugging Face ships two tokenizer implementations for many models: a pure-Python one and a 'fast' one backed by a Rust implementation (the `tokenizers` library). Fast tokenizers are dramatically quicker, especially on large batches, and support extra features like offset mapping.\n\n```python\ntokenizer = AutoTokenizer.from_pretrained(\"bert-base-uncased\", use_fast=True)\nprint(tokenizer.is_fast)  # True\n```"
+          },
+          {
+            "title": "🔗 Offset mapping: tokens back to characters",
+            "content": "`return_offsets_mapping=True` returns, for each token, the character span in the original text it came from. This is essential for tasks like named entity recognition (from the NLP course) where you need to highlight the exact substring a prediction refers to, not just the token index.\n\n```python\nencoded = tokenizer(\"Hugging Face\", return_offsets_mapping=True)\nprint(encoded[\"offset_mapping\"])\n# [(0, 0), (0, 7), (8, 12), (0, 0)]  -- special tokens map to (0, 0)\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming all tokenizers support offset mapping.** Only fast tokenizers do — the slow, pure-Python fallback doesn't support `return_offsets_mapping`.\n\n**Forgetting special tokens occupy positions too.** `[CLS]`/`[SEP]` show up in the offsets with a (0, 0) span; skipping this when aligning predictions back to text causes off-by-one errors.\n\n**Ignoring subword splits during NER.** A single entity name might span multiple subword tokens; offset mapping is what lets you merge them back into the original span."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "hf_fast_tokenizers_quiz",
+        "questions": [
+          {
+            "question": "What makes a 'fast' Hugging Face tokenizer faster than the default Python implementation?",
+            "options": [
+              "It uses a smaller vocabulary",
+              "It's backed by a Rust implementation, which is significantly quicker especially on large batches",
+              "It skips special tokens entirely",
+              "It doesn't actually tokenize the text at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Fast tokenizers are implemented in Rust rather than pure Python, which gives large speed gains, especially when tokenizing large batches of text.",
+            "id": "q1"
+          },
+          {
+            "question": "What does offset mapping (`return_offsets_mapping=True`) provide?",
+            "options": [
+              "The model's confidence score for each prediction",
+              "For each token, the character span in the original text that it came from, letting you map token-level results back to exact substrings",
+              "A count of how many tokens were generated",
+              "The license information for the tokenizer"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Offset mapping links each token back to its exact position in the original string. This is essential for tasks like NER, where you need to know which characters in the raw text a prediction actually refers to.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is offset mapping particularly useful for named entity recognition tasks?",
+            "options": [
+              "NER doesn't use tokenizers at all",
+              "An entity often spans multiple subword tokens, and offset mapping lets you reconstruct the exact original character span the entity covers",
+              "Offset mapping is required to load the model",
+              "It's only useful for translation tasks"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since tokenization can split an entity name into several subwords, offset mapping is what lets you merge those subword predictions back into the correct start/end character span of the entity in the original text.",
+            "id": "q3"
+          },
+          {
+            "question": "What implementation makes a 'fast' Hugging Face tokenizer faster than the default Python one?",
+            "options": [
+              "It uses a smaller vocabulary size",
+              "It's backed by a Rust implementation, from the tokenizers library",
+              "It skips tokenizing special tokens entirely",
+              "It doesn't actually tokenize the text at all, just estimates"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Fast tokenizers are backed by a Rust implementation (the tokenizers library), which gives large speed gains especially on large batches, compared to the pure-Python implementation.",
+            "id": "q4"
+          },
+          {
+            "question": "What does `return_offsets_mapping=True` provide for each token?",
+            "options": [
+              "The model's confidence score for that token",
+              "The character span in the original text that the token came from",
+              "A count of how many times that token appears in the vocabulary",
+              "The license information associated with the tokenizer"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Offset mapping returns, for each token, the exact character span in the original text it came from — letting you map token-level results back to specific substrings.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is offset mapping particularly useful for named entity recognition tasks, as covered in the NLP course?",
+            "options": [
+              "NER doesn't use tokenizers of any kind",
+              "An entity often spans multiple subword tokens, and offset mapping lets you reconstruct the exact original character span the entity covers",
+              "Offset mapping is required just to load any model at all",
+              "It's only useful for translation tasks, not NER"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since tokenization can split an entity name into multiple subwords, offset mapping is what lets you merge those subword-level predictions back into the correct character span in the original text.",
+            "id": "q6"
+          },
+          {
+            "question": "Which tokenizer implementation supports `return_offsets_mapping`, according to this lesson?",
+            "options": [
+              "Both fast and slow tokenizers support it equally",
+              "Only fast tokenizers support it — the slow, pure-Python fallback does not",
+              "Only the slow, pure-Python tokenizer supports it",
+              "Neither implementation supports offset mapping"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson explicitly warns that only fast tokenizers support return_offsets_mapping — the slow, pure-Python fallback does not offer this feature.",
+            "id": "q7"
+          },
+          {
+            "question": "What span do special tokens like [CLS] and [SEP] receive in the offset mapping output?",
+            "options": [
+              "They are omitted from the offset mapping entirely",
+              "A (0, 0) span, since they don't correspond to any actual characters in the original text",
+              "The same span as the very last real token",
+              "A randomly assigned span each time"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Special tokens like [CLS] and [SEP] map to a (0, 0) span in the offset mapping since they don't correspond to real characters — forgetting this can cause off-by-one errors when aligning predictions back to text.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

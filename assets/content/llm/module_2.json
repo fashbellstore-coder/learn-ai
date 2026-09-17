@@ -1,0 +1,529 @@
+{
+  "id": "module_2",
+  "title": "Context Windows & Token Economics",
+  "description": "Where tokens actually go in a real API call, the 'lost in the middle' effect on long context, chunking strategies for long documents, and practical cost/latency tradeoffs.",
+  "icon": "💰",
+  "color": "#673AB7",
+  "order": 2,
+  "estimatedHours": 2,
+  "difficulty": "Intermediate",
+  "prerequisites": [],
+  "lessons": [
+    {
+      "id": "llme_token_budgets",
+      "title": "Token Budgets: Every Piece of Context Costs Something",
+      "description": "Add up everywhere tokens actually go in a real LLM application call.",
+      "duration": "7 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can list the different pieces that consume tokens in a single LLM API call and explain why budgeting them matters."
+          },
+          {
+            "title": "🧾 It's not just the user's question",
+            "content": "A single call's token cost is the sum of several pieces: the system prompt, the conversation history (previous user and assistant turns), any tool schemas provided, any retrieved or injected context, the current user message, and finally the model's own generated output (reserved space for the response). Every one of these pieces counts against context window limits and per-call cost — from the tokenizer lesson in the Hugging Face course."
+          },
+          {
+            "title": "💰 Budgeting like a real resource",
+            "content": "Treating tokens as a genuine budget (like memory or compute) rather than an afterthought means actively deciding: how much conversation history to keep, whether tool schemas are trimmed to only what's relevant for this turn, and how much space to reserve for the model's output so a long response doesn't get unexpectedly cut off.\n\n```python\n# Conceptual budget for one call:\n# system prompt:       ~200 tokens\n# tool schemas:         ~150 tokens\n# conversation history: ~800 tokens (variable, grows over time)\n# user message:          ~50 tokens\n# reserved for output:  ~500 tokens\n# total must stay under the model's context window\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Forgetting tool schemas count against the token budget too.** A large number of available tools adds up in tokens just like any other context.\n\n**Not reserving enough space for the model's output.** If the budget for input context leaves too little room, longer responses can get truncated mid-generation.\n\n**Treating token cost as someone else's problem to worry about later.** In a production system handling real traffic, token usage directly drives infrastructure and API cost — it's a first-class engineering concern, not an afterthought."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "llme_token_budgets_quiz",
+        "questions": [
+          {
+            "question": "What pieces of a conversation contribute to a single LLM API call's total token cost?",
+            "options": [
+              "Only the current user message counts toward token cost",
+              "The system prompt, conversation history, tool schemas, any injected context, the current user message, and the space reserved for the model's own output",
+              "Only the model's final generated response counts",
+              "Token cost is unrelated to any of the content sent to the model"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Every component sent to the model — instructions, history, tool definitions, retrieved context, the new message, and the reserved output space — adds to the total tokens involved in a call, all of which count against context limits and cost.",
+            "id": "q1"
+          },
+          {
+            "question": "Why does it matter to reserve enough space in the token budget for the model's output specifically?",
+            "options": [
+              "Output space doesn't need to be budgeted since it's unlimited",
+              "If too little room is left for output after accounting for input context, a longer response can get truncated mid-generation",
+              "Reserving output space always reduces the quality of generated text",
+              "Only input tokens count against context window limits, never output tokens"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since input context and output generation share the same overall context window, failing to leave enough room for output risks the model's response being cut off before it's actually finished.",
+            "id": "q2"
+          },
+          {
+            "question": "Why should tool schemas be considered part of the token budget rather than a separate, free addition?",
+            "options": [
+              "Tool schemas never consume any tokens at all",
+              "Tool schemas are sent as part of the context provided to the model, so they consume tokens just like any other piece of context and count against the overall budget",
+              "Tool schemas only matter for cost, never for context window limits",
+              "Only conversation history counts toward the token budget, not tool definitions"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since tool schemas are included in what's sent to the model, they use up real tokens — meaning a large number of available tools genuinely competes with conversation history and other context for the same limited budget.",
+            "id": "q3"
+          },
+          {
+            "question": "In the conceptual budget example from this lesson, which single item is described as variable and growing over time?",
+            "options": [
+              "Conversation history",
+              "The system prompt",
+              "Tool schemas",
+              "The reserved output space"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's example budget marks conversation history specifically as variable, since it grows as a conversation continues, unlike the more fixed system prompt or tool schemas.",
+            "id": "q4"
+          },
+          {
+            "question": "Which earlier course's lesson does this lesson connect token-counting concepts back to?",
+            "options": [
+              "The tokenizer lesson in the Hugging Face course",
+              "The classifier lesson in the machine learning course",
+              "The CNN lesson in the computer vision course",
+              "The clustering lesson in the machine learning course"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly ties the idea that every piece of context counts against limits and cost back to the tokenizer lesson from the Hugging Face course.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does the lesson say treating token cost as 'someone else's problem to worry about later' is a mistake?",
+            "options": [
+              "Because in a production system handling real traffic, token usage directly drives infrastructure and API cost — a first-class engineering concern",
+              "Because token cost only matters during model training, never during deployment",
+              "Because token usage has no measurable relationship to actual API cost",
+              "Because only very large applications need to think about token cost at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson is explicit that token usage in a production system directly drives real infrastructure and API cost, making it a genuine first-class engineering concern rather than something to defer.",
+            "id": "q6"
+          },
+          {
+            "question": "What does actively deciding 'how much conversation history to keep' represent, according to this lesson?",
+            "options": [
+              "An example of treating tokens as a genuine budget, like memory or compute, rather than an afterthought",
+              "An unnecessary step since history should always be kept in full",
+              "A decision that has no effect on token cost or context limits",
+              "Something only relevant to tool schema design, not conversation history"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson frames this exact decision — how much history to retain — as a concrete example of actively budgeting tokens as a genuine, managed resource rather than letting it grow unchecked.",
+            "id": "q7"
+          },
+          {
+            "question": "According to this lesson, what happens if the token budget doesn't reserve enough room for output?",
+            "options": [
+              "A long response can get unexpectedly cut off",
+              "The model automatically expands the context window to compensate",
+              "Nothing changes; output length is entirely unrelated to the token budget",
+              "The system prompt is discarded to make room instead"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explains that budgeting must include space reserved for the model's own generated output, since insufficient reserved space risks a longer response being cut off unexpectedly.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "llme_lost_in_the_middle",
+      "title": "Lost in the Middle: Long Context Isn't Free Attention",
+      "description": "Understand why stuffing more into the context window doesn't guarantee the model uses all of it equally well.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain the 'lost in the middle' phenomenon and what it implies for how you structure long context."
+          },
+          {
+            "title": "📉 A large context window isn't a guarantee of even attention",
+            "content": "Even when a model technically supports a very long context window, research has repeatedly found that models tend to attend more reliably to information near the beginning and end of the context than information buried in the middle — a phenomenon often called 'lost in the middle'. Simply having room for more context doesn't guarantee the model will use all of it equally well."
+          },
+          {
+            "title": "📍 Position matters, not just presence",
+            "content": "This has a direct practical implication: if a piece of information is critical, its position in the context matters, not just whether it's included at all. Placing the most important instructions or facts near the start or end of a long context tends to be more reliable than burying them in the middle of a large block of retrieved or historical content.\n\n```python\n# Less reliable: critical instruction buried in the middle of\n# 10 pages of retrieved documents\n\n# More reliable: critical instruction repeated near the start\n# AND end of the context, surrounding the retrieved documents\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming a bigger context window solves every long-document problem.** A larger window changes what fits, not necessarily how reliably the model attends to everything inside it.\n\n**Burying the actual question or key instruction deep inside a large context.** Moving it to the start or end, or repeating it, is a simple mitigation worth testing.\n\n**Assuming this effect is identical across all models and context lengths.** The severity of the effect varies by model and continues to be an active area of ongoing model improvement — worth checking current behavior rather than assuming a fixed rule."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "llme_lost_in_the_middle_quiz",
+        "questions": [
+          {
+            "question": "What does the 'lost in the middle' phenomenon describe?",
+            "options": [
+              "Models perform equally well regardless of where information appears in a long context",
+              "Models tend to attend more reliably to information near the beginning and end of a long context than to information buried in the middle",
+              "Models cannot process long contexts at all, regardless of position",
+              "This phenomenon only affects image generation, never text"
+            ],
+            "correctAnswer": 1,
+            "explanation": "\"Lost in the middle\" refers to the observed pattern where models handle information at the start and end of a long context more reliably than content buried in the middle, even when that content is technically within the context window.",
+            "id": "q1"
+          },
+          {
+            "question": "What is the practical implication of this phenomenon for structuring long-context prompts?",
+            "options": [
+              "Position within the context has no practical effect and can be ignored",
+              "The position of critical information matters, not just whether it's included — placing key instructions or facts near the start or end tends to be more reliable than burying them in the middle",
+              "All information should always be placed exactly in the middle of the context for best results",
+              "Long-context prompts should never include more than one piece of information"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since middle-positioned information is attended to less reliably, deliberately placing (or repeating) the most important content near the start or end of a long context is a practical mitigation worth applying.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is it a mistake to assume a larger context window automatically solves long-document reasoning problems?",
+            "options": [
+              "Larger context windows always guarantee perfectly even attention across all included content",
+              "A larger window changes how much content technically fits, but doesn't by itself guarantee the model attends to everything inside it equally reliably",
+              "Context window size has no relationship to a model's ability to process long documents",
+              "Long-document problems are entirely unrelated to context window size"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Fitting more content into context is a separate question from whether the model reliably uses all of that content — the lost-in-the-middle effect shows that raw capacity doesn't guarantee uniformly reliable attention across the whole window.",
+            "id": "q3"
+          },
+          {
+            "question": "In this lesson's conceptual example, what mitigation is suggested for a critical instruction inside a large block of retrieved documents?",
+            "options": [
+              "Repeating the critical instruction near the start AND end of the context, surrounding the retrieved documents",
+              "Removing the critical instruction entirely to save tokens",
+              "Placing the instruction exactly in the middle of the retrieved documents",
+              "Translating the instruction into a different format before including it"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's example specifically recommends repeating a critical instruction near both the start and end of the context, rather than leaving it buried once in the middle.",
+            "id": "q4"
+          },
+          {
+            "question": "Why does the lesson say the severity of the lost-in-the-middle effect shouldn't be assumed identical across every model?",
+            "options": [
+              "Because the effect varies by model and continues to be an active area of ongoing model improvement",
+              "Because the effect is exactly the same magnitude for every model ever released",
+              "Because only very old models exhibit this effect at all",
+              "Because context length has no relationship to this phenomenon"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson warns against assuming a fixed, universal rule here — the severity of the effect varies by model and context length, and continues to change as models improve.",
+            "id": "q5"
+          },
+          {
+            "question": "What is the core observation behind the term 'lost in the middle', as introduced in this lesson?",
+            "options": [
+              "Models attend more reliably to information near the beginning and end of context than to content buried in the middle",
+              "Models attend equally well to every position in a long context",
+              "Models cannot process any information placed in the middle of a context at all",
+              "The term refers to a bug that only affects very short contexts"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson defines the phenomenon as models handling content near the start and end of a long context more reliably than content positioned in the middle, even when technically within the context window.",
+            "id": "q6"
+          },
+          {
+            "question": "According to this lesson, what should you check rather than assume when relying on a large context window for a long-document task?",
+            "options": [
+              "Whether the model actually attends reliably to content throughout the whole window, not just whether the content technically fits",
+              "Whether the document has been translated into multiple languages first",
+              "Whether the context window is exactly double the document's length",
+              "Whether the system prompt has been removed to save space"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson stresses that simply having room for content is not the same as the model reliably using all of it — worth checking actual behavior rather than assuming even attention.",
+            "id": "q7"
+          },
+          {
+            "question": "Why is burying the actual user question deep inside a large context flagged as a common mistake in this lesson?",
+            "options": [
+              "Because content in the middle of a long context tends to be attended to less reliably than content near the start or end",
+              "Because burying the question always improves the model's ability to answer it correctly",
+              "Because question placement has no bearing on answer quality",
+              "Because questions can only ever be understood if placed exactly in the middle"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Given the lost-in-the-middle effect, the lesson recommends moving the key question or instruction to the start or end (or repeating it) rather than leaving it buried deep within a large context block.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "llme_chunking_strategies",
+      "title": "Chunking Strategies for Long Documents",
+      "description": "Break long documents into pieces that fit context limits without destroying meaning.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can describe a couple of chunking strategies and explain the tradeoff each one makes."
+          },
+          {
+            "title": "✂️ Why chunk at all",
+            "content": "A document longer than what comfortably fits in a context window (or that you don't want to pay to send in full every time) needs to be split into smaller **chunks** — a foundational step that becomes essential once you reach retrieval-augmented generation in a later track, but the underlying technique matters for any long-document task."
+          },
+          {
+            "title": "📏 Fixed-size vs. semantic chunking",
+            "content": "**Fixed-size chunking** splits text every N tokens (or characters) — simple and predictable, but can cut a sentence or idea awkwardly in half at a chunk boundary. **Semantic chunking** splits at natural boundaries (paragraphs, sections, or topic shifts detected some other way) — usually preserves meaning better, at the cost of more complexity and variable chunk sizes.\n\n```python\n# Fixed-size (simple, can cut mid-sentence):\nchunks = [text[i:i+500] for i in range(0, len(text), 500)]\n\n# Semantic (splits at paragraph boundaries, preserves meaning better):\nchunks = text.split(\"\\n\\n\")\n```"
+          },
+          {
+            "title": "🔗 Overlap helps preserve context across chunk boundaries",
+            "content": "Adding a small overlap between consecutive chunks (e.g. the last 50 tokens of one chunk repeated as the first 50 of the next) helps avoid losing meaning for content that happens to fall right at a chunk boundary — a small cost in redundancy for better boundary-spanning coherence."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Always defaulting to fixed-size chunking without considering the document's structure.** For documents with clear natural sections, semantic chunking often preserves meaning noticeably better.\n\n**Using no overlap between chunks.** Information split right at a chunk boundary can become unrecoverable without at least some overlap.\n\n**Choosing a chunk size without testing it against your actual retrieval or reasoning task.** Chunk size interacts with context window limits and the granularity of information you actually need — there's no universally correct default."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "llme_chunking_strategies_quiz",
+        "questions": [
+          {
+            "question": "What tradeoff does fixed-size chunking make compared to semantic chunking?",
+            "options": [
+              "Fixed-size chunking always preserves meaning perfectly with no downside",
+              "Fixed-size chunking is simple and predictable but can awkwardly cut a sentence or idea in half at a chunk boundary, unlike semantic chunking's boundary-aware but more complex approach",
+              "Fixed-size and semantic chunking are functionally identical approaches",
+              "Semantic chunking always produces exactly equal-sized chunks"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Fixed-size chunking trades semantic coherence for simplicity and predictability, splitting purely by token or character count regardless of where sentences or ideas actually end — semantic chunking instead respects natural boundaries at the cost of more complexity.",
+            "id": "q1"
+          },
+          {
+            "question": "What problem does adding overlap between consecutive chunks help solve?",
+            "options": [
+              "Overlap has no practical benefit and only wastes space",
+              "It helps preserve context for content that falls right at a chunk boundary, which would otherwise risk being split awkwardly and losing coherence",
+              "Overlap eliminates the need for chunking altogether",
+              "Overlap is only relevant for image data, not text"
+            ],
+            "correctAnswer": 1,
+            "explanation": "By repeating a small amount of content across the boundary between consecutive chunks, overlap reduces the risk that information spanning a chunk boundary becomes fragmented or loses its surrounding context.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is there no universally correct default chunk size?",
+            "options": [
+              "There is one single correct chunk size that works for every task and document",
+              "Chunk size interacts with context window limits and the granularity of information actually needed for a specific task, so the right choice depends on testing against that task",
+              "Chunk size has no effect on any downstream task's performance",
+              "Chunking is never actually necessary regardless of document length"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since the right chunk size depends on factors like context limits and how granular the information needs to be for a specific downstream task, testing against your actual use case is what determines an appropriate size — not a fixed universal default.",
+            "id": "q3"
+          },
+          {
+            "question": "In the lesson's code example, how does the fixed-size chunking approach actually split the text?",
+            "options": [
+              "By slicing the text every 500 characters using a fixed-size range",
+              "By splitting only at paragraph breaks (\\n\\n)",
+              "By splitting at every full stop in the document",
+              "By using a machine learning model to detect topic shifts"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's fixed-size example slices text into chunks of a fixed length (500 characters) using simple indexing, regardless of where sentences or ideas naturally end.",
+            "id": "q4"
+          },
+          {
+            "question": "How does the lesson's semantic chunking example actually split the text?",
+            "options": [
+              "By splitting the text at paragraph boundaries (\\n\\n)",
+              "By counting exactly 500 tokens per chunk regardless of content",
+              "By reversing the order of all sentences before chunking",
+              "By translating the text into a different language first"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's semantic chunking example splits on paragraph breaks (text.split(\"\\n\\n\")), aiming to respect natural document boundaries rather than a fixed character count.",
+            "id": "q5"
+          },
+          {
+            "question": "According to this lesson, what future track does chunking become an essential foundational step for?",
+            "options": [
+              "Retrieval-augmented generation",
+              "Computer vision",
+              "Reinforcement learning",
+              "Classical machine learning"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly notes that chunking becomes essential once you reach retrieval-augmented generation in a later track, though the underlying technique matters for any long-document task.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does the lesson recommend testing chunk size against your actual task rather than picking a default?",
+            "options": [
+              "Because chunk size interacts with context window limits and the granularity of information you actually need, and there's no universally correct default",
+              "Because chunk size has no measurable effect on any downstream task",
+              "Because every task requires exactly the same chunk size regardless of content",
+              "Because chunk size testing is only relevant for semantic chunking, never fixed-size"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is choosing chunk size without testing it against the actual task, since the right size depends on context limits and needed information granularity.",
+            "id": "q7"
+          },
+          {
+            "question": "What specific benefit does adding overlap between chunks provide, as described in this lesson's example?",
+            "options": [
+              "It repeats the end of one chunk as the start of the next, helping avoid losing meaning at chunk boundaries",
+              "It removes the need for any chunking at all",
+              "It guarantees every chunk will be exactly the same length",
+              "It eliminates the token cost of chunked documents entirely"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's example describes overlap as repeating a portion (like the last 50 tokens) of one chunk as the start of the next, at a small redundancy cost, to preserve boundary-spanning meaning.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "llme_cost_latency_tradeoffs",
+      "title": "Cost and Latency Tradeoffs",
+      "description": "Balance the practical realities of speed, cost, and quality in a real LLM application.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can name a few concrete techniques for managing the cost/latency/quality tradeoff in an LLM application."
+          },
+          {
+            "title": "⚖️ Three things pulling against each other",
+            "content": "In practice, cost, latency (response speed), and output quality often trade off against each other: a larger, more capable model tends to cost more and respond more slowly than a smaller one; more context (more retrieved documents, longer history) can improve quality but adds cost and latency; and stricter, more constrained generation can add reliability but sometimes at the cost of response speed."
+          },
+          {
+            "title": "🧰 Concrete levers to pull",
+            "content": "**Caching** identical or near-identical requests avoids redundant model calls entirely. **Model routing** sends easy queries to a smaller, cheaper, faster model and only escalates genuinely hard queries to a larger one. **Prompt trimming** removes unnecessary context (unused tool schemas, redundant history) that adds cost without adding value.\n\n```python\n# Conceptual model routing:\ndef choose_model(query_complexity):\n    if query_complexity == \"simple\":\n        return \"small-fast-model\"\n    return \"large-capable-model\"\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Always defaulting to the largest, most capable model for every request.** Many real queries don't need it — this is needlessly expensive and slower than necessary.\n\n**Caching without considering staleness.** A cached response to a question whose correct answer changes over time (like current pricing) needs an invalidation strategy, not indefinite caching.\n\n**Optimizing purely for cost or purely for latency without considering quality's effect on user trust.** The cheapest, fastest option that gives noticeably worse answers can cost more in user frustration and lost trust than it saves in infrastructure spend."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "llme_cost_latency_tradeoffs_quiz",
+        "questions": [
+          {
+            "question": "What is the general tradeoff between using a larger, more capable model versus a smaller one?",
+            "options": [
+              "Larger models are always strictly better with no downside in cost or speed",
+              "A larger, more capable model tends to cost more and respond more slowly than a smaller one, so the choice involves a real tradeoff, not a free upgrade",
+              "Model size has no relationship to cost or response latency",
+              "Smaller models are always more accurate than larger ones"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Model capability, cost, and latency are linked — a more capable model is typically also more expensive and slower to respond, meaning the choice of model size is a genuine tradeoff rather than a strictly better or worse option.",
+            "id": "q1"
+          },
+          {
+            "question": "What does 'model routing' accomplish as a cost/latency optimization technique?",
+            "options": [
+              "It sends every single query to the largest available model regardless of complexity",
+              "It sends easier queries to a smaller, cheaper, faster model and reserves a larger, more capable model only for genuinely complex queries",
+              "It eliminates the need for any model to process user queries",
+              "Model routing has no effect on cost or latency"
+            ],
+            "correctAnswer": 1,
+            "explanation": "By matching query complexity to model capability, routing avoids paying the cost and latency premium of a large model on queries a smaller, cheaper model could handle just as well.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is caching a response without considering staleness a potential problem?",
+            "options": [
+              "Caching never causes any issues regardless of what's cached",
+              "A cached response to a question whose correct answer changes over time (like current pricing) can serve outdated, incorrect information if there's no invalidation strategy",
+              "Caching only applies to image generation, never to text queries",
+              "Stale cached responses are always immediately obvious to users"
+            ],
+            "correctAnswer": 1,
+            "explanation": "If the underlying correct answer to a query can change over time, an indefinitely cached response risks serving information that's no longer accurate — caching needs an invalidation or expiration strategy to avoid this failure mode.",
+            "id": "q3"
+          },
+          {
+            "question": "In the conceptual model routing example from this lesson, what determines which model is chosen?",
+            "options": [
+              "Query complexity — simple queries go to a small, fast model, others go to a large, capable one",
+              "The time of day the query was submitted",
+              "The length of the system prompt alone",
+              "A random selection between the two available models"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's choose_model example routes based on query_complexity, sending simple queries to a smaller model and reserving the larger model for harder cases.",
+            "id": "q4"
+          },
+          {
+            "question": "What does 'prompt trimming' accomplish, according to this lesson?",
+            "options": [
+              "It removes unnecessary context, like unused tool schemas or redundant history, that adds cost without adding value",
+              "It permanently deletes the system prompt from every request",
+              "It always shortens the model's generated output regardless of need",
+              "It converts structured output into unstructured plain text"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson describes prompt trimming as removing context that doesn't add real value — unused tool schemas, redundant history — reducing cost without sacrificing useful information.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does the lesson warn against optimizing purely for cost or latency without considering quality's effect on user trust?",
+            "options": [
+              "Because the cheapest, fastest option that gives noticeably worse answers can cost more in user frustration and lost trust than it saves in infrastructure spend",
+              "Because quality has no relationship to user trust or satisfaction",
+              "Because cost and latency are the only factors that ever matter in a production system",
+              "Because optimizing for quality always increases both cost and latency with no exceptions"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly cautions that sacrificing quality purely to minimize cost or latency can backfire, since poor answers erode user trust in a way that can outweigh the infrastructure savings.",
+            "id": "q6"
+          },
+          {
+            "question": "According to this lesson, what does caching accomplish for cost and latency management?",
+            "options": [
+              "It avoids redundant model calls entirely for identical or near-identical requests",
+              "It always increases both cost and latency for every request",
+              "It replaces the need for model routing entirely",
+              "It only works for structured output, never for free-text responses"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson describes caching as a lever that avoids paying for and waiting on a fresh model call when an identical or near-identical request has already been handled.",
+            "id": "q7"
+          },
+          {
+            "question": "Why is it a mistake to default to the largest, most capable model for every single request, per this lesson?",
+            "options": [
+              "Many real queries don't need it, making this needlessly expensive and slower than necessary",
+              "The largest model is always the cheapest and fastest option available",
+              "Model size has no bearing on cost or latency in practice",
+              "Smaller models are incapable of handling any real-world query"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson identifies this as a common mistake: since many queries are simple enough for a smaller model, always reaching for the largest model wastes cost and adds unnecessary latency.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,525 @@
+{
+  "id": "module_3",
+  "title": "Fine-Tuning with Trainer",
+  "description": "Use the Trainer API to fine-tune without a manual loop, configure hyperparameters with TrainingArguments, attach real evaluation metrics, and manage checkpoints and early stopping.",
+  "icon": "🏋️",
+  "color": "#F4511E",
+  "order": 3,
+  "estimatedHours": 2,
+  "difficulty": "Intermediate",
+  "prerequisites": [],
+  "lessons": [
+    {
+      "id": "hf_trainer_basics",
+      "title": "The Trainer API: Training Without a Manual Loop",
+      "description": "Use Trainer to fine-tune a model without writing your own training loop.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain what the Trainer class does and what pieces you need to hand it."
+          },
+          {
+            "title": "🔁 The training loop you already know, packaged",
+            "content": "The deep learning course had you write a training loop by hand: forward pass, loss, backward pass, optimizer step, repeated over epochs. The `Trainer` class packages that exact loop, plus checkpointing, logging, and evaluation, behind a configuration object.\n\n```python\nfrom transformers import Trainer, TrainingArguments\n\ntrainer = Trainer(\n    model=model,\n    args=TrainingArguments(output_dir=\"out\", num_train_epochs=3),\n    train_dataset=tokenized[\"train\"],\n    eval_dataset=tokenized[\"validation\"],\n)\ntrainer.train()\n```"
+          },
+          {
+            "title": "🧠 It's still the same underlying math",
+            "content": "Nothing about backpropagation, gradients, or optimizers changes underneath `Trainer` — it's the same process from the deep learning course. What changes is who writes the boilerplate: batching, moving tensors to the right device, mixed precision, and gradient accumulation are all handled for you."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Treating Trainer as a black box you never need to understand.** When training goes wrong (loss not decreasing, exploding loss), the deep learning course's mental model of what a training loop does is exactly what helps you debug it.\n\n**Forgetting `eval_dataset`.** Without it, Trainer trains blind — no signal on whether you're overfitting.\n\n**Not setting `output_dir`.** Trainer needs somewhere to write checkpoints and logs; it's a required argument, not optional metadata."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "hf_trainer_basics_quiz",
+        "questions": [
+          {
+            "question": "What does the `Trainer` class package together?",
+            "options": [
+              "Only the dataset loading logic",
+              "The training loop (forward pass, loss, backward pass, optimizer step) plus checkpointing, logging, and evaluation, all behind a configuration object",
+              "Only the model architecture",
+              "A brand new kind of optimizer not seen elsewhere"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Trainer wraps the same training loop concepts from the deep learning course (forward/backward/optimizer step) together with checkpointing, logging, and evaluation, so you configure it rather than write the loop by hand.",
+            "id": "q1"
+          },
+          {
+            "question": "Why does understanding the underlying training loop still matter even when using Trainer?",
+            "options": [
+              "It doesn't matter at all once you use Trainer",
+              "When training goes wrong (loss not decreasing, exploding loss), the same debugging mental model from writing loops by hand still applies underneath Trainer's abstraction",
+              "Trainer uses a completely different mathematical process than a manual loop",
+              "Trainer never has training issues"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Trainer automates the mechanics, but the underlying process (gradients, loss, optimizer steps) is unchanged. Debugging a stalled or exploding loss still requires the same conceptual understanding developed by writing manual training loops.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is passing an `eval_dataset` to Trainer important?",
+            "options": [
+              "It has no effect on training at all",
+              "Without it, Trainer has no way to measure validation performance during training, so you can't tell whether you're overfitting",
+              "eval_dataset is required only for image models",
+              "It replaces the need for a train_dataset"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Just like the ML course's train/validation split, an eval_dataset gives Trainer a way to check performance on unseen data during training — without it, you're training with no signal on generalization.",
+            "id": "q3"
+          },
+          {
+            "question": "What does the `Trainer` class package together, according to this lesson?",
+            "options": [
+              "Only the dataset loading logic, nothing about training",
+              "The training loop (forward pass, loss, backward pass, optimizer step) plus checkpointing, logging, and evaluation",
+              "Only the model's architecture definition",
+              "A completely new type of optimizer never covered before"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Trainer wraps the same training loop concepts from the deep learning course together with checkpointing, logging, and evaluation, so you configure it rather than write the loop by hand.",
+            "id": "q4"
+          },
+          {
+            "question": "According to this lesson, does anything about the underlying math change when using Trainer instead of a manual loop?",
+            "options": [
+              "Yes, Trainer uses a completely different mathematical process",
+              "No — backpropagation, gradients, and optimizers work exactly the same; what changes is who writes the boilerplate",
+              "Trainer eliminates the need for gradients entirely",
+              "Trainer only works with a different loss function than manual loops"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson is explicit that nothing about backpropagation, gradients, or optimizers changes underneath Trainer — it's the same process from the deep learning course, just with the boilerplate handled for you.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is passing an `eval_dataset` to Trainer important?",
+            "options": [
+              "It has no effect on training whatsoever",
+              "Without it, Trainer has no way to measure validation performance during training, so you can't tell whether you're overfitting",
+              "eval_dataset is required only for image-based models",
+              "It replaces the need for a train_dataset entirely"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Just like the ML course's train/validation split, an eval_dataset gives Trainer a way to check performance on unseen data during training — without it, you train blind with no generalization signal.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does understanding the underlying training loop still matter even when using Trainer?",
+            "options": [
+              "It doesn't matter at all once Trainer is being used",
+              "When training goes wrong (loss not decreasing, exploding loss), the same debugging mental model from writing loops by hand still applies underneath Trainer's abstraction",
+              "Trainer never experiences any training issues",
+              "Trainer requires a completely different debugging approach unrelated to loops"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Trainer automates the mechanics, but the underlying process is unchanged, so debugging a stalled or exploding loss still requires the same conceptual understanding developed by writing manual training loops.",
+            "id": "q7"
+          },
+          {
+            "question": "Why is `output_dir` a required argument to Trainer rather than optional metadata?",
+            "options": [
+              "It's just cosmetic and has no functional purpose",
+              "Trainer needs somewhere to write checkpoints and logs, so it must know where to save them",
+              "output_dir only matters when using a GPU",
+              "output_dir is used only to name the final model file"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Trainer needs a concrete location to write checkpoints and logs during training, which is exactly why output_dir is a required argument rather than optional metadata.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "hf_training_args",
+      "title": "TrainingArguments and Hyperparameters",
+      "description": "Configure the knobs that control how a fine-tuning run actually behaves.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can name the key TrainingArguments and connect them to hyperparameter concepts from the ML course."
+          },
+          {
+            "title": "🎛️ The knobs that matter most",
+            "content": "`TrainingArguments` configures hyperparameters you already know from the machine learning course — learning rate, batch size, number of epochs — plus fine-tuning-specific ones like warmup steps and weight decay.\n\n```python\nargs = TrainingArguments(\n    output_dir=\"out\",\n    learning_rate=2e-5,\n    per_device_train_batch_size=16,\n    num_train_epochs=3,\n    weight_decay=0.01,\n    warmup_steps=500,\n)\n```"
+          },
+          {
+            "title": "🌡️ Why fine-tuning learning rates are small",
+            "content": "Fine-tuning starts from pretrained weights that already encode useful structure. A large learning rate (like you might use training from scratch) can wreck that structure in a few steps — fine-tuning learning rates are typically much smaller (2e-5 to 5e-5 is common) than training-from-scratch rates."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Copying a from-scratch learning rate for fine-tuning.** This is a common cause of a fine-tuned model performing worse than the base model — the learning rate was too aggressive and destroyed pretrained knowledge (sometimes called catastrophic forgetting).\n\n**Ignoring `per_device_train_batch_size` vs. total batch size.** With multiple devices or gradient accumulation, the effective batch size is larger than this single number.\n\n**Skipping warmup.** Warmup steps gradually ramp the learning rate up at the start of training, which stabilizes early updates — skipping it can cause early training instability."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "hf_training_args_quiz",
+        "questions": [
+          {
+            "question": "Why are fine-tuning learning rates typically much smaller than learning rates used to train a model from scratch?",
+            "options": [
+              "Smaller learning rates are always used, regardless of context",
+              "Fine-tuning starts from pretrained weights that already encode useful structure, and a large learning rate can destroy that structure quickly (catastrophic forgetting)",
+              "Smaller learning rates make training run faster",
+              "Learning rate has no relationship to whether you're fine-tuning or training from scratch"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Because pretrained weights already encode useful structure, a large learning rate applied during fine-tuning can overwrite that structure in just a few steps, a failure mode often called catastrophic forgetting.",
+            "id": "q1"
+          },
+          {
+            "question": "What is the effect of warmup steps at the start of training?",
+            "options": [
+              "They have no effect and are purely decorative",
+              "They gradually ramp the learning rate up from a low value at the start of training, which stabilizes early updates",
+              "They delete the first few batches of data",
+              "They only apply when using a GPU"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Warmup steps start the learning rate low and increase it gradually, which helps avoid unstable, overly large early updates before the model's gradients have settled into a reasonable direction.",
+            "id": "q2"
+          },
+          {
+            "question": "Why might `per_device_train_batch_size=16` not reflect the true total batch size during training?",
+            "options": [
+              "per_device_train_batch_size always equals the total batch size with no exceptions",
+              "With multiple devices or gradient accumulation, the effective total batch size is larger than the per-device number",
+              "Batch size settings are ignored by Trainer",
+              "Total batch size is unrelated to per-device batch size in any way"
+            ],
+            "correctAnswer": 1,
+            "explanation": "per_device_train_batch_size is exactly what it says — the batch size processed on each device (or per accumulation step). Multiple devices or gradient accumulation multiply that number into a larger effective total batch size.",
+            "id": "q3"
+          },
+          {
+            "question": "Which hyperparameters from the machine learning course does `TrainingArguments` let you configure?",
+            "options": [
+              "Only the model's architecture, nothing else",
+              "Learning rate, batch size, and number of epochs, among others",
+              "Only the license of the model",
+              "Only the dataset's file format"
+            ],
+            "correctAnswer": 1,
+            "explanation": "TrainingArguments configures hyperparameters familiar from the machine learning course — learning rate, batch size, number of epochs — plus fine-tuning-specific ones like warmup and weight decay.",
+            "id": "q4"
+          },
+          {
+            "question": "Why are fine-tuning learning rates typically much smaller than learning rates used to train a model from scratch?",
+            "options": [
+              "Smaller learning rates are always used regardless of context",
+              "Fine-tuning starts from pretrained weights that already encode useful structure, and a large learning rate can destroy that structure quickly (catastrophic forgetting)",
+              "Smaller learning rates make training run faster on any hardware",
+              "Learning rate has no relationship to whether you're fine-tuning or training from scratch"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Because pretrained weights already encode useful structure, a large learning rate applied during fine-tuning can overwrite that structure in just a few steps — a failure mode called catastrophic forgetting.",
+            "id": "q5"
+          },
+          {
+            "question": "What typical range does this lesson give for fine-tuning learning rates?",
+            "options": [
+              "0.5 to 1.0",
+              "2e-5 to 5e-5",
+              "100 to 1000",
+              "There is no typical range mentioned"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson gives 2e-5 to 5e-5 as a common range for fine-tuning learning rates, much smaller than rates typically used when training a model from scratch.",
+            "id": "q6"
+          },
+          {
+            "question": "What is the effect of warmup steps at the start of training?",
+            "options": [
+              "They have no effect and are purely decorative",
+              "They gradually ramp the learning rate up from a low value at the start of training, which stabilizes early updates",
+              "They delete the first few batches of training data",
+              "They only apply when using multiple GPUs"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Warmup steps start the learning rate low and increase it gradually, helping avoid unstable, overly large early updates before the model's gradients have settled into a reasonable direction.",
+            "id": "q7"
+          },
+          {
+            "question": "Why might `per_device_train_batch_size=16` not reflect the true total batch size during training?",
+            "options": [
+              "per_device_train_batch_size always exactly equals the total batch size",
+              "With multiple devices or gradient accumulation, the effective total batch size ends up larger than the per-device number",
+              "Batch size settings are completely ignored by Trainer",
+              "Total batch size has no relationship to per-device batch size"
+            ],
+            "correctAnswer": 1,
+            "explanation": "per_device_train_batch_size is the batch size processed on each device (or per accumulation step); multiple devices or gradient accumulation multiply that into a larger effective total batch size.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "hf_trainer_eval",
+      "title": "Evaluating During Training",
+      "description": "Attach metrics to Trainer so you can see real performance numbers, not just loss.",
+      "duration": "7 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can attach a `compute_metrics` function to Trainer and explain why loss alone isn't enough."
+          },
+          {
+            "title": "📉 Loss is not the metric you actually care about",
+            "content": "Training loss tells you the model is fitting its objective, but a stakeholder wants accuracy, F1, or another metric from the machine learning course's evaluation toolkit — not a raw loss number. `compute_metrics` is a function you supply that turns model predictions into metrics like these.\n\n```python\nfrom sklearn.metrics import accuracy_score, f1_score\n\ndef compute_metrics(eval_pred):\n    logits, labels = eval_pred\n    preds = logits.argmax(axis=-1)\n    return {\n        \"accuracy\": accuracy_score(labels, preds),\n        \"f1\": f1_score(labels, preds, average=\"weighted\"),\n    }\n```"
+          },
+          {
+            "title": "📊 Setting evaluation strategy",
+            "content": "`TrainingArguments(eval_strategy=\"epoch\")` (or `\"steps\"`) tells Trainer when to run evaluation during training, so you see metrics evolve over time rather than only at the very end — exactly the kind of overfitting-detection curve discussed in the deep learning course."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Only checking final metrics, never the trend.** A model that overfits shows validation metrics that improve then degrade — you only see this by evaluating periodically, not just once at the end.\n\n**Using accuracy on an imbalanced classification task.** As in the ML course, accuracy can be misleading on skewed classes — F1 or per-class metrics tell a fuller story.\n\n**Forgetting metrics need the raw predictions, not just loss.** `compute_metrics` receives logits and labels — you must convert logits to predicted classes yourself (e.g. with argmax)."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "hf_trainer_eval_quiz",
+        "questions": [
+          {
+            "question": "Why isn't training loss alone a sufficient signal of model quality?",
+            "options": [
+              "Loss is actually the only thing that matters, nothing else is needed",
+              "Loss shows how well the model fits its training objective, but stakeholders usually need interpretable metrics like accuracy or F1 that loss alone doesn't directly convey",
+              "Loss and accuracy are always identical values",
+              "Loss cannot be computed during training, only after"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Training loss reflects optimization progress on the loss function, but real-world usefulness is usually judged with concrete metrics like accuracy or F1 — which is exactly why compute_metrics exists to compute them separately.",
+            "id": "q1"
+          },
+          {
+            "question": "What does setting `eval_strategy=\"epoch\"` let you observe that a single final evaluation would not?",
+            "options": [
+              "Nothing different — it has no effect",
+              "How validation metrics evolve over the course of training, which can reveal overfitting as performance improves then degrades",
+              "The exact license of the model being trained",
+              "The total training time only"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Evaluating at each epoch produces a trend over time, letting you see if validation performance starts declining while training loss keeps improving — a classic sign of overfitting covered in the deep learning course.",
+            "id": "q2"
+          },
+          {
+            "question": "Why might accuracy alone be a misleading metric for an imbalanced classification fine-tuning task?",
+            "options": [
+              "Accuracy is always the best metric regardless of class balance",
+              "On a skewed dataset, a model can achieve high accuracy just by favoring the majority class, exactly the pitfall covered in the ML course's metrics lesson",
+              "Accuracy cannot be computed for text classification tasks",
+              "Imbalance has no effect on any evaluation metric"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Just as the machine learning course covered, accuracy can look deceptively high on imbalanced data because predicting the majority class often already achieves a high accuracy score without the model learning anything useful about the minority class.",
+            "id": "q3"
+          },
+          {
+            "question": "Why isn't training loss alone a sufficient signal of model quality, according to this lesson?",
+            "options": [
+              "Loss is actually the only thing that matters",
+              "Loss shows how well the model fits its training objective, but stakeholders usually need interpretable metrics like accuracy or F1",
+              "Loss and accuracy are always numerically identical",
+              "Loss cannot be computed at all during training"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Training loss reflects optimization progress, but real-world usefulness is usually judged with concrete metrics like accuracy or F1 — exactly why compute_metrics exists to compute them separately.",
+            "id": "q4"
+          },
+          {
+            "question": "What does a `compute_metrics` function receive as input, according to this lesson?",
+            "options": [
+              "Only a single accuracy number, already computed",
+              "The raw predictions (logits) and labels, which must be converted into metrics like accuracy or F1",
+              "Only the model's license information",
+              "Nothing — compute_metrics runs with no arguments"
+            ],
+            "correctAnswer": 1,
+            "explanation": "compute_metrics receives logits and labels; you must convert the logits into predicted classes yourself (e.g. with argmax) before computing metrics like accuracy or F1.",
+            "id": "q5"
+          },
+          {
+            "question": "What does setting `eval_strategy=\"epoch\"` let you observe that a single final evaluation would not?",
+            "options": [
+              "Nothing different at all — it has no effect",
+              "How validation metrics evolve over the course of training, which can reveal overfitting as performance improves then degrades",
+              "The exact license of the model being trained",
+              "Only the total wall-clock training time"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Evaluating at each epoch produces a trend over time, letting you see if validation performance starts declining while training loss keeps improving — a classic overfitting sign from the deep learning course.",
+            "id": "q6"
+          },
+          {
+            "question": "Why might accuracy alone be a misleading metric for an imbalanced classification fine-tuning task?",
+            "options": [
+              "Accuracy is always the best metric regardless of class balance",
+              "On a skewed dataset, a model can achieve high accuracy just by favoring the majority class",
+              "Accuracy cannot be computed for text classification tasks at all",
+              "Class imbalance has no effect on any evaluation metric"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Just as the ML course covered, accuracy can look deceptively high on imbalanced data because predicting the majority class alone can already achieve a high score without learning anything useful about minority classes.",
+            "id": "q7"
+          },
+          {
+            "question": "What mistake does this lesson warn against regarding when you check evaluation metrics?",
+            "options": [
+              "Checking metrics too frequently, which the lesson says should never be done",
+              "Only checking final metrics and never the trend, which can hide an overfitting pattern that appears mid-training",
+              "Checking metrics is entirely optional and can always be skipped",
+              "Metrics should only ever be checked before training begins"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson warns that only checking final metrics misses the trend — a model that overfits shows validation metrics improving then degrading, visible only through periodic evaluation.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "hf_checkpoints_callbacks",
+      "title": "Checkpoints, Callbacks, and Early Stopping",
+      "description": "Save training progress safely and stop automatically when a model stops improving.",
+      "duration": "7 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain what checkpoints protect against and how early stopping prevents wasted training time."
+          },
+          {
+            "title": "💾 Checkpoints are training insurance",
+            "content": "Trainer periodically saves **checkpoints** — snapshots of model weights and optimizer state — so a crash, timeout, or bad run doesn't cost you the entire training run. `save_strategy` and `save_total_limit` in TrainingArguments control how often and how many checkpoints are kept.\n\n```python\nargs = TrainingArguments(\n    output_dir=\"out\",\n    save_strategy=\"epoch\",\n    save_total_limit=2,\n    load_best_model_at_end=True,\n    metric_for_best_model=\"f1\",\n)\n```"
+          },
+          {
+            "title": "⏹️ Early stopping saves time and prevents overfitting",
+            "content": "An `EarlyStoppingCallback` monitors a chosen metric and stops training if it hasn't improved for a set number of evaluations — directly connected to the deep learning course's discussion of stopping training before a model overfits.\n\n```python\nfrom transformers import EarlyStoppingCallback\n\ntrainer = Trainer(\n    ..., callbacks=[EarlyStoppingCallback(early_stopping_patience=2)]\n)\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Not setting `load_best_model_at_end=True`.** Without it, the *last* checkpoint is used even if an earlier one scored better on your chosen metric.\n\n**Choosing the wrong `metric_for_best_model`.** If you care about F1 but track loss, 'best' checkpoint selection optimizes for the wrong thing.\n\n**Setting `save_total_limit` too low with frequent saves.** You can accidentally delete a checkpoint you wanted, if the limit is smaller than expected."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "hf_checkpoints_callbacks_quiz",
+        "questions": [
+          {
+            "question": "What is the main purpose of periodically saving checkpoints during training?",
+            "options": [
+              "Checkpoints have no practical purpose",
+              "They protect against losing all training progress if a crash, timeout, or bad run interrupts training",
+              "Checkpoints only exist to slow down training",
+              "Checkpoints replace the need for a validation set"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Checkpoints are periodic snapshots of model and optimizer state. If training is interrupted, you can resume from the last checkpoint instead of losing all progress and starting over.",
+            "id": "q1"
+          },
+          {
+            "question": "What does `EarlyStoppingCallback` do?",
+            "options": [
+              "It stops training immediately after the first epoch, always",
+              "It monitors a chosen metric and stops training if it hasn't improved for a set number of evaluations, saving time and reducing overfitting risk",
+              "It deletes all saved checkpoints",
+              "It only works with image models"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Early stopping watches a metric (like validation F1) over successive evaluations, and halts training once it stops improving — directly connected to preventing the overfitting pattern covered in the deep learning course.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is `load_best_model_at_end=True` important if you care about picking the best checkpoint?",
+            "options": [
+              "It has no effect on which checkpoint is used",
+              "Without it, Trainer returns the last checkpoint by default, even if an earlier checkpoint scored better on your chosen metric",
+              "It's only relevant for very large models",
+              "It automatically deletes all checkpoints except the best one immediately"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Without this flag, Trainer's final model is simply whichever checkpoint came last chronologically — not necessarily the one that scored best on your chosen metric. Setting it to True ensures the best-performing checkpoint is what you end up with.",
+            "id": "q3"
+          },
+          {
+            "question": "What is the main purpose of periodically saving checkpoints during training?",
+            "options": [
+              "Checkpoints have no practical purpose at all",
+              "They protect against losing all training progress if a crash, timeout, or bad run interrupts training",
+              "Checkpoints exist only to slow down training intentionally",
+              "Checkpoints replace the need for a validation set entirely"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Checkpoints are periodic snapshots of model and optimizer state; if training is interrupted, you can resume from the last checkpoint instead of losing all progress.",
+            "id": "q4"
+          },
+          {
+            "question": "What does `EarlyStoppingCallback` do?",
+            "options": [
+              "It stops training immediately after the very first epoch, always",
+              "It monitors a chosen metric and stops training if it hasn't improved for a set number of evaluations",
+              "It permanently deletes all saved checkpoints",
+              "It only functions with image-based models"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Early stopping watches a chosen metric (like validation F1) over successive evaluations and halts training once it stops improving, connecting directly to the deep learning course's overfitting discussion.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is `load_best_model_at_end=True` important if you care about picking the best checkpoint?",
+            "options": [
+              "It has no effect on which checkpoint ends up being used",
+              "Without it, Trainer returns the last checkpoint by default, even if an earlier checkpoint scored better on your chosen metric",
+              "It's only relevant when training extremely large models",
+              "It automatically deletes every checkpoint except the very first one"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Without this flag, Trainer's final model is simply whichever checkpoint came last chronologically, not necessarily the best-performing one — setting it to True ensures the best checkpoint is what you end up with.",
+            "id": "q6"
+          },
+          {
+            "question": "What risk does choosing the wrong `metric_for_best_model` create?",
+            "options": [
+              "There is no risk; any metric works identically for checkpoint selection",
+              "If you care about F1 but track loss instead, 'best' checkpoint selection ends up optimizing for the wrong thing",
+              "It only affects how checkpoints are named, not which is selected",
+              "This setting has no relationship to checkpoint selection at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since load_best_model_at_end relies on metric_for_best_model to decide which checkpoint is 'best,' tracking the wrong metric means the selected checkpoint may not actually be the one you care most about.",
+            "id": "q7"
+          },
+          {
+            "question": "What can happen if `save_total_limit` is set too low with frequent saves?",
+            "options": [
+              "Nothing — save_total_limit has no practical effect",
+              "You can accidentally delete a checkpoint you wanted to keep, since only a limited number are retained",
+              "Training automatically stops the moment the limit is reached",
+              "The model's accuracy degrades as a direct result"
+            ],
+            "correctAnswer": 1,
+            "explanation": "With a low save_total_limit and frequent saving, older checkpoints get deleted to stay under the limit, which can accidentally remove a checkpoint you actually wanted to keep.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

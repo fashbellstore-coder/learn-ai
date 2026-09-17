@@ -1,0 +1,567 @@
+{
+  "id": "app_deployment",
+  "title": "Deploying AI Applications",
+  "description": "Containerizing an AI app, environment/secrets management, microservices vs. monoliths, and zero-downtime deploys.",
+  "icon": "🚀",
+  "color": "#E65100",
+  "order": 5,
+  "estimatedHours": 4,
+  "difficulty": "advanced",
+  "prerequisites": [
+    "app_caching_and_performance"
+  ],
+  "lessons": [
+    {
+      "id": "app_containerizing_an_ai_app",
+      "title": "Containerizing an AI Application",
+      "description": "Packaging your API, its dependencies, and its configuration so it runs the same way everywhere.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain what a Dockerfile for an AI application typically needs to include beyond a standard web app's."
+          },
+          {
+            "title": "📦 Why containerize at all",
+            "content": "A container packages your application code, its dependencies, and enough of a runtime environment to run consistently on a laptop, a CI server, or a production cluster — directly connecting to the Cloud course's Docker lessons, now applied specifically to an AI application rather than a generic web service."
+          },
+          {
+            "title": "🧩 What's different for an AI app's Dockerfile",
+            "content": "Beyond typical application dependencies, an AI app's container often needs specific versions of ML libraries (which can be large and version-sensitive), potentially a specific CUDA/GPU driver compatibility if running local inference, and careful handling of model weight files, which are often too large to bake directly into the image and are instead mounted or downloaded at startup."
+          },
+          {
+            "title": "🪶 Keeping the image lean",
+            "content": "A bloated container image is slow to build, slow to deploy, and wastes storage — using multi-stage builds (installing build tools in one stage, copying only the final artifacts into a lean runtime image) and avoiding unnecessary dependencies keeps the image manageable, directly affecting how quickly the zero-downtime deploys covered in the final lesson of this course can roll out."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "Docker itself isn't runnable here, but the multi-stage build idea translates directly into a small Python simulation of what \"only copy the final artifacts forward\" actually means.\n\n```python\n# --- Single-stage: everything from the build ends up in the final image ---\n\ndef single_stage_build():\n    build_tools = [\"gcc\", \"make\", \"build-essential\"]  # only needed to compile things\n    build_artifacts = [\"app.so\"]  # what the build tools actually produced\n    app_code = [\"main.py\", \"requirements.txt\"]\n    final_image_contents = build_tools + build_artifacts + app_code\n    return final_image_contents\n\n# --- Multi-stage: build tools stay in the build stage, only artifacts move forward ---\n\ndef multi_stage_build():\n    # Stage 1: \"builder\" -- has the build tools, produces the artifacts\n    build_tools = [\"gcc\", \"make\", \"build-essential\"]\n    build_artifacts = [\"app.so\"]\n    builder_stage_contents = build_tools + build_artifacts\n\n    # Stage 2: \"runtime\" -- COPY --from=builder only grabs the artifacts, not the tools\n    app_code = [\"main.py\", \"requirements.txt\"]\n    final_image_contents = build_artifacts + app_code  # build_tools never make it into this stage\n    return final_image_contents, builder_stage_contents\n\nsingle = single_stage_build()\nmulti, builder_only = multi_stage_build()\n\nprint(\"single-stage final image contains:\", single)\nprint(\"multi-stage final image contains:  \", multi)\nprint(\"build-only tools, present in single-stage but NOT in multi-stage final image:\")\nprint(\"  \", [tool for tool in single if tool not in multi])\n```\n\n`single_stage_build` bundles `build_tools` straight into `final_image_contents` alongside the actual application code — gcc and make ship in the final image even though nothing at runtime needs them. `multi_stage_build` keeps `build_tools` confined to `builder_stage_contents` and only carries `build_artifacts` (the compiled `.so` file) plus `app_code` forward into `final_image_contents` — the final printed comparison shows exactly which tools got left behind, which is the size reduction the lesson describes."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Baking large model weight files directly into the container image.** This bloats every build and every deploy with gigabytes of data that could instead be mounted or downloaded at startup, and it means rebuilding the entire image just to swap a model version.\n\n**Copying the entire build context into the image, build tools included.** Without a multi-stage build (or an equivalent step), compilers and build-time dependencies that the running application never actually needs end up shipped in production, needlessly.\n\n**Assuming a Dockerfile that works on a CPU-only development machine will work identically in a GPU production environment.** CUDA and GPU driver compatibility is a real, separate concern that a CPU-only local build can silently skip past without ever surfacing the mismatch until deploy time.\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "app_containerizing_an_ai_app_quiz",
+        "questions": [
+          {
+            "question": "What does an AI application's Dockerfile often need to handle that a typical web app's doesn't?",
+            "options": [
+              "Large, version-sensitive ML library dependencies, potential GPU driver compatibility, and handling large model weight files separately from the image",
+              "A completely different container runtime that doesn't support HTTP",
+              "The complete absence of any Python dependencies",
+              "A requirement to never use environment variables"
+            ],
+            "correctAnswer": 0,
+            "explanation": "AI-specific concerns like ML library versions, GPU compatibility, and model weight file size are additional considerations beyond a typical web app's containerization needs.",
+            "id": "q1"
+          },
+          {
+            "question": "Why are model weight files often mounted or downloaded at startup rather than baked into the container image?",
+            "options": [
+              "Because they are often too large to include directly in the image efficiently",
+              "Because model weights cannot be stored in any file format",
+              "Because containers cannot access external storage of any kind",
+              "Because baking weights into the image always improves startup speed"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Large weight files bloat the image and slow builds/deploys, so keeping them separate and loading them at runtime is a common practical approach.",
+            "id": "q2"
+          },
+          {
+            "question": "What is the benefit of using multi-stage builds to keep a container image lean?",
+            "options": [
+              "It keeps the final runtime image small by excluding build-time tools and intermediate artifacts, speeding up build and deploy",
+              "It requires no Dockerfile at all",
+              "It automatically downloads model weights during the build",
+              "It eliminates the need for a runtime environment entirely"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Separating build tools from the final runtime image directly reduces image size, which in turn speeds up deployment — including the zero-downtime deploys covered next.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, what does `single_stage_build` include in its final image that `multi_stage_build` deliberately excludes?",
+            "options": [
+              "The application code, like main.py",
+              "The build_tools list (gcc, make, build-essential)",
+              "The compiled build_artifacts",
+              "Nothing -- both functions return identical results"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`single_stage_build` includes `build_tools` directly in `final_image_contents`, while `multi_stage_build` confines `build_tools` to `builder_stage_contents` only, keeping them out of its own `final_image_contents`.",
+            "id": "q4"
+          },
+          {
+            "question": "What does the final printed comparison in the code example reveal?",
+            "options": [
+              "That app_code differs between the two approaches",
+              "That build_artifacts are missing from the multi-stage result",
+              "That the build-only tools (gcc, make, build-essential) are present in the single-stage image but excluded from the multi-stage image",
+              "That both functions produce the exact same final image contents"
+            ],
+            "correctAnswer": 2,
+            "explanation": "The list comprehension `[tool for tool in single if tool not in multi]` filters for items present in the single-stage result but absent from the multi-stage result, which turns out to be exactly the `build_tools` -- the tools multi-stage deliberately leaves behind.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is baking large model weight files directly into the container image flagged as a mistake?",
+            "options": [
+              "Because it bloats every build and deploy with gigabytes of data, and requires rebuilding the entire image just to swap a model version",
+              "Because model weight files cannot technically be stored in a container",
+              "Because containers automatically compress all files to zero size",
+              "Because model weights are illegal to distribute in containers"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explains that baking in large weights adds significant size and coupling, making even a simple model version swap require a full image rebuild instead of just updating a mounted or downloaded file.",
+            "id": "q6"
+          },
+          {
+            "question": "Why is copying the entire build context, build tools included, into the final image a mistake?",
+            "options": [
+              "Because compilers and build-time dependencies the running application never needs end up shipped in production, needlessly, without a multi-stage build",
+              "Because build tools automatically corrupt application code",
+              "Because Docker forbids including any build tools in an image",
+              "Because build tools always cause the application to crash"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's common mistakes point out that without a multi-stage approach (or equivalent), build-only tooling ships unnecessarily into production, bloating the image for no runtime benefit.",
+            "id": "q7"
+          },
+          {
+            "question": "Why is assuming a Dockerfile tested on a CPU-only development machine will work identically in a GPU production environment risky?",
+            "options": [
+              "Because CUDA and GPU driver compatibility is a real, separate concern that a CPU-only build can silently skip past without surfacing the mismatch until deploy time",
+              "Because GPUs cannot run containerized applications under any configuration",
+              "Because CPU and GPU environments always produce identical Dockerfile behavior",
+              "Because Docker automatically detects and fixes GPU compatibility issues"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson warns that GPU-specific compatibility issues won't necessarily show up during CPU-only local development, meaning they can go unnoticed until the application is actually deployed to its GPU-backed production environment.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "app_environment_configuration_and_secrets",
+      "title": "Environment Configuration and Secrets",
+      "description": "API keys and database passwords do not belong in your source code, no matter how convenient that feels at 2am.",
+      "duration": 11,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain why configuration and secrets should be separated from code, and how environment-specific config should be managed."
+          },
+          {
+            "title": "🔐 Why secrets don't belong in source code",
+            "content": "A hardcoded API key or database password in source code ends up in version control history forever, even if it's later removed — visible to anyone with repository access, and a serious risk if the repository is ever made public or its access broadens. Secrets should be injected at runtime through environment variables or a dedicated secrets manager, never committed to the codebase itself."
+          },
+          {
+            "title": "🌍 Different environments, different configuration",
+            "content": "Development, staging, and production typically need different configuration — different database URLs, different LLM API rate limits, different logging verbosity. Externalizing configuration (via environment variables or a config service) rather than hardcoding it lets the same container image, built once, run correctly across all three environments without rebuilding for each."
+          },
+          {
+            "title": "🗝️ Secrets managers, beyond plain environment variables",
+            "content": "For anything more sensitive than basic config, a dedicated secrets manager (rather than a plain environment variable file) adds encryption at rest, access auditing, and rotation support — connecting directly to the audit-and-access-control principles the Enterprise AI course later applies at a larger organizational scale."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "Here's why a secret in version control history stays exposed even after a later commit \"removes\" it.\n\n```python\n# --- A simplified model of version control history: a list of commits, each a snapshot ---\n\ncommit_history = [\n    {\"commit\": \"a1b2c3\", \"file_contents\": \"API_KEY = 'sk-abc123'  # oops, hardcoded\"},\n    {\"commit\": \"d4e5f6\", \"file_contents\": \"API_KEY = os.environ['API_KEY']  # 'fixed' in the latest commit\"},\n]\n\ndef get_current_file_contents():\n    return commit_history[-1][\"file_contents\"]\n\ndef search_all_history(needle):\n    \"\"\"Simulates 'git log -p | grep', which anyone with repo access can run.\"\"\"\n    return [c[\"commit\"] for c in commit_history if needle in c[\"file_contents\"]]\n\nprint(\"current file looks clean:\", get_current_file_contents())\nprint(\"but searching all history for the leaked key finds:\", search_all_history(\"sk-abc123\"))\n\n# --- Externalized config: the same image, different environment variables per environment ---\n\ndef load_config(env_vars):\n    return {\n        \"database_url\": env_vars[\"DATABASE_URL\"],\n        \"log_level\": env_vars.get(\"LOG_LEVEL\", \"INFO\"),\n    }\n\ndev_env = {\"DATABASE_URL\": \"postgres://localhost/dev_db\", \"LOG_LEVEL\": \"DEBUG\"}\nprod_env = {\"DATABASE_URL\": \"postgres://prod-cluster/prod_db\"}\n\nprint(\"same code, dev config:\", load_config(dev_env))\nprint(\"same code, prod config:\", load_config(prod_env))\n```\n\n`get_current_file_contents` shows only the latest commit, which looks clean — but `search_all_history` still finds the leaked `sk-abc123` in the earlier commit, exactly demonstrating why removing a secret in a later commit doesn't erase it from history. `load_config` shows the other half of the lesson: the identical function runs against `dev_env` and `prod_env` and produces the correct configuration for each, without the code itself changing at all between environments."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Believing a secret is safe once it's removed from the latest commit.** As the code example shows, anyone who can search the repository's history can still recover it — the fix is rotating the leaked secret, not just deleting the line that exposed it.\n\n**Hardcoding environment-specific values (like a database URL) directly in code, then branching on which environment is running.** This couples the deployable artifact to a specific environment, defeating the point of building one image and running it everywhere — externalized configuration avoids this coupling entirely.\n\n**Treating a plain `.env` file with the same casualness as regular application config, once it contains genuinely sensitive values.** A dedicated secrets manager's encryption, auditing, and rotation support exist specifically because plain environment variable files don't provide them.\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "app_environment_configuration_and_secrets_quiz",
+        "questions": [
+          {
+            "question": "Why is hardcoding an API key directly in source code a serious risk?",
+            "options": [
+              "It ends up permanently in version control history, visible to anyone with repository access, even after later removal",
+              "It makes the application run measurably faster",
+              "It is the only way to authenticate an API call",
+              "It has no security implications as long as the repository is private"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Version control history retains old commits indefinitely, so a hardcoded secret remains exposed to anyone with repo access even after being 'removed' in a later commit.",
+            "id": "q1"
+          },
+          {
+            "question": "Why should configuration be externalized (via environment variables or a config service) rather than hardcoded per environment?",
+            "options": [
+              "It lets the same container image run correctly across development, staging, and production without rebuilding for each",
+              "It makes the application require a GPU to run",
+              "It eliminates the need for any environment differences to ever exist",
+              "It requires writing separate source code for each environment"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Externalized configuration means one built artifact (the container image) can be deployed unchanged across environments, with only its configuration differing.",
+            "id": "q2"
+          },
+          {
+            "question": "What does a dedicated secrets manager typically add beyond plain environment variables?",
+            "options": [
+              "Encryption at rest, access auditing, and rotation support",
+              "The ability to run code without any configuration at all",
+              "Automatic deletion of all secrets after 24 hours with no alternative",
+              "A requirement that secrets be stored in source code instead"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Secrets managers provide stronger security guarantees — encryption, auditing, rotation — than a plain environment variable file, connecting to the governance concerns covered at greater depth in the Enterprise AI course.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, what does `get_current_file_contents()` return, and does it reveal the leaked key?",
+            "options": [
+              "The oldest commit's contents, which include the hardcoded key",
+              "The latest commit's contents, which look clean and use os.environ instead -- no leaked key visible there",
+              "Every commit's contents concatenated together",
+              "An error, since the file has been deleted"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`get_current_file_contents` returns `commit_history[-1][\"file_contents\"]`, the most recent commit, which uses `os.environ['API_KEY']` and looks clean -- but this is exactly the misleading appearance the lesson warns about.",
+            "id": "q4"
+          },
+          {
+            "question": "What does `search_all_history(\"sk-abc123\")` return, and what does that demonstrate?",
+            "options": [
+              "An empty list, proving the key is fully removed",
+              "['a1b2c3'], the commit where the key was hardcoded -- demonstrating the key is still recoverable from history even though the latest commit looks clean",
+              "Both commit hashes",
+              "A KeyError, since the key doesn't exist"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`search_all_history` checks every commit's `file_contents` for the needle, and only the first commit (`a1b2c3`) contains `sk-abc123`, so it returns `['a1b2c3']` -- proving the secret is still findable in history, exactly the risk the lesson describes.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is believing a secret is safe once removed from the latest commit flagged as a mistake?",
+            "options": [
+              "Because anyone who can search the repository's history can still recover it -- the fix is rotating the leaked secret, not just deleting the line that exposed it",
+              "Because version control systems automatically purge old commits after one week",
+              "Because secrets removed from the latest commit are cryptographically erased everywhere",
+              "Because this scenario cannot actually occur in real version control systems"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's common mistakes emphasize that a secret's exposure isn't undone by later removing it from the current version -- genuine remediation requires rotating (invalidating and replacing) the leaked secret itself.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does hardcoding environment-specific values and branching on which environment is running defeat the purpose of externalized config?",
+            "options": [
+              "Because it couples the deployable artifact to a specific environment, which is exactly what building one image and running it everywhere is meant to avoid",
+              "Because branching logic is technically impossible in most programming languages",
+              "Because hardcoded values always run faster than externalized ones",
+              "Because environment-specific values have no effect on application behavior"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explains that hardcoding per-environment values and switching on them ties the built artifact to specific environments, undermining the goal of a single image that runs correctly everywhere via externalized configuration.",
+            "id": "q7"
+          },
+          {
+            "question": "Why shouldn't a plain `.env` file be treated with the same casualness as regular config once it holds genuinely sensitive values?",
+            "options": [
+              "Because a dedicated secrets manager's encryption, auditing, and rotation support exist specifically because plain environment variable files don't provide them",
+              "Because .env files are always encrypted by default",
+              "Because .env files cannot technically store sensitive values",
+              "Because secrets managers and .env files provide identical security guarantees"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson points out that plain environment variable files lack the stronger protections (encryption at rest, auditing, rotation) that a dedicated secrets manager is specifically built to provide for genuinely sensitive values.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "app_microservices_vs_monoliths_for_ai_products",
+      "title": "Microservices vs. Monoliths for AI Products",
+      "description": "Should your model-serving logic live in its own service, or inside your main application?",
+      "duration": 13,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain the trade-off between a monolithic and microservices architecture, specifically for an AI product with a model-serving component."
+          },
+          {
+            "title": "🏛️ Monolith: one deployable unit",
+            "content": "A monolithic application keeps all functionality — the web API, business logic, and model inference — in one deployable codebase. Simpler to develop, test, and deploy initially, especially for a small team or an early-stage product where the added coordination overhead of multiple services isn't yet worth paying for."
+          },
+          {
+            "title": "🧩 Microservices: independently deployable pieces",
+            "content": "A microservices architecture splits functionality into independently deployable services — for example, separating the model-serving component (which may need GPUs and different scaling behavior, per the Inference course's autoscaling lesson) from the main application logic (which typically runs on cheaper CPU instances and scales differently)."
+          },
+          {
+            "title": "⚖️ The AI-specific reason this split often makes sense here",
+            "content": "Model serving frequently has very different scaling, hardware, and deployment cadence needs than the rest of an application — GPU-backed, autoscaled independently, and potentially updated on a different schedule than application code. This is a stronger, more concrete reason to split out a service than many typical microservices arguments, since the resource profiles genuinely diverge rather than being split for organizational reasons alone."
+          },
+          {
+            "title": "🚫 Don't split prematurely",
+            "content": "Splitting into microservices before the coordination overhead is actually justified — network calls between services, more complex deployment, distributed debugging — is a common early-stage mistake. Starting as a monolith and extracting the model-serving component into its own service once its resource needs genuinely diverge is often the more pragmatic path, mirroring the 'don't over-decide on day one' guidance from the Vector Databases course's choosing-a-database lesson."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "A simple cost model makes the \"genuinely diverging resource needs\" argument concrete: a bursty API layer that needs a lot of instances, paired with a model that's called relatively rarely and needs only a few.\n\n```python\nGPU_INSTANCE_COST_PER_HOUR = 3.00\nCPU_INSTANCE_COST_PER_HOUR = 0.10\n\ndef monolith_cost(total_instances_needed):\n    \"\"\"In a monolith, every instance runs BOTH the app logic and the model-serving code together,\n    so every instance needed to handle the app-logic load must also be GPU-capable.\"\"\"\n    return total_instances_needed * GPU_INSTANCE_COST_PER_HOUR\n\ndef microservices_cost(model_serving_instances, app_logic_instances):\n    \"\"\"Split: only the model-serving service runs on (expensive) GPU instances;\n    the application logic scales independently on (cheap) CPU instances.\"\"\"\n    model_serving = model_serving_instances * GPU_INSTANCE_COST_PER_HOUR\n    app_logic = app_logic_instances * CPU_INSTANCE_COST_PER_HOUR\n    return model_serving + app_logic\n\n# A bursty API layer needs 8 instances' worth of app-logic capacity,\n# but the model itself is only called often enough to need 2 instances' worth of serving capacity.\nmono_cost = monolith_cost(total_instances_needed=8)\nmicro_cost = microservices_cost(model_serving_instances=2, app_logic_instances=8)\n\nprint(f\"monolith (all 8 instances must be GPU-capable): ${mono_cost:.2f}/hour\")\nprint(f\"microservices (2 GPU + 8 CPU):                  ${micro_cost:.2f}/hour\")\nprint(f\"monolith costs {mono_cost / micro_cost:.1f}x more for the same effective capacity\")\n```\n\n`monolith_cost` has to run all 8 instances on the pricier GPU instance type, since app logic and model-serving code live inside the same deployable unit — even though only a couple of those instances' worth of capacity is ever really doing GPU work. `microservices_cost` instead runs just the 2 instances that actually need GPU on GPU, and the other 8 (handling only app logic) on cheap CPU instances: the monolith pays `8 * $3.00 = $24.00/hour`, while the split architecture pays `2 * $3.00 + 8 * $0.10 = $6.80/hour` — the monolith costs roughly 3.5x more for the same effective capacity, purely because it can't scale app logic and model serving on different hardware independently."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Splitting into microservices at the very start of a project, before any real scaling divergence exists.** The coordination overhead — network calls, more complex deployment, distributed debugging — is a real, upfront cost that isn't justified until the resource needs actually diverge.\n\n**Keeping model serving inside the monolith long after its resource needs have clearly diverged.** Once model serving genuinely needs different scaling and hardware than the rest of the application, staying monolithic means paying for GPU capacity across the whole application, not just where it's actually needed.\n\n**Treating this as a binary, permanent decision made once at the project's start.** The pragmatic path the lesson describes is starting simple and extracting a service later, when the divergence becomes real — not committing irreversibly to one architecture on day one.\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "app_microservices_vs_monoliths_for_ai_products_quiz",
+        "questions": [
+          {
+            "question": "What is a concrete, AI-specific reason to split model serving into its own microservice?",
+            "options": [
+              "Model serving often has very different scaling, GPU hardware, and deployment cadence needs than the rest of the application",
+              "Because monoliths cannot run any AI-related code at all",
+              "Because microservices are always required by law for AI products",
+              "Because splitting services always makes an application faster automatically"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The genuinely divergent resource profile (GPU vs. CPU, different scaling needs) gives a concrete technical reason to split, beyond a generic organizational preference for microservices.",
+            "id": "q1"
+          },
+          {
+            "question": "What is a common mistake regarding when to adopt a microservices architecture?",
+            "options": [
+              "Splitting into microservices before the coordination overhead is actually justified by genuinely diverging needs",
+              "Never splitting into microservices under any circumstances, even at massive scale",
+              "Always starting a new project with a fully microservices architecture from day one",
+              "Avoiding monolithic architectures entirely for any project size"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Premature splitting adds real coordination costs (network calls, distributed debugging, deployment complexity) before those costs are actually justified by a real divergence in needs.",
+            "id": "q2"
+          },
+          {
+            "question": "What pragmatic path does this lesson suggest for an early-stage AI product?",
+            "options": [
+              "Start as a monolith, then extract the model-serving component into its own service once its resource needs genuinely diverge",
+              "Always build microservices from the very first line of code",
+              "Avoid ever using containers for any part of the application",
+              "Never separate model serving from application logic, regardless of scale"
+            ],
+            "correctAnswer": 0,
+            "explanation": "This mirrors the 'don't over-decide early' guidance seen elsewhere in this curriculum — start simple, and split out components once a real, measured need justifies the added complexity.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, why does `monolith_cost` run every instance on a GPU instance type?",
+            "options": [
+              "Because app logic and model-serving code live inside the same deployable unit, so every instance needed to handle app-logic load must also be GPU-capable",
+              "Because CPU instances are more expensive than GPU instances in this example",
+              "Because monolith_cost intentionally overcharges for demonstration purposes",
+              "Because GPU instances are required for any web application regardless of architecture"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The code comment explains that in a monolith, every instance runs both app logic and model-serving code together, so all 8 instances needed for app-logic capacity end up on the pricier GPU instance type, even though only a couple of them are ever really doing GPU work.",
+            "id": "q4"
+          },
+          {
+            "question": "What is `mono_cost` in the code example, given `total_instances_needed=8`?",
+            "options": [
+              "$0.80/hour",
+              "$24.00/hour, from 8 instances at $3.00 each",
+              "$6.80/hour",
+              "$3.00/hour"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`monolith_cost(8)` computes `8 * GPU_INSTANCE_COST_PER_HOUR` = `8 * 3.00` = `$24.00`.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is splitting into microservices at the very start of a project, before any real scaling divergence exists, flagged as a mistake?",
+            "options": [
+              "Because the coordination overhead -- network calls, complex deployment, distributed debugging -- is a real, upfront cost that isn't justified until resource needs actually diverge",
+              "Because microservices are technically incompatible with early-stage products",
+              "Because starting with microservices always doubles development time exactly",
+              "Because monoliths cannot be converted into microservices later under any circumstances"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's common mistakes point out that premature splitting pays real coordination costs before there's an actual, measured need (diverging resource requirements) to justify them.",
+            "id": "q6"
+          },
+          {
+            "question": "Why is keeping model serving inside the monolith long after its resource needs have diverged a mistake?",
+            "options": [
+              "Because staying monolithic means paying for GPU capacity across the whole application, not just where it's actually needed",
+              "Because monoliths automatically crash once resource needs diverge",
+              "Because model serving cannot function inside a monolith under any circumstances",
+              "Because this scenario never actually occurs in real AI products"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explains that once the resource needs genuinely diverge, staying monolithic forces the entire application onto the more expensive GPU-backed infrastructure that only the model-serving part actually requires.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does the lesson caution against treating the monolith-vs-microservices choice as a binary, permanent decision made once at a project's start?",
+            "options": [
+              "Because the pragmatic path is starting simple and extracting a service later, once divergence becomes real, rather than committing irreversibly to one architecture on day one",
+              "Because architecture decisions cannot legally be changed after a project starts",
+              "Because monoliths and microservices are functionally identical in every respect",
+              "Because this decision has no impact on an application's cost or performance"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson frames this as an evolving decision rather than a one-time commitment, mirroring the broader curriculum theme of not over-deciding early and instead adapting the architecture as real needs become clear.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "app_zero_downtime_deploys",
+      "title": "Zero-Downtime Deploys",
+      "description": "Shipping a new version of your AI application without a single dropped request — closing this course's full arc.",
+      "duration": 13,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Describe a rolling or blue-green deployment strategy and explain how it avoids downtime during a release."
+          },
+          {
+            "title": "🔄 Rolling deployment",
+            "content": "A rolling deployment gradually replaces old instances with new ones a few at a time, keeping the overall service available throughout — similar to the graceful node-draining pattern from the Inference course's autoscaling lesson, applied here to an application release rather than a scaling event."
+          },
+          {
+            "title": "🔵🟢 Blue-green deployment",
+            "content": "A blue-green deployment runs the new version (green) fully alongside the old version (blue), validates the new version is healthy, then switches traffic over all at once — and can switch back instantly if a problem appears, since the old version is still running and ready. This mirrors the safe embedding-model-migration pattern from the Vector Databases course, applied here to an entire application release."
+          },
+          {
+            "title": "🩺 Health checks make either strategy actually safe",
+            "content": "Both strategies depend on a reliable health check that can distinguish 'this new instance is actually ready to serve traffic' from 'this instance has started but hasn't finished loading its model weights yet' — an AI application's startup time (loading large model weights) makes this distinction more important than for a typical fast-starting web service."
+          },
+          {
+            "title": "🎓 Closing this course's full arc",
+            "content": "This course moved from building an API around a model (Module 0), to securing it (Module 1), to making it feel responsive (Module 2, streaming), to handling slow work correctly (Module 3, queues), to making it fast and cheap at scale (Module 4, caching and performance), to finally shipping changes to it safely and without disruption (this module) — the complete path from 'a model that works in a notebook' to a real, deployed AI product."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "A simulation of a rolling deploy, using a health check that correctly distinguishes \"started\" from \"actually ready.\"\n\n```python\nclass Instance:\n    def __init__(self, version, model_load_time_ticks):\n        self.version = version\n        self.model_load_time_ticks = model_load_time_ticks\n        self.ticks_alive = 0\n\n    def tick(self):\n        self.ticks_alive += 1\n\n    def is_healthy(self):\n        \"\"\"Started != ready: only healthy once the model has actually finished loading.\"\"\"\n        return self.ticks_alive >= self.model_load_time_ticks\n\ndef rolling_deploy(old_instances, new_version, model_load_time_ticks, batch_size):\n    remaining_old = list(old_instances)\n    new_instances = []\n    step = 1\n    while remaining_old:\n        batch = [remaining_old.pop() for _ in range(min(batch_size, len(remaining_old)))]\n        for _ in batch:\n            inst = Instance(new_version, model_load_time_ticks)\n            while not inst.is_healthy():   # wait for the health check, not just \"process started\"\n                inst.tick()\n            new_instances.append(inst)\n        print(f\"step {step}: replaced {len(batch)} instance(s), \"\n              f\"{len(remaining_old)} old + {len(new_instances)} new remain in rotation, \"\n              f\"service never dropped below capacity\")\n        step += 1\n    return new_instances\n\nold_fleet = [\"v1-a\", \"v1-b\", \"v1-c\", \"v1-d\"]\nfinal_fleet = rolling_deploy(old_fleet, new_version=\"v2\", model_load_time_ticks=3, batch_size=2)\nprint(f\"deploy complete: {len(final_fleet)} instances now running {final_fleet[0].version}, \"\n      f\"each confirmed healthy before joining rotation\")\n```\n\n`is_healthy` deliberately checks `ticks_alive >= model_load_time_ticks` rather than just \"the process exists\" — a new `Instance` isn't considered ready until it's actually finished its simulated model load, exactly the started-vs-ready distinction the lesson emphasizes. `rolling_deploy` replaces the 4-instance `old_fleet` two at a time (`batch_size=2`): each new instance is spun up and looped on `is_healthy()` until it clears the health check *before* it's counted as part of the rotation, so at no point does the fleet actually lose capacity — the defining property of a rolling deployment."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Treating 'process started' as equivalent to 'ready for traffic.'** Routing traffic to an instance the moment its process starts, before its model weights have finished loading, sends real requests to an instance that isn't actually able to serve them correctly yet.\n\n**Deploying too many instances at once during a rolling deployment.** A batch size close to the entire fleet reintroduces the downtime risk rolling deployment is meant to avoid — if the new version has a bug, a large batch means a large fraction of capacity is affected simultaneously.\n\n**Not keeping the old version (blue) available long enough to confirm the new version (green) is actually healthy under real traffic.** Tearing down the old version immediately after switching removes the instant-rollback safety net that's the whole point of the blue-green approach.\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "app_zero_downtime_deploys_quiz",
+        "questions": [
+          {
+            "question": "What is the key difference between a rolling deployment and a blue-green deployment?",
+            "options": [
+              "Rolling gradually replaces instances a few at a time; blue-green runs the new version fully alongside the old one before switching all traffic at once",
+              "Rolling and blue-green are two names for the exact same deployment strategy",
+              "Blue-green deployments cannot be rolled back once traffic switches",
+              "Rolling deployments require taking the entire service offline during the release"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The two strategies differ in how gradually they transition traffic: incrementally instance-by-instance for rolling, versus an all-at-once switch after full validation for blue-green.",
+            "id": "q1"
+          },
+          {
+            "question": "Why does an AI application's health check need to distinguish 'started' from 'actually ready to serve traffic' more carefully than a typical web service?",
+            "options": [
+              "Because loading large model weights takes real time, so an instance can be running but not yet ready to handle requests correctly",
+              "Because AI applications never need health checks at all",
+              "Because typical web services take longer to start than AI applications",
+              "Because health checks are irrelevant to zero-downtime deployment strategies"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The comparatively long model-loading startup time makes the readiness distinction especially important for AI applications, more so than for a typical fast-starting web service.",
+            "id": "q2"
+          },
+          {
+            "question": "How does this closing lesson frame the overall arc of the App Dev course?",
+            "options": [
+              "As a path from building an API around a model, to securing it, to making it responsive, to handling slow work, to performance at scale, to safe deployment -- the full journey to a real product",
+              "As a series of unrelated topics with no overall connecting theme",
+              "As primarily about database administration with no connection to AI",
+              "As irrelevant to the models and pipelines built earlier in this curriculum"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly ties together every module of this course into one coherent progression from a working model to a deployed, production-grade AI product.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, what does `is_healthy` actually check?",
+            "options": [
+              "Whether the instance's process has started at all, regardless of model loading",
+              "Whether ticks_alive has reached model_load_time_ticks -- i.e., whether the simulated model load has actually finished, not just started",
+              "Whether the instance's version matches 'v2'",
+              "Whether the instance has received at least one request"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`is_healthy` returns `self.ticks_alive >= self.model_load_time_ticks`, which only becomes true once enough ticks have passed to represent the model finishing its load -- not merely the instance existing.",
+            "id": "q4"
+          },
+          {
+            "question": "In `rolling_deploy`, why does the `while not inst.is_healthy(): inst.tick()` loop run before `new_instances.append(inst)`?",
+            "options": [
+              "To ensure each new instance is only counted as part of the rotation after it's confirmed healthy, not the moment it's created",
+              "To intentionally slow down the deployment for no functional reason",
+              "Because append() requires the instance to be unhealthy first",
+              "Because this loop has no effect on when the instance joins new_instances"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The health-check loop runs to completion (advancing `ticks_alive` until it reaches `model_load_time_ticks`) before the instance is appended, ensuring only genuinely ready instances are added to the rotation -- exactly the started-vs-ready distinction the lesson emphasizes.",
+            "id": "q5"
+          },
+          {
+            "question": "With `old_fleet` of 4 instances and `batch_size=2`, how many deployment steps does `rolling_deploy` take?",
+            "options": [
+              "1 step, replacing all 4 at once",
+              "4 steps, one instance per step",
+              "2 steps, replacing 2 instances per step",
+              "0 steps, since the fleet is never replaced"
+            ],
+            "correctAnswer": 2,
+            "explanation": "With `batch_size=2` and 4 total old instances, the while loop pops 2 at a time from `remaining_old`, so it takes exactly 2 iterations (steps) to replace all 4 instances.",
+            "id": "q6"
+          },
+          {
+            "question": "Why is treating 'process started' as equivalent to 'ready for traffic' flagged as a mistake?",
+            "options": [
+              "Because routing traffic to an instance before its model weights have finished loading sends real requests to an instance that isn't actually able to serve them correctly yet",
+              "Because processes always start and become ready at exactly the same moment",
+              "Because health checks are unnecessary once a process has started",
+              "Because this mistake only applies to non-AI applications"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's common mistakes emphasize that a started process isn't necessarily a ready one, especially when model loading takes real time -- routing traffic too early risks sending requests to an instance that can't handle them yet.",
+            "id": "q7"
+          },
+          {
+            "question": "Why is not keeping the old (blue) version available long enough after switching to green considered a mistake?",
+            "options": [
+              "Because tearing down the old version immediately removes the instant-rollback safety net that's the whole point of the blue-green approach",
+              "Because the old version automatically becomes incompatible with new traffic",
+              "Because blue-green deployments require deleting the old version instantly by design",
+              "Because keeping the old version running has no safety benefit at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explains that blue-green's key advantage is the ability to switch back instantly if a problem appears, which depends entirely on the old version still being available and ready -- tearing it down too soon discards that safety net.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

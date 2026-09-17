@@ -1,0 +1,569 @@
+{
+  "id": "ent_deployment_models",
+  "title": "Enterprise Deployment Models",
+  "description": "On-prem vs. cloud vs. hybrid AI, air-gapped deployments, private model hosting, and a deployment decision framework.",
+  "icon": "🧭",
+  "color": "#4A148C",
+  "order": 0,
+  "estimatedHours": 3,
+  "difficulty": "advanced",
+  "prerequisites": [],
+  "lessons": [
+    {
+      "id": "ent_on_prem_vs_cloud_vs_hybrid_ai",
+      "title": "On-Prem vs. Cloud vs. Hybrid AI",
+      "description": "The deployment-model decision that shapes almost every other choice in this course.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain the trade-offs between **on-premises**, **cloud**, and **hybrid** deployment for enterprise AI systems.\n"
+          },
+          {
+            "title": "🏢 On-premises: full control, full responsibility",
+            "content": "Running AI infrastructure entirely within an organization's own data centers gives complete control over data location, hardware, and security posture — at the cost of the organization bearing all the operational burden the Cloud course's infrastructure modules covered:\n\n- Procurement\n- Maintenance\n- Scaling\n- Disaster recovery\n\nNone of it offloaded to a provider.\n"
+          },
+          {
+            "title": "☁️ Cloud: less operational burden, less control",
+            "content": "Using a public cloud provider (the Cloud course's core subject) offloads infrastructure operations to the provider in exchange for real control trade-offs: data residing on infrastructure the organization doesn't own, and dependency on the provider's own security and availability practices — the same **managed-versus-self-hosted** trade-off from the Vector Databases course's choosing-a-database lesson, now at the scale of an entire organization's AI infrastructure.\n"
+          },
+          {
+            "title": "🤝 Hybrid: splitting the difference deliberately",
+            "content": "A **hybrid** approach keeps some workloads on-premises (often the most sensitive data or strictly regulated workloads) while running others in the cloud (typically less sensitive, more elastic-capacity-dependent workloads) — not a compromise taken by default, but a deliberate split based on which workload actually needs which model's specific strengths.\n"
+          },
+          {
+            "title": "🧭 Why enterprises face this decision differently than a startup",
+            "content": "A regulated enterprise often has legal, contractual, or compliance obligations dictating where certain data can live — obligations a smaller, less regulated organization typically doesn't face — which is exactly why this decision gets its own dedicated course specifically for the enterprise context rather than being fully covered by the general Cloud course.\n"
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "Here's a simplified simulation of a deployment-model chooser weighing data sensitivity and operational capacity:\n\n```python\ndef choose_deployment(data_sensitivity, has_strict_jurisdiction_requirement, ops_capacity):\n    if has_strict_jurisdiction_requirement:\n        return \"on-premises (or tightly controlled hybrid)\"\n    if data_sensitivity == \"high\" and ops_capacity == \"low\":\n        return \"hybrid: sensitive workloads on-prem, rest in cloud\"\n    if data_sensitivity == \"low\":\n        return \"cloud\"\n    return \"hybrid\"\n\nworkloads = [\n    (\"internal analytics dashboard\", \"low\", False, \"low\"),\n    (\"patient records assistant\", \"high\", True, \"medium\"),\n    (\"marketing content generator\", \"low\", False, \"high\"),\n    (\"trading model inference\", \"high\", False, \"low\"),\n]\n\nfor name, sensitivity, jurisdiction, ops in workloads:\n    print(f\"{name}: {choose_deployment(sensitivity, jurisdiction, ops)}\")\n```\n\nThe internal analytics dashboard has `data_sensitivity=\"low\"`, so it resolves to `\"cloud\"` — no reason to bear on-prem's operational burden for low-stakes data. The patient records assistant has `has_strict_jurisdiction_requirement=True`, so it short-circuits straight to on-premises regardless of its other parameters, reflecting that categorical compliance requirements override cost or convenience preferences. The trading model has high sensitivity but no jurisdiction flag and low ops capacity, so it falls to the hybrid branch — sensitive parts on-prem, the rest in the cloud.\n"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Treating hybrid as a default compromise rather than a deliberate split.** Splitting workloads without a clear rule for which goes where recreates the operational complexity of both models without the benefits of either — hybrid only pays off when the split is based on each workload's actual needs.\n\n**Assuming a smaller organization's cloud-vs-on-prem calculus applies unchanged to a regulated enterprise.** As the lesson notes, legal and contractual data-location obligations can force a decision a startup would never have to make on pure cost or convenience grounds.\n\n**Choosing cloud purely for lower perceived operational burden without checking data-control requirements first.** If a contractual or regulatory obligation rules out third-party infrastructure entirely, the operational-convenience argument for cloud is moot before it's even weighed.\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ent_on_prem_vs_cloud_vs_hybrid_ai_quiz",
+        "questions": [
+          {
+            "question": "What is the main trade-off an organization accepts by choosing full on-premises AI infrastructure?",
+            "options": [
+              "Complete control over data and security posture, in exchange for bearing the full operational burden themselves",
+              "Zero operational responsibility with complete control simultaneously",
+              "Guaranteed lower cost than any cloud alternative in every case",
+              "No need for any data security practices at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "On-premises deployment maximizes control but shifts every operational burden — procurement, maintenance, scaling, DR — onto the organization itself, with no provider to offload it to.",
+            "id": "q1"
+          },
+          {
+            "question": "Why might a hybrid deployment model be chosen deliberately, rather than as a default compromise?",
+            "options": [
+              "Because different workloads have genuinely different needs — some requiring on-premises control for sensitive data, others benefiting from cloud elasticity",
+              "Because hybrid deployment is always cheaper than either pure option",
+              "Because hybrid deployment eliminates the need for any security considerations",
+              "Because cloud providers do not allow enterprises to use their services at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "A deliberate hybrid split matches each workload's actual requirements to the deployment model best suited for it, rather than treating hybrid as a lazy middle ground.",
+            "id": "q2"
+          },
+          {
+            "question": "In the code example, why does `choose_deployment` return \"on-premises (or tightly controlled hybrid)\" for the patient records assistant regardless of its `ops_capacity`?",
+            "options": [
+              "Because `has_strict_jurisdiction_requirement=True` triggers the function's first `if` branch, which returns immediately without evaluating sensitivity or ops capacity at all",
+              "Because patient records always have `data_sensitivity=\"low\"`",
+              "Because `ops_capacity=\"medium\"` always maps to on-premises",
+              "Because the function ignores the jurisdiction flag entirely"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The function checks `has_strict_jurisdiction_requirement` first and returns immediately if it's `True` — the other parameters are never even reached, mirroring how categorical compliance requirements override other considerations.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, why does the internal analytics dashboard resolve to \"cloud\"?",
+            "options": [
+              "Because it has `data_sensitivity=\"low\"` and no jurisdiction requirement, matching the `if data_sensitivity == \"low\"` branch",
+              "Because it has the highest `ops_capacity` of all four workloads",
+              "Because all workloads default to cloud unless explicitly excluded",
+              "Because analytics dashboards are hardcoded as a special case"
+            ],
+            "correctAnswer": 0,
+            "explanation": "With no jurisdiction requirement and `data_sensitivity=\"low\"`, the function skips the first two branches and matches `if data_sensitivity == \"low\": return \"cloud\"`.",
+            "id": "q4"
+          },
+          {
+            "question": "In the code example, what does the trading model inference workload resolve to, and why?",
+            "options": [
+              "\"cloud\", because `ops_capacity` is low",
+              "\"hybrid\", because it has `data_sensitivity=\"high\"` and `ops_capacity=\"low\"`, matching the second branch, with no jurisdiction requirement to short-circuit earlier",
+              "\"on-premises (or tightly controlled hybrid)\", because of a jurisdiction requirement",
+              "It raises an error because no branch matches"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`has_strict_jurisdiction_requirement=False` skips the first branch; `data_sensitivity == \"high\" and ops_capacity == \"low\"` matches the second branch, returning the hybrid recommendation.",
+            "id": "q5"
+          },
+          {
+            "question": "Per the \"☁️ Cloud\" section, what trade-off does using a public cloud provider involve?",
+            "options": [
+              "Less operational burden in exchange for data residing on infrastructure the organization doesn't own and dependency on the provider's own security and availability practices",
+              "No trade-offs at all compared to on-premises deployment",
+              "Complete elimination of any security responsibility for the organization",
+              "Guaranteed higher cost than on-premises in every scenario"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly frames cloud as trading operational burden for real control trade-offs — the same managed-vs-self-hosted trade-off pattern seen in the Vector Databases course.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does the lesson warn against treating hybrid deployment as a default compromise rather than a deliberate split?",
+            "options": [
+              "Because splitting workloads without a clear rule for which goes where recreates the operational complexity of both models without the benefits of either",
+              "Because hybrid deployment is technically impossible to implement in practice",
+              "Because hybrid deployment always costs more than either pure on-prem or pure cloud",
+              "Because regulators forbid hybrid deployment for any enterprise"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The common mistakes section states this directly: an undisciplined hybrid split loses the clarity benefit of choosing deliberately, ending up with both models' overhead and neither's clean benefits.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does the lesson warn against choosing cloud purely for lower operational burden without first checking data-control requirements?",
+            "options": [
+              "Because if a contractual or regulatory obligation rules out third-party infrastructure entirely, the operational-convenience argument for cloud is moot before it's even weighed",
+              "Because cloud infrastructure is always more expensive than on-premises regardless of requirements",
+              "Because data-control requirements never actually affect deployment choice in practice",
+              "Because cloud providers cannot offer any operational convenience benefits"
+            ],
+            "correctAnswer": 0,
+            "explanation": "This mirrors the lesson's core point: categorical compliance obligations can eliminate cloud as an option entirely, making the operational-convenience argument irrelevant if checked too late.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ent_air_gapped_deployments",
+      "title": "Air-Gapped Deployments",
+      "description": "When 'no internet access at all' is a hard requirement, not just a preference.",
+      "duration": 13,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain what an **air-gapped** deployment requires and why it demands different tooling than a typical connected system.\n"
+          },
+          {
+            "title": "🚫 What air-gapped means",
+            "content": "An **air-gapped** environment has no network connection to the outside internet at all — common in defense, intelligence, and some highly regulated financial or healthcare contexts where the risk of any external connection is considered unacceptable, regardless of how well-secured that connection might otherwise be.\n"
+          },
+          {
+            "title": "📦 Why this breaks a lot of standard AI tooling assumptions",
+            "content": "Nearly every workflow covered throughout this curriculum assumes internet access at some point:\n\n- Pulling a container image from a registry (Cloud course)\n- Calling a hosted LLM API (LLM Engineering course)\n- Downloading a model from Hugging Face (Hugging Face course)\n\nAn air-gapped deployment needs every one of these dependencies pre-staged and transferred in through an approved, controlled process before the system can run at all.\n"
+          },
+          {
+            "title": "🔄 Updates become a deliberate, manual process",
+            "content": "Because there's no live connection to pull updates, patches, or new model versions, an air-gapped system's update process is inherently manual and batched — someone has to vet and physically transfer each update through the approved channel, which is slower and requires real planning ahead compared to a connected system's automatic patching.\n"
+          },
+          {
+            "title": "🧭 The trade-off this exists for",
+            "content": "Air-gapping trades operational convenience and update speed for the strongest possible protection against external network-based attacks — appropriate when the sensitivity of the data or system genuinely justifies that trade, and a significant operational cost otherwise.\n"
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "Here's a simplified simulation contrasting a connected deployment's on-demand dependency fetching with an air-gapped deployment's pre-staging requirement:\n\n```python\ndef deploy_connected(required_deps, available_locally):\n    fetched = []\n    for dep in required_deps:\n        if dep not in available_locally:\n            fetched.append(dep)  # pulled on demand over the network\n    return {\"status\": \"ready\", \"fetched_on_demand\": fetched}\n\ndef deploy_air_gapped(required_deps, available_locally):\n    missing = [d for d in required_deps if d not in available_locally]\n    if missing:\n        return {\"status\": \"blocked\", \"missing\": missing}\n    return {\"status\": \"ready\", \"fetched_on_demand\": []}\n\nrequired = [\"container_image_v2\", \"llm_weights_7b\", \"tokenizer_config\"]\nstaged = [\"container_image_v2\", \"tokenizer_config\"]  # llm_weights_7b wasn't pre-staged\n\nprint(\"connected:\", deploy_connected(required, staged))\nprint(\"air-gapped:\", deploy_air_gapped(required, staged))\n```\n\nFor the connected deployment, `deploy_connected` finds `\"llm_weights_7b\"` missing from `available_locally` and simply fetches it over the network — `fetched_on_demand` is `[\"llm_weights_7b\"]` and the deployment proceeds with `\"status\": \"ready\"`. For the air-gapped deployment, the same missing dependency instead blocks the whole deployment: `deploy_air_gapped` returns `{\"status\": \"blocked\", \"missing\": [\"llm_weights_7b\"]}` — there's no network fallback to silently paper over the gap, exactly the pre-staging discipline the lesson describes.\n"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming a deployment process validated in a connected environment will work unchanged air-gapped.** As the code example shows, any step that silently reaches out to the network on demand becomes a hard blocker with no fallback in an air-gapped environment — this has to be tested air-gapped, not assumed.\n\n**Underestimating the lead time an update requires.** Because updates can't be pulled instantly, planning an update for the same day it's needed doesn't work — the manual vetting and transfer process needs to be built into the schedule well in advance.\n\n**Treating air-gapping as a default security posture rather than a deliberate, costly trade-off.** Air-gapping every system \"to be safe\" imposes real operational cost that isn't justified unless the data or system's sensitivity genuinely requires it.\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ent_air_gapped_deployments_quiz",
+        "questions": [
+          {
+            "question": "What does an air-gapped deployment fundamentally lack, compared to a typical connected system?",
+            "options": [
+              "Any network connection to the outside internet at all",
+              "Any local storage capacity",
+              "Any ability to run AI models locally",
+              "Any users capable of accessing the system"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Air-gapping means complete isolation from external networks — the defining characteristic that shapes every other requirement in this lesson.",
+            "id": "q1"
+          },
+          {
+            "question": "Why does an air-gapped deployment require pre-staging container images and model weights, unlike a typical cloud deployment?",
+            "options": [
+              "Because there's no internet connection available to pull them from a registry or download them on demand",
+              "Because air-gapped systems cannot run any containers or models at all",
+              "Because pre-staging is required by every cloud deployment as well, with no difference",
+              "Because container registries only work in air-gapped environments"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The complete absence of network access means every dependency that a connected system would fetch on demand must instead be transferred in through a controlled process beforehand.",
+            "id": "q2"
+          },
+          {
+            "question": "In the code example, why does `deploy_connected(required, staged)` succeed with `\"status\": \"ready\"` even though `llm_weights_7b` isn't in `staged`?",
+            "options": [
+              "Because `deploy_connected` simply adds any missing dependency to `fetched_on_demand` and proceeds, modeling on-demand network fetching",
+              "Because `llm_weights_7b` isn't actually required by this deployment",
+              "Because `deploy_connected` ignores missing dependencies entirely without recording them",
+              "Because `staged` actually does contain `llm_weights_7b`"
+            ],
+            "correctAnswer": 0,
+            "explanation": "`deploy_connected` treats any dependency not found in `available_locally` as something to fetch on demand — it never blocks, it just records what it fetched.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, what does `deploy_air_gapped(required, staged)` return, and why?",
+            "options": [
+              "`{\"status\": \"ready\", \"fetched_on_demand\": []}`, the same as the connected case",
+              "`{\"status\": \"blocked\", \"missing\": [\"llm_weights_7b\"]}`, because `llm_weights_7b` isn't in `available_locally` and there's no network fallback to fetch it",
+              "An exception, because the function has no handling for missing dependencies",
+              "`{\"status\": \"ready\", \"fetched_on_demand\": [\"llm_weights_7b\"]}`"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`deploy_air_gapped` computes `missing` as the deps not in `available_locally`; since that list is non-empty (`[\"llm_weights_7b\"]`), it returns the blocked status rather than proceeding.",
+            "id": "q4"
+          },
+          {
+            "question": "What does the contrast between `deploy_connected` and `deploy_air_gapped` in the code example illustrate?",
+            "options": [
+              "That both functions behave identically regardless of network assumptions",
+              "That a missing dependency is a minor, silently-resolved detail in a connected deployment but a hard blocker in an air-gapped one, since there's no network fallback",
+              "That air-gapped deployments never have any missing dependencies",
+              "That connected deployments always fail when a dependency is missing"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The two functions handle the exact same missing dependency completely differently — one absorbs it via network fetch, the other blocks entirely — capturing the core practical difference air-gapping introduces.",
+            "id": "q5"
+          },
+          {
+            "question": "What operational cost does air-gapping impose in exchange for its security benefit?",
+            "options": [
+              "Updates and patches become a slower, deliberate, manually-vetted and transferred process rather than automatic",
+              "Air-gapping has no operational cost of any kind",
+              "Air-gapped systems automatically update faster than connected systems",
+              "Air-gapping eliminates the need for any security practices at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The isolation that protects against network-based attacks also removes the convenience of automatic, live updates, requiring a slower manual process instead.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does the lesson warn against assuming a deployment process validated in a connected environment will work unchanged when air-gapped?",
+            "options": [
+              "Because, as the code example shows, any step that silently reaches out to the network on demand becomes a hard blocker with no fallback in an air-gapped environment",
+              "Because air-gapped environments are always faster than connected ones",
+              "Because connected deployment processes are technically incompatible with any hardware",
+              "Because air-gapped systems automatically convert network calls into local calls"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The common mistakes section connects directly to the code example: what's an invisible network fetch in a connected environment becomes an outright blocker air-gapped, so the process needs air-gapped testing specifically.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does the lesson warn against treating air-gapping as a default security posture rather than a deliberate trade-off?",
+            "options": [
+              "Because air-gapping every system \"to be safe\" imposes real operational cost that isn't justified unless the data or system's sensitivity genuinely requires it",
+              "Because air-gapping is illegal for most organizations to implement",
+              "Because air-gapped systems are always less secure than connected ones",
+              "Because air-gapping requires no additional planning compared to a connected deployment"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson frames air-gapping as a deliberate, costly trade-off appropriate only when genuinely justified — applying it by default wastes the operational convenience a connected system offers without a matching security need.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ent_private_model_hosting",
+      "title": "Private Model Hosting",
+      "description": "Running the model yourself, when sending data to a third-party API isn't an option.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain why an enterprise might choose **private model hosting** over a hosted LLM API, and what that choice actually requires.\n"
+          },
+          {
+            "title": "🔒 Why not just use a hosted API",
+            "content": "The LLM Engineering course's default assumption was often calling a hosted LLM API — simple, fast to start, no infrastructure to manage. For an enterprise handling sensitive data, sending that data to a third-party API may be contractually prohibited, legally restricted, or simply an unacceptable risk regardless of the provider's own security claims — private hosting keeps data and inference entirely within infrastructure the organization controls.\n"
+          },
+          {
+            "title": "🏗️ What private hosting actually requires",
+            "content": "This means directly applying the Inference course's entire toolkit — serving frameworks like vLLM, GPU infrastructure from the Cloud course, quantization and batching for cost-effective serving — as an in-house operational responsibility rather than something abstracted away behind an API call. The convenience of \"just call the API\" is traded for full ownership of the serving stack.\n"
+          },
+          {
+            "title": "⚖️ Open-weight models make this practical",
+            "content": "Private hosting depends on having a model you're actually allowed to run yourself — **open-weight models** (covered in the Hugging Face course) make this practical in a way that a closed, API-only model does not, since there's no weights to host privately for a model you can only access through someone else's hosted endpoint.\n"
+          },
+          {
+            "title": "💰 The cost trade-off is real, not automatic savings",
+            "content": "Private hosting isn't automatically cheaper than a hosted API — it trades a per-token API cost for the fixed and ongoing costs of GPU infrastructure, serving engineering, and operational overhead, which only pays off at sufficient volume or when the data-control requirement makes the hosted API option unavailable regardless of cost.\n"
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "Here's a simplified simulation comparing hosted-API cost against private-hosting cost across different usage volumes:\n\n```python\ndef hosted_api_monthly_cost(tokens_per_month, price_per_million_tokens):\n    return (tokens_per_month / 1_000_000) * price_per_million_tokens\n\ndef private_hosting_monthly_cost(fixed_gpu_cost, ops_engineering_cost):\n    return fixed_gpu_cost + ops_engineering_cost  # roughly volume-independent within capacity\n\nprice_per_million = 15.0\nfixed_gpu_cost = 12000\nops_cost = 8000\n\nfor tokens in [5_000_000, 500_000_000, 2_000_000_000]:\n    hosted = hosted_api_monthly_cost(tokens, price_per_million)\n    private = private_hosting_monthly_cost(fixed_gpu_cost, ops_cost)\n    cheaper = \"hosted API\" if hosted < private else \"private hosting\"\n    print(f\"{tokens:,} tokens/mo -> hosted: ${hosted:,.2f}, private: ${private:,.2f} -> cheaper: {cheaper}\")\n```\n\nAt 5,000,000 tokens/month, `hosted = (5_000_000/1_000_000) * 15.0 = 75.0`, far below the fixed private cost of `12000 + 8000 = 20000` — the hosted API is dramatically cheaper at low volume. At 500,000,000 tokens/month, `hosted = 500 * 15.0 = 7500.0`, still below the flat `20000` private cost. Only at 2,000,000,000 tokens/month does `hosted = 2000 * 15.0 = 30000.0` exceed the private hosting's flat `20000` — private hosting only becomes cheaper once volume is high enough to amortize its fixed costs, exactly the volume-dependence the lesson describes; below that crossover, \"private is more secure\" and \"private is cheaper\" are two entirely separate claims.\n"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming private hosting is automatically cheaper than a hosted API.** As the code example shows, private hosting's cost is only justified by volume above a real crossover point — below it, a hosted API is simply less expensive, and the decision to self-host should rest on data-control needs or confirmed volume economics, not an assumption.\n\n**Choosing private hosting without an open-weight model actually available.** Private hosting requires having weights to host — committing to a private-hosting architecture before confirming an appropriate open-weight model exists for the use case puts the plan on an unverified foundation.\n\n**Underestimating the ongoing operational engineering cost, not just the GPU bill.** The serving stack — batching, quantization, scaling, monitoring — is real, ongoing engineering work, not a one-time setup cost that disappears after initial deployment.\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ent_private_model_hosting_quiz",
+        "questions": [
+          {
+            "question": "Why might an enterprise choose private model hosting over a hosted LLM API, despite the added operational burden?",
+            "options": [
+              "Because sending sensitive data to a third-party API may be contractually prohibited, legally restricted, or an unacceptable risk regardless of cost",
+              "Because private hosting is always cheaper than any hosted API option",
+              "Because hosted APIs cannot process any enterprise data under any circumstances",
+              "Because private hosting requires no infrastructure investment at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Data-control requirements — legal, contractual, or risk-based — are often the deciding factor, independent of whether private hosting is cheaper.",
+            "id": "q1"
+          },
+          {
+            "question": "What does private model hosting require that using a hosted API does not?",
+            "options": [
+              "Directly operating the Inference course's serving stack — frameworks, GPU infrastructure, quantization — as an in-house responsibility",
+              "Nothing additional; the requirements are identical to using a hosted API",
+              "The complete absence of any GPU hardware",
+              "A guarantee of automatic cost savings regardless of usage volume"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Private hosting means taking on the full serving-infrastructure responsibility that a hosted API would otherwise abstract away behind a simple API call.",
+            "id": "q2"
+          },
+          {
+            "question": "In the code example, at 5,000,000 tokens/month, why is the hosted API cheaper than private hosting?",
+            "options": [
+              "Because `hosted_api_monthly_cost` returns `75.0`, far below the flat `private_hosting_monthly_cost` of `20000`, since the fixed GPU and ops costs aren't amortized over enough volume yet",
+              "Because private hosting has no cost at low volume",
+              "Because the hosted API's price scales down to zero below a certain volume",
+              "Because 5,000,000 tokens exceeds the private hosting capacity"
+            ],
+            "correctAnswer": 0,
+            "explanation": "`(5_000_000/1_000_000) * 15.0 = 75.0`, dramatically below the volume-independent `12000 + 8000 = 20000` private cost — at this volume the fixed private infrastructure costs simply aren't worth it yet.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, at what volume does private hosting first become cheaper than the hosted API, and why?",
+            "options": [
+              "At 500,000,000 tokens/month, because hosted cost already exceeds 20000 there",
+              "At 2,000,000,000 tokens/month, because `hosted_api_monthly_cost` there is `30000.0`, which exceeds the flat private cost of `20000`, while at 500,000,000 tokens the hosted cost (`7500.0`) is still below it",
+              "Private hosting is never cheaper in this example",
+              "At 5,000,000 tokens/month, the lowest volume shown"
+            ],
+            "correctAnswer": 1,
+            "explanation": "At 500,000,000 tokens, hosted cost is `7500.0` (still cheaper than 20000); only at 2,000,000,000 tokens does hosted cost reach `30000.0`, crossing above the flat `20000` private cost.",
+            "id": "q4"
+          },
+          {
+            "question": "What does the code example demonstrate about the relationship between usage volume and which option is cheaper?",
+            "options": [
+              "That private hosting is always cheaper regardless of volume",
+              "That the hosted API's cost scales with volume while private hosting's cost stays roughly flat, so which option is cheaper depends on where volume falls relative to a crossover point",
+              "That the hosted API is always cheaper regardless of volume",
+              "That volume has no bearing on which option is more cost-effective"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The three printed comparisons show the hosted API's linear scaling crossing above private hosting's flat cost only at high volume — the crossover point is exactly what determines which is cheaper.",
+            "id": "q5"
+          },
+          {
+            "question": "Why do open-weight models matter specifically for private hosting?",
+            "options": [
+              "Because private hosting requires actually having and running the model's weights yourself, which only open-weight models make possible",
+              "Because open-weight models cannot be hosted privately under any circumstances",
+              "Because closed, API-only models are always better suited to private hosting",
+              "Because open-weight models require no GPU infrastructure at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "A model only accessible through someone else's hosted API has no weights available to host privately — open-weight availability is a precondition for this deployment choice.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does the lesson warn against assuming private hosting is automatically cheaper than a hosted API?",
+            "options": [
+              "Because, as the code example shows, private hosting's cost is only justified by volume above a real crossover point — below it, a hosted API is simply less expensive",
+              "Because private hosting is illegal below a certain volume threshold",
+              "Because hosted APIs always cost more than private hosting at every volume",
+              "Because private hosting has no fixed costs at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The common mistakes section states this directly, and the code example shows the concrete crossover point below which the assumption of automatic savings is simply wrong.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does the lesson warn against underestimating the ongoing operational engineering cost of private hosting, not just the GPU bill?",
+            "options": [
+              "Because batching, quantization, scaling, and monitoring are real, ongoing engineering work, not a one-time setup cost that disappears after initial deployment",
+              "Because operational engineering cost is always zero for private hosting",
+              "Because the GPU bill is the only cost that ever matters for private hosting",
+              "Because ongoing engineering work is only needed for hosted APIs, not private hosting"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The code example's `ops_engineering_cost` term captures exactly this — a persistent monthly cost alongside the GPU cost, reflecting that the serving stack needs continuous engineering attention.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ent_choosing_a_deployment_model",
+      "title": "Choosing a Deployment Model",
+      "description": "Bringing this module's three deployment options together into one concrete decision framework.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Apply a structured decision process for choosing among on-prem, cloud, hybrid, air-gapped, and privately-hosted deployment for a given enterprise AI use case.\n"
+          },
+          {
+            "title": "❓ The questions that actually drive this decision",
+            "content": "- What does data sensitivity and regulation actually **require**, not just prefer?\n- What's the actual traffic volume and its variability, which affects whether cloud elasticity or fixed on-prem capacity fits better?\n- What operational capacity does the organization have to run infrastructure itself, echoing the Vector Databases course's managed-vs-self-hosted framework?\n- Is any part of this workload's data or process legally required to stay within a specific jurisdiction or off any external network entirely?\n"
+          },
+          {
+            "title": "🧮 A worked example",
+            "content": "A healthcare enterprise building a clinical documentation assistant: patient data likely has strict regulatory requirements (HIPAA-adjacent, covered more in the governance module), pointing toward private hosting or a tightly controlled hybrid model — a public hosted API handling that data directly would likely be a non-starter regardless of the API's own security posture, not because the security is inadequate but because the compliance requirement is categorical rather than a risk-tolerance judgment call.\n"
+          },
+          {
+            "title": "🚪 Not a permanent, unchangeable decision",
+            "content": "As covered for narrower infrastructure choices earlier in this curriculum (the Vector Databases course's migration lesson, the App Dev course's monolith-to-microservices lesson), a deployment model chosen today can be revisited as requirements, regulations, or the organization's own capabilities change — but each of these deployment models involves enough infrastructure investment that changing course is a real, planned undertaking, not a quick config change.\n"
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "Here's a simplified simulation walking through the decision framework's questions in order to reach a recommendation:\n\n```python\ndef recommend_deployment(answers):\n    if answers[\"jurisdiction_locked\"]:\n        return \"on-premises or air-gapped\"\n    if answers[\"regulatory_category\"] == \"categorical\":\n        return \"private hosting or tightly controlled hybrid\"\n    if answers[\"traffic_variability\"] == \"high\" and answers[\"ops_capacity\"] == \"low\":\n        return \"cloud\"\n    return \"hybrid\"\n\nclinical_assistant = {\n    \"jurisdiction_locked\": False,\n    \"regulatory_category\": \"categorical\",  # HIPAA-adjacent\n    \"traffic_variability\": \"medium\",\n    \"ops_capacity\": \"medium\",\n}\nprint(\"clinical documentation assistant:\", recommend_deployment(clinical_assistant))\n\nmarketing_tool = {\n    \"jurisdiction_locked\": False,\n    \"regulatory_category\": \"none\",\n    \"traffic_variability\": \"high\",\n    \"ops_capacity\": \"low\",\n}\nprint(\"marketing content tool:\", recommend_deployment(marketing_tool))\n```\n\nFor `clinical_assistant`, `jurisdiction_locked` is `False`, so the first branch is skipped, but `regulatory_category == \"categorical\"` matches the second branch immediately — returning `\"private hosting or tightly controlled hybrid\"` regardless of its `traffic_variability` or `ops_capacity`, exactly mirroring the worked example's point that a categorical requirement overrides other factors. For `marketing_tool`, neither the jurisdiction nor regulatory branches match, and `traffic_variability == \"high\" and ops_capacity == \"low\"` matches the third branch, recommending cloud for its elasticity given the organization's limited operational capacity.\n"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Letting general preference or trend override what data sensitivity and regulation actually require.** As the worked example shows, some requirements are categorical — no amount of preference for a simpler architecture changes what's actually permitted.\n\n**Treating this decision as a one-time, unchangeable commitment.** Failing to revisit the deployment model as requirements evolve can leave a system stuck on an architecture that no longer fits its actual needs.\n\n**Treating this decision as trivially reversible.** The opposite mistake is just as costly — underestimating the real infrastructure investment involved means a change of course gets attempted as a quick fix rather than the planned undertaking it actually requires.\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ent_choosing_a_deployment_model_quiz",
+        "questions": [
+          {
+            "question": "What should primarily drive the choice between on-prem, cloud, hybrid, air-gapped, or privately-hosted deployment?",
+            "options": [
+              "Actual data sensitivity/regulatory requirements, traffic patterns, and organizational operational capacity — not general preference",
+              "Whichever option is most popular among other companies",
+              "Always the cheapest option available regardless of any other factor",
+              "Always the option requiring the least amount of initial paperwork"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Concrete requirements — regulatory, operational, and traffic-based — should drive this decision, the same requirements-first discipline used for infrastructure choices throughout this curriculum.",
+            "id": "q1"
+          },
+          {
+            "question": "For a healthcare clinical documentation assistant handling patient data, why might a public hosted API be a non-starter regardless of its security quality?",
+            "options": [
+              "Because the compliance requirement for that kind of data may be categorical, not a risk-tolerance judgment that a good security posture alone can satisfy",
+              "Because hosted APIs are always technically incapable of processing healthcare data",
+              "Because on-premises deployment is illegal for healthcare organizations",
+              "Because clinical documentation assistants never need any deployment decision"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Some regulatory requirements aren't about how good a third party's security is — they categorically restrict where certain data types may go, regardless of the provider's actual practices.",
+            "id": "q2"
+          },
+          {
+            "question": "In the code example, why does `recommend_deployment(clinical_assistant)` return \"private hosting or tightly controlled hybrid\" regardless of `traffic_variability` and `ops_capacity`?",
+            "options": [
+              "Because `regulatory_category == \"categorical\"` matches the second `if` branch, which returns immediately without evaluating the traffic or ops-capacity conditions that come after it",
+              "Because `traffic_variability` is set to `\"high\"` for this workload",
+              "Because `jurisdiction_locked` is `True` for the clinical assistant",
+              "Because the function ignores `regulatory_category` entirely"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The function checks `jurisdiction_locked` first (False, skipped), then `regulatory_category == \"categorical\"` (True), returning immediately — the third branch checking traffic and ops capacity is never reached.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, why does `recommend_deployment(marketing_tool)` return \"cloud\"?",
+            "options": [
+              "Because `jurisdiction_locked` is `False` and `regulatory_category` is `\"none\"`, so both earlier branches are skipped, and `traffic_variability == \"high\" and ops_capacity == \"low\"` matches the third branch",
+              "Because marketing tools are hardcoded to always return \"cloud\"",
+              "Because `regulatory_category` is `\"categorical\"` for the marketing tool",
+              "Because the function defaults to \"cloud\" when no answers dict is provided"
+            ],
+            "correctAnswer": 0,
+            "explanation": "With no jurisdiction lock and a non-categorical regulatory category, execution reaches the third branch, where `traffic_variability=\"high\"` and `ops_capacity=\"low\"` together match, returning \"cloud\".",
+            "id": "q4"
+          },
+          {
+            "question": "What does the ordering of checks in `recommend_deployment` illustrate about how the decision framework should be applied?",
+            "options": [
+              "That jurisdiction and categorical regulatory requirements should be checked first, since they override traffic and operational-capacity considerations entirely when present",
+              "That traffic variability is always the most important factor to check first",
+              "That all four conditions must be true simultaneously for any recommendation to be made",
+              "That the order of checks has no effect on the final recommendation"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The function's structure — jurisdiction first, then categorical regulation, then traffic/ops — reflects that hard legal constraints should short-circuit the decision before softer operational trade-offs are even considered.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is a deployment model decision described as 'not permanent' but also not something to change lightly?",
+            "options": [
+              "Because it can be revisited as requirements change, but the infrastructure investment involved makes changing course a real, planned undertaking rather than a quick fix",
+              "Because deployment models can be changed instantly with a single configuration flag",
+              "Because deployment models, once chosen, can genuinely never be changed under any circumstances",
+              "Because this decision has no infrastructure implications worth planning around"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Like other infrastructure decisions covered earlier in this curriculum, this one remains revisitable in principle but carries enough real investment that changing it deserves deliberate planning, not casual reversal.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does the lesson warn against letting general preference override what data sensitivity and regulation actually require?",
+            "options": [
+              "Because, as the worked example shows, some requirements are categorical — no amount of preference for a simpler architecture changes what's actually legally permitted",
+              "Because preference should always be the primary factor in deployment decisions",
+              "Because regulatory requirements never actually constrain deployment choice in practice",
+              "Because data sensitivity has no bearing on deployment architecture"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The common mistakes section reinforces the worked example's point directly — categorical requirements aren't a preference to be weighed against convenience, they're a hard constraint.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does the lesson warn against treating a deployment model change as trivially reversible?",
+            "options": [
+              "Because underestimating the real infrastructure investment involved means a change of course gets attempted as a quick fix rather than the planned undertaking it actually requires",
+              "Because deployment models can never be changed under any circumstances",
+              "Because reversibility has no bearing on how a deployment change should be planned",
+              "Because infrastructure investment is irrelevant to deployment model changes"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The common mistakes section flags this as the opposite failure mode from treating the decision as permanent — underestimating the real cost of change leads to rushed, under-planned migrations.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

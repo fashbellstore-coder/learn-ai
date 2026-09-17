@@ -1,0 +1,565 @@
+{
+  "id": "inf_fundamentals",
+  "title": "Inference Fundamentals",
+  "description": "What inference optimizes for, the autoregressive decoding loop, latency vs. throughput, and hardware choice basics.",
+  "icon": "🧭",
+  "color": "#F9A825",
+  "order": 0,
+  "estimatedHours": 3,
+  "difficulty": "beginner",
+  "prerequisites": [],
+  "lessons": [
+    {
+      "id": "inf_the_forward_pass_at_inference_time",
+      "title": "The Forward Pass at Inference Time",
+      "description": "Serving a model is a different problem from training one, even though the math looks the same.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain how inference differs from training in what it optimizes for, even though both run forward passes through the same network."
+          },
+          {
+            "title": "🔁 Same math, different goal",
+            "content": "Training runs forward and backward passes over batches of data to update weights, optimizing for eventual model quality over hours or days. Inference runs only the forward pass, on one request at a time (or a small batch), optimizing for how quickly a fixed, frozen model can produce an answer for a real user waiting on the other end."
+          },
+          {
+            "title": "⏱️ The new constraint: latency, per request",
+            "content": "In training, a single slow batch is invisible in a run that takes days. In inference, a slow forward pass is a user staring at a spinner. This single shift — quality-over-time versus speed-per-request — is why inference has grown into its own specialized field with its own tools, separate from the training stack you built up through the Deep Learning and LLM courses."
+          },
+          {
+            "title": "🧭 Where this course fits",
+            "content": "Every course so far assumed a model already existed and could answer a prompt. This course is about the layer underneath that assumption: how a frozen set of weights actually turns a prompt into tokens, fast enough and cheaply enough to run as a real product."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "A toy comparison of a training step versus an inference step, sharing the same forward pass:\n\n```python\nimport time\n\n# A toy comparison of a \"training step\" vs an \"inference step\" (NOT real\n# deep learning code). `weights` stands in for a frozen set of parameters.\n\nweights = {\"w1\": 0.5, \"w2\": -0.2}\n\n\ndef forward_pass(x, weights):\n    # The math itself is identical in both training and inference: a\n    # function of the input and the current weights.\n    return weights[\"w1\"] * x + weights[\"w2\"]\n\n\ndef training_step(batch, weights, lr=0.01):\n    total_loss = 0.0\n    grads = {\"w1\": 0.0, \"w2\": 0.0}\n    for x, target in batch:\n        prediction = forward_pass(x, weights)\n        total_loss += (prediction - target) ** 2\n        # Backward pass: figure out how much each weight contributed to the error.\n        grads[\"w1\"] += 2 * (prediction - target) * x\n        grads[\"w2\"] += 2 * (prediction - target)\n    # Update the weights based on the whole batch, optimizing for long-run quality.\n    weights[\"w1\"] -= lr * grads[\"w1\"] / len(batch)\n    weights[\"w2\"] -= lr * grads[\"w2\"] / len(batch)\n    return total_loss / len(batch)\n\n\ndef inference_step(x, weights):\n    # No backward pass, no gradients, no weight update, no \"correct answer\"\n    # to learn from -- just the forward pass, for one request, timed like a server would.\n    start = time.perf_counter()\n    prediction = forward_pass(x, weights)\n    elapsed_ms = (time.perf_counter() - start) * 1000\n    return prediction, elapsed_ms\n\n\nbatch = [(1.0, 2.0), (2.0, 3.5), (3.0, 5.0)]\nloss = training_step(batch, weights)\nprint(f\"training_step updated weights, batch loss={loss:.4f}\")\n\nprediction, elapsed_ms = inference_step(4.0, weights)\nprint(f\"inference_step returned {prediction:.4f} for x=4.0 in {elapsed_ms:.4f}ms\")\n```\n\n`training_step` touches every example in `batch`, computes `grads`, and mutates `weights` — work whose cost training amortizes over an entire run. `inference_step` calls the exact same `forward_pass` function but skips gradients and weight updates entirely, and times a single request the way a production server would."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming inference is just \"training without the backward pass,\" performance-wise.** Skipping gradients and weight updates is necessary but not sufficient — inference introduces its own distinct concerns, like per-request latency and concurrent users, that training's quality-over-time framing never had to deal with at all.\n\n**Optimizing a serving stack the same way you would a training loop.** Techniques aimed at maximizing throughput over a run spanning hours don't automatically translate to a real-time system where a specific user is waiting on a specific response right now.\n\n**Treating a model's training-time benchmarks as a proxy for its inference performance.** How fast a model trains says very little about how fast a single frozen copy of it can answer one prompt, because the two workloads optimize for entirely different things.\n\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "inf_the_forward_pass_at_inference_time_quiz",
+        "questions": [
+          {
+            "question": "What is the key difference between what training and inference each optimize for?",
+            "options": [
+              "Training optimizes model quality over a long run; inference optimizes response speed for individual requests",
+              "Training only uses backward passes; inference has no math at all",
+              "Training happens on GPUs; inference only happens on CPUs",
+              "Inference always uses a different model architecture than training"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Both run neural network math, but training is optimizing weights over time while inference is optimizing per-request latency for a frozen model.",
+            "id": "q1"
+          },
+          {
+            "question": "Why does a single slow forward pass matter more during inference than during training?",
+            "options": [
+              "Because a user is waiting on that specific request, whereas a slow training batch is invisible within a run spanning days",
+              "Because inference always uses larger batch sizes than training",
+              "Because training never runs a forward pass",
+              "Because inference does not use GPUs"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The per-request nature of inference means latency is directly experienced by a waiting user, unlike training where individual batch timing is absorbed into a much longer process.",
+            "id": "q2"
+          },
+          {
+            "question": "This course's premise is that",
+            "options": [
+              "Turning a frozen model into a fast, affordable, real product is a distinct engineering problem from building the model itself",
+              "Inference requires retraining the model for every request",
+              "Inference and training use fundamentally different mathematical operations",
+              "Serving a model is simpler than training it and needs no dedicated study"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The course treats serving as its own specialized layer — worth the same rigor already applied to training and fine-tuning earlier in the curriculum.",
+            "id": "q3"
+          },
+          {
+            "question": "According to 'Where this course fits,' what did every prior course assume that this course does not?",
+            "options": [
+              "That a model already existed and could answer a prompt, leaving the question of how it actually turns a prompt into tokens fast and cheaply unexamined",
+              "That models are always trained from scratch before every use",
+              "That inference is impossible without retraining",
+              "That GPUs are unnecessary for running any model"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson frames this course as studying the layer underneath the prior courses' assumption — how a frozen set of weights actually turns a prompt into tokens as a real product.",
+            "id": "q4"
+          },
+          {
+            "question": "Per 'Same math, different goal,' what does inference typically run its forward pass on?",
+            "options": [
+              "One request at a time, or a small batch, rather than the large batches used in training",
+              "The exact same massive batches used during training",
+              "No input at all, since the model is frozen",
+              "A randomly resampled version of the training dataset"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson contrasts training's batches of data over hours or days with inference running the forward pass on one request (or a small batch) at a time.",
+            "id": "q5"
+          },
+          {
+            "question": "In the code example, which parts of training_step have no equivalent at all in inference_step?",
+            "options": [
+              "Computing grads and using them to update weights",
+              "Calling forward_pass",
+              "Accepting a numeric input value",
+              "Returning a numeric result"
+            ],
+            "correctAnswer": 0,
+            "explanation": "training_step computes grads from the batch's errors and updates weights with them; inference_step calls the same forward_pass but never computes gradients or touches weights at all.",
+            "id": "q6"
+          },
+          {
+            "question": "What does inference_step measure and return alongside the prediction?",
+            "options": [
+              "elapsed_ms, the time taken to run that single forward pass",
+              "The total loss across a batch of examples",
+              "The updated values of weights",
+              "The number of training epochs completed"
+            ],
+            "correctAnswer": 0,
+            "explanation": "inference_step wraps forward_pass with time.perf_counter() calls and returns elapsed_ms, mirroring how a production server would time a single request.",
+            "id": "q7"
+          },
+          {
+            "question": "Per 'Common mistakes,' why is it wrong to assume inference is just \"training without the backward pass\" performance-wise?",
+            "options": [
+              "Because inference introduces its own distinct concerns, like per-request latency and concurrent users, that training's quality-over-time framing never addressed",
+              "Because inference actually does include a backward pass",
+              "Because training and inference use completely different forward-pass math",
+              "Because inference never runs on GPUs, unlike training"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The mistakes section explains that dropping gradients and weight updates is necessary but not sufficient — inference has its own performance concerns training never had to consider.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "inf_autoregressive_decoding",
+      "title": "Autoregressive Decoding",
+      "description": "Why generating text is a loop, and why that loop is the whole inference performance story.",
+      "duration": 13,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Describe the token-by-token decoding loop and why it fundamentally limits how fast generation can be."
+          },
+          {
+            "title": "🔂 One token at a time",
+            "content": "An LLM generates text autoregressively: it predicts one token, appends it to the input, and runs the forward pass again to predict the next token — repeating until it produces a stop token or hits a length limit. Every single token requires a full forward pass through the network."
+          },
+          {
+            "title": "🐌 Why this is inherently sequential",
+            "content": "Because each new token depends on all previous tokens (including ones the model just generated itself), you cannot skip ahead and predict token 50 before token 49 exists. This sequential dependency is the single biggest reason LLM inference is fundamentally different — and often slower per output token — from a typical single-pass classifier."
+          },
+          {
+            "title": "📊 Two phases with different costs",
+            "content": "The prompt (all input tokens) can be processed in one parallel forward pass — called 'prefill' — because all those tokens are already known. Generating the output, one token at a time, is called 'decode,' and it's sequential by nature. Prefill is compute-bound and fast per token; decode is where most of the latency and the KV cache challenges of the next module live."
+          },
+          {
+            "title": "🔗 Where you've seen the shape of this before",
+            "content": "This prefill/decode split is worth remembering — the rest of this course, especially the KV cache and batching modules, is largely about making the decode phase fast despite its sequential nature."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "A tiny greedy autoregressive decoding loop:\n\n```python\n# A tiny greedy autoregressive decoding loop (NOT a real tokenizer/model).\n\nvocab = [\"<eos>\", \"the\", \"cat\", \"sat\", \"on\", \"mat\"]\n\n# A toy \"model\": given the sequence generated so far, deterministically\n# picks the next token id. A real model would compute this with a forward pass.\ntransition = {\n    (): 1,                    # start -> \"the\"\n    (1,): 2,                  # \"the\" -> \"cat\"\n    (1, 2): 3,                # \"the cat\" -> \"sat\"\n    (1, 2, 3): 4,              # \"the cat sat\" -> \"on\"\n    (1, 2, 3, 4): 5,            # \"the cat sat on\" -> \"mat\"\n    (1, 2, 3, 4, 5): 0,          # \"the cat sat on mat\" -> <eos>\n}\n\n\ndef forward_pass(generated_ids):\n    # Stands in for a full forward pass through the network: given\n    # everything generated so far, predict the single next token.\n    return transition[tuple(generated_ids)]\n\n\ndef generate(max_new_tokens=10):\n    generated_ids = []\n    for step in range(max_new_tokens):\n        next_id = forward_pass(generated_ids)   # one full forward pass per token\n        if next_id == 0:                        # <eos>\n            break\n        generated_ids.append(next_id)\n    return [vocab[i] for i in generated_ids]\n\n\ntokens = generate()\nprint(\" \".join(tokens))\nprint(f\"generated {len(tokens)} tokens, each requiring its own forward_pass call\")\n```\n\nEach call to `forward_pass` only ever sees `generated_ids` as they stand at that moment — appended one id at a time inside the loop — which is exactly why `generate` can't jump ahead to a later token before earlier ones exist. The loop calls `forward_pass` once per output token, mirroring how a real decode phase pays one forward pass for every generated token."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming prefill and decode cost the same per token.** Prefill processes the whole prompt in one parallel pass, so its per-token cost is much lower than decode's, which pays for a full sequential forward pass on every single new token.\n\n**Trying to parallelize the decode loop across output tokens within one sequence.** Because token N's prediction depends on token N-1 actually existing, decode steps cannot be computed out of order or batched across positions within a single sequence — only across separate, independent requests.\n\n**Ignoring the stop condition when estimating decode cost.** Generation length varies per request until a stop token or max length is hit, so decode cost isn't a fixed, upfront-known constant the way prefill cost roughly is for a known prompt length.\n\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "inf_autoregressive_decoding_quiz",
+        "questions": [
+          {
+            "question": "Why can't autoregressive decoding predict token 50 before token 49 exists?",
+            "options": [
+              "Because each new token's prediction depends on all previously generated tokens, including ones the model just produced",
+              "Because GPUs cannot process more than one token per second",
+              "Because the tokenizer only supports one token at a time",
+              "Because autoregressive models don't use attention"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The sequential dependency is structural: every step's input includes the output of the previous step, ruling out predicting far-ahead tokens first.",
+            "id": "q1"
+          },
+          {
+            "question": "What is the key difference between the 'prefill' and 'decode' phases?",
+            "options": [
+              "Prefill processes the whole known prompt in one parallel pass; decode generates output tokens sequentially, one at a time",
+              "Prefill is sequential and decode is parallel",
+              "Prefill only happens during training, never during inference",
+              "Decode processes multiple full prompts simultaneously"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Because the prompt tokens are all known upfront, they can be processed in parallel during prefill, while decode must proceed one new token at a time.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is the decode phase generally the harder performance problem to solve?",
+            "options": [
+              "Because it is inherently sequential, unlike the parallelizable prefill phase",
+              "Because it uses a completely different model than prefill",
+              "Because it doesn't require a forward pass",
+              "Because decode always processes fewer tokens than prefill"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Decode's step-by-step dependency limits parallelism in a way prefill doesn't face, which is why so much of inference engineering focuses on it.",
+            "id": "q3"
+          },
+          {
+            "question": "Per 'Two phases with different costs,' how is the prefill phase best described?",
+            "options": [
+              "Compute-bound and fast per token, since it processes the whole known prompt in one parallel pass",
+              "Sequential and slow, since it must wait for the decode phase to finish first",
+              "A phase that happens only after generation is complete",
+              "A phase that never actually runs a forward pass"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson describes prefill as compute-bound and fast per token, in contrast with decode, where most of the latency lives.",
+            "id": "q4"
+          },
+          {
+            "question": "Per 'Where you've seen the shape of this before,' what does the rest of the course use the prefill/decode split to do?",
+            "options": [
+              "Focus, especially in the KV cache and batching modules, on making the decode phase fast despite its sequential nature",
+              "Argue that decode should be eliminated entirely from LLM inference",
+              "Prove that prefill and decode always run on separate physical machines",
+              "Show that decode is actually faster than prefill in every case"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson states this split is worth remembering because the rest of the course is largely about making the sequential decode phase fast.",
+            "id": "q5"
+          },
+          {
+            "question": "In the code example, what does forward_pass receive as its input at each step?",
+            "options": [
+              "The tuple of token ids generated so far (generated_ids), used to look up the next token",
+              "The entire vocab list only",
+              "A random integer each call",
+              "The value of max_new_tokens"
+            ],
+            "correctAnswer": 0,
+            "explanation": "generate calls forward_pass(generated_ids), and forward_pass looks up transition[tuple(generated_ids)] to find the next token id from what's been produced so far.",
+            "id": "q6"
+          },
+          {
+            "question": "Based on the transition table in the code, what token does generate produce immediately after \"the cat sat on\"?",
+            "options": [
+              "\"mat\"",
+              "\"cat\"",
+              "\"<eos>\"",
+              "\"sat\""
+            ],
+            "correctAnswer": 0,
+            "explanation": "transition[(1, 2, 3, 4)] maps to 5, and vocab[5] is \"mat\" — the token generated right after \"the cat sat on\".",
+            "id": "q7"
+          },
+          {
+            "question": "Per 'Common mistakes,' why can't the decode loop's steps be parallelized across output tokens within a single sequence?",
+            "options": [
+              "Because each token's prediction depends on the previous token actually existing already, so steps cannot be computed out of order",
+              "Because decode never uses a forward pass at all",
+              "Because the vocabulary is too large to parallelize over",
+              "Because parallelization is only disallowed during prefill, not decode"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The mistakes section explains that token N's prediction depends on token N-1 existing, so decode steps within one sequence can only be parallelized across separate requests, not across positions in the same sequence.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "inf_latency_vs_throughput",
+      "title": "Latency vs. Throughput",
+      "description": "The two numbers that define an inference system, and why optimizing one can hurt the other.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Define latency and throughput for LLM serving and explain why a system usually cannot maximize both at once."
+          },
+          {
+            "title": "⏱️ Latency: how long one request waits",
+            "content": "Time to first token (TTFT) measures prefill speed and how quickly a user sees anything at all. Time per output token (TPOT) measures decode speed and how quickly the response streams in afterward. Both matter for user experience, and they're driven by different parts of the system."
+          },
+          {
+            "title": "🚚 Throughput: how much the system serves overall",
+            "content": "Throughput measures total tokens generated per second across all concurrent requests — the number that determines how many users a fixed amount of GPU hardware can serve, and therefore a major driver of cost per request."
+          },
+          {
+            "title": "⚖️ The tension between them",
+            "content": "Serving one request alone, with the whole GPU dedicated to it, minimizes that request's latency but wastes most of the GPU's capacity. Batching many requests together (the subject of Module 2) improves throughput dramatically but can increase each individual request's latency, since the GPU is now dividing its attention across more work."
+          },
+          {
+            "title": "🎯 Pick the number your product needs",
+            "content": "A real-time chat interface prioritizes low TTFT and steady TPOT. A background batch-summarization job prioritizes throughput and barely cares about any single request's latency. This is the same 'know what your product actually needs' framing the vector search course applied to recall versus latency — the metric that matters depends entirely on the use case."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "A toy model of latency and throughput as batch size grows:\n\n```python\n# A toy model of latency vs. throughput as batch size grows (NOT a real GPU simulator).\n\nBASE_LATENCY_MS = 20      # fixed per-batch overhead (e.g. scheduling, kernel launch)\nPER_REQUEST_MS = 15       # extra latency added per additional request sharing the batch\n\n\ndef simulate_batch(batch_size):\n    # A larger batch takes a bit longer overall (more work), but that time\n    # is shared across more requests -- the core latency/throughput tension.\n    batch_latency_ms = BASE_LATENCY_MS + PER_REQUEST_MS * batch_size\n    per_request_latency_ms = batch_latency_ms   # each request waits for the whole batch\n    throughput_rps = batch_size / (batch_latency_ms / 1000)\n    return per_request_latency_ms, throughput_rps\n\n\nfor batch_size in [1, 2, 4, 8, 16]:\n    latency_ms, throughput = simulate_batch(batch_size)\n    print(f\"batch_size={batch_size:2d}  latency={latency_ms:6.1f}ms  throughput={throughput:6.1f} req/s\")\n```\n\nAs `batch_size` grows, `per_request_latency_ms` climbs because every request in the batch must wait for the whole batch to finish, while `throughput_rps` climbs too because more requests complete per second overall — the same latency-throughput tension the lesson describes, just with round numbers standing in for a real GPU's cost."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Reporting only average latency, or only throughput, as if either one alone defines the system.** The two move in different directions as batching changes, so a single number tells only half the story.\n\n**Testing latency with a single, unbatched request and assuming it reflects production performance.** Real traffic under load looks very different from an idle GPU serving one request at a time — the very tension this lesson describes only shows up once concurrent requests are in the picture.\n\n**Choosing a batching strategy before deciding which metric the product actually needs.** Optimizing hard for throughput on a real-time chat UI (or optimizing hard for TTFT on a background batch job) solves the wrong problem for that use case.\n\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "inf_latency_vs_throughput_quiz",
+        "questions": [
+          {
+            "question": "Time to first token (TTFT) is primarily driven by",
+            "options": [
+              "Prefill speed — how quickly the model processes the prompt and produces the first output token",
+              "The total number of concurrent users",
+              "The GPU's total memory capacity alone",
+              "The tokenizer's vocabulary size"
+            ],
+            "correctAnswer": 0,
+            "explanation": "TTFT reflects how fast the prefill phase completes and the very first decode step runs, before any streaming output appears.",
+            "id": "q1"
+          },
+          {
+            "question": "Why does batching multiple requests together often increase individual request latency even as it improves throughput?",
+            "options": [
+              "Because the GPU now divides its attention across more concurrent work, so any single request may wait longer for its turn",
+              "Because batching always reduces the number of tokens generated overall",
+              "Because batched requests use a different, slower model",
+              "Because throughput and latency are mathematically identical metrics"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Batching trades some per-request speed for much better use of the GPU across many requests simultaneously — more total work, but each individual request can wait a bit longer.",
+            "id": "q2"
+          },
+          {
+            "question": "A background batch-summarization job with no live user waiting would most likely prioritize",
+            "options": [
+              "Throughput, since no individual request's latency matters much",
+              "Time to first token above all else",
+              "Minimizing GPU utilization",
+              "Sequential single-request processing with no batching"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Without a real-time user waiting, maximizing total tokens processed per second (throughput) is generally the more valuable goal.",
+            "id": "q3"
+          },
+          {
+            "question": "Per 'Latency: how long one request waits,' what does time per output token (TPOT) measure?",
+            "options": [
+              "Decode speed — how quickly the response streams in after the first token",
+              "The total number of tokens in the prompt",
+              "How many GPUs are available in the cluster",
+              "The size of the model's vocabulary"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson defines TPOT as measuring decode speed, i.e. how quickly the response continues streaming in after TTFT.",
+            "id": "q4"
+          },
+          {
+            "question": "Per 'Pick the number your product needs,' this lesson compares its framing to which earlier course's treatment of a similar tradeoff?",
+            "options": [
+              "The vector search course's framing of recall versus latency",
+              "The fine-tuning course's framing of learning rate versus batch size",
+              "The prompt engineering course's framing of temperature versus top-p",
+              "The LLMOps course's framing of uptime versus cost"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly draws the parallel to the vector search course's 'know what your product actually needs' framing for recall versus latency.",
+            "id": "q5"
+          },
+          {
+            "question": "In simulate_batch, why does per_request_latency_ms increase as batch_size grows?",
+            "options": [
+              "Because batch_latency_ms grows with batch_size (BASE_LATENCY_MS plus PER_REQUEST_MS times batch_size), and every request must wait for the whole batch to complete",
+              "Because BASE_LATENCY_MS decreases as batch_size grows",
+              "Because throughput_rps is subtracted from the latency directly",
+              "per_request_latency_ms actually stays constant regardless of batch_size in the code"
+            ],
+            "correctAnswer": 0,
+            "explanation": "batch_latency_ms = BASE_LATENCY_MS + PER_REQUEST_MS * batch_size grows with batch_size, and per_request_latency_ms is set equal to that shared batch_latency_ms.",
+            "id": "q6"
+          },
+          {
+            "question": "Based on the printed simulation, as batch_size increases from 1 to 16, what happens to throughput_rps?",
+            "options": [
+              "It also increases, even though per-request latency is increasing at the same time",
+              "It decreases steadily",
+              "It stays exactly the same regardless of batch_size",
+              "It drops to zero once batch_size exceeds 4"
+            ],
+            "correctAnswer": 0,
+            "explanation": "throughput_rps = batch_size / (batch_latency_ms / 1000) grows faster than batch_latency_ms does, so throughput rises alongside latency as batch_size increases -- the tension the lesson describes.",
+            "id": "q7"
+          },
+          {
+            "question": "Per 'Common mistakes,' why is testing latency with a single unbatched request misleading?",
+            "options": [
+              "Because real traffic under load looks very different from an idle GPU serving one request at a time, and the latency/throughput tension only appears with concurrent requests",
+              "Because a single request always produces a latency of exactly zero",
+              "Because unbatched requests use a completely different, incompatible model",
+              "Because it makes throughput impossible to measure at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The mistakes section warns that single-request testing doesn't reflect production load, where the latency/throughput tradeoff this lesson describes actually shows up.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "inf_choosing_hardware_for_inference",
+      "title": "Choosing Hardware for Inference",
+      "description": "Not every GPU that trains well is the right choice for serving, and vice versa.",
+      "duration": 11,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Name the hardware factors that matter most for inference and explain why training and inference hardware needs can diverge."
+          },
+          {
+            "title": "💾 Memory bandwidth matters more than you'd expect",
+            "content": "Decode is often memory-bandwidth-bound, not compute-bound: the GPU spends more time moving weights and KV cache data than doing arithmetic on them. A GPU with excellent raw compute (FLOPs) but comparatively modest memory bandwidth can underperform for inference relative to what its training benchmarks would suggest."
+          },
+          {
+            "title": "📏 VRAM capacity sets the ceiling",
+            "content": "The model's weights plus the KV cache for all concurrent requests must fit in GPU memory. This is a hard ceiling: run out, and requests fail or must be rejected, regardless of how fast the GPU otherwise is — directly connecting to the KV cache growth problem covered in the next module."
+          },
+          {
+            "title": "💰 Cost-efficiency, not raw power, is the real metric",
+            "content": "The right hardware question isn't 'which GPU is fastest' but 'which GPU gives the best tokens-per-second-per-dollar for my actual traffic pattern' — sometimes a smaller, cheaper GPU serving a well-quantized model wins over a larger one running an unquantized model, echoing the cost-per-unit-of-value discipline from the LLMOps course."
+          },
+          {
+            "title": "💻 Seeing it in practice",
+            "content": "A toy scoring function for comparing inference hardware options:\n\n```python\n# A toy scoring function for comparing inference hardware options (NOT real\n# benchmark data).\n\nhardware_options = {\n    \"gpu_a\": {\"tokens_per_sec\": 4000, \"cost_per_hour\": 4.00, \"vram_gb\": 80},\n    \"gpu_b\": {\"tokens_per_sec\": 2200, \"cost_per_hour\": 1.50, \"vram_gb\": 40},\n    \"gpu_c\": {\"tokens_per_sec\": 6000, \"cost_per_hour\": 8.00, \"vram_gb\": 141},\n}\n\nmodel_requirement_gb = 45   # weights + KV cache headroom this workload needs\n\n\ndef tokens_per_second_per_dollar(spec):\n    return spec[\"tokens_per_sec\"] / spec[\"cost_per_hour\"]\n\n\ndef fits_in_memory(spec, required_gb):\n    return spec[\"vram_gb\"] >= required_gb\n\n\ndef rank_hardware(options, required_gb):\n    eligible = {\n        name: spec for name, spec in options.items()\n        if fits_in_memory(spec, required_gb)\n    }\n    return sorted(\n        eligible,\n        key=lambda name: tokens_per_second_per_dollar(eligible[name]),\n        reverse=True,\n    )\n\n\nranking = rank_hardware(hardware_options, model_requirement_gb)\nfor name in ranking:\n    spec = hardware_options[name]\n    score = tokens_per_second_per_dollar(spec)\n    print(f\"{name}: {score:.0f} tokens/sec/$  (vram={spec['vram_gb']}GB, cost=${spec['cost_per_hour']}/hr)\")\n```\n\n`fits_in_memory` filters out `gpu_b` before scoring even starts, because its 40GB of VRAM can't hold the 45GB this workload needs — mirroring the lesson's point that VRAM capacity is a hard ceiling, not just another factor to weigh. Among the GPUs that do fit, `rank_hardware` sorts by `tokens_per_second_per_dollar` rather than by raw `tokens_per_sec`, so the cheaper `gpu_a` outranks the faster-but-pricier `gpu_c`."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Ranking hardware by raw speed (tokens/sec) instead of cost-efficiency.** The fastest GPU per request isn't necessarily the cheapest per token served at scale; tokens-per-second-per-dollar is the metric that actually maps to a real serving budget.\n\n**Ignoring VRAM capacity until a request fails in production.** Because weights plus the KV cache for all concurrent requests must fit in memory, a hardware choice that \"benchmarks well\" on paper can still be unusable if it can't hold your actual workload.\n\n**Assuming a GPU's training benchmarks predict its inference performance.** Since decode is often memory-bandwidth-bound rather than compute-bound, a GPU with excellent training FLOPs can still underperform for serving relative to what those training benchmarks would suggest.\n\n"
+          }
+        ]
+      },
+      "quiz": {
+        "id": "inf_choosing_hardware_for_inference_quiz",
+        "questions": [
+          {
+            "question": "Why can decode performance be limited by memory bandwidth rather than raw compute?",
+            "options": [
+              "Because the GPU spends significant time moving weights and KV cache data rather than doing arithmetic on them",
+              "Because decode never uses the GPU's memory at all",
+              "Because memory bandwidth has no effect on any GPU workload",
+              "Because compute is always the bottleneck for every inference workload"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Especially at low batch sizes, data movement rather than raw FLOPs often limits how fast tokens can be generated.",
+            "id": "q1"
+          },
+          {
+            "question": "Why does VRAM capacity set a hard ceiling on inference serving?",
+            "options": [
+              "Because model weights plus KV cache for all concurrent requests must fit in GPU memory, or requests fail",
+              "Because VRAM only affects training, never inference",
+              "Because VRAM capacity determines the model's accuracy",
+              "Because VRAM has no relationship to concurrent request handling"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Running out of memory for weights and cache is a hard failure mode, unlike a merely slow response — this directly foreshadows the KV cache module.",
+            "id": "q2"
+          },
+          {
+            "question": "The right hardware choice for inference is best framed as",
+            "options": [
+              "Whichever option gives the best tokens-per-second-per-dollar for your actual traffic pattern",
+              "Always the single most powerful GPU available regardless of cost",
+              "Whichever GPU has the most marketing benchmarks",
+              "Irrelevant, since all GPUs perform identically for inference"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Cost-efficiency for your specific workload, not raw power alone, is the metric that actually matters for a production serving budget.",
+            "id": "q3"
+          },
+          {
+            "question": "Per 'Memory bandwidth matters more than you'd expect,' what can happen to a GPU with excellent FLOPs but modest memory bandwidth?",
+            "options": [
+              "It can underperform for inference relative to what its training benchmarks would suggest",
+              "It always outperforms every other GPU on decode workloads",
+              "Its VRAM capacity automatically increases to compensate",
+              "It becomes unusable for training as well as inference"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson notes that decode's memory-bandwidth-bound nature means high-FLOPs, low-bandwidth GPUs can underperform for inference despite strong training benchmarks.",
+            "id": "q4"
+          },
+          {
+            "question": "Per 'Cost-efficiency, not raw power, is the real metric,' what discipline from an earlier course does this echo?",
+            "options": [
+              "The cost-per-unit-of-value discipline from the LLMOps course",
+              "The gradient descent discipline from the Deep Learning course",
+              "The tokenization discipline from the NLP course",
+              "The prompt templating discipline from the Prompt Engineering course"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly says the cost-efficiency framing echoes the cost-per-unit-of-value discipline taught in the LLMOps course.",
+            "id": "q5"
+          },
+          {
+            "question": "In the code, why is gpu_b excluded from the final ranking entirely?",
+            "options": [
+              "Because fits_in_memory returns False for it -- its 40GB of VRAM is less than the 45GB model_requirement_gb",
+              "Because its tokens_per_sec value is negative",
+              "Because rank_hardware always drops the second entry in the dictionary",
+              "Because its cost_per_hour is higher than gpu_a's"
+            ],
+            "correctAnswer": 0,
+            "explanation": "rank_hardware only keeps entries where fits_in_memory(spec, required_gb) is True, and gpu_b's 40GB vram_gb is below the 45GB model_requirement_gb.",
+            "id": "q6"
+          },
+          {
+            "question": "According to tokens_per_second_per_dollar, why does gpu_a outrank gpu_c in the ranking despite gpu_c having a higher raw tokens_per_sec?",
+            "options": [
+              "gpu_a's score (4000/4.00 = 1000) is higher than gpu_c's (6000/8.00 = 750), since gpu_a is far cheaper relative to its throughput",
+              "gpu_c is excluded from eligible before scoring happens",
+              "tokens_per_second_per_dollar ignores cost_per_hour entirely",
+              "gpu_a has more VRAM than gpu_c"
+            ],
+            "correctAnswer": 0,
+            "explanation": "tokens_per_second_per_dollar divides tokens_per_sec by cost_per_hour; gpu_a's 1000 tokens/sec/$ beats gpu_c's 750 tokens/sec/$ even though gpu_c is faster in raw tokens_per_sec.",
+            "id": "q7"
+          },
+          {
+            "question": "Per 'Common mistakes,' why is assuming a GPU's training benchmarks predict its inference performance a mistake?",
+            "options": [
+              "Because decode is often memory-bandwidth-bound rather than compute-bound, so a GPU with excellent training FLOPs can still underperform at serving",
+              "Because training benchmarks are always measured incorrectly",
+              "Because inference workloads never use FLOPs at all",
+              "Because VRAM capacity is irrelevant to inference performance"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The mistakes section explains that decode's memory-bandwidth-bound nature can make a high-FLOPs GPU underperform for serving relative to what its training benchmarks would suggest.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

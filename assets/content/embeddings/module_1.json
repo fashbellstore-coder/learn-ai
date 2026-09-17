@@ -1,0 +1,525 @@
+{
+  "id": "module_1",
+  "title": "Measuring Similarity",
+  "description": "Cosine similarity as the standard comparison metric, how it relates to dot product and Euclidean distance, why similarity thresholds need calibration, and how to evaluate retrieval quality with recall@k and precision@k.",
+  "icon": "📐",
+  "color": "#00897B",
+  "order": 1,
+  "estimatedHours": 2,
+  "difficulty": "Beginner",
+  "prerequisites": [],
+  "lessons": [
+    {
+      "id": "emb_cosine_similarity",
+      "title": "Cosine Similarity: Measuring the Angle Between Meanings",
+      "description": "Understand the most common way to measure how similar two embeddings are.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain what cosine similarity measures and why it's such a natural fit for comparing embeddings."
+          },
+          {
+            "title": "📐 The angle between two vectors",
+            "content": "**Cosine similarity** measures the cosine of the angle between two vectors, producing a score from -1 (opposite direction) to 1 (identical direction), with 0 meaning perpendicular (unrelated). Because it depends only on direction, not magnitude, it naturally matches the intuition from the math course's vectors lesson: two vectors pointing the same way represent similar meaning, regardless of how 'long' either vector happens to be.\n\n```python\nimport numpy as np\n\ndef cosine_similarity(a, b):\n    return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))\n\n# Two very similar sentences -> cosine similarity close to 1\n# Two unrelated sentences -> cosine similarity close to 0\n```"
+          },
+          {
+            "title": "🎯 Why it works well for text embeddings specifically",
+            "content": "Text embedding models are typically trained (implicitly or explicitly) with cosine similarity in mind as the comparison metric, which is part of why it's the default choice for semantic search — it directly measures what these models were optimized to represent well."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Forgetting that cosine similarity ranges from -1 to 1, not 0 to 1.** For most text embedding models in practice, scores cluster in a narrower positive range, but the mistake is assuming the full theoretical range never applies.\n\n**Computing cosine similarity on unnormalized vectors without accounting for the normalization step.** The formula divides by both vectors' norms — implementations that assume pre-normalized vectors and skip this can silently misbehave on raw, unnormalized input.\n\n**Interpreting a cosine similarity score as an absolute, universal measure of \"how similar\" without calibration.** What counts as a \"good\" similarity score is somewhat model- and task-dependent — a topic covered further in the next lesson on thresholds."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "emb_cosine_similarity_quiz",
+        "questions": [
+          {
+            "question": "What does cosine similarity actually measure between two vectors?",
+            "options": [
+              "The absolute difference in their magnitudes (lengths)",
+              "The cosine of the angle between them, which depends only on their direction, not their magnitude",
+              "The number of dimensions each vector has",
+              "Whether the two vectors have exactly the same values"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Cosine similarity is defined purely in terms of the angle between two vectors, which is why it depends only on direction and is unaffected by how long either vector happens to be.",
+            "id": "q1"
+          },
+          {
+            "question": "Why is cosine similarity a particularly natural fit for comparing text embeddings?",
+            "options": [
+              "It has no particular relevance to text embeddings specifically",
+              "Text embedding models are typically trained with cosine similarity in mind as the comparison metric, so it directly measures what these models were optimized to represent well",
+              "Cosine similarity can only be computed for image embeddings, never text",
+              "Text embeddings never have any meaningful magnitude or direction"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since embedding models are commonly trained around cosine similarity as the intended comparison metric, using it at inference time directly matches what the model was optimized to represent — which is part of why it's the default choice for semantic search.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is it a mistake to treat a raw cosine similarity score as an absolute, universal measure of similarity without any calibration?",
+            "options": [
+              "Cosine similarity scores are always universally comparable across every model and task with no calibration needed",
+              "What counts as a meaningfully \"high\" similarity score can be somewhat model- and task-dependent, so interpreting a raw score without any calibration can be misleading",
+              "Cosine similarity scores are never meaningful in any context",
+              "Calibration is only relevant for Euclidean distance, never cosine similarity"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since the practical range and meaning of \"similar enough\" scores can vary by model and task, treating a raw cosine score as a fixed, universal threshold without calibration (the focus of the next lesson) risks misinterpreting what the number actually indicates.",
+            "id": "q3"
+          },
+          {
+            "question": "According to this lesson, what score does cosine similarity produce for two vectors pointing in opposite directions?",
+            "options": [
+              "-1",
+              "0",
+              "1",
+              "100"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson states that cosine similarity produces a score from -1 (opposite direction) to 1 (identical direction), with 0 meaning perpendicular/unrelated.",
+            "id": "q4"
+          },
+          {
+            "question": "What does a cosine similarity score of 0 indicate, according to this lesson?",
+            "options": [
+              "The two vectors are perpendicular, meaning unrelated",
+              "The two vectors are identical in every way",
+              "The two vectors have completely opposite meaning",
+              "The similarity score of 0 is never actually possible"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly defines a score of 0 as perpendicular vectors, interpreted as unrelated in the context of comparing embeddings.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is cosine similarity described in this lesson as the natural default for semantic search specifically?",
+            "options": [
+              "Because text embedding models are typically trained with cosine similarity in mind as the comparison metric",
+              "Because cosine similarity is the only metric that can be computed mathematically",
+              "Because cosine similarity always produces higher scores than other metrics",
+              "Because semantic search never uses any other similarity metric in any context"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explains that since embedding models are commonly trained around cosine similarity as the intended metric, using it at inference time directly matches what the model was optimized for.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson warn against forgetting cosine similarity's full theoretical range?",
+            "options": [
+              "Because it's easy to mistakenly assume scores only range from 0 to 1, when the true range is -1 to 1",
+              "Because cosine similarity scores are always exactly 0 or 1, with no values in between",
+              "Because the full range only applies to image embeddings, never text",
+              "Because cosine similarity has no defined mathematical range at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is forgetting the full -1 to 1 range, even though in practice text embedding scores often cluster in a narrower positive range.",
+            "id": "q7"
+          },
+          {
+            "question": "In the lesson's code example, what two operations does the cosine_similarity function combine?",
+            "options": [
+              "A dot product of the two vectors, divided by the product of their norms",
+              "A simple element-wise subtraction of the two vectors",
+              "A sum of all elements in both vectors",
+              "A sorting operation on each vector's values"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's cosine_similarity function computes np.dot(a, b) divided by the product of each vector's norm, which is the standard formula for the cosine of the angle between them.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "emb_distance_metrics_compared",
+      "title": "Cosine vs. Dot Product vs. Euclidean Distance",
+      "description": "Compare the three common ways to measure vector similarity or distance, and when each is used.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can name the three common vector comparison metrics and explain the key condition under which they behave equivalently."
+          },
+          {
+            "title": "📊 Three related but distinct metrics",
+            "content": "**Dot product** multiplies corresponding elements of two vectors and sums the results — it's sensitive to both direction and magnitude. **Cosine similarity** (previous lesson) is direction-only. **Euclidean distance** measures the straight-line distance between two vectors' endpoints in space — smaller distance means more similar, the opposite convention from the similarity scores above."
+          },
+          {
+            "title": "🔗 They agree when vectors are normalized",
+            "content": "Here's a key practical fact: for vectors that have already been L2-normalized (from the earlier lesson), cosine similarity and dot product produce a mathematically equivalent ranking of results — dot product is actually computationally cheaper, which is why many vector search systems normalize embeddings once at index time and then use dot product internally, effectively getting cosine similarity's behavior for less compute.\n\n```python\n# For normalized vectors a and b:\n# cosine_similarity(a, b) == dot_product(a, b)\n# because ||a|| == ||b|| == 1, so the division in cosine\n# similarity's formula becomes dividing by 1\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming dot product and cosine similarity always give identical results.** They only agree when vectors are normalized — on unnormalized vectors, a vector with a larger magnitude can score higher purely due to length, not greater semantic similarity.\n\n**Confusing Euclidean 'distance' with a similarity score.** Remember the direction is flipped: smaller Euclidean distance means more similar, the opposite of how cosine similarity scores work.\n\n**Picking a metric arbitrarily without checking what the embedding model was actually trained/optimized for.** Using a mismatched metric can silently produce worse retrieval quality even with a good embedding model."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "emb_distance_metrics_compared_quiz",
+        "questions": [
+          {
+            "question": "What is the key difference between dot product and cosine similarity as comparison metrics?",
+            "options": [
+              "They are always mathematically identical in every situation",
+              "Dot product is sensitive to both direction and magnitude, while cosine similarity depends only on direction",
+              "Cosine similarity is sensitive to magnitude while dot product is not",
+              "Dot product can only be computed for normalized vectors"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Dot product incorporates both how aligned two vectors are AND how long they are, whereas cosine similarity strips out magnitude entirely and measures pure directional alignment.",
+            "id": "q1"
+          },
+          {
+            "question": "Why do cosine similarity and dot product produce equivalent rankings for L2-normalized vectors?",
+            "options": [
+              "They never produce equivalent results, regardless of normalization",
+              "Once vectors are normalized to length 1, the magnitude term that distinguishes dot product from cosine similarity becomes 1, so the two calculations become mathematically equivalent",
+              "Normalization has no mathematical relationship to either metric",
+              "This equivalence only holds for Euclidean distance, not dot product"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Cosine similarity is dot product divided by the product of the two vectors' magnitudes — when both magnitudes are exactly 1 (after normalization), that division has no effect, making dot product and cosine similarity produce the same ranking.",
+            "id": "q2"
+          },
+          {
+            "question": "Why does a smaller Euclidean distance indicate MORE similarity, unlike cosine similarity's convention?",
+            "options": [
+              "Euclidean distance and cosine similarity actually use the identical convention",
+              "Euclidean distance measures the straight-line gap between two vectors' endpoints, so a smaller gap means the vectors are closer together in space — the opposite direction from a similarity score, where higher means more similar",
+              "Euclidean distance is not a real, usable metric for comparing vectors",
+              "Euclidean distance only applies to two-dimensional vectors"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since Euclidean distance measures a literal spatial gap rather than a similarity score, its convention is inverted compared to cosine similarity — a distance of 0 means identical vectors, while a similarity of 1 means identical vectors, so the two scales run in opposite directions.",
+            "id": "q3"
+          },
+          {
+            "question": "What does dot product measure that cosine similarity strips away, according to this lesson?",
+            "options": [
+              "Magnitude, since dot product is sensitive to both direction and magnitude while cosine similarity depends only on direction",
+              "Direction, since dot product ignores direction entirely",
+              "Nothing; dot product and cosine similarity are always identical",
+              "The number of dimensions in each vector"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly contrasts the two: dot product is sensitive to both direction and magnitude, whereas cosine similarity depends purely on direction.",
+            "id": "q4"
+          },
+          {
+            "question": "According to this lesson, why do many vector search systems normalize embeddings at index time and then use dot product?",
+            "options": [
+              "Because dot product is computationally cheaper, and on normalized vectors it produces the same ranking as cosine similarity",
+              "Because dot product only works correctly on unnormalized vectors",
+              "Because normalization makes dot product mathematically incompatible with cosine similarity",
+              "Because dot product cannot be computed on normalized vectors at all"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explains this exact practical shortcut: normalizing once at index time lets systems use the cheaper dot product while effectively getting cosine similarity's behavior.",
+            "id": "q5"
+          },
+          {
+            "question": "In the lesson's formula explanation, why does normalization make dot product and cosine similarity mathematically equivalent?",
+            "options": [
+              "Because when both vectors' magnitudes are 1, the division step in cosine similarity's formula has no effect",
+              "Because normalization changes the direction of each vector to be identical",
+              "Because normalization removes all dimensions except one from each vector",
+              "Because dot product and cosine similarity use entirely unrelated formulas"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's example shows that since cosine similarity is dot product divided by the two vectors' magnitudes, and normalized vectors have magnitude 1, that division becomes a no-op, making the two calculations equivalent.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does the lesson warn against picking a comparison metric arbitrarily, without checking what the embedding model was actually optimized for?",
+            "options": [
+              "Because using a mismatched metric can silently produce worse retrieval quality even with a good embedding model",
+              "Because all metrics always produce identical results regardless of the model",
+              "Because metric choice has no bearing on retrieval quality at all",
+              "Because embedding models are never optimized around any particular metric"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is picking a metric without regard for what the model was trained/optimized around, which can silently degrade retrieval quality.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does a smaller Euclidean distance indicate more similarity, according to this lesson's explanation?",
+            "options": [
+              "Because Euclidean distance measures the literal straight-line gap between vectors' endpoints, so a smaller gap means the vectors are closer together in space",
+              "Because Euclidean distance and cosine similarity use the exact same numeric convention",
+              "Because Euclidean distance can never actually be computed for embeddings",
+              "Because a smaller distance always means the vectors are less related"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explains that Euclidean distance measures a literal spatial gap, so its convention is inverted from a similarity score — smaller distance genuinely means the two points are closer, hence more similar.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "emb_similarity_thresholds",
+      "title": "Similarity Thresholds and Calibration",
+      "description": "Learn why there's no universal 'good similarity' number, and how to find the right threshold for your task.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain why a similarity threshold needs to be calibrated per model and task rather than assumed."
+          },
+          {
+            "title": "🎯 'How similar is similar enough?' has no universal answer",
+            "content": "A cosine similarity of 0.75 might represent a strong, meaningful match for one embedding model and task, and a weak, borderline one for another — the raw number's practical meaning depends on how that specific model's embedding space is shaped and what your task actually requires."
+          },
+          {
+            "title": "📊 Calibrating against labeled examples",
+            "content": "The reliable way to set a threshold is empirical: gather a set of labeled examples (pairs you know are truly relevant vs. truly irrelevant, connecting directly to the task-specific eval set idea from the LLM engineering course), compute similarity scores for all of them, and find the threshold that best separates the two groups for your specific model and task — rather than picking a number that felt reasonable in the abstract.\n\n```python\n# Conceptual: calibrating a threshold empirically\nrelevant_scores = [similarity(q, doc) for q, doc in known_relevant_pairs]\nirrelevant_scores = [similarity(q, doc) for q, doc in known_irrelevant_pairs]\n# choose a threshold that best separates these two distributions\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Copying a threshold from a blog post or another project without recalibrating.** Different embedding models and tasks have different score distributions — a threshold tuned for one context often doesn't transfer directly to another.\n\n**Using a single fixed threshold for every kind of query.** Some tasks may need different thresholds for different query types or intents — a one-size-fits-all threshold can be a rough approximation, not a precise fit.\n\n**Never revisiting a threshold after changing embedding models.** Since a new model produces a differently-shaped similarity distribution (from the earlier lesson on why models aren't directly comparable), any previously-calibrated threshold needs to be re-checked."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "emb_similarity_thresholds_quiz",
+        "questions": [
+          {
+            "question": "Why can't a single cosine similarity number (like 0.75) be assumed to mean 'a good match' across every embedding model and task?",
+            "options": [
+              "0.75 is always a universally meaningful threshold regardless of model or task",
+              "The practical meaning of a given similarity score depends on how that specific model's embedding space is shaped and what the task actually requires, so it varies across models and tasks",
+              "Similarity scores are never meaningful for any comparison",
+              "Only scores above 0.9 have any practical meaning in any context"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since different embedding models produce differently-shaped similarity distributions, the same raw score can represent a strong match in one context and a weak one in another — there's no universal cutoff that applies everywhere.",
+            "id": "q1"
+          },
+          {
+            "question": "What is the reliable way to determine an appropriate similarity threshold for a specific task?",
+            "options": [
+              "Guessing a number that feels intuitively reasonable",
+              "Calibrating empirically against a set of labeled examples of known-relevant and known-irrelevant pairs, then choosing the threshold that best separates the two groups",
+              "Always using exactly 0.5 regardless of the model or task",
+              "Thresholds cannot be determined in any systematic way"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The empirical approach — comparing similarity scores for known-relevant vs. known-irrelevant pairs and choosing a threshold that separates them well — grounds the threshold in actual evidence for your specific model and task, rather than an arbitrary guess.",
+            "id": "q2"
+          },
+          {
+            "question": "Why does switching embedding models require re-checking a previously-calibrated similarity threshold?",
+            "options": [
+              "Thresholds never need to be revisited once set, regardless of any model changes",
+              "A new embedding model produces a differently-shaped similarity distribution than the old one, so a threshold calibrated for the old model's distribution may no longer be appropriate",
+              "Similarity thresholds are completely unrelated to which embedding model is used",
+              "All embedding models always produce identical similarity distributions"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since each embedding model has its own distinct similarity distribution (echoing the earlier point that different models aren't directly comparable), a threshold tuned for one model's distribution isn't guaranteed to still be appropriate after switching to a different model.",
+            "id": "q3"
+          },
+          {
+            "question": "In the lesson's calibration example, what two groups of scores are compared to find a good threshold?",
+            "options": [
+              "relevant_scores and irrelevant_scores, computed from known-relevant and known-irrelevant pairs",
+              "Scores from two completely different embedding models",
+              "Scores computed before and after L2 normalization",
+              "Scores from the training set versus the test set of an unrelated classifier"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example computes similarity scores for known_relevant_pairs and known_irrelevant_pairs, then finds the threshold that best separates the two resulting score distributions.",
+            "id": "q4"
+          },
+          {
+            "question": "According to this lesson, how does this threshold-calibration approach connect to a concept from the LLM engineering course?",
+            "options": [
+              "It connects directly to the task-specific eval set idea from the LLM engineering course",
+              "It has no relationship to anything covered in the LLM engineering course",
+              "It contradicts the LLM engineering course's evaluation approach entirely",
+              "It only applies to LLM prompts, never to embedding thresholds"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly ties gathering labeled relevant/irrelevant examples for threshold calibration back to the task-specific eval set concept introduced in the LLM engineering course.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does this lesson warn against copying a similarity threshold from a blog post or another project?",
+            "options": [
+              "Because different embedding models and tasks have different score distributions, so a threshold tuned for one context often doesn't transfer directly to another",
+              "Because thresholds from blog posts are always mathematically invalid",
+              "Because every embedding model produces an identical score distribution",
+              "Because thresholds never need to be tuned for any specific context"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is copying a threshold without recalibrating, since score distributions genuinely differ across models and tasks.",
+            "id": "q6"
+          },
+          {
+            "question": "Why might using a single fixed threshold for every kind of query be only a rough approximation, according to this lesson?",
+            "options": [
+              "Because some tasks may need different thresholds for different query types or intents",
+              "Because thresholds are always identical regardless of query type",
+              "Because a single threshold always produces perfect results for every query",
+              "Because query type has no relationship to similarity threshold calibration"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson notes that a one-size-fits-all threshold can be a rough approximation, since different query types or intents may genuinely warrant different calibrated thresholds.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does switching embedding models require re-checking a previously calibrated similarity threshold, per this lesson?",
+            "options": [
+              "Because a new model produces a differently-shaped similarity distribution, so a previously-calibrated threshold needs to be re-checked",
+              "Because thresholds are permanently fixed once set and never need revisiting",
+              "Because different embedding models always share an identical similarity distribution",
+              "Because threshold calibration is unrelated to which embedding model is used"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly connects this to the earlier point that different models aren't directly comparable — a new model's differently-shaped distribution means an old threshold may no longer be appropriate.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "emb_evaluating_embedding_quality",
+      "title": "Evaluating Embedding Quality",
+      "description": "Measure whether an embedding-based retrieval system is actually finding the right results.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can name a couple of standard retrieval evaluation metrics and connect them back to concepts from the ML course."
+          },
+          {
+            "title": "🎯 Retrieval quality has its own metrics",
+            "content": "Evaluating an embedding-based search system means checking: given a query, does the system retrieve the actually-relevant documents (and rank them appropriately)? Two common metrics: **recall@k** (of all the truly relevant documents, what fraction appear somewhere in the top k results? — directly echoing the recall concept from the ML course's classification metrics, applied here to retrieval), and **precision@k** (of the top k results returned, what fraction are actually relevant?)."
+          },
+          {
+            "title": "📊 The same precision/recall tradeoff, in a new setting",
+            "content": "Just as in classification, precision and recall trade off against each other in retrieval: retrieving more results (larger k) tends to improve recall (you're more likely to have caught the relevant ones somewhere in there) but can hurt precision (more irrelevant results mixed in) — the exact same tension from the ML course's metrics lesson, now applied to a ranked list instead of a binary classification decision.\n\n```python\n# Conceptual: recall@k and precision@k\ndef recall_at_k(retrieved, relevant, k):\n    top_k = retrieved[:k]\n    return len(set(top_k) & set(relevant)) / len(relevant)\n\ndef precision_at_k(retrieved, relevant, k):\n    top_k = retrieved[:k]\n    return len(set(top_k) & set(relevant)) / k\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Evaluating only with a single fixed k value.** Checking recall@k and precision@k at a few different k values gives a fuller picture than one arbitrary cutoff.\n\n**Using only automated metrics without ever spot-checking actual retrieved results.** A high recall@k score can still hide subtly poor rankings within the top k — reading real examples remains valuable, just as it did for generative model evaluation.\n\n**Ignoring that relevance labels themselves require judgment.** Building the labeled relevant/irrelevant pairs needed for recall@k and precision@k is itself a real task requiring careful, consistent judgment about what counts as \"relevant\" for your use case."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "emb_evaluating_embedding_quality_quiz",
+        "questions": [
+          {
+            "question": "What does recall@k measure in the context of retrieval evaluation?",
+            "options": [
+              "The total number of documents in the entire collection",
+              "Of all the truly relevant documents that exist, what fraction appear somewhere in the top k retrieved results",
+              "How fast the retrieval system responds to a query",
+              "The exact wording match between query and retrieved documents"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Recall@k asks: out of everything that's actually relevant, how much of it did the system manage to surface within its top k results — directly extending the recall concept from classification metrics to a ranked retrieval setting.",
+            "id": "q1"
+          },
+          {
+            "question": "How does the precision/recall tradeoff in retrieval mirror the same tradeoff covered in the ML course's classification metrics?",
+            "options": [
+              "There is no meaningful similarity between the two settings",
+              "Just as in classification, retrieving more results (larger k) tends to improve recall (catching more of the relevant items) at the potential cost of precision (more irrelevant results included) — the same underlying tension, applied to a ranked list",
+              "Precision and recall always move in the same direction in both settings",
+              "Retrieval evaluation has no relationship to classification metrics at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The fundamental tension is identical: casting a wider net (larger k, or a more permissive classification threshold) tends to catch more true positives but also more false positives — the same precision/recall tradeoff, just expressed through a ranked list instead of a binary decision.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is building the labeled relevant/irrelevant pairs needed for recall@k and precision@k itself a nontrivial task?",
+            "options": [
+              "Relevance labels are always obvious and require no judgment whatsoever",
+              "Determining what counts as \"relevant\" for a specific use case requires careful, consistent judgment, making the labeling process itself a real task rather than a trivial formality",
+              "Labeled pairs are never actually needed to compute these metrics",
+              "Relevance labeling is only relevant for classification tasks, not retrieval"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Deciding what genuinely counts as relevant for a given query and use case involves real judgment calls, and inconsistent or careless labeling undermines the reliability of any metric computed from those labels — making the labeling process itself a meaningful part of the evaluation work.",
+            "id": "q3"
+          },
+          {
+            "question": "In the lesson's code example, what does recall_at_k compute?",
+            "options": [
+              "The fraction of all truly relevant documents that appear within the top k retrieved results",
+              "The total number of documents retrieved regardless of relevance",
+              "The exact wording overlap between query and retrieved documents",
+              "The average length of the top k retrieved documents"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's recall_at_k function computes the overlap between the top k retrieved documents and the full set of relevant documents, divided by the total number of relevant documents — exactly the fraction of relevant items captured.",
+            "id": "q4"
+          },
+          {
+            "question": "In the lesson's code example, what does precision_at_k divide by, as opposed to recall_at_k?",
+            "options": [
+              "k itself, rather than the total number of relevant documents",
+              "The total number of documents in the entire collection",
+              "The number of dimensions in the embedding vectors",
+              "The similarity threshold used for the query"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's precision_at_k function divides the count of relevant items found by k, in contrast to recall_at_k which divides by the total number of relevant documents.",
+            "id": "q5"
+          },
+          {
+            "question": "How does this lesson connect recall@k directly back to the machine learning course?",
+            "options": [
+              "It directly echoes the recall concept from the ML course's classification metrics, applied here to retrieval",
+              "It says the ML course's recall concept has no relationship to retrieval at all",
+              "It claims retrieval metrics were invented independently of any classification metric",
+              "It states recall@k is completely different from the ML course's recall metric"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly states that recall@k directly echoes the recall concept from the ML course's classification metrics, just applied here to a ranked retrieval setting instead of a binary classification decision.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson recommend evaluating at a few different k values rather than just one fixed cutoff?",
+            "options": [
+              "Because checking recall@k and precision@k at multiple k values gives a fuller picture than one arbitrary cutoff",
+              "Because evaluating at only one k value is always sufficient for any use case",
+              "Because k values above 1 are mathematically invalid for these metrics",
+              "Because different k values always produce identical scores"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is evaluating with only a single fixed k, when checking several k values gives a more complete picture of retrieval quality.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does building the labeled relevant/irrelevant pairs for recall@k and precision@k require real judgment, according to this lesson?",
+            "options": [
+              "Because determining what counts as 'relevant' for a specific use case requires careful, consistent judgment, making labeling itself a meaningful task",
+              "Because relevance labels can always be generated automatically with zero human involvement",
+              "Because labeled pairs are never actually required to compute these metrics",
+              "Because relevance is a universally obvious, self-evident property of any document"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly states that deciding what counts as relevant is a real task requiring careful, consistent judgment, not a trivial or automatic step.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

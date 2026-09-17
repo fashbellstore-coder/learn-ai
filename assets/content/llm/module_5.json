@@ -1,0 +1,525 @@
+{
+  "id": "module_5",
+  "title": "Evaluating LLM Applications",
+  "description": "Why generic benchmarks miss your specific task, building a task-specific eval set, using LLM-as-judge at scale, and regression-testing prompts and pipelines like real code changes.",
+  "icon": "🧪",
+  "color": "#311B92",
+  "order": 5,
+  "estimatedHours": 2,
+  "difficulty": "Intermediate",
+  "prerequisites": [],
+  "lessons": [
+    {
+      "id": "llme_generic_benchmarks_dont_capture_your_task",
+      "title": "Why Generic Benchmarks Don't Capture Your Task",
+      "description": "Understand the gap between published model benchmarks and your specific application's needs.",
+      "duration": "7 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain why a model's strong performance on published benchmarks doesn't guarantee it will perform well on your specific application."
+          },
+          {
+            "title": "📊 Benchmarks measure general capability, not your task",
+            "content": "Published model benchmarks (general knowledge tests, coding benchmarks, reasoning tests) measure broad, general capability across a wide range of tasks. Your application almost certainly does something narrower and more specific — a particular domain, a particular tone, a particular output format — that a general benchmark score says very little about directly."
+          },
+          {
+            "title": "🎯 The gap between 'capable in general' and 'works for you'",
+            "content": "A model that tops a general benchmark can still perform poorly on your specific task if your domain requires specialized knowledge the benchmark doesn't test, your required output format is unusual, or your definition of 'good' (from a business or user perspective) doesn't match what the benchmark actually measures. This is the same lesson the machine learning course taught about accuracy on one dataset not guaranteeing performance on a different, real-world distribution — applied here to LLM applications specifically."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Choosing a model purely based on leaderboard rankings.** Leaderboard performance is a reasonable starting signal, not a substitute for testing on your actual task.\n\n**Assuming a benchmark's task definition matches your application's real definition of success.** A benchmark's notion of a 'correct' answer may not match what your specific users or business actually need.\n\n**Never building your own task-specific evaluation.** Without one (the subject of the next lesson), you have no reliable way to actually compare models or catch regressions for your specific use case."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "llme_generic_benchmarks_dont_capture_your_task_quiz",
+        "questions": [
+          {
+            "question": "Why doesn't a model's strong performance on general published benchmarks guarantee it will work well for your specific application?",
+            "options": [
+              "General benchmarks are always a perfect predictor of performance on any possible task",
+              "Benchmarks measure broad general capability across many tasks, while a specific application often needs narrower domain knowledge, a particular format, or a definition of quality the benchmark doesn't directly test",
+              "Benchmarks have no relationship to any model's actual capability whatsoever",
+              "Every application's needs are identical to what general benchmarks measure"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A general benchmark score reflects broad capability, not your application's specific requirements — domain knowledge, output format, and your own definition of a good answer can all diverge from what a generic benchmark actually measures.",
+            "id": "q1"
+          },
+          {
+            "question": "How does this gap between benchmark performance and task-specific performance relate to a concept from the machine learning course?",
+            "options": [
+              "It's completely unrelated to anything covered in the machine learning course",
+              "It mirrors the ML course's lesson that accuracy on one dataset doesn't guarantee performance on a different, real-world distribution — the same idea applied here to LLM benchmarks versus your actual application",
+              "Machine learning models never have this kind of generalization concern, only LLMs do",
+              "This gap only applies to image classification, not language tasks"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This is directly analogous to the ML course's warning about a model's benchmark accuracy not guaranteeing performance on a different real-world distribution — the same underlying caution applies to LLM benchmarks versus your specific application's actual task.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is choosing a model purely based on leaderboard rankings insufficient?",
+            "options": [
+              "Leaderboard rankings are completely irrelevant and should be ignored entirely",
+              "Leaderboard performance is a reasonable starting signal but doesn't substitute for testing the model on your actual specific task and definition of success",
+              "Leaderboard rankings are always identical to how a model will perform on any given application",
+              "There is no way to meaningfully evaluate a model beyond leaderboard rankings"
+            ],
+            "correctAnswer": 1,
+            "explanation": "While leaderboard rankings offer a useful general signal, they don't test your specific domain, format, or success criteria — genuinely knowing how a model performs for your task requires evaluation against your own task, not just general rankings.",
+            "id": "q3"
+          },
+          {
+            "question": "What kinds of general capability do published model benchmarks measure, according to this lesson?",
+            "options": [
+              "General knowledge, coding ability, and reasoning across a wide range of tasks",
+              "Only performance on your exact specific application",
+              "Only the model's cost per token",
+              "Only the model's response latency"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson describes published benchmarks as measuring broad, general capability — general knowledge tests, coding benchmarks, reasoning tests — across a wide range of tasks, not any one specific application.",
+            "id": "q4"
+          },
+          {
+            "question": "What three specific factors does this lesson give as reasons a top-benchmark model could still perform poorly on your task?",
+            "options": [
+              "Specialized domain knowledge the benchmark doesn't test, an unusual required output format, or a mismatched definition of 'good'",
+              "The model's total parameter count, training date, and file size",
+              "The programming language used to build your application",
+              "The number of GPUs available to run the model"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson lists these three specific gaps — untested domain knowledge, unusual format requirements, and a different definition of quality — as reasons general benchmark performance doesn't guarantee task-specific success.",
+            "id": "q5"
+          },
+          {
+            "question": "According to this lesson, what should never building your own task-specific evaluation lead to?",
+            "options": [
+              "Having no reliable way to actually compare models or catch regressions for your specific use case",
+              "A guaranteed improvement in model performance with no evaluation needed",
+              "An automatic increase in benchmark scores over time",
+              "No consequences at all, since generic benchmarks are always sufficient"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is never building a task-specific evaluation, which leaves you with no reliable way to actually compare models or catch regressions for your own use case.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does the lesson warn against assuming a benchmark's definition of a 'correct' answer matches your application's real definition of success?",
+            "options": [
+              "Because a benchmark's notion of correctness may not match what your specific users or business actually need",
+              "Because all benchmarks and applications share exactly the same definition of correctness",
+              "Because correctness is a universal concept with no possible variation across contexts",
+              "Because benchmarks never define correctness in any way"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly cautions that a benchmark's built-in notion of a correct answer can diverge from what actually constitutes success for your specific users or business.",
+            "id": "q7"
+          },
+          {
+            "question": "What analogous concept from the machine learning course does this lesson's central point echo?",
+            "options": [
+              "That accuracy on one dataset doesn't guarantee performance on a different, real-world distribution",
+              "That more training data always guarantees a better model regardless of task",
+              "That classification and regression are fundamentally identical tasks",
+              "That only unsupervised learning techniques generalize well to new tasks"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson draws a direct parallel to the ML course's teaching that a model's accuracy on one dataset doesn't guarantee its performance on a different real-world distribution, applied here to LLM benchmarks.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "llme_task_specific_eval_set",
+      "title": "Building a Task-Specific Evaluation Set",
+      "description": "Create a small, real evaluation set that actually reflects what your application needs to get right.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can describe the key ingredients of a useful task-specific evaluation set."
+          },
+          {
+            "title": "📋 A small set of real, representative examples",
+            "content": "A task-specific evaluation set is a curated collection of realistic inputs (ideally drawn from actual usage, not hypothetical examples you made up) paired with what a good output looks like for each — even a modest set of 20-50 well-chosen examples that reflect your real distribution of inputs is far more useful than a much larger generic benchmark that doesn't match your task."
+          },
+          {
+            "title": "🎯 Include the hard cases, not just the easy ones",
+            "content": "A useful eval set deliberately includes edge cases and known failure modes discovered from real usage — an ambiguous request, an adversarial input, a case where a previous version of your system got something wrong — not just straightforward, easy examples that any reasonable system would already handle. This connects directly to the red-teaming mindset from the generative AI course, applied here as an ongoing evaluation practice rather than a one-time audit.\n\n```python\n# Conceptual eval set entry\n{\n    \"input\": \"Customer asks to cancel a subscription mid-billing-cycle\",\n    \"expected_behavior\": \"Explain the refund policy and offer to process the cancellation\",\n    \"category\": \"edge_case_billing\",\n}\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Building an eval set entirely from easy, hypothetical examples.** This misses exactly the failure modes real usage will surface.\n\n**Never updating the eval set as real usage reveals new failure modes.** A living eval set that grows with discovered issues is far more valuable than a static one written once at launch.\n\n**Making the eval set so large it's impractical to actually run regularly.** A smaller, well-curated, representative set that you actually run on every change beats a huge one that's too expensive or slow to use routinely."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "llme_task_specific_eval_set_quiz",
+        "questions": [
+          {
+            "question": "What makes a task-specific evaluation set more useful than a large generic benchmark for your application?",
+            "options": [
+              "Generic benchmarks are always more useful regardless of task",
+              "A task-specific eval set, even a modest one, is built from realistic inputs that actually reflect your application's real distribution, unlike a generic benchmark that may not match your task at all",
+              "Evaluation set size is the only factor that matters, regardless of content",
+              "Task-specific eval sets never need to include realistic examples"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Relevance beats raw size — a modest set of examples genuinely representative of your actual use case tells you far more about real-world performance than a much larger benchmark that doesn't reflect your specific task at all.",
+            "id": "q1"
+          },
+          {
+            "question": "Why should a good evaluation set deliberately include hard cases and known failure modes, not just easy examples?",
+            "options": [
+              "Easy examples are always sufficient to catch every possible issue",
+              "Including edge cases and previously discovered failure modes is what actually tests the system where it's likely to fail, rather than only confirming it handles cases it would already handle easily",
+              "Hard cases should never be included in an evaluation set",
+              "Failure modes discovered from real usage are irrelevant to evaluation"
+            ],
+            "correctAnswer": 1,
+            "explanation": "An eval set that only contains easy cases can't surface real weaknesses — deliberately including edge cases and known problem areas (echoing the red-teaming mindset from the generative AI course) is what makes evaluation genuinely useful for catching real issues.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is it a mistake to build an eval set once at launch and never update it?",
+            "options": [
+              "Eval sets should never be changed once created, under any circumstances",
+              "Real usage continues to reveal new failure modes over time, so a living, growing eval set stays far more valuable than a static one that reflects only what was known at launch",
+              "Updating an eval set has no effect on its usefulness",
+              "New failure modes never appear after an application launches"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since real-world usage surfaces failure modes that weren't anticipated at launch, continuously incorporating newly discovered issues keeps an eval set relevant and genuinely useful, rather than letting it go stale.",
+            "id": "q3"
+          },
+          {
+            "question": "In the lesson's example eval set entry, what does the 'category' field label the example as?",
+            "options": [
+              "edge_case_billing",
+              "easy_case_general",
+              "benchmark_standard",
+              "unrelated_topic"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's conceptual eval set entry example uses \"category\": \"edge_case_billing\" to tag the entry as a specific kind of edge case worth tracking.",
+            "id": "q4"
+          },
+          {
+            "question": "According to this lesson, roughly how large can a genuinely useful task-specific eval set be?",
+            "options": [
+              "Even a modest set of 20-50 well-chosen examples",
+              "It must contain at least 100,000 examples to be useful at all",
+              "Exactly one single example is always sufficient",
+              "Eval sets must be exactly the same size as the model's full training set"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly states that even a modest set of 20-50 well-chosen, representative examples can be far more useful than a much larger generic benchmark.",
+            "id": "q5"
+          },
+          {
+            "question": "What earlier course's mindset does this lesson connect to building an eval set that includes hard cases?",
+            "options": [
+              "The red-teaming mindset from the generative AI course",
+              "The tokenization lesson from the Hugging Face course",
+              "The classification metrics lesson from the machine learning course",
+              "The transfer learning lesson from the computer vision course"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly connects deliberately including edge cases and known failure modes back to the red-teaming mindset from the generative AI course, applied here as ongoing evaluation practice.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does the lesson warn against making an eval set impractically large?",
+            "options": [
+              "Because a smaller, well-curated set that you actually run on every change beats a huge one that's too expensive or slow to use routinely",
+              "Because larger eval sets always produce less reliable results than smaller ones",
+              "Because eval sets are only useful if they contain every possible input",
+              "Because eval set size has no relationship to how often it actually gets run"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is making the eval set so large it becomes impractical to run regularly — a smaller, well-curated set used routinely is more valuable in practice.",
+            "id": "q7"
+          },
+          {
+            "question": "Where should the realistic inputs in a task-specific eval set ideally come from, according to this lesson?",
+            "options": [
+              "Actual usage, not hypothetical examples you made up",
+              "Entirely hypothetical scenarios invented without reference to real usage",
+              "A generic, unrelated benchmark dataset",
+              "Randomly generated text with no connection to the application's task"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson specifies that a good eval set is ideally built from realistic inputs drawn from actual usage, rather than examples invented hypothetically without grounding in real behavior.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "llme_llm_as_judge",
+      "title": "LLM-as-Judge: Using a Model to Evaluate a Model",
+      "description": "Understand the practice of using one LLM to score another's outputs, and its limitations.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain how LLM-as-judge evaluation works and name a key limitation to keep in mind."
+          },
+          {
+            "title": "⚖️ Using a model to grade open-ended output at scale",
+            "content": "Human evaluation (from the generative AI course's evaluation lesson) is often the most meaningful signal but is expensive and slow. **LLM-as-judge** uses another LLM call, given a clear rubric, to score or compare outputs — much cheaper and faster than human review, letting you evaluate far more examples, far more often (like on every code change)."
+          },
+          {
+            "title": "📏 Judge quality depends heavily on the rubric",
+            "content": "An LLM judge is only as good as the criteria it's given — a vague instruction ('is this response good?') produces inconsistent, unreliable scoring, while a specific rubric ('does the response correctly state the refund policy? does it maintain a professional tone? is it under 100 words?') produces far more consistent, useful judgments. This is the same prompt-specificity principle from the generative AI course, now applied to the evaluation prompt itself.\n\n```python\njudge_prompt = (\n    \"Rate this customer support response from 1-5 on: \"\n    \"(1) factual accuracy of the stated policy, \"\n    \"(2) professional tone, \"\n    \"(3) conciseness (under 100 words). \"\n    \"Response to evaluate: {response}\"\n)\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Treating LLM-as-judge scores as perfectly objective ground truth.** The judge is itself a generative model with its own biases and failure modes — useful as a scalable proxy, not an infallible oracle.\n\n**Using a vague judging rubric and expecting consistent results.** Just like any other prompt, specificity in the judging criteria directly affects reliability.\n\n**Never spot-checking LLM-as-judge results against actual human judgment.** Periodically validating that the judge's scores correlate with what a human would say is what keeps this approach trustworthy over time."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "llme_llm_as_judge_quiz",
+        "questions": [
+          {
+            "question": "What is the main practical advantage of LLM-as-judge evaluation over human evaluation?",
+            "options": [
+              "LLM-as-judge is always more accurate than human evaluation in every case",
+              "It's much cheaper and faster than human review, allowing far more examples to be evaluated far more often, such as on every code change",
+              "LLM-as-judge eliminates the need for any evaluation set at all",
+              "Human evaluation and LLM-as-judge produce identical results with no tradeoff"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The core advantage is scalability: LLM-as-judge can evaluate a much larger volume of outputs, much more frequently, than human review realistically allows — at some cost to the reliability guarantee human judgment provides.",
+            "id": "q1"
+          },
+          {
+            "question": "Why does the quality of an LLM judge's scoring depend heavily on the rubric it's given?",
+            "options": [
+              "Rubric quality has no effect on how consistent or useful the judge's scores are",
+              "A vague judging instruction produces inconsistent, unreliable scoring, while a specific rubric with clear criteria produces far more consistent, useful judgments — the same specificity principle that applies to any prompt",
+              "LLM judges always produce identical scores regardless of the instructions given",
+              "Rubrics are only relevant for human evaluators, never for LLM judges"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Just like any other LLM prompt, the judging prompt's specificity directly affects output quality — a vague rubric leaves too much room for inconsistent interpretation, while explicit, concrete criteria produce more reliable, comparable scores.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is it important to periodically spot-check LLM-as-judge results against actual human judgment?",
+            "options": [
+              "Spot-checking is unnecessary since LLM judges are always perfectly objective",
+              "The judge is itself a generative model with its own biases and failure modes, so validating that its scores correlate with human judgment is what keeps the approach trustworthy over time",
+              "Human judgment is always identical to LLM-as-judge scoring by definition",
+              "LLM-as-judge evaluation cannot be validated in any way"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since an LLM judge is a generative model itself, it can carry its own biases or blind spots — periodically checking its scores against real human judgment is what confirms the automated evaluation remains a reliable proxy, not just an assumption.",
+            "id": "q3"
+          },
+          {
+            "question": "In the lesson's example judge_prompt, what three criteria is the response rated on?",
+            "options": [
+              "Factual accuracy of the stated policy, professional tone, and conciseness (under 100 words)",
+              "Response length, model version number, and API latency",
+              "Grammar, spelling, and punctuation only",
+              "The number of tokens used and total generation cost"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's example judge_prompt explicitly lists these three criteria — factual accuracy, professional tone, and conciseness — as the specific rubric given to the LLM judge.",
+            "id": "q4"
+          },
+          {
+            "question": "What does this lesson identify as the main practical tradeoff of LLM-as-judge compared to human evaluation?",
+            "options": [
+              "It's much cheaper and faster, at some cost to the reliability guarantee human judgment provides",
+              "It's always more accurate than human evaluation with zero downside",
+              "It completely replaces the need for any task-specific eval set",
+              "It requires no rubric or criteria of any kind to function"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson frames LLM-as-judge as a scalability trade: cheaper and faster than human review, but not an infallible replacement for the reliability that careful human judgment provides.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does the lesson warn against treating LLM-as-judge scores as perfectly objective ground truth?",
+            "options": [
+              "Because the judge is itself a generative model with its own biases and failure modes",
+              "Because LLM-as-judge scores are always identical to human evaluation scores",
+              "Because LLM judges never actually produce any usable output",
+              "Because objectivity is guaranteed as long as the rubric is written in English"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly cautions that an LLM judge is a generative model itself, carrying its own biases and failure modes — useful as a scalable proxy, but not an infallible oracle.",
+            "id": "q6"
+          },
+          {
+            "question": "What specifically does the lesson recommend doing periodically with LLM-as-judge results?",
+            "options": [
+              "Spot-checking them against actual human judgment",
+              "Deleting them and starting the evaluation over from scratch",
+              "Ignoring them entirely once the judge prompt is written",
+              "Replacing them permanently with a fixed benchmark score"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson recommends periodically validating that the judge's scores correlate with what a human would say, which is what keeps this scalable approach trustworthy over time.",
+            "id": "q7"
+          },
+          {
+            "question": "How does this lesson connect judge rubric quality to a concept from the generative AI course?",
+            "options": [
+              "It applies the same prompt-specificity principle from that course to the evaluation prompt itself",
+              "It claims prompt specificity is irrelevant when writing a judging rubric",
+              "It says the generative AI course never covered anything related to prompting",
+              "It states that judge prompts require an entirely unrelated design principle"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly states that rubric specificity mirrors the prompt-specificity principle from the generative AI course, just applied here to the evaluation prompt rather than a general request.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "llme_regression_testing_prompts",
+      "title": "Regression Testing Prompts and Pipelines",
+      "description": "Treat prompt and pipeline changes with the same rigor as code changes.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain why prompt changes need the same regression-testing discipline as code changes, and how an eval set enables that."
+          },
+          {
+            "title": "🐛 A 'small' prompt tweak can break something else",
+            "content": "Changing a system prompt, a tool description, or a pipeline step to fix one specific problem can unintentionally change behavior on cases that were previously working fine — the same class of risk as a code change introducing a regression elsewhere in a codebase, just less obvious because there's no compiler to catch it."
+          },
+          {
+            "title": "✅ Running your eval set before and after every change",
+            "content": "The task-specific eval set from earlier in this module is exactly what makes regression testing possible: run it against the current version, make your intended change, run it again, and compare — did the specific case you meant to fix actually improve, and did any previously-passing case start failing? This turns prompt engineering from pure guesswork into something closer to disciplined software development.\n\n```python\n# Conceptual regression-testing workflow\nbaseline_results = run_eval_set(current_prompt, eval_set)\nnew_results = run_eval_set(modified_prompt, eval_set)\ncompare(baseline_results, new_results)  # what improved, what regressed\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Shipping a prompt change based only on a few manual spot-checks.** A handful of manual tests can miss regressions an eval set would have caught systematically.\n\n**Not versioning prompts alongside code.** Treating a prompt as a config value or a plain code artifact under version control (not something edited ad hoc in a dashboard with no history) makes regressions traceable and changes reversible.\n\n**Skipping regression testing because 'it's just a prompt tweak, not real code'.** A prompt change can have just as much real behavioral impact on a production system as a code change — it deserves the same testing discipline."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "llme_regression_testing_prompts_quiz",
+        "questions": [
+          {
+            "question": "Why can a seemingly small prompt tweak intended to fix one problem end up breaking something else?",
+            "options": [
+              "Prompt changes are always perfectly isolated and can never affect any other behavior",
+              "A prompt change can unintentionally shift behavior on other cases that were previously working, the same class of risk as a code change introducing a regression elsewhere, without a compiler to catch it",
+              "This risk only applies to code changes, never to prompt changes",
+              "Prompt tweaks are guaranteed to only improve behavior, never degrade it"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since prompts influence broad model behavior rather than one isolated code path, a change aimed at one specific case can shift behavior in unexpected ways elsewhere — a real regression risk, just less immediately visible than a compiler-caught code bug.",
+            "id": "q1"
+          },
+          {
+            "question": "How does the task-specific eval set from earlier in this module enable regression testing?",
+            "options": [
+              "It doesn't relate to regression testing in any way",
+              "Running the eval set before and after a change lets you compare results directly — confirming the intended fix actually improved, and catching any previously-passing case that started failing",
+              "The eval set only measures cost, not correctness",
+              "Regression testing requires an entirely separate tool unrelated to the eval set"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The eval set becomes the basis for before-and-after comparison: running it against both the old and new prompt/pipeline versions reveals whether the intended improvement actually happened and whether anything else regressed.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is it a mistake to skip regression testing on a prompt change by reasoning 'it's just a prompt tweak, not real code'?",
+            "options": [
+              "Prompt changes never have any real impact on a production system's behavior",
+              "A prompt change can have just as much real behavioral impact on a production system as a code change, so it deserves the same testing discipline rather than being dismissed as lower stakes",
+              "Only code changes can ever introduce regressions, never prompt changes",
+              "Regression testing is only relevant for changes made directly to model weights"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since a prompt genuinely shapes production system behavior, treating it as somehow lower-stakes than code ignores that it carries the same real regression risk — and deserves the same before/after evaluation discipline as any other production change.",
+            "id": "q3"
+          },
+          {
+            "question": "In the lesson's conceptual regression-testing workflow, what two things are compared at the end?",
+            "options": [
+              "baseline_results (from the current prompt) and new_results (from the modified prompt)",
+              "The system prompt and the user's original message",
+              "Two entirely different eval sets run on the same prompt",
+              "The cost of the old model versus the cost of the new model"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's example workflow runs the eval set against both the current and modified prompt, then explicitly compares baseline_results against new_results to see what improved or regressed.",
+            "id": "q4"
+          },
+          {
+            "question": "Why does the lesson recommend versioning prompts alongside code rather than editing them ad hoc in a dashboard?",
+            "options": [
+              "Because treating a prompt as a tracked artifact makes regressions traceable and changes reversible",
+              "Because prompts cannot be stored in any version control system",
+              "Because dashboards are always more reliable than version control for tracking changes",
+              "Because prompt versioning has no effect on regression traceability"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is not versioning prompts like code; keeping them under version control (rather than edited ad hoc with no history) is what makes regressions traceable and changes reversible.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does the lesson compare an unintended side effect of a prompt change to a code regression?",
+            "options": [
+              "Because a prompt change can unintentionally shift behavior on other cases, the same class of risk as code, just without a compiler to catch it",
+              "Because prompt changes are technically identical to compiling and deploying new code",
+              "Because code regressions and prompt regressions have completely unrelated causes",
+              "Because prompts can never actually cause any unintended behavior changes"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson draws this comparison explicitly: like a code change, a prompt tweak aimed at fixing one case can unintentionally affect other, previously working cases, just without a compiler to flag it.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does the lesson warn against shipping a prompt change based only on a few manual spot-checks?",
+            "options": [
+              "Because a handful of manual tests can miss regressions an eval set would have caught systematically",
+              "Because manual spot-checks always catch every possible regression with complete reliability",
+              "Because eval sets and manual spot-checks are functionally identical in what they can catch",
+              "Because manual spot-checking is required before every eval-set run, not a substitute for it"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is relying only on a few manual checks, which can miss systematic regressions that running the full eval set would have caught.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does the lesson say it's a mistake to dismiss a prompt change as lower-stakes than a code change?",
+            "options": [
+              "Because a prompt change can have just as much real behavioral impact on a production system as a code change, deserving the same testing discipline",
+              "Because prompt changes never actually affect a production system's behavior",
+              "Because only code changes are capable of introducing any kind of regression",
+              "Because prompts are automatically tested by the model provider before deployment"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson is explicit that a prompt genuinely shapes production behavior just as code does, so treating it as lower-stakes ignores the same regression risk that any other production change carries.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

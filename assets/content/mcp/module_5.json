@@ -1,0 +1,567 @@
+{
+  "id": "mcp_production",
+  "title": "MCP in Production",
+  "description": "Versioning and compatibility, observability specifically at the MCP boundary, common MCP mistakes, and weighing MCP against building custom tool integrations.",
+  "icon": "🚀",
+  "color": "#673AB7",
+  "order": 5,
+  "estimatedHours": 5,
+  "difficulty": "advanced",
+  "prerequisites": [
+    "mcp_security"
+  ],
+  "lessons": [
+    {
+      "id": "mcp_versioning_and_compatibility",
+      "title": "Versioning and Compatibility",
+      "description": "A server that changes its tools out from under a connected client can break things in ways that are hard to trace back to the actual cause.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain why versioning matters for MCP servers and clients, and describe compatibility risks when either side changes."
+          },
+          {
+            "title": "🔄 What can change on the server side",
+            "content": "A tool's parameter schema might change (a new required parameter added, a parameter's type changed), a tool might be **removed entirely**, or its behavior might change in a way that's not reflected in an updated description — any of these can break a client (or the model using a stale understanding of a tool) that was built against or discovered an earlier version of the server's offerings."
+          },
+          {
+            "title": "📋 Why the change-notification mechanism matters here",
+            "content": "The **change-notification and re-discovery** pattern from the discovery module isn't just a nice-to-have — it's the actual mechanism that prevents a client from silently operating on a stale understanding of what a server offers after the server has changed. A host application that doesn't properly handle these notifications is exposed to exactly the kind of silent breakage this lesson is describing."
+          },
+          {
+            "title": "🔢 Protocol version compatibility",
+            "content": "Beyond an individual server's own tools changing, the **MCP protocol specification itself** can evolve over time — the capability negotiation covered in the connection-lifecycle lesson exists partly to handle this, letting a client and server with slightly different protocol version support still interoperate on whatever subset of functionality they both actually support, rather than failing outright over a version mismatch."
+          },
+          {
+            "title": "🎯 Practical compatibility practices",
+            "content": "- Servers should treat changes to **existing** tools (not just adding new ones) as a compatibility-relevant event, similar to how any API's breaking changes need careful communication and rollout.\n- Clients should handle discovery and change notifications robustly rather than caching a server's tool definitions once and never revisiting that assumption.\n- Testing an integration against the **actual current state** of a connected server (not just the state it had when the integration was first built) catches drift before it causes a production surprise."
+          },
+          {
+            "title": "💻 A breaking change, and a client that handles it",
+            "content": "```python\n# Server side: adding a required parameter without a default is a breaking change\n# v1: def send_email(to: str, body: str)\n# v2: def send_email(to: str, body: str, reply_to: str)   # NEW required param\n\n# A client caching the v1 schema would call send_email() missing reply_to\n# and fail -- unless it handles the change notification:\ndef on_tools_changed():\n    global tools\n    tools = client.list_tools()   # re-discover the current, real schema\n\nclient.on(\"notifications/tools/list_changed\", on_tools_changed)\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Adding a required parameter to an existing tool without treating it as a breaking change.** Even though no tool was removed, this can silently break every client still using the old schema.\n\n**Caching a server's tool definitions once at startup and never revisiting them.** This is exactly the stale-understanding risk this lesson describes — change notifications exist specifically to prevent it.\n\n**Testing an integration only against the server's state at build time.** Servers evolve; testing against the server's actual current state catches compatibility drift before it surfaces as a production incident."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "mcp_versioning_and_compatibility_quiz",
+        "questions": [
+          {
+            "question": "What is a compatibility risk when an MCP server changes a tool's parameter schema without proper notification?",
+            "options": [
+              "Nothing changes for connected clients since MCP prevents this entirely",
+              "A client or the model using a stale understanding of the tool from before the change could break unexpectedly",
+              "Parameter schemas can never change once a server is deployed",
+              "This risk only applies to servers using stdio transport"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A client operating on outdated tool information after an unnotified server-side change is exactly the silent-breakage scenario this lesson describes.",
+            "id": "q1"
+          },
+          {
+            "question": "Why does the change-notification and re-discovery mechanism from the discovery module matter for versioning?",
+            "options": [
+              "It has no relevance to versioning or compatibility",
+              "It's the actual mechanism that prevents a client from silently operating on a stale understanding of a server's offerings after the server changes",
+              "Change notifications only apply to resources, never to tools",
+              "This mechanism was deprecated and is no longer part of MCP"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Properly handling change notifications is what actually prevents the kind of compatibility breakage this lesson is concerned with — it's not just a discovery-time convenience.",
+            "id": "q2"
+          },
+          {
+            "question": "What does capability negotiation help with regarding protocol version differences?",
+            "options": [
+              "It prevents any two different protocol versions from ever connecting",
+              "It lets a client and server with slightly different protocol version support interoperate on whatever subset of functionality they both support",
+              "It automatically upgrades both sides to the newest protocol version instantly",
+              "Capability negotiation is unrelated to protocol versioning"
+            ],
+            "correctAnswer": 1,
+            "explanation": "As covered in the connection-lifecycle lesson, capability negotiation allows graceful interoperability across version differences rather than requiring an exact version match to connect at all.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, why does adding reply_to as a required parameter in v2 break a client still using the v1 schema?",
+            "options": [
+              "Because reply_to was already required in v1",
+              "Because the client, caching the earlier schema, would call send_email() without supplying the newly required parameter",
+              "Because v2 removed the send_email tool entirely",
+              "Because required parameters cannot be added to existing tools under any circumstances"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A client unaware of the schema change would continue calling the tool the old way, omitting the now-required reply_to parameter, causing the call to fail.",
+            "id": "q4"
+          },
+          {
+            "question": "What does the on_tools_changed() handler in the code example do to avoid the breaking-change problem?",
+            "options": [
+              "It permanently disconnects from the server the moment any change is detected",
+              "It re-discovers the server's current tool definitions via client.list_tools(), replacing the stale cached schema",
+              "It deletes the send_email tool from the client's registry",
+              "It ignores the notification and continues using the cached schema"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Re-running discovery in response to the change notification is exactly the mechanism that keeps the client's understanding of the tool's schema current rather than stale.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is adding a required parameter to an existing tool (without removing anything) still considered a breaking change?",
+            "options": [
+              "It isn't a breaking change since no tool was removed",
+              "Because clients using the old schema will now be missing a parameter the tool requires, causing calls to fail even though the tool technically still exists",
+              "Because MCP forbids adding any new parameters to existing tools",
+              "Because breaking changes can only occur through parameter type changes, never additions"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A tool's definition changing in a way that makes previously-valid calls invalid is a breaking change regardless of whether the tool was removed outright — this is exactly the risk the lesson highlights.",
+            "id": "q6"
+          },
+          {
+            "question": "Why is caching a server's tool definitions once at startup and never revisiting them risky?",
+            "options": [
+              "Because caching is always forbidden by the MCP specification",
+              "Because a server's tools aren't necessarily fixed for the lifetime of a connection, and never revisiting the cache means the client can silently drift out of sync with reality",
+              "Because caching makes tool calls permanently impossible",
+              "Because this only matters for resources, never for tools"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Without honoring change notifications and periodically refreshing, a cached tool definition can become stale exactly as this lesson warns, leading to silent compatibility breakage.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does testing an integration only against a server's state at the time it was first built fail to catch later compatibility problems?",
+            "options": [
+              "Because server state never changes once an integration has been built",
+              "Because the server can evolve after the integration was built, so testing against its actual current state is needed to catch drift before it causes a production surprise",
+              "Because integration tests are technically incapable of connecting to real servers",
+              "Because testing against current state is explicitly prohibited by MCP"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since a server's tools and schemas can legitimately change over time, only testing against its original state misses compatibility drift that has occurred since — ongoing testing against actual current state is what catches it.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "mcp_observability_for_mcp_systems",
+      "title": "Observability for MCP-Based Systems",
+      "description": "When an agent's behavior seems off, knowing whether the problem lives in your application or in a connected MCP server is the first diagnostic question.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Design an observability approach for an MCP-based system that can distinguish application-level issues from server-level issues."
+          },
+          {
+            "title": "🔍 Why MCP adds a diagnostic layer",
+            "content": "Building on the Agents course's evaluation and production lessons, an MCP-based system has an extra layer to account for when diagnosing a problem: is the issue in the agent's own reasoning (covered by the Agents course's trajectory evaluation), in the tool-calling and routing logic (covered by the Agents course's component-level evaluation), or in a connected MCP server's actual behavior — a layer that **didn't exist in a purely locally-defined-tools setup** and that needs its own visibility to rule in or out quickly."
+          },
+          {
+            "title": "📊 What to specifically log at the MCP boundary",
+            "content": "- Every **discovery call** and its result (which tools/resources/prompts were actually available at that point in time).\n- Every **tool call** routed to an MCP server, its arguments, and its result or error, extending the auditing practices from the security module for operational visibility, not just security monitoring.\n- **Connection health** per server — is a given server consistently reachable, or intermittently failing — which directly informs the partial-connectivity handling from the multi-server-handling lesson."
+          },
+          {
+            "title": "🚨 Diagnosing whether a problem is server-side or application-side",
+            "content": "If a specific MCP server's tool calls are failing or returning unexpected results while everything else in the agent's reasoning looks normal, the issue likely lives with **that server** (a bug in its implementation, a change that broke compatibility per the previous lesson, or an outage). If tool calls to MCP servers are succeeding and returning expected results but the agent's overall behavior is still wrong, the issue is more likely in the **agent's own reasoning or routing logic** — exactly the kind of diagnostic isolation logging at the MCP boundary specifically enables."
+          },
+          {
+            "title": "🎯 Extending, not replacing, existing observability practices",
+            "content": "None of this replaces the trajectory logging, component-level evaluation, or production monitoring practices already covered in the Agents course and the LangGraph course — it **extends** them with MCP-specific detail at exactly the boundary where a problem could plausibly originate from code outside your own application's control, which is precisely the scenario those general practices don't automatically account for."
+          },
+          {
+            "title": "💻 Diagnostic logging at the MCP boundary",
+            "content": "```python\ndef call_mcp_tool_observed(client, server_name, tool_name, args):\n    log.info(f\"mcp_call server={server_name} tool={tool_name} args={args}\")\n    try:\n        result = client.call_tool(tool_name, args)\n        log.info(f\"mcp_result server={server_name} tool={tool_name} status=ok\")\n        return result\n    except Exception as e:\n        # This is the diagnostic signal: is the failure here (server-side)\n        # or is the rest of the agent's reasoning also going wrong?\n        log.error(f\"mcp_error server={server_name} tool={tool_name} error={e}\")\n        raise\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Only logging the agent's overall final output, with no MCP-boundary detail.** This makes it impossible to tell whether a bad outcome came from a misbehaving server or from the agent's own reasoning.\n\n**Treating MCP observability as a replacement for existing agent evaluation practices.** It's additive — trajectory logging and component-level evaluation from the Agents course still matter; MCP-boundary logging fills in a gap those practices don't automatically cover.\n\n**Not tracking per-server connection health over time.** A server that's intermittently failing looks fine in any single successful call — only aggregated health tracking surfaces the pattern."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "mcp_observability_for_mcp_systems_quiz",
+        "questions": [
+          {
+            "question": "What extra diagnostic layer does an MCP-based system introduce compared to a purely locally-defined-tools setup?",
+            "options": [
+              "No extra layer — MCP-based systems are diagnostically identical to locally-defined-tools setups",
+              "Whether an issue lives in the agent's own reasoning/routing, or in a connected MCP server's actual behavior — a layer outside the application's own control",
+              "MCP eliminates the need for any diagnostic layering at all",
+              "MCP-based systems cannot be diagnosed using any existing techniques"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since MCP servers are external code outside the host application's direct control, distinguishing application-level from server-level issues becomes a distinct diagnostic question that didn't exist the same way with purely local tools.",
+            "id": "q1"
+          },
+          {
+            "question": "What logging detail specifically helps distinguish a server-side problem from an application-side one?",
+            "options": [
+              "Only logging the agent's final output with no intermediate detail",
+              "Logging every tool call routed to an MCP server along with its arguments and result/error, alongside connection health per server",
+              "Logging is unnecessary for MCP-based systems",
+              "Only logging discovery calls, never actual tool invocations"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Detailed logging at the MCP boundary (calls, arguments, results, connection health) is exactly what lets a developer isolate whether a problem originates from a specific server or from the agent's own logic.",
+            "id": "q2"
+          },
+          {
+            "question": "How does MCP-specific observability relate to the trajectory and component-level evaluation practices from the Agents course?",
+            "options": [
+              "It replaces those practices entirely with a completely different approach",
+              "It extends those existing practices with MCP-specific detail at the boundary where external server code could be the source of a problem",
+              "MCP observability has no relationship to those earlier practices",
+              "Trajectory evaluation becomes irrelevant once MCP is involved"
+            ],
+            "correctAnswer": 1,
+            "explanation": "MCP-specific observability builds on, rather than replaces, the general evaluation and monitoring practices from the Agents and LangGraph courses, adding detail specifically at the externally-controlled MCP boundary.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, what diagnostic purpose does logging both mcp_call (before) and mcp_result/mcp_error (after) serve?",
+            "options": [
+              "It has no diagnostic purpose and is purely decorative",
+              "It captures the full round trip so a failure can be traced to a specific server/tool/argument combination, supporting the server-side-vs-application-side diagnosis this lesson describes",
+              "It replaces the need for any exception handling",
+              "It only matters for servers using the stdio transport"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Logging the request and outcome together gives exactly the detail needed to isolate whether a specific MCP call failed, which is central to the diagnostic isolation this lesson recommends.",
+            "id": "q4"
+          },
+          {
+            "question": "Why does the except block in call_mcp_tool_observed() re-raise the exception after logging it?",
+            "options": [
+              "Because re-raising is required by the MCP specification",
+              "So the error is both recorded for diagnostic purposes and still surfaces to the caller, rather than being silently swallowed",
+              "Because logging an error automatically resolves it",
+              "Because MCP servers cannot raise exceptions"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Logging for diagnostics and properly propagating the error are both necessary — swallowing the exception would hide the failure from the rest of the system that needs to handle it.",
+            "id": "q5"
+          },
+          {
+            "question": "What symptom pattern suggests the problem is more likely in the agent's own reasoning rather than in a connected MCP server?",
+            "options": [
+              "Tool calls to MCP servers are failing consistently",
+              "Tool calls to MCP servers are succeeding and returning expected results, but the agent's overall behavior is still wrong",
+              "The server cannot be reached at all",
+              "Discovery calls are returning outdated tool lists"
+            ],
+            "correctAnswer": 1,
+            "explanation": "When the MCP boundary itself looks healthy (successful calls, expected results) but overall behavior is still off, the issue is more likely upstream in the agent's own reasoning or routing logic.",
+            "id": "q6"
+          },
+          {
+            "question": "Why is only logging an agent's final output, without MCP-boundary detail, considered insufficient?",
+            "options": [
+              "Because final-output logging is technically impossible to implement",
+              "Because it makes it impossible to distinguish whether a bad outcome originated from a misbehaving MCP server or from the agent's own reasoning",
+              "Because final outputs are never useful for any diagnostic purpose",
+              "Because MCP-boundary logging replaces the need for a final output entirely"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Without visibility into the individual MCP calls and their outcomes, there's no way to isolate where in the pipeline a problem actually originated, which is exactly the gap MCP-boundary logging fills.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does tracking per-server connection health over time matter, rather than just checking whether the most recent call succeeded?",
+            "options": [
+              "Because connection health never changes over time once established",
+              "Because a server that's intermittently failing can look fine in any single successful call — only aggregated tracking over time surfaces an intermittent-failure pattern",
+              "Because MCP servers cannot experience any kind of intermittent failure",
+              "Because per-server tracking is only relevant for servers using HTTP-based transport"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A single successful call doesn't reveal an intermittent reliability problem — only observing patterns over time (per the multi-server-handling lesson's partial-connectivity concern) surfaces that kind of issue.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "mcp_common_mistakes",
+      "title": "Common MCP Mistakes",
+      "description": "The specific ways MCP-based systems go wrong, and which lesson in this course addresses each one.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Recognize the most common MCP-specific mistakes covered across this course and identify the mitigation for each."
+          },
+          {
+            "title": "🚫 Common mistakes",
+            "content": "- Connecting to an MCP server with **overly broad credentials** 'to keep things simple,' rather than applying least-privilege scoping — addressed by the permission-scoping lesson.\n- Treating content returned from tool calls or resource reads as **inherently trustworthy**, creating a prompt-injection risk — addressed by the prompt-injection lesson's guidance to treat all such content as untrusted data.\n- **Exposing every discovered tool** from every connected server unconditionally, hitting the tool-selection-at-scale problem — addressed by the dynamic-tool-loading lesson's curation strategies.\n- Assuming a connected server's tool definitions **never change** and skipping proper handling of change notifications — addressed by the versioning-and-compatibility lesson.\n- Building a server with an **HTTP-based transport before it's actually needed**, taking on unnecessary authentication and network-reliability complexity — addressed by the choosing-a-transport lesson.\n- Poorly-designed tool names, descriptions, or parameter schemas on a server intended for broad third-party use, since a server author usually can't know every application's context in advance — addressed by the defining-tools lesson."
+          },
+          {
+            "title": "✅ The throughline",
+            "content": "Nearly every one of these mistakes is a **specific instance of a general principle** from the Agents course (tool design, least privilege, tool-selection at scale, handling untrusted content) applied at the MCP boundary specifically — MCP doesn't introduce fundamentally new categories of problems so much as it applies familiar agent-reliability and security principles to a setting where the code on the other end of a tool call is often someone else's."
+          },
+          {
+            "title": "💻 Spotting a mistake in code",
+            "content": "```python\n# Mistake: broad credentials + exposing everything + trusting content blindly\nserver = connect_mcp(\"db\", credentials=ADMIN_CREDENTIALS)   # not least-privilege\ntools = server.list_tools()                                  # exposed unconditionally\ncontext.append(server.read_resource(uri))                    # trusted with no screening\n\n# Fixed: scoped credentials + curated tools + screened content\nserver = connect_mcp(\"db\", credentials=READ_ONLY_REPORTS_CREDENTIALS)\ntools = retrieve_top_k_tools(server.list_tools(), query=current_task, k=8)\ncontent = screen_for_injection(server.read_resource(uri))\ncontext.append(f\"<untrusted_resource>{content}</untrusted_resource>\")\n```"
+          },
+          {
+            "title": "🧭 A pre-deployment checklist for an MCP-based system",
+            "content": "- Every connected server is scoped to the **minimum credentials** it actually needs.\n- Tool results and resource content are treated as **untrusted data**, with appropriate filtering where feasible.\n- Tool curation avoids blindly exposing every discovered tool from every connected server.\n- **Change notifications are handled**, not just initial discovery.\n- Transport choice matches **actual deployment needs**, not anticipated ones.\n- Logging and auditing exist **specifically at the MCP boundary**, not just at the level of the agent's own internal reasoning."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "mcp_common_mistakes_quiz",
+        "questions": [
+          {
+            "question": "What earlier lesson addresses the mistake of connecting to an MCP server with overly broad credentials for convenience?",
+            "options": [
+              "The dynamic-tool-loading lesson",
+              "The permission-scoping lesson",
+              "The choosing-a-transport lesson",
+              "The versioning-and-compatibility lesson"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Overly broad credentials granted for convenience is precisely the shortcut the least-privilege permission-scoping lesson warns against.",
+            "id": "q1"
+          },
+          {
+            "question": "What is the throughline this lesson identifies across all the common MCP mistakes?",
+            "options": [
+              "MCP introduces entirely new categories of problems unrelated to anything in the Agents course",
+              "Most mistakes are specific instances of general agent-reliability and security principles from the Agents course, applied at the MCP boundary where the code on the other end is often someone else's",
+              "There is no common thread among these mistakes",
+              "All of these mistakes are unique to MCP and have no analogue in any other part of this curriculum"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson's key insight is that MCP mostly applies already-covered agent-reliability and security principles to a new setting (third-party server code), rather than requiring fundamentally new concepts.",
+            "id": "q2"
+          },
+          {
+            "question": "What does the pre-deployment checklist recommend regarding tool discovery?",
+            "options": [
+              "Always exposing every discovered tool from every connected server with no curation",
+              "Avoiding blindly exposing every discovered tool from every connected server, applying curation strategies instead",
+              "Disabling tool discovery entirely in production",
+              "Only ever connecting to exactly one MCP server per application"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The checklist reinforces the dynamic-tool-loading lesson's point that curation, not blanket exposure, is the recommended approach when aggregating tools from multiple discovered sources.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, what three specific mistakes are illustrated in the first block?",
+            "options": [
+              "Using the wrong transport, skipping the handshake, and forgetting a parameter schema",
+              "Granting overly broad credentials, exposing all discovered tools unconditionally, and trusting resource content with no screening",
+              "Writing debug output to stdout and skipping capability negotiation",
+              "Using narrow tools instead of broad ones, and caching discovery results"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The example's first block deliberately demonstrates three mistakes covered across this module: broad credentials, unconditional tool exposure, and unscreened trust in returned content.",
+            "id": "q4"
+          },
+          {
+            "question": "What does retrieve_top_k_tools(server.list_tools(), query=current_task, k=8) accomplish in the fixed version of the code example?",
+            "options": [
+              "It grants the server broader credentials than the original version",
+              "It curates a relevant subset of discovered tools based on the current task, rather than exposing everything unconditionally",
+              "It disables the server's tools entirely",
+              "It replaces the need for any credential scoping"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This line applies the dynamic-tool-loading lesson's curation strategy, directly fixing the 'exposing everything unconditionally' mistake shown in the first block.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does the fixed version wrap resource content in <untrusted_resource> tags after calling screen_for_injection()?",
+            "options": [
+              "Because tags are required by the MCP protocol specification",
+              "Because it applies both content screening and structural separation of untrusted content, per the prompt-injection lesson's mitigations",
+              "Because this disables the resource from being read at all",
+              "Because it converts the resource into a tool"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Both screening and explicit structural marking are mitigations the prompt-injection lesson recommends for treating returned content as untrusted rather than as a reliable instruction source.",
+            "id": "q6"
+          },
+          {
+            "question": "Which lesson addresses building a server with an HTTP-based transport before it's actually needed?",
+            "options": [
+              "The defining-tools lesson",
+              "The choosing-a-transport lesson",
+              "The auditing-and-sandboxing lesson",
+              "The trust-boundary-problem lesson"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Taking on HTTP-based transport's authentication and network-reliability complexity before it's genuinely needed is exactly the anti-over-engineering mistake the choosing-a-transport lesson warns against.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does the checklist specifically call for logging and auditing 'at the MCP boundary,' not just at the level of the agent's own internal reasoning?",
+            "options": [
+              "Because internal reasoning logs are always sufficient on their own",
+              "Because MCP servers are external code outside the application's control, and boundary-specific logging is what lets a team distinguish server-side issues from application-side ones",
+              "Because MCP boundary logging replaces the need for any other kind of observability",
+              "Because internal reasoning logs and MCP boundary logs capture identical information"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This directly echoes the observability lesson's point that the MCP boundary is a distinct diagnostic layer requiring its own dedicated visibility, not something general agent-level logging automatically covers.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "mcp_vs_custom_integrations",
+      "title": "MCP vs. Building Custom Tool Integrations",
+      "description": "MCP is a strong default, but it isn't automatically the right choice for every single integration a project needs.",
+      "duration": 12,
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Weigh the trade-offs between using MCP and building a custom, application-specific tool integration for a given scenario."
+          },
+          {
+            "title": "✅ When MCP is the clear win",
+            "content": "An integration that other applications (or other parts of the same broader ecosystem) would also plausibly want — a database connector, a popular SaaS integration, a filesystem tool — benefits enormously from being built once as an MCP server rather than reimplemented as custom code in every application that needs it, which is exactly the **N×M-to-N+M** standardization benefit from the first lesson of this course."
+          },
+          {
+            "title": "⚖️ When a custom integration might still make sense",
+            "content": "A tool that's extremely specific to one application's internal logic and genuinely has **no plausible reuse case** elsewhere — the standardization overhead of building a full MCP server (with its own discovery, transport, and protocol handling) may not be worth it compared to just defining the tool directly in the application's own tool-calling setup, following the tool-design principles from the Agents course, without any MCP layer in between at all. A **performance-critical path** where the extra hop through MCP's client-server round trip introduces latency that a direct, in-process function call wouldn't have."
+          },
+          {
+            "title": "🔀 A hybrid reality",
+            "content": "Most real systems end up with **both**: some tools connected via MCP (particularly shared, reusable integrations, or third-party services someone else already built an MCP server for) and some tools defined directly in application code (application-specific logic with no reuse case) — from the model's perspective, per the earlier lesson in this course, both look the same by the time they reach the tool-calling layer, so mixing them isn't architecturally awkward."
+          },
+          {
+            "title": "🎯 The decision in one sentence",
+            "content": "Reach for MCP when standardization and reusability (across applications, or by leveraging an already-built third-party server) outweigh the overhead of the protocol layer; reach for a direct, custom integration when a tool is genuinely one-off and application-specific enough that the standardization benefit doesn't materialize — and don't feel obligated to make every single tool in a system go through MCP just because MCP is being used for some of them."
+          },
+          {
+            "title": "💻 A hybrid tool-calling setup",
+            "content": "```python\n# Reusable integration -> MCP (built once, usable by any host)\ngithub_tools = mcp_clients[\"github\"].list_tools()\n\n# Application-specific, no reuse case, latency-sensitive -> direct in-process tool\ndef apply_internal_discount_rules(order_id: str) -> float:\n    return internal_pricing_engine.compute(order_id)  # in-process, no MCP hop\n\nlocal_tools = [{\"name\": \"apply_internal_discount_rules\",\n                \"fn\": apply_internal_discount_rules, \"parameters\": {...}}]\n\n# Both sets converge into the same tools list passed to the model --\n# mixing MCP-based and direct tools is not architecturally awkward.\nall_tools = github_tools + local_tools\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Building an MCP server for a tool with no plausible reuse case.** The protocol-layer overhead (discovery, transport, connection handling) isn't worth it when a direct, in-application tool definition would do the same job more simply.\n\n**Avoiding MCP entirely because 'some of our tools are application-specific.'** A hybrid setup — some tools via MCP, some direct — is the normal, expected shape of most real systems, not an architectural compromise.\n\n**Ignoring latency on a performance-critical path.** The extra client-server round trip MCP introduces is usually negligible, but on a genuinely latency-sensitive path it's worth explicitly weighing against a direct in-process call."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "mcp_vs_custom_integrations_quiz",
+        "questions": [
+          {
+            "question": "What kind of integration benefits most clearly from being built as an MCP server rather than custom code?",
+            "options": [
+              "A tool that's extremely specific to one application's internal logic with no reuse case",
+              "An integration that other applications would also plausibly want, like a popular database connector or SaaS integration",
+              "Only integrations that require no network access whatsoever",
+              "Integrations that will only ever be used exactly once"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Reusable integrations gain the most from MCP's standardization, turning the N×M integration problem into N+M — exactly the value proposition from the first lesson of this course.",
+            "id": "q1"
+          },
+          {
+            "question": "When might a direct, custom tool integration still make more sense than building a full MCP server?",
+            "options": [
+              "Always — MCP should never be used under any circumstances",
+              "For a tool that's extremely application-specific with no plausible reuse, or on a performance-critical path where MCP's extra round trip introduces unwanted latency",
+              "Only when the application has no tools at all",
+              "Custom integrations are never a reasonable choice once MCP exists"
+            ],
+            "correctAnswer": 1,
+            "explanation": "When the standardization and reusability benefits of MCP don't materialize (a genuinely one-off, application-specific tool, or a latency-sensitive path), a direct integration can be the more practical choice.",
+            "id": "q2"
+          },
+          {
+            "question": "Why isn't mixing MCP-based tools and directly-defined tools in the same system architecturally awkward?",
+            "options": [
+              "It is awkward, and should always be avoided",
+              "From the model's perspective, both kinds of tools look identical by the time they reach the tool-calling layer, so mixing them causes no architectural conflict",
+              "MCP requires that all tools in a system come exclusively from MCP servers",
+              "Directly-defined tools cannot coexist with MCP tools in the same application"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since MCP standardizes discovery and connection but leaves the downstream tool-calling format unchanged, tools from either source look the same to the model, making a hybrid approach perfectly natural.",
+            "id": "q3"
+          },
+          {
+            "question": "In the code example, why is apply_internal_discount_rules defined as a direct, in-process function rather than an MCP server tool?",
+            "options": [
+              "Because MCP cannot support tools related to pricing",
+              "Because it's application-specific with no plausible reuse case and benefits from avoiding the extra client-server round trip MCP would introduce",
+              "Because direct functions cannot be included in a tools list at all",
+              "Because github_tools and local_tools cannot be combined"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The example places this function in local_tools specifically because it's internal, one-off logic where the standardization benefit of MCP wouldn't materialize, unlike the reusable github_tools.",
+            "id": "q4"
+          },
+          {
+            "question": "What does the final line, all_tools = github_tools + local_tools, illustrate about combining MCP and direct tools?",
+            "options": [
+              "That MCP tools and direct tools require entirely separate model-calling mechanisms",
+              "That both kinds of tools converge into the same list passed to the model, since they look identical by the time they reach the tool-calling layer",
+              "That local_tools must always be listed before github_tools",
+              "That combining the two lists causes a runtime error"
+            ],
+            "correctAnswer": 1,
+            "explanation": "This concatenation directly demonstrates the hybrid-reality point: MCP-based and directly-defined tools merge naturally into one tool-calling setup with no special handling required.",
+            "id": "q5"
+          },
+          {
+            "question": "Why is building a full MCP server for a tool with no plausible reuse case considered a mistake?",
+            "options": [
+              "Because MCP servers are always slower than direct tool calls in every case",
+              "Because the protocol-layer overhead of discovery, transport, and connection handling isn't worth it when a simpler, direct in-application tool definition would serve the same purpose",
+              "Because MCP technically forbids single-application tools",
+              "Because direct tool definitions cannot have parameter schemas"
+            ],
+            "correctAnswer": 1,
+            "explanation": "When no other application will plausibly reuse the integration, the standardization benefit that justifies MCP's overhead simply doesn't materialize, making a direct definition the more practical choice.",
+            "id": "q6"
+          },
+          {
+            "question": "Why is avoiding MCP entirely just because some tools in a system are application-specific considered a mistake?",
+            "options": [
+              "Because every single tool in a system must always use MCP with no exceptions",
+              "Because a hybrid setup — some tools via MCP, some defined directly — is the normal, expected shape of most real systems, not something to avoid",
+              "Because application-specific tools cannot function correctly under any architecture",
+              "Because MCP requires uniform tool sourcing across an entire system to work at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The lesson explicitly frames a mixed MCP-and-direct-tools system as the typical, unremarkable outcome for most real systems, not an architectural compromise to avoid.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does the lesson single out a 'performance-critical path' as a scenario worth weighing against using MCP?",
+            "options": [
+              "Because MCP tools always run instantaneously with zero overhead",
+              "Because the extra client-server round trip MCP's protocol layer introduces can add latency that a direct, in-process function call wouldn't have, which matters more on latency-sensitive paths",
+              "Because performance-critical paths cannot use tool-calling at all",
+              "Because MCP servers are incapable of returning results quickly under any circumstances"
+            ],
+            "correctAnswer": 1,
+            "explanation": "While MCP's round-trip overhead is often negligible, on a genuinely latency-sensitive path it becomes a real trade-off worth explicitly considering against a direct in-process call.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

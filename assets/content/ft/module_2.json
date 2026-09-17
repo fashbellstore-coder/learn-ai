@@ -1,0 +1,547 @@
+{
+  "id": "ft_sft_practice",
+  "title": "Supervised Fine-Tuning in Practice",
+  "description": "Preparing data, formatting it correctly, running the training loop, and actually evaluating whether it worked.",
+  "icon": "🛠️",
+  "color": "#FB8C00",
+  "order": 2,
+  "estimatedHours": 5,
+  "difficulty": "intermediate",
+  "prerequisites": [
+    "ft_peft"
+  ],
+  "lessons": [
+    {
+      "id": "ft_preparing_instruction_datasets",
+      "title": "Preparing an Instruction Dataset",
+      "description": "Turning raw examples of desired behavior into a clean, trainable (instruction, response) dataset.",
+      "duration": "13 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can describe the process of turning raw examples into a well-structured SFT dataset, and the key fields it needs."
+          },
+          {
+            "title": "📝 The basic shape",
+            "content": "An SFT example is typically a structured record with, at minimum, an **instruction** (or a full conversation) and a **target response** — the exact output you want the model to learn to produce for that input. Many real datasets add optional fields: a system message setting context or persona, multi-turn conversation history, or metadata used for filtering and analysis later. The exact schema matters less than consistency: every example in the dataset should follow the same structure.\n\n```python\n# A minimal SFT example\n{\n    \"system\": \"You are a helpful support assistant.\",\n    \"instruction\": \"How do I reset my password?\",\n    \"response\": \"Go to Settings > Security > Reset Password...\",\n}\n```"
+          },
+          {
+            "title": "🔍 Where instruction data comes from",
+            "content": "Common sources include: **human-written examples** (highest quality, most expensive, gold standard for a foundation of good examples), **existing logs or transcripts** of real interactions that were manually reviewed and cleaned, and **model-generated examples** that are then reviewed and corrected by a human (a common way to scale up dataset size without sacrificing too much quality, sometimes called distillation when the responses come from a stronger model). Purely model-generated data with no human review at all is risky — it can silently encode the flaws of whatever model generated it."
+          },
+          {
+            "title": "✅ A practical checklist before training",
+            "content": "- Every example follows the exact same input/output structure.\n- Every response is one you'd actually want the model to produce — read a real sample, not just a summary.\n- Near-duplicates have been removed.\n- The dataset covers the range of inputs you expect in production, not just the easy 80%.\n- A held-out validation split exists and was not used for any training decisions."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Letting the schema vary slightly across examples.** Inconsistency is itself a pattern — the model will learn it just as readily as the content.\n\n**Trusting model-generated examples without human review.** Unreviewed data can quietly bake in a weaker model's mistakes.\n\n**Skimming a summary of the dataset instead of reading real examples.** Only reading actual instruction-response pairs reveals problems a high-level description misses."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ft_preparing_instruction_datasets_quiz",
+        "questions": [
+          {
+            "question": "What two things does a minimal SFT training example need?",
+            "options": [
+              "A model name and a GPU type",
+              "An instruction (or conversation) and a target response",
+              "A LoRA rank and a learning rate",
+              "A base model checksum and a license"
+            ],
+            "correctAnswer": 1,
+            "explanation": "At minimum, an SFT example pairs an instruction/conversation with the exact response you want the model to learn to produce for it.",
+            "id": "q1"
+          },
+          {
+            "question": "Why is purely model-generated training data with no human review considered risky?",
+            "options": [
+              "It's always more expensive than human-written data",
+              "It can silently encode the flaws or errors of whatever model generated it",
+              "It cannot be stored in JSON format",
+              "Models are legally prohibited from generating training data"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Without review, mistakes or biases in the generating model's outputs get baked directly into your fine-tuned model's training signal.",
+            "id": "q2"
+          },
+          {
+            "question": "Why should a held-out validation split exist and remain untouched by training decisions?",
+            "options": [
+              "To make the dataset file larger",
+              "To give an honest signal of whether the model is generalizing versus overfitting to training data",
+              "It's a legal requirement for all datasets",
+              "It speeds up training time"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A validation split that wasn't used to tune anything gives a much more honest read on whether the model is actually learning the skill versus memorizing training examples.",
+            "id": "q3"
+          },
+          {
+            "question": "In this lesson's example SFT record, what three fields does it show?",
+            "options": [
+              "system, instruction, and response",
+              "model, gpu, and epochs",
+              "rank, alpha, and dropout",
+              "temperature, top_p, and max_tokens"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's example shows a minimal record with system, instruction, and response fields as the basic shape of an SFT training example.",
+            "id": "q4"
+          },
+          {
+            "question": "According to this lesson, what does 'distillation' refer to in the context of instruction data?",
+            "options": [
+              "Model-generated examples, typically from a stronger model, that are then reviewed and corrected by a human",
+              "Removing all metadata fields from a dataset",
+              "Converting a dataset from JSON to a plain text format",
+              "Reducing a dataset down to a single example"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson defines distillation as generating examples with a (often stronger) model and then having a human review and correct them before use.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does this lesson recommend covering the range of inputs expected in production, not just the easy 80%?",
+            "options": [
+              "Because a dataset skewed toward easy cases doesn't teach the model to handle the harder cases it will actually face",
+              "Because production inputs are always identical to the easiest training examples",
+              "Because covering only easy cases always produces the best possible fine-tuned model",
+              "Because the range of production inputs has no bearing on dataset quality"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's checklist explicitly calls for covering the range of expected inputs, since a dataset skewed toward easy cases won't prepare the model for harder real-world cases.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson warn against letting the dataset schema vary slightly across examples?",
+            "options": [
+              "Because inconsistency is itself a pattern the model will learn just as readily as the content itself",
+              "Because schema consistency has no effect on what the model learns",
+              "Because varying the schema always improves the model's ability to generalize",
+              "Because a consistent schema is only relevant for very large datasets"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is letting structure vary, since the model will pick up on inconsistency as a pattern, just as it would any other trained signal.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson recommend reading actual instruction-response pairs rather than just a summary of the dataset?",
+            "options": [
+              "Because only reading real examples reveals problems that a high-level description or summary would miss",
+              "Because summaries always contain more detailed information than the actual dataset itself",
+              "Because reading real examples is never actually useful for catching dataset problems",
+              "Because dataset summaries are always more accurate than the underlying data"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is trusting a summary instead of reading real examples, since actual samples surface issues a summary can hide.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ft_chat_templates_and_formatting",
+      "title": "Chat Templates and Formatting",
+      "description": "The exact string format a model was trained on matters — get it wrong and training silently underperforms.",
+      "duration": "12 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain what a chat template does and why mismatching it during fine-tuning or inference causes problems."
+          },
+          {
+            "title": "🧾 What a chat template is",
+            "content": "Modern instruction-tuned models are trained with a specific, exact text format for turning a structured conversation (system message, user turns, assistant turns) into the flat token sequence the model actually sees — special tokens marking where each role's turn starts and ends, in a precise order. This is the **chat template**. Two models can have completely different templates even if the underlying architecture is similar, because it's a convention baked in during that model's own instruction tuning.\n\n```python\n# Conceptual chat template application\nmessages = [\n    {\"role\": \"system\", \"content\": \"You are helpful.\"},\n    {\"role\": \"user\", \"content\": \"Hi!\"},\n]\ntext = tokenizer.apply_chat_template(messages, tokenize=False)\n# -> \"<|system|>You are helpful.<|end|><|user|>Hi!<|end|><|assistant|>\"\n```"
+          },
+          {
+            "title": "⚠️ Why mismatches are a silent failure",
+            "content": "If you fine-tune using a different format than the one the base model expects (or than the one you'll use at inference time), the model doesn't error out — it just performs worse, in ways that can be hard to diagnose. It might get confused about turn boundaries, produce outputs formatted oddly, or fail to see the system message as special. This is a very common and very quiet bug: training loss can look fine while real quality quietly suffers, because the model is learning the right content wrapped in an unfamiliar structure."
+          },
+          {
+            "title": "🔧 Getting it right",
+            "content": "Use the exact chat template the base model's documentation or tokenizer config specifies — most tokenizer libraries can apply it programmatically rather than requiring you to hand-format strings, which removes an entire class of formatting bugs. Keep training-time formatting and inference-time formatting identical — if you fine-tune with one template and later serve the model expecting a different one, you'll reintroduce the same silent mismatch. When building multi-turn conversation examples, make sure the template correctly marks which parts of the sequence are the target the model should learn to predict versus the context it's conditioning on."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Hand-formatting chat strings instead of using the tokenizer's built-in template function.** Manual formatting is an easy way to introduce a subtle mismatch with what the model was actually trained on.\n\n**Using one template for training and a different one for serving.** This reintroduces exactly the silent confusion a matched template was supposed to avoid.\n\n**Not checking training loss and template correctness separately.** A reasonable-looking loss curve doesn't rule out a template mismatch — it can mask it entirely."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ft_chat_templates_and_formatting_quiz",
+        "questions": [
+          {
+            "question": "What is a chat template responsible for?",
+            "options": [
+              "Choosing the LoRA rank automatically",
+              "Converting a structured conversation (system/user/assistant turns) into the exact token format the model expects",
+              "Quantizing the model to 4-bit precision",
+              "Selecting which GPU to train on"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A chat template defines the precise text/token structure — including special tokens marking role boundaries — that a model was trained to expect for conversations.",
+            "id": "q1"
+          },
+          {
+            "question": "What typically happens if you fine-tune using a mismatched chat template?",
+            "options": [
+              "Training crashes immediately with a clear error",
+              "The model silently performs worse without an obvious error, since it's learning correct content in an unfamiliar structure",
+              "The model becomes uncompilable",
+              "Nothing — chat templates don't affect training"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Template mismatches are a silent failure mode: training proceeds and loss can look reasonable, but real quality suffers because turn boundaries and roles are confused.",
+            "id": "q2"
+          },
+          {
+            "question": "Why is it important to keep training-time and inference-time chat templates identical?",
+            "options": [
+              "It's required by copyright law",
+              "A mismatch between training and serving format reintroduces the same silent confusion the model was trained to avoid",
+              "It reduces the file size of the model",
+              "It's only relevant for base (non-instruction-tuned) models"
+            ],
+            "correctAnswer": 1,
+            "explanation": "If the model is fine-tuned with one format but served with another, you get the same quiet degradation as training with a mismatched template in the first place.",
+            "id": "q3"
+          },
+          {
+            "question": "In this lesson's code example, what does tokenizer.apply_chat_template(messages, tokenize=False) return?",
+            "options": [
+              "A flat text string with special tokens marking each role's turn",
+              "A trained LoRA adapter",
+              "A numeric loss value",
+              "A completely new model checkpoint"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's example shows apply_chat_template converting structured messages into a flat string like \"<|system|>...<|user|>...<|assistant|>\", with special tokens marking role boundaries.",
+            "id": "q4"
+          },
+          {
+            "question": "Why does this lesson recommend using a tokenizer's built-in template application rather than hand-formatting strings?",
+            "options": [
+              "Because programmatic application removes an entire class of formatting bugs that manual string-building can introduce",
+              "Because hand-formatting always produces a more accurate result than the tokenizer's own function",
+              "Because tokenizers cannot apply chat templates automatically under any circumstances",
+              "Because manual formatting is required for any model to work correctly"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson recommends using the tokenizer's built-in function specifically because it avoids the subtle formatting mistakes that come with manually constructing template strings.",
+            "id": "q5"
+          },
+          {
+            "question": "Why can two models with similar underlying architecture still have completely different chat templates?",
+            "options": [
+              "Because the template is a convention baked in during that specific model's own instruction tuning, not determined by architecture alone",
+              "Because chat templates are always identical across every model regardless of training",
+              "Because architecture alone fully determines a model's chat template with no other factor involved",
+              "Because chat templates only apply to models with different architectures"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explains that the chat template is a convention established during a model's own instruction tuning, so architecturally similar models can still use very different templates.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson warn against training with one chat template and serving the model with a different one?",
+            "options": [
+              "Because this reintroduces exactly the silent confusion a matched template was supposed to avoid",
+              "Because using different templates for training and serving always improves performance",
+              "Because chat templates only matter during training, never during serving",
+              "Because template mismatches always cause an immediate, obvious crash"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is exactly this training/serving template mismatch, which silently reintroduces the same confusion a consistent template avoids.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson caution against relying on training loss alone to catch a chat template mismatch?",
+            "options": [
+              "Because a reasonable-looking loss curve doesn't rule out a template mismatch — it can mask the problem entirely",
+              "Because training loss always reveals a template mismatch immediately and unambiguously",
+              "Because chat template correctness has no relationship to training loss at all",
+              "Because loss curves are impossible to compute when a template mismatch exists"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is treating a fine-looking loss curve as proof of correctness, when a template mismatch can hide behind loss numbers that still look reasonable.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ft_training_loop_and_hyperparameters",
+      "title": "The Training Loop and Key Hyperparameters",
+      "description": "Learning rate, epochs, and batch size aren't just knobs — they encode assumptions about how much your data can teach the model.",
+      "duration": "13 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can explain what learning rate, epoch count, and batch size each control, and recognize signs of overfitting during SFT."
+          },
+          {
+            "title": "📈 Learning rate",
+            "content": "Controls how big a step the optimizer takes toward reducing loss on each update. Too high, and training can be unstable or actively damage the model's existing capabilities (catastrophic forgetting shows up here). Too low, and the model barely adapts at all within a reasonable number of steps. Fine-tuning learning rates are usually much smaller than pretraining learning rates, precisely because you're nudging an already-capable model rather than teaching it from scratch — and PEFT methods like LoRA often use somewhat higher learning rates than full fine-tuning, since only a small set of fresh parameters is being trained.\n\n```python\n# Typical order-of-magnitude starting points\nfull_finetune_lr = 1e-5   # small: nudging an already-capable model\nlora_lr          = 2e-4   # higher: only fresh, small adapter params are trained\n```"
+          },
+          {
+            "title": "🔁 Epochs (how many passes over the data)",
+            "content": "One **epoch** means the model has seen every training example once. Instruction fine-tuning on small, high-quality datasets often needs surprisingly few epochs (sometimes just 1-3) before the model has absorbed the target behavior — training much longer risks memorizing the exact training examples rather than generalizing the underlying skill, which shows up as great performance on training data and poor performance on anything slightly different."
+          },
+          {
+            "title": "📦 Batch size and its trade-offs",
+            "content": "Larger batches give a smoother, more stable gradient estimate per step and better hardware utilization, but need more memory and can sometimes generalize slightly worse without a corresponding learning rate adjustment. Smaller batches use less memory and add useful noise that can sometimes help generalization, but training is noisier and can be slower. **Gradient accumulation** is the common trick that simulates a larger batch size without the memory cost, by summing gradients over several small batches before updating."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Reusing a pretraining-scale learning rate for fine-tuning.** This risks unstable training or catastrophic forgetting — fine-tuning generally needs a much gentler step size.\n\n**Training for many epochs by default 'to be thorough.'** On a small dataset this usually just means memorizing the training examples rather than generalizing.\n\n**Watching only the loss curve and ignoring qualitative output checks.** A model can memorize training examples while its loss still looks reasonable — reading actual generations catches what the number alone misses."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ft_training_loop_and_hyperparameters_quiz",
+        "questions": [
+          {
+            "question": "Why are fine-tuning learning rates usually much smaller than pretraining learning rates?",
+            "options": [
+              "Fine-tuning nudges an already-capable model rather than teaching it from scratch, so large steps risk damaging existing capabilities",
+              "Small learning rates are required by every training framework",
+              "Fine-tuning doesn't use gradient descent",
+              "Learning rate has no effect during fine-tuning"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Since fine-tuning starts from an already-capable model, large learning rate steps risk catastrophic forgetting — smaller, gentler updates are usually appropriate.",
+            "id": "q1"
+          },
+          {
+            "question": "Why might instruction fine-tuning need surprisingly few epochs on a small, high-quality dataset?",
+            "options": [
+              "Because more epochs risk memorizing training examples instead of generalizing the underlying skill",
+              "Because most frameworks only support one epoch",
+              "Because epochs only matter for pretraining, not fine-tuning",
+              "Because small datasets can't be used for more than one epoch technically"
+            ],
+            "correctAnswer": 0,
+            "explanation": "With a small dataset, too many passes leads to memorization of specific examples rather than learning a generalizable skill — a classic overfitting pattern.",
+            "id": "q2"
+          },
+          {
+            "question": "What is the classic sign of overfitting during fine-tuning?",
+            "options": [
+              "Training loss and validation loss both steadily decrease together",
+              "Training loss keeps dropping while validation loss starts rising",
+              "The model refuses to train at all",
+              "GPU memory usage stays constant"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A widening gap where training loss keeps improving but validation loss gets worse is the textbook overfitting signature — the model is memorizing rather than generalizing.",
+            "id": "q3"
+          },
+          {
+            "question": "In this lesson's code example, why is lora_lr set higher than full_finetune_lr?",
+            "options": [
+              "Because only a small set of fresh adapter parameters is being trained with LoRA, unlike full fine-tuning's update to every existing weight",
+              "Because LoRA always requires exactly the same learning rate as full fine-tuning",
+              "Because a higher learning rate is only ever used for pretraining, never fine-tuning",
+              "Because full fine-tuning always uses a higher learning rate than any PEFT method"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code comment explains that LoRA trains only fresh, small adapter parameters, which tolerates a comparatively higher learning rate than nudging every existing weight in full fine-tuning.",
+            "id": "q4"
+          },
+          {
+            "question": "According to this lesson, what does gradient accumulation simulate?",
+            "options": [
+              "A larger batch size, without the memory cost of actually processing a large batch at once",
+              "A smaller learning rate, without changing the optimizer configuration",
+              "A completely different model architecture",
+              "An entirely new training dataset"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson describes gradient accumulation as summing gradients over several small batches before updating, simulating a larger batch size without its memory cost.",
+            "id": "q5"
+          },
+          {
+            "question": "Why can smaller batch sizes sometimes help generalization despite being noisier and slower?",
+            "options": [
+              "Because the added noise in the gradient estimate can sometimes help the model avoid overfitting to a specific narrow pattern",
+              "Because smaller batches always train strictly faster than larger batches",
+              "Because noise in training always harms the final model's quality with no possible benefit",
+              "Because batch size has no relationship to a model's ability to generalize"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson notes that smaller batches add useful noise that can sometimes aid generalization, even though they make training slower and less stable per step than larger batches.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson warn against reusing a pretraining-scale learning rate for fine-tuning?",
+            "options": [
+              "Because this risks unstable training or catastrophic forgetting, since fine-tuning generally needs a much gentler step size",
+              "Because pretraining-scale learning rates are always too small to have any effect during fine-tuning",
+              "Because learning rate has no relationship to catastrophic forgetting or training stability",
+              "Because fine-tuning and pretraining always require exactly the same learning rate"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is using a pretraining-scale learning rate, which is too aggressive for nudging an already-capable model and risks instability or forgetting.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson caution against watching only the loss curve and skipping qualitative output checks?",
+            "options": [
+              "Because a model can memorize training examples while its loss curve still looks reasonable, and only reading real generations catches this",
+              "Because loss curves always perfectly reflect the model's real-world output quality",
+              "Because qualitative checks are never actually useful for catching memorization",
+              "Because loss and generation quality are always identical measurements"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is relying solely on the loss number, when actual generated outputs can reveal memorization or quality issues the loss curve alone doesn't show.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ft_evaluating_a_finetuned_model",
+      "title": "Evaluating a Fine-Tuned Model",
+      "description": "Loss going down doesn't mean the model got better at the thing you actually care about.",
+      "duration": "12 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can design a basic evaluation plan for a fine-tuned model that goes beyond training/validation loss."
+          },
+          {
+            "title": "📉 Why loss isn't enough",
+            "content": "Training and validation loss measure how well the model predicts the exact tokens in your dataset — useful for catching overfitting, but they don't directly measure whether the model is actually better at your real task. A model can have great validation loss and still produce responses that are subtly off-tone, factually shaky, or technically correct but unhelpful in ways loss can't see."
+          },
+          {
+            "title": "🎯 Task-specific automatic metrics",
+            "content": "Where the task allows it, use metrics that check something closer to what you actually care about: exact-match or schema validation for structured output tasks (did it produce valid JSON matching your schema?), classification accuracy if the task is really a classification problem in disguise, or reference-based metrics (like ROUGE or BLEU for summarization-style tasks) understood as rough proxies, not ground truth.\n\n```python\n# A simple schema-validation metric\ndef schema_valid_rate(outputs, schema):\n    valid = sum(1 for o in outputs if validate_json(o, schema))\n    return valid / len(outputs)\n```"
+          },
+          {
+            "title": "👀 Human and LLM-based qualitative review",
+            "content": "Read actual outputs on a held-out set of realistic prompts — not just the easy ones. A structured rubric (does it follow the format? is it factually consistent? is the tone right?) makes this repeatable and comparable across model versions. Using a strong LLM as an automated judge against that rubric can scale this up, but should be periodically spot-checked against real human judgment, since LLM judges have their own blind spots and biases."
+          },
+          {
+            "title": "🧪 Regression testing against the base model",
+            "content": "Always compare the fine-tuned model against the original base model on tasks *outside* the fine-tuning distribution too — general knowledge questions, basic instruction-following, safety behaviors. This catches catastrophic forgetting or unintended side effects the fine-tuning introduced, which a narrow task-specific eval would never surface."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Treating validation loss as the finish line.** It's a useful signal for overfitting, not a direct measure of whether the model is better at the task you actually care about.\n\n**Skipping regression testing against the base model.** Without it, catastrophic forgetting or unintended side effects can ship unnoticed.\n\n**Trusting an LLM judge without ever spot-checking against human judgment.** LLM judges have their own blind spots, and unchecked automation can quietly drift from what actually matters."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ft_evaluating_a_finetuned_model_quiz",
+        "questions": [
+          {
+            "question": "Why isn't validation loss alone a sufficient measure of fine-tuning success?",
+            "options": [
+              "Validation loss can't be computed for fine-tuned models",
+              "It measures next-token prediction accuracy on your dataset, not whether the model is better at the real task you care about",
+              "Validation loss always equals zero after fine-tuning",
+              "It's the only metric that matters"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Loss is a proxy for token-level prediction, not a direct measure of task quality — a model can have good loss and still be subtly wrong, off-tone, or unhelpful in ways loss doesn't capture.",
+            "id": "q1"
+          },
+          {
+            "question": "What is a key benefit of using a structured rubric for human or LLM-based review?",
+            "options": [
+              "It eliminates the need for any held-out data",
+              "It makes qualitative evaluation repeatable and comparable across model versions",
+              "It automatically fixes any quality issues found",
+              "It replaces the need for a base model comparison"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A consistent rubric turns subjective review into something structured and comparable over time, rather than ad hoc impressions that vary reviewer to reviewer.",
+            "id": "q2"
+          },
+          {
+            "question": "Why should you test a fine-tuned model on tasks outside the fine-tuning distribution, not just the target task?",
+            "options": [
+              "To make the evaluation take longer",
+              "To catch catastrophic forgetting or unintended side effects that a narrow task-specific eval wouldn't surface",
+              "Because it's required by most training frameworks",
+              "Because base models can't be evaluated at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A model that looks great on the fine-tuning task can quietly regress on general capabilities — comparing against the base model on out-of-distribution tasks catches that.",
+            "id": "q3"
+          },
+          {
+            "question": "In this lesson's code example, what does schema_valid_rate compute?",
+            "options": [
+              "The fraction of outputs that pass JSON schema validation",
+              "The average training loss across all epochs",
+              "The total number of parameters in the LoRA adapter",
+              "The exact learning rate used during training"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example shows schema_valid_rate dividing the count of schema-valid outputs by the total number of outputs, a task-specific automatic metric.",
+            "id": "q4"
+          },
+          {
+            "question": "Why does this lesson describe metrics like ROUGE or BLEU as 'rough proxies, not ground truth'?",
+            "options": [
+              "Because these reference-based metrics only approximate quality and don't perfectly capture what actually makes an output good",
+              "Because ROUGE and BLEU always perfectly measure a model's true task performance",
+              "Because these metrics can only ever be computed for image generation tasks",
+              "Because reference-based metrics are completely unrelated to output quality"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explicitly frames ROUGE/BLEU-style metrics as rough proxies, useful signals but not a perfect stand-in for genuine output quality.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does this lesson recommend periodically spot-checking an LLM-as-judge against real human judgment?",
+            "options": [
+              "Because LLM judges have their own blind spots and biases that unchecked automation could otherwise drift into",
+              "Because LLM judges are always more reliable than human judgment in every case",
+              "Because human review is technically impossible once an LLM judge is set up",
+              "Because spot-checking has no effect on the reliability of an LLM-based evaluation"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explains that LLM judges can scale review but carry their own blind spots, so periodic human spot-checks keep the automated judging honest.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson warn against treating validation loss as the finish line for evaluation?",
+            "options": [
+              "Because it's a useful signal for overfitting, not a direct measure of whether the model is better at the task you actually care about",
+              "Because validation loss always perfectly predicts real-world task performance",
+              "Because validation loss is completely unrelated to overfitting",
+              "Because loss-based evaluation should be the only step in any evaluation plan"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is stopping at validation loss, when it only signals overfitting risk rather than directly measuring real task quality.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson call skipping regression testing against the base model a mistake?",
+            "options": [
+              "Because without it, catastrophic forgetting or unintended side effects can ship unnoticed",
+              "Because regression testing against the base model is never actually useful for catching any problems",
+              "Because the base model can never be meaningfully compared to a fine-tuned version",
+              "Because catastrophic forgetting is impossible to detect through any evaluation method"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is skipping the base-model comparison, since that comparison is specifically what surfaces forgetting or side effects a narrow task eval would miss.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

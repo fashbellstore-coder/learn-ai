@@ -1,0 +1,543 @@
+{
+  "id": "module_2",
+  "title": "Cleaning Data",
+  "description": "The essential cleanup skills: handling missing values thoughtfully, spotting outliers, removing duplicates, and fixing data type problems.",
+  "icon": "🧹",
+  "color": "#00838F",
+  "order": 2,
+  "estimatedHours": 2,
+  "difficulty": "Beginner",
+  "prerequisites": [
+    "module_1"
+  ],
+  "lessons": [
+    {
+      "id": "ds_missing_values",
+      "title": "Handling Missing Values",
+      "description": "Learn how to find missing data, understand why it's missing, and decide what to do about it.",
+      "duration": "9 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can detect missing values in a dataset and choose an appropriate strategy for handling them."
+          },
+          {
+            "title": "🔎 Finding missing values",
+            "content": "Pandas represents missing data as `NaN` (Not a Number). Find it with `.isna()`.\n\n```python\nimport pandas as pd\n\ndf = pd.DataFrame({\"age\": [25, None, 42], \"city\": [\"Lahore\", \"Karachi\", None]})\n\nprint(df.isna().sum())\n# age     1\n# city    1\n# dtype: int64\n```\n\n`.isna().sum()` is one of the fastest ways to get a per-column count of how much data is missing."
+          },
+          {
+            "title": "🤔 Why is it missing? (This matters more than how)",
+            "content": "Before deciding what to do, ask *why* the data is missing:\n\n• **Missing completely at random** — a sensor glitch, no pattern (safest to fill or drop)\n• **Missing for a reason related to the data itself** — customers who didn't buy anything might have no \"last purchase date\" *because* they never purchased — that absence is informative, not noise!\n\nTreating meaningful absence the same as random noise throws away a real signal."
+          },
+          {
+            "title": "🛠️ Common strategies",
+            "content": "There's no single correct answer — it depends on the situation:\n\n```python\n# Drop rows with any missing values\ndf.dropna()\n\n# Fill with a specific value\ndf[\"age\"].fillna(0)\n\n# Fill with the column's mean (common for numeric data)\ndf[\"age\"].fillna(df[\"age\"].mean())\n\n# Add a flag column marking where data was missing, before filling it\ndf[\"age_was_missing\"] = df[\"age\"].isna()\ndf[\"age\"] = df[\"age\"].fillna(df[\"age\"].mean())\n```\n\n• Dropping loses information — fine if missingness is rare and random\n• Filling with the mean/median keeps the row but can understate spread\n• A missing-indicator flag preserves the *fact* that something was missing, even after filling"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Filling missing values before asking why they're missing.** If absence is meaningful, filling it in erases a real signal.\n\n**Dropping large amounts of data without checking how much you're losing.** `.dropna()` on a dataset where 40% of rows have some missing value can throw away most of your data.\n\n**Filling with the mean/median without adding a missingness flag when it might matter.** You lose the information that the value was originally unknown."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ds_missing_values_quiz",
+        "questions": [
+          {
+            "question": "What does `df.isna().sum()` show you?",
+            "options": [
+              "The total number of rows in the DataFrame",
+              "The count of missing values per column",
+              "The mean of every numeric column",
+              "Whether the DataFrame is empty"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`.isna()` produces a True/False grid where True marks missing values, and `.sum()` adds those up per column, giving a missing-value count for each.",
+            "id": "q1"
+          },
+          {
+            "question": "Why might a missing \"last purchase date\" be meaningful rather than random?",
+            "options": [
+              "It's always a data entry error",
+              "It could indicate the customer never made a purchase — the absence itself is informative",
+              "Missing dates are always safe to fill with today's date",
+              "There's no way missing data can be meaningful"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Sometimes missingness itself carries a signal — here, a blank field might mean \"this event never happened,\" which is very different from a random data gap.",
+            "id": "q2"
+          },
+          {
+            "question": "What's the benefit of adding a missing-indicator flag before filling in a value?",
+            "options": [
+              "It speeds up the fillna() operation",
+              "It preserves the information that a value was originally unknown, even after it's filled in",
+              "It removes the need to fill missing values at all",
+              "It automatically fixes data entry errors"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Filling a missing value with the mean makes the row usable, but it erases the fact that the value was unknown — an indicator column keeps that information available to a later model or analysis.",
+            "id": "q3"
+          },
+          {
+            "question": "What does `df['col'].fillna(0)` do?",
+            "options": [
+              "Deletes all rows with missing values in that column",
+              "Replaces missing values in that column with 0",
+              "Removes the column entirely",
+              "Counts how many values are missing"
+            ],
+            "correctAnswer": 1,
+            "explanation": "fillna() replaces missing (NaN) entries with a specified value — here, filling gaps in the column with 0.",
+            "id": "q4"
+          },
+          {
+            "question": "What's a risk of using `dropna()` too aggressively?",
+            "options": [
+              "It's always completely safe with no downside",
+              "It can discard a large portion of your dataset if many rows have at least one missing value somewhere",
+              "dropna() only removes columns, never rows",
+              "It automatically fixes the underlying data quality issue"
+            ],
+            "correctAnswer": 1,
+            "explanation": "If missing values are scattered across many columns, dropping every row with any missing value can throw away far more data than necessary.",
+            "id": "q5"
+          },
+          {
+            "question": "What are the three broad strategies for handling missing values mentioned as common approaches?",
+            "options": [
+              "Ignore, hide, and rename",
+              "Drop the rows/columns, impute a value, or flag that it was missing",
+              "Convert everything to text",
+              "Always fill with zero"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Common strategies include dropping incomplete rows or columns, imputing a reasonable substitute value, or adding a flag noting the value was originally missing.",
+            "id": "q6"
+          },
+          {
+            "question": "Why might you choose the median over the mean when imputing a missing numeric value?",
+            "options": [
+              "The median is always required by pandas",
+              "The median is less sensitive to outliers, so it can give a more representative fill value for skewed data",
+              "The mean can't be computed if any value is missing",
+              "There's no meaningful difference between them"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Because extreme outliers pull the mean away from the 'typical' value, the median often gives a more robust and representative choice for imputation in skewed data.",
+            "id": "q7"
+          },
+          {
+            "question": "Why is it useful to check the percentage of missing values per column, not just the raw count?",
+            "options": [
+              "Raw counts are always more informative than percentages",
+              "A percentage puts the missingness in context — 50 missing values means something very different in a 100-row dataset versus a 1,000,000-row dataset",
+              "Percentages can't be computed for missing data",
+              "It's not useful — only totals matter"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A count alone doesn't reveal severity — the same number of missing values represents a minor issue in a huge dataset but a major one in a small one, which the percentage makes clear.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ds_outliers",
+      "title": "Finding and Handling Outliers",
+      "description": "Learn how to spot unusually extreme values and decide whether they're errors or real signal.",
+      "duration": "9 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can identify outliers using summary statistics and explain the tradeoffs in different ways of handling them."
+          },
+          {
+            "title": "🎯 What counts as an outlier?",
+            "content": "An **outlier** is a value that's unusually far from the rest of the data. Outliers aren't automatically \"wrong\" — sometimes they're the most important rows in the dataset (like a fraudulent transaction, or a record-breaking sale).\n\nThe key question isn't just \"is this extreme?\" but \"is this extreme value an error, or a real, important observation?\""
+          },
+          {
+            "title": "📏 A common way to detect them: IQR",
+            "content": "The **interquartile range (IQR)** method flags values far outside the \"typical\" middle range of the data.\n\n```python\nimport pandas as pd\n\ndf = pd.DataFrame({\"price\": [10, 12, 11, 13, 9, 500]})\n\nq1 = df[\"price\"].quantile(0.25)\nq3 = df[\"price\"].quantile(0.75)\niqr = q3 - q1\n\nlower = q1 - 1.5 * iqr\nupper = q3 + 1.5 * iqr\n\noutliers = df[(df[\"price\"] < lower) | (df[\"price\"] > upper)]\nprint(outliers)   # flags the 500\n```\n\n1.5×IQR beyond the 25th/75th percentile is a common, if somewhat arbitrary, rule of thumb."
+          },
+          {
+            "title": "⚖️ Deciding what to do",
+            "content": "Once flagged, you have a few options, and the right one depends on *why* the outlier exists:\n\n• **It's a data entry error** (age = 999) → fix or drop it\n• **It's real but you want to reduce its influence** → cap it at a reasonable maximum (called **winsorizing**)\n• **It's the exact thing you're trying to detect** (fraud, a rare disease) → keep it, and make sure your analysis doesn't accidentally throw it away"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Automatically deleting every flagged outlier.** Some outliers are the most valuable rows in the dataset — always investigate before deleting.\n\n**Using the mean to check for outliers.** The mean itself gets pulled by outliers — the IQR method (based on the median-adjacent quartiles) is more robust.\n\n**Applying the same outlier rule to every column blindly.** A reasonable range for \"age\" is very different from a reasonable range for \"annual revenue\" — think about each column's real-world meaning."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ds_outliers_quiz",
+        "questions": [
+          {
+            "question": "Why shouldn't outliers automatically be deleted from a dataset?",
+            "options": [
+              "Outliers are always data entry errors",
+              "Some outliers represent the exact phenomenon you're trying to study, like fraud or rare events",
+              "Deleting rows is technically impossible in pandas",
+              "Outliers never affect analysis results"
+            ],
+            "correctAnswer": 1,
+            "explanation": "An outlier might be a genuine, important observation (like a fraudulent transaction) rather than an error — deleting it without investigating could throw away the most important data point.",
+            "id": "q1"
+          },
+          {
+            "question": "What does the IQR outlier method use as its reference range?",
+            "options": [
+              "The full range from minimum to maximum",
+              "The spread between the 25th and 75th percentiles",
+              "Only the mean and standard deviation",
+              "The first and last rows of the dataset"
+            ],
+            "correctAnswer": 1,
+            "explanation": "IQR (interquartile range) is Q3 minus Q1 — the spread of the middle 50% of the data — and typical outlier bounds extend 1.5×IQR beyond Q1 and Q3.",
+            "id": "q2"
+          },
+          {
+            "question": "What does \"winsorizing\" a value mean?",
+            "options": [
+              "Deleting the row entirely",
+              "Capping an extreme value at a reasonable maximum or minimum instead of removing it",
+              "Converting the value to a missing value",
+              "Rounding the value to the nearest integer"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Winsorizing keeps the row but limits how extreme its value can be, reducing the outlier's influence while preserving the rest of the row's information.",
+            "id": "q3"
+          },
+          {
+            "question": "Besides IQR, what's another common way to detect outliers?",
+            "options": [
+              "Counting the number of columns",
+              "Using a z-score threshold, flagging values many standard deviations from the mean",
+              "Sorting the data alphabetically",
+              "Checking the file size"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The z-score method flags values based on how many standard deviations they are from the mean, offering a different way to catch extreme points than IQR.",
+            "id": "q4"
+          },
+          {
+            "question": "What's the difference between an outlier caused by a data entry error and a legitimate extreme value?",
+            "options": [
+              "There's no meaningful difference — treat them identically",
+              "An entry error is a mistake to fix or remove, while a legitimate extreme value is a real, valid observation worth investigating rather than discarding",
+              "Legitimate extreme values never occur in real datasets",
+              "Entry errors are always larger than legitimate extremes"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A typo like an age of 200 is a data quality issue to fix, but a genuinely enormous but real transaction amount is valid information that shouldn't be casually discarded.",
+            "id": "q5"
+          },
+          {
+            "question": "How can a box plot help with outlier detection?",
+            "options": [
+              "It cannot be used for that purpose",
+              "Points plotted beyond the whiskers visually highlight potential outliers based on the IQR range",
+              "It only shows the mean value",
+              "It requires the data to have no missing values first"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A box plot visually marks points outside the whisker range (typically based on IQR) as individual dots, making outliers easy to spot at a glance.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does domain knowledge matter when deciding what to do with an outlier?",
+            "options": [
+              "Domain knowledge is irrelevant to statistical decisions",
+              "Only someone familiar with the data's context can judge whether an extreme value is a real event worth keeping or a data problem worth fixing",
+              "Outlier decisions should always be made purely by statistical formulas",
+              "Domain knowledge only matters for categorical columns"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Statistics alone can flag a value as unusual, but understanding the real-world context is what tells you whether it's meaningful signal or a mistake.",
+            "id": "q7"
+          },
+          {
+            "question": "What's the tradeoff between capping (winsorizing) an outlier versus removing it entirely?",
+            "options": [
+              "There is no tradeoff — capping is always strictly better",
+              "Capping keeps the row (and its other column values) while reducing the extreme value's influence, whereas removing the row discards all of its information",
+              "Removing a row always preserves more information than capping",
+              "Capping can only be applied to categorical data"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Capping lets you retain the rest of that row's data while limiting the extreme value's distortion, while outright removal loses everything else in that row too.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ds_duplicates_consistency",
+      "title": "Duplicates and Data Consistency",
+      "description": "Learn how to catch duplicate records and inconsistent category labels before they distort your analysis.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can detect and remove duplicate rows and standardize inconsistent category values."
+          },
+          {
+            "title": "👯 Finding duplicate rows",
+            "content": "Duplicate rows can sneak in from double data entry, merging datasets, or a buggy data pipeline.\n\n```python\nimport pandas as pd\n\ndf = pd.DataFrame({\n    \"name\": [\"Ana\", \"Bo\", \"Ana\"],\n    \"age\": [25, 31, 25],\n})\n\nprint(df.duplicated())        # [False, False, True]\nprint(df.duplicated().sum())  # 1\n\ndf_clean = df.drop_duplicates()\n```\n\nBy default, `.duplicated()` flags a row as a duplicate only if *every* column matches an earlier row exactly."
+          },
+          {
+            "title": "🎯 Duplicates on a subset of columns",
+            "content": "Sometimes \"duplicate\" means something narrower — like two rows sharing the same customer ID, even if other columns differ (perhaps due to an update).\n\n```python\n# Consider rows duplicates if they share the same customer_id,\n# and keep only the most recent one\ndf.drop_duplicates(subset=\"customer_id\", keep=\"last\")\n```"
+          },
+          {
+            "title": "🔤 Inconsistent category labels",
+            "content": "The same category is often written multiple inconsistent ways: \"USA\", \"U.S.A.\", \"United States\", \"usa\". Pandas treats each spelling as a *different* category unless you clean it up.\n\n```python\ndf[\"country\"] = df[\"country\"].str.strip().str.lower()\ndf[\"country\"] = df[\"country\"].replace({\n    \"usa\": \"united states\",\n    \"u.s.a.\": \"united states\",\n})\n```\n\nAlways check `.value_counts()` on categorical columns early — it's the fastest way to spot messy, inconsistent labels."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Not checking `.value_counts()` on category columns before analyzing.** Inconsistent labels silently split what should be one group into several smaller ones.\n\n**Removing duplicates without deciding which one to keep.** If duplicate rows differ slightly (like an updated address), `keep=\"first\"` vs `keep=\"last\"` gives very different results.\n\n**Assuming `.duplicated()` catches near-duplicates.** It only flags exact matches — a typo like \"Lahroe\" instead of \"Lahore\" won't be caught automatically."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ds_duplicates_consistency_quiz",
+        "questions": [
+          {
+            "question": "By default, when does `.duplicated()` flag a row as a duplicate?",
+            "options": [
+              "When any single column matches an earlier row",
+              "When every column exactly matches an earlier row",
+              "When the row is the first occurrence of its values",
+              "It never flags anything by default"
+            ],
+            "correctAnswer": 1,
+            "explanation": "By default, pandas considers a row a duplicate of an earlier one only when all columns match exactly — you can narrow this with the `subset` parameter.",
+            "id": "q1"
+          },
+          {
+            "question": "Why is `.value_counts()` useful on a categorical column?",
+            "options": [
+              "It computes the mean of the column",
+              "It quickly reveals inconsistent labels, like \"USA\" and \"usa\" being counted as separate categories",
+              "It removes missing values automatically",
+              "It only works on numeric columns"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`.value_counts()` shows every distinct value and its frequency, making it easy to spot when the same real-world category is split across multiple inconsistent spellings.",
+            "id": "q2"
+          },
+          {
+            "question": "What's the risk of blindly running `drop_duplicates()` without deciding which duplicate to keep?",
+            "options": [
+              "There is no risk — it always keeps the correct row",
+              "If duplicate rows have slightly different values (like an updated field), you might keep outdated or wrong information",
+              "It deletes the entire DataFrame",
+              "It only works on numeric columns"
+            ],
+            "correctAnswer": 1,
+            "explanation": "When \"duplicate\" rows aren't perfectly identical (e.g. one has an updated address), which one `drop_duplicates()` keeps by default matters — worth checking `keep=\"first\"` vs `keep=\"last\"` deliberately.",
+            "id": "q3"
+          },
+          {
+            "question": "What does passing `subset=['email']` to `.duplicated()` do?",
+            "options": [
+              "It ignores the email column entirely",
+              "It flags rows as duplicates based only on matching email values, ignoring other columns",
+              "It deletes the email column",
+              "It has no effect — subset is not a valid parameter"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The subset parameter restricts the duplicate check to specific columns, so rows are flagged as duplicates if just those columns match, regardless of the rest.",
+            "id": "q4"
+          },
+          {
+            "question": "How would you standardize inconsistent capitalization in a category column, like 'USA' vs 'usa'?",
+            "options": [
+              "df['col'] = df['col'].str.lower()",
+              "df['col'].capitalize_all()",
+              "This can't be fixed programmatically",
+              "df.fix_case('col')"
+            ],
+            "correctAnswer": 0,
+            "explanation": "Applying `.str.lower()` (or `.str.upper()`) normalizes the casing across all values, so variants that should match actually do.",
+            "id": "q5"
+          },
+          {
+            "question": "What does the `keep` parameter in `drop_duplicates()` control?",
+            "options": [
+              "Whether to keep the DataFrame in memory",
+              "Which of the duplicate rows to retain — the first occurrence, the last, or none of them",
+              "Whether duplicates are counted or removed",
+              "It has no effect on drop_duplicates()"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`keep='first'`, `keep='last'`, or `keep=False` determines which duplicate row (if any) survives when duplicates are removed.",
+            "id": "q6"
+          },
+          {
+            "question": "What's a common, easy-to-miss source of near-duplicate rows?",
+            "options": [
+              "Rows with different numeric values",
+              "Extra whitespace or inconsistent formatting in text fields, making values look different even though they represent the same thing",
+              "Rows with no missing values",
+              "Rows sorted in a different order"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Trailing spaces, inconsistent capitalization, or slightly different formatting can make two rows that represent the same real-world thing appear as distinct values to pandas.",
+            "id": "q7"
+          },
+          {
+            "question": "Why should deduplication typically happen before aggregation (like groupby)?",
+            "options": [
+              "Deduplication always happens automatically during aggregation",
+              "Duplicate rows would otherwise be counted multiple times, inflating sums, counts, and averages",
+              "Order doesn't matter — the results are always identical either way",
+              "Aggregation functions ignore duplicate rows automatically"
+            ],
+            "correctAnswer": 1,
+            "explanation": "If duplicates remain when you sum or average, each duplicated row contributes extra weight to the result, skewing the aggregation.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ds_dtype_pitfalls",
+      "title": "Data Type Conversion Pitfalls",
+      "description": "Learn the common ways data types quietly go wrong, and how to fix them safely.",
+      "duration": "8 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "By the end of this lesson, you can convert columns to the correct data type and recognize common conversion pitfalls."
+          },
+          {
+            "title": "🔄 Converting types with astype and to_numeric",
+            "content": "```python\nimport pandas as pd\n\ndf = pd.DataFrame({\"price\": [\"10\", \"20\", \"30\"]})\n\ndf[\"price\"] = df[\"price\"].astype(float)\nprint(df.dtypes)  # price float64\n```\n\nFor messier numeric-looking text (with stray characters), `pd.to_numeric(..., errors=\"coerce\")` is safer — it turns anything it can't convert into `NaN` instead of crashing."
+          },
+          {
+            "title": "📅 Dates need explicit conversion too",
+            "content": "Dates loaded from a file are usually plain text until you convert them.\n\n```python\ndf[\"signup_date\"] = pd.to_datetime(df[\"signup_date\"])\n\n# Now date-aware operations work:\ndf[\"signup_year\"] = df[\"signup_date\"].dt.year\n```\n\nWithout this conversion, you can't sort dates correctly, extract the year/month, or compute date differences — pandas would just treat them as arbitrary strings."
+          },
+          {
+            "title": "💰 Currency and formatted numbers",
+            "content": "Numbers formatted for humans (\"$1,200.50\") need cleanup before they can become numeric.\n\n```python\ndf[\"amount\"] = (\n    df[\"amount\"]\n    .str.replace(\"$\", \"\", regex=False)\n    .str.replace(\",\", \"\", regex=False)\n    .astype(float)\n)\n```"
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Assuming a column is numeric just because the values look like numbers.** If it was loaded as text, sorting and math will behave unexpectedly (\"9\" > \"10\" alphabetically!) until it's explicitly converted.\n\n**Using `.astype()` on messy data and getting a crash.** `pd.to_numeric(..., errors=\"coerce\")` is more forgiving when some values genuinely aren't convertible.\n\n**Forgetting to convert dates, then trying to sort or filter by them.** Text-typed \"dates\" sort alphabetically, not chronologically — \"2024-02-01\" would sort before \"2023-12-01\" as plain text."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "ds_dtype_pitfalls_quiz",
+        "questions": [
+          {
+            "question": "Why would sorting a text-typed numeric column give a surprising order, like \"9\" appearing after \"10\"?",
+            "options": [
+              "Pandas has a sorting bug",
+              "Text is sorted character by character (alphabetically), not by numeric value, until the column is converted to a numeric type",
+              "This never actually happens",
+              "Only string columns can be sorted"
+            ],
+            "correctAnswer": 1,
+            "explanation": "As text, \"10\" comes before \"9\" alphabetically because '1' sorts before '9' character by character — converting the column to numeric fixes this by sorting on actual values.",
+            "id": "q1"
+          },
+          {
+            "question": "What advantage does `pd.to_numeric(col, errors=\"coerce\")` have over `.astype(float)`?",
+            "options": [
+              "It's faster to type",
+              "It converts unconvertible values to NaN instead of raising an error and crashing",
+              "It automatically removes missing values",
+              "There is no difference"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`errors=\"coerce\"` gracefully turns values that can't be converted into NaN, letting the rest of the column convert successfully instead of the whole operation failing.",
+            "id": "q2"
+          },
+          {
+            "question": "Why do dates loaded from a CSV usually need explicit conversion with `pd.to_datetime()`?",
+            "options": [
+              "CSV files can't contain dates at all",
+              "Without conversion, pandas treats them as plain text, which breaks chronological sorting and date-based calculations",
+              "It's purely optional and never causes issues",
+              "Dates are automatically detected and converted on load"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Dates read from a file default to text (object) type — converting with `pd.to_datetime()` unlocks correct chronological sorting, filtering, and date-part extraction like `.dt.year`.",
+            "id": "q3"
+          },
+          {
+            "question": "What's the risk of using `.astype(int)` on a column of decimal values like 4.9?",
+            "options": [
+              "It rounds to the nearest integer, 5",
+              "It truncates toward zero, silently turning 4.9 into 4 rather than rounding",
+              "It raises an error for any non-integer value",
+              "It converts the value to a string instead"
+            ],
+            "correctAnswer": 1,
+            "explanation": "astype(int) truncates rather than rounds, so 4.9 becomes 4 — a subtle source of small but systematic errors if rounding was actually intended.",
+            "id": "q4"
+          },
+          {
+            "question": "How would you convert a column of 'Yes'/'No' strings into actual boolean True/False values?",
+            "options": [
+              "astype(bool) directly, which works automatically",
+              "Mapping the values explicitly, e.g. df['col'].map({'Yes': True, 'No': False})",
+              "This conversion isn't possible in pandas",
+              "Using pd.to_numeric()"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Explicitly mapping each string to its boolean equivalent avoids astype(bool)'s pitfall of treating any non-empty string as True.",
+            "id": "q5"
+          },
+          {
+            "question": "Why might leading zeros disappear from a product code column, like '007', if it's loaded as a numeric type?",
+            "options": [
+              "Leading zeros are preserved automatically in every case",
+              "Numeric types don't preserve leading zeros, since 007 and 7 represent the same number",
+              "Pandas always keeps codes as text automatically",
+              "This only happens with negative numbers"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Because a numeric type only stores the numeric value, not its original text formatting, a code like '007' loaded as a number becomes 7, losing the leading zeros.",
+            "id": "q6"
+          },
+          {
+            "question": "How do you check the data type of every column in a DataFrame at once?",
+            "options": [
+              "df.types",
+              "df.dtypes",
+              "df.check_types()",
+              "type(df)"
+            ],
+            "correctAnswer": 1,
+            "explanation": "`.dtypes` returns the data type of each column in the DataFrame, letting you spot type mismatches quickly.",
+            "id": "q7"
+          },
+          {
+            "question": "Why do currency values like \"$1,200\" typically need string cleanup before converting to numeric?",
+            "options": [
+              "They don't — pd.to_numeric() handles currency symbols automatically",
+              "The dollar sign and comma make the value a non-numeric string, so those characters must be stripped before conversion will succeed",
+              "Currency values can never be converted to numbers",
+              "Only negative currency values need cleanup"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Characters like $ and , aren't valid parts of a number, so they need to be removed (e.g. with .str.replace()) before pd.to_numeric() or astype(float) can parse the value.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}

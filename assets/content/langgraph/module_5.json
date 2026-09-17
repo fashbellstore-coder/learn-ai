@@ -1,0 +1,555 @@
+{
+  "id": "lg_production",
+  "title": "Building Production LangGraph Applications",
+  "description": "Implementing multi-agent orchestration patterns as graphs, composing subgraphs, deployment considerations, and the common LangGraph mistakes to check for before shipping.",
+  "icon": "🚀",
+  "color": "#00ACC1",
+  "order": 5,
+  "estimatedHours": 5,
+  "difficulty": "advanced",
+  "prerequisites": [
+    "lg_human_in_the_loop"
+  ],
+  "lessons": [
+    {
+      "id": "lg_multi_agent_graphs",
+      "title": "Implementing Multi-Agent Patterns in LangGraph",
+      "description": "The supervisor, pipeline, and peer-to-peer patterns from the Agents course map onto specific, buildable LangGraph shapes.",
+      "duration": "13 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Sketch how each of the Agents course's orchestration patterns (supervisor, pipeline, peer-to-peer) would be structured as a LangGraph graph."
+          },
+          {
+            "title": "👑 Supervisor pattern as a graph",
+            "content": "A supervisor node's routing function inspects the current state (usually the task and what's happened so far) and conditionally routes to one of several specialist nodes, each of which does its work and routes back to the supervisor node — directly implementing the Agents course's supervisor pattern, with the supervisor's dynamic routing decision now expressed as an explicit conditional edge rather than logic buried inside a monolithic dispatcher function.\n\n```python\ngraph.add_conditional_edges(\"supervisor\", route_to_specialist)  # \"research\", \"pricing\", or END\ngraph.add_edge(\"research\", \"supervisor\")   # specialists route back\ngraph.add_edge(\"pricing\", \"supervisor\")\n```"
+          },
+          {
+            "title": "🔗 Pipeline pattern as a graph",
+            "content": "A straightforward sequence of fixed edges connecting specialist nodes in a set order — outline node, then draft node, then edit node — which is really just the fixed-edge case from the graph fundamentals module, applied with each node representing a different specialized agent rather than a step of a single agent's reasoning."
+          },
+          {
+            "title": "🤝 Peer-to-peer as a graph",
+            "content": "Two (or more) specialist nodes with a conditional edge between them that keeps routing back and forth until some condition is met (a critic node approves, or a maximum-rounds limit per the multi-agent failure-modes lesson is reached) — this is a cycle, exactly like the single-agent reasoning loop from earlier in this course, just with two different specialized nodes trading control instead of one node looping back to itself."
+          },
+          {
+            "title": "🎯 Shared state across agent nodes",
+            "content": "In all three patterns, the state schema design principles from earlier in this course apply directly: what does each specialist node need to see from the others (their outputs, relevant context) versus what should stay local to one node's own working process — and handoff quality (from the Agents course's handoff lesson) becomes a question of what specifically gets included in the shared state each specialist node reads from, made concrete as actual schema fields rather than an abstract design principle."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Having specialist nodes route directly to each other in a supervisor pattern instead of back through the supervisor.** This defeats the point of centralizing routing decisions — the supervisor pattern's value comes from keeping the dynamic routing logic in one place, not scattering it across specialist nodes.\n\n**Building a peer-to-peer cycle between agent nodes with no round limit.** This is the same coordination-loop risk the Agents course's multi-agent failure-modes lesson warned about — a critic and writer trading control needs an external bound just as much as a single agent's reasoning loop does.\n\n**Treating every specialist node's full internal state as something the other specialists need to see.** Following this lesson's own guidance, only the outputs and relevant context genuinely needed by other nodes belong in shared state — dumping everything in defeats the schema design principles from earlier in this course."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "lg_multi_agent_graphs_quiz",
+        "questions": [
+          {
+            "question": "How is the supervisor pattern from the Agents course implemented as a LangGraph structure?",
+            "options": [
+              "As a single node with no conditional edges at all",
+              "A supervisor node's routing function conditionally routes to specialist nodes, which route back to the supervisor after their work",
+              "As a fixed pipeline with no branching",
+              "It cannot be implemented in LangGraph"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The supervisor's dynamic routing decision becomes an explicit conditional edge, directly mapping the Agents course's abstract pattern onto concrete graph structure.",
+            "id": "q1"
+          },
+          {
+            "question": "What graph structure implements the peer-to-peer orchestration pattern?",
+            "options": [
+              "A single fixed edge with no cycle",
+              "A cycle — a conditional edge routing back and forth between two or more specialist nodes until a condition or round limit is met",
+              "A graph with no nodes at all",
+              "The peer-to-peer pattern cannot be expressed as a graph"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Peer-to-peer coordination is a cycle between specialist nodes, structurally identical to the single-agent reasoning loop but with two different nodes trading control.",
+            "id": "q2"
+          },
+          {
+            "question": "How does handoff quality from the Agents course become concrete in a multi-agent LangGraph implementation?",
+            "options": [
+              "Handoffs become irrelevant once a graph is used",
+              "It becomes a question of what specific fields are included in the shared state each specialist node reads from",
+              "Handoff quality can only be addressed outside of LangGraph entirely",
+              "Handoffs require a completely separate framework from LangGraph"
+            ],
+            "correctAnswer": 1,
+            "explanation": "The abstract idea of a good handoff turns into a concrete state-schema design decision: what shared state fields actually carry the context a receiving specialist node needs.",
+            "id": "q3"
+          },
+          {
+            "question": "In this lesson's code example, what does graph.add_conditional_edges(\"supervisor\", route_to_specialist) enable?",
+            "options": [
+              "The supervisor node to dynamically route to \"research\", \"pricing\", or END based on the routing function's decision",
+              "A fixed, unconditional edge from supervisor straight to research every time",
+              "The deletion of the supervisor node from the graph",
+              "A cycle directly between research and pricing with no supervisor involved"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example shows the supervisor's conditional edges routing to different specialist options or ending, directly implementing dynamic routing as explicit graph structure.",
+            "id": "q4"
+          },
+          {
+            "question": "In this lesson's code example, what do the edges from research and pricing back to supervisor accomplish?",
+            "options": [
+              "They route control back to the supervisor after each specialist finishes its work, keeping routing decisions centralized",
+              "They permanently end the graph's execution",
+              "They create a peer-to-peer cycle directly between research and pricing",
+              "They delete the supervisor node once a specialist has run"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example uses add_edge to route both specialist nodes back to the supervisor, reflecting the pattern where specialists don't need to know about each other directly.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does this lesson say the peer-to-peer graph pattern is 'exactly like the single-agent reasoning loop... just with two different specialized nodes'?",
+            "options": [
+              "Because both are structurally a cycle — the difference is which node(s) trade control back and forth, not the presence of a cycle itself",
+              "Because peer-to-peer patterns never actually involve any form of looping",
+              "Because single-agent reasoning loops cannot be represented as cycles in LangGraph",
+              "Because peer-to-peer and supervisor patterns are functionally identical"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson draws this comparison to highlight that a cycle is a cycle structurally, whether it's one node looping back to itself or two specialist nodes routing back and forth.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson warn against having specialist nodes route directly to each other in a supervisor pattern instead of back through the supervisor?",
+            "options": [
+              "Because this defeats the point of centralizing routing decisions — the supervisor pattern's value comes from keeping dynamic routing logic in one place",
+              "Because specialist nodes are technically incapable of routing to any node other than the supervisor",
+              "Because direct specialist-to-specialist routing always causes a graph compilation error",
+              "Because the supervisor pattern requires exactly zero conditional edges"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake undermines the core benefit of the supervisor pattern: keeping the dynamic dispatch decision in one central, inspectable place.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson caution against building a peer-to-peer cycle between agent nodes with no round limit?",
+            "options": [
+              "Because this is the same coordination-loop risk the Agents course's multi-agent failure-modes lesson warned about, needing an external bound just like a single agent's reasoning loop",
+              "Because peer-to-peer cycles are technically incapable of ever running more than one round",
+              "Because round limits are only relevant to the supervisor pattern, never to peer-to-peer",
+              "Because LangGraph automatically imposes an unlimited round cap by default"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake extends the same stopping-condition principle from the Agents course to the graph-based peer-to-peer implementation, where the risk of an unbounded loop is identical.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "lg_subgraphs_and_modularity",
+      "title": "Subgraphs: Composing Graphs from Smaller Graphs",
+      "description": "A graph can itself be a node in a larger graph — the same composability principle from LCEL chains, one level up.",
+      "duration": "12 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Explain what a subgraph is and why it helps manage complexity in a large LangGraph application."
+          },
+          {
+            "title": "🧩 What a subgraph is",
+            "content": "A complete, independently-defined graph (with its own nodes, edges, and state) that gets used as a single node within a larger, enclosing graph — from the enclosing graph's perspective, the subgraph is just another node that takes state in and returns a state update, even though internally it's a full graph with its own multi-step logic.\n\n```python\napproval_subgraph = build_approval_flow_graph().compile()\n\nparent_graph.add_node(\"get_approval\", approval_subgraph)  # a full graph, used as one node\nparent_graph.add_edge(\"propose\", \"get_approval\")\nparent_graph.add_edge(\"get_approval\", \"execute\")\n```"
+          },
+          {
+            "title": "🎯 Why this matters for large applications",
+            "content": "Just as the multi-agent module's specialization argument favored splitting one large agent into several focused ones, subgraphs let you develop, test, and reason about a complex piece of logic (an entire research sub-task, a complete approval workflow) independently, then compose it into a larger system — keeping any single graph definition from becoming an unmanageably large, tangled structure as an application's scope grows."
+          },
+          {
+            "title": "🔌 State translation between levels",
+            "content": "Because a subgraph has its own state schema that may not exactly match the enclosing graph's schema, there's typically a translation step — mapping relevant fields from the parent graph's state into the subgraph's expected input, and mapping the subgraph's output back into an update to the parent's state — which is itself a place worth testing carefully, since it's a form of handoff (echoing the multi-agent handoff lesson) between two differently-shaped state schemas rather than between two peer agents."
+          },
+          {
+            "title": "♻️ Reuse across multiple parent graphs",
+            "content": "A well-defined subgraph — a reusable 'get human approval for this proposed action' flow, for instance — can be composed into multiple different larger graphs that all need that same capability, rather than reimplementing the same interrupt-and-approval logic from the human-in-the-loop module separately in each one, which is exactly the kind of duplication a modular subgraph is meant to eliminate."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Skipping the state-translation step and assuming a subgraph's schema will just line up with its parent's.** Since the two schemas may genuinely differ, an untested translation boundary is exactly the kind of handoff mismatch worth catching before it causes a subtle bug.\n\n**Reimplementing the same sub-workflow (like an approval flow) separately in every graph that needs it.** This is precisely the duplication a reusable, well-defined subgraph is meant to eliminate — copy-pasted logic in multiple places also means fixes need to be applied in multiple places.\n\n**Letting a subgraph grow to handle several unrelated responsibilities instead of one focused piece of logic.** This undermines the same specialization benefit that motivated using a subgraph in the first place — a subgraph that does too much is just as hard to reason about as the single large graph it was meant to replace."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "lg_subgraphs_and_modularity_quiz",
+        "questions": [
+          {
+            "question": "What is a subgraph in LangGraph?",
+            "options": [
+              "A visual-only diagram with no executable logic",
+              "A complete, independently-defined graph that's used as a single node within a larger enclosing graph",
+              "A deprecated feature no longer supported",
+              "A type of state field, not a graph structure"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A subgraph is a full graph in its own right, but from the perspective of the graph that contains it, it behaves like any other single node taking state in and returning a state update.",
+            "id": "q1"
+          },
+          {
+            "question": "Why are subgraphs valuable for managing a large LangGraph application's complexity?",
+            "options": [
+              "They eliminate the need for any state schema",
+              "They let a complex piece of logic be developed, tested, and reasoned about independently, keeping any one graph definition from becoming unmanageably large",
+              "Subgraphs can only be used in graphs with no cycles",
+              "They remove the need for conditional edges entirely"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Similar to the specialization argument for multi-agent systems, subgraphs let complex sub-logic be isolated and composed, preventing one giant tangled graph definition.",
+            "id": "q2"
+          },
+          {
+            "question": "What typically needs to happen when a subgraph's state schema doesn't exactly match its parent graph's schema?",
+            "options": [
+              "Nothing — schemas never need to match or be translated",
+              "A translation step maps relevant fields between the parent's state and the subgraph's expected input/output",
+              "The parent graph must be rewritten to use the subgraph's exact schema everywhere",
+              "Subgraphs are not allowed to have different schemas from their parent"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since the two schemas may differ, a translation step bridges them — a form of handoff between differently-shaped state schemas, worth testing carefully.",
+            "id": "q3"
+          },
+          {
+            "question": "In this lesson's code example, what does parent_graph.add_node(\"get_approval\", approval_subgraph) do?",
+            "options": [
+              "Registers the entire compiled approval_subgraph as a single node named \"get_approval\" within the parent graph",
+              "Deletes the approval_subgraph definition",
+              "Creates a brand new, empty node with no logic at all",
+              "Merges the parent graph's schema directly into the subgraph's schema"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example shows a fully compiled subgraph being registered as one node in the parent graph, exactly matching the lesson's description of a subgraph acting like a single node from the outside.",
+            "id": "q4"
+          },
+          {
+            "question": "In this lesson's code example, what do the edges from \"propose\" to \"get_approval\" and from \"get_approval\" to \"execute\" show?",
+            "options": [
+              "The subgraph node fitting into the parent graph's flow just like any other single node would",
+              "That the subgraph node cannot have any edges connected to it",
+              "That \"get_approval\" must always be the first node in the parent graph",
+              "That the parent graph has no other nodes besides \"get_approval\""
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example wires the subgraph node into the parent's edge structure exactly the same way a normal node would be connected, reinforcing that it behaves like any other node externally.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does this lesson compare subgraph state translation to the multi-agent handoff lesson?",
+            "options": [
+              "Because both involve carefully bridging information between two differently-shaped contexts — peer agents in one case, parent and subgraph schemas in the other",
+              "Because subgraphs and multi-agent handoffs are executed by identical underlying code",
+              "Because state translation between a subgraph and its parent never actually requires any care or testing",
+              "Because the handoff lesson has no relationship whatsoever to state schema design"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson draws this parallel specifically because both scenarios involve a boundary where information needs to be deliberately and carefully translated between two different shapes of context.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson warn against skipping the state-translation step and assuming a subgraph's schema will just line up with its parent's?",
+            "options": [
+              "Because since the two schemas may genuinely differ, an untested translation boundary is exactly the kind of handoff mismatch worth catching before it causes a subtle bug",
+              "Because subgraphs are technically required to share an identical schema with their parent at all times",
+              "Because state translation is automatically handled with no possibility of error",
+              "Because parent and subgraph schemas are always guaranteed to match by default"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is assuming compatibility without verifying it, when the translation boundary is explicitly called out as worth testing carefully.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson caution against reimplementing the same sub-workflow separately in every graph that needs it?",
+            "options": [
+              "Because this is precisely the duplication a reusable, well-defined subgraph is meant to eliminate, and copy-pasted logic means fixes need to be applied in multiple places",
+              "Because reimplementing the same logic is always faster than reusing a subgraph",
+              "Because subgraphs can only ever be used in exactly one parent graph",
+              "Because duplicated logic across graphs has no actual maintenance cost"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is missing the reuse benefit subgraphs are specifically designed to provide, leading to unnecessary duplicated maintenance burden.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "lg_deployment_considerations",
+      "title": "Deploying a LangGraph Application",
+      "description": "Moving from a graph that runs correctly in development to one that serves real traffic reliably.",
+      "duration": "12 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "List the main considerations for deploying a LangGraph application to production, building on persistence and observability concepts from this course."
+          },
+          {
+            "title": "💽 Persistence backend for production",
+            "content": "As covered in the checkpointing module, a production deployment needs a durable, shared checkpoint backend (not the in-memory default) so state survives restarts and can be accessed consistently across however many instances of the application are running — this is one of the first things to change moving from a local prototype to a deployed service."
+          },
+          {
+            "title": "📈 Scaling considerations",
+            "content": "Because each thread's state is independent (per the threads lesson), a LangGraph application can generally scale horizontally — multiple instances handling different threads concurrently — as long as they all share the same checkpoint backend, so any instance can pick up any thread's next invocation with access to its correct current state.\n\n```python\n# Any instance can serve any thread, as long as they share one checkpoint store\napp = graph.compile(checkpointer=PostgresSaver(shared_connection_pool))\n```"
+          },
+          {
+            "title": "⏱️ Handling long-running and paused graphs",
+            "content": "A graph paused at an interrupt (per the human-in-the-loop module) might wait for human input for an extended, unpredictable amount of time — a production deployment needs to handle this gracefully rather than tying up resources waiting synchronously, typically by treating an interrupted graph as fully released (its state safely checkpointed) until a resume request actually arrives, rather than holding a process open the whole time."
+          },
+          {
+            "title": "📊 Production observability",
+            "content": "The tracing and monitoring practices from both this course's streaming/observability lesson and the Agents course's production lesson apply directly: log full execution traces, track operational metrics (success rate, average steps, cost per thread), and alert on the failure categories that matter — a spike in interrupt timeouts with no resume, an unusual jump in max-recursion-limit hits, or degraded outcomes on continuously-sampled production traffic."
+          },
+          {
+            "title": "🔧 Versioning graphs safely",
+            "content": "Because a graph's structure (nodes, edges, state schema) can evolve over time, and checkpoints saved under an older version of the graph might not perfectly match a newer version's expectations, changes to a graph's structure need the same careful, evaluated rollout discipline the Fine-Tuning and Agents courses both emphasized for their own respective kinds of changes — test against realistic scenarios before shipping, and have a plan for what happens to in-flight threads checkpointed under the previous graph version."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Deploying multiple application instances without confirming they all share the same checkpoint backend.** Horizontal scaling only works cleanly when every instance can access the same durable state — instances with separate or mismatched backends can't correctly pick up each other's threads.\n\n**Assuming an interrupted graph needs a process held open until it's resumed.** This wastes resources unnecessarily; the whole point of checkpointing an interrupt is that the graph's state is safely durable without anything needing to stay running while waiting.\n\n**Shipping a graph structure change with no plan for in-flight threads checkpointed under the previous version.** Skipping this consideration is exactly the compatibility risk this lesson calls out — a structural change can leave existing paused or resumable threads in a state the new graph version doesn't expect."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "lg_deployment_considerations_quiz",
+        "questions": [
+          {
+            "question": "Why does a production LangGraph deployment need a database-backed (not in-memory) checkpoint backend?",
+            "options": [
+              "In-memory checkpointing is actually faster for all production use cases",
+              "State needs to survive restarts and be consistently accessible across multiple application instances",
+              "Database-backed checkpointing is required by LangGraph's license",
+              "Checkpointing has no relevance to production deployment"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Just as the checkpointing module covered, production durability and multi-instance access require a real database-backed checkpointer rather than the simpler in-memory option.",
+            "id": "q1"
+          },
+          {
+            "question": "How should a production deployment typically handle a graph paused at an interrupt awaiting human input?",
+            "options": [
+              "Hold a process open synchronously for as long as it takes, no matter how long",
+              "Treat the interrupted graph as fully released, with its state safely checkpointed, until an actual resume request arrives",
+              "Automatically cancel the task after a fixed short timeout with no exceptions",
+              "Interrupts cannot be used in production deployments at all"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Since checkpointing preserves the paused state durably, resources don't need to be tied up waiting — the graph can resume whenever the resume request actually comes in, however long that takes.",
+            "id": "q2"
+          },
+          {
+            "question": "Why does changing a graph's structure (nodes, edges, state schema) need careful rollout discipline in production?",
+            "options": [
+              "Graph structure changes never affect anything already running",
+              "Checkpoints saved under an older graph version might not match a newer version's expectations, especially for in-flight threads",
+              "LangGraph automatically migrates all old checkpoints with no risk",
+              "Structural changes are not possible once a graph is deployed"
+            ],
+            "correctAnswer": 1,
+            "explanation": "In-flight threads checkpointed under a previous graph version are a real compatibility concern when the graph's structure changes, requiring the same evaluated, careful rollout approach emphasized for changes in the Fine-Tuning and Agents courses.",
+            "id": "q3"
+          },
+          {
+            "question": "In this lesson's code example, what does PostgresSaver(shared_connection_pool) enable across multiple application instances?",
+            "options": [
+              "Any instance can serve any thread's next invocation, since they all share the same checkpoint store",
+              "Each instance gets its own completely separate, unsynchronized checkpoint history",
+              "Only one instance is ever allowed to run at a time",
+              "The graph's nodes and edges must be redefined separately for each instance"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example uses a shared connection pool specifically so that horizontal scaling works — any instance can pick up any thread because they're all reading from and writing to the same backend.",
+            "id": "q4"
+          },
+          {
+            "question": "Why does this lesson's code comment say 'Any instance can serve any thread, as long as they share one checkpoint store'?",
+            "options": [
+              "Because horizontal scaling depends on every instance having consistent access to the same durable checkpoint data, not separate, isolated stores",
+              "Because each instance is required to serve exactly one specific thread permanently",
+              "Because sharing a checkpoint store is only relevant for graphs with no threads at all",
+              "Because instances that don't share a checkpoint store run faster than ones that do"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's comment directly states the scaling requirement: shared access to the same checkpoint backend is what makes any instance able to correctly resume any thread.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does this lesson say handling interrupts gracefully in production means NOT holding a process open synchronously?",
+            "options": [
+              "Because the wait for human input can be extended and unpredictable, so tying up a process the whole time wastes resources when the state is already safely checkpointed",
+              "Because holding a process open always causes the checkpoint to be deleted",
+              "Because interrupts are incompatible with any production deployment",
+              "Because synchronous waiting always completes faster than an asynchronous approach"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explains that since checkpointing already preserves the paused state durably, there's no need to hold resources hostage waiting for an unpredictable resume time.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson warn against deploying multiple application instances without confirming they all share the same checkpoint backend?",
+            "options": [
+              "Because horizontal scaling only works cleanly when every instance can access the same durable state — mismatched backends can't correctly pick up each other's threads",
+              "Because multiple instances are technically incapable of ever running simultaneously",
+              "Because checkpoint backends are automatically synchronized across instances with no configuration needed",
+              "Because a single instance is always sufficient for any production deployment regardless of scale"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is a scaling misconfiguration that directly undermines the shared-backend requirement this lesson describes for correct horizontal scaling.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson caution against shipping a graph structure change with no plan for in-flight threads checkpointed under the previous version?",
+            "options": [
+              "Because a structural change can leave existing paused or resumable threads in a state the new graph version doesn't expect, which is exactly the compatibility risk this lesson calls out",
+              "Because graph structure changes are technically impossible to deploy once any thread exists",
+              "Because in-flight threads are automatically deleted whenever a graph's structure changes",
+              "Because versioning discipline is only relevant for graphs with no checkpointing enabled"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake is skipping exactly the rollout consideration the lesson explicitly recommends: planning for what happens to threads checkpointed under an older graph version.",
+            "id": "q8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "lg_common_langgraph_mistakes",
+      "title": "Common LangGraph Mistakes",
+      "description": "The specific ways LangGraph applications go wrong, and which lesson in this course heads off each one.",
+      "duration": "12 min",
+      "type": "lesson",
+      "content": {
+        "sections": [
+          {
+            "title": "What you should be able to do",
+            "content": "Recognize the most common LangGraph-specific mistakes covered across this course and identify the fix for each."
+          },
+          {
+            "title": "Common mistakes",
+            "content": "**Missing or wrong reducers on accumulating fields**, causing a cyclic graph to silently lose history on every loop iteration instead of building it up — the single most common early bug, addressed by the reducers lesson.\n\n**Using a graph for a task that's really just a fixed, linear sequence** with no cycles or runtime branching, adding complexity for no real benefit — addressed by the when-to-reach-for-LangGraph lesson's decision framework.\n\n**Relying only on internal routing logic to stop a loop** with no external step-limit safeguard, mirroring the exact same stopping-condition gap the Agents course warned against for hand-rolled agent loops.\n\n**Placing an interrupt with no useful context prepared beforehand**, leaving a reviewer with nothing meaningful to actually approve or reject.\n\n**Sticking with in-memory checkpointing when deploying to production**, losing all state on the first restart or failing to share state across scaled instances.\n\n**Putting purely local, node-specific computation into shared state unnecessarily**, making the state schema harder to reason about as the graph grows.\n\n```python\n# A pre-deployment sanity check, as code:\nassert all(field_has_reducer(f) for f in accumulating_fields)\nassert has_external_step_limit(app)\nassert checkpointer_is_durable(app)  # not MemorySaver, in production\nassert all(field_is_genuinely_shared(f) for f in state_schema.fields)\n```"
+          },
+          {
+            "title": "✅ Why these mistakes are avoidable",
+            "content": "Every one of them is addressed by a specific lesson earlier in this course — the pattern across this whole module (and honestly, across the whole course) is that LangGraph's explicit structure turns implicit, hard-to-spot agent bugs into specific, nameable, checkable things: a specific field's reducer, a specific edge's routing logic, a specific node's prepared context, a specific configuration choice for checkpointing."
+          },
+          {
+            "title": "🎯 A pre-deployment checklist",
+            "content": "Every accumulating state field has an explicit, correct reducer. There's an external step/recursion limit configured, independent of internal routing logic. Every interrupt point has enough prepared context for a meaningful review. The persistence backend matches the deployment's durability and scaling needs. The state schema contains only genuinely shared data, not incidental local computation. Reviewing this list before shipping catches the large majority of the mistakes that show up repeatedly in real LangGraph applications."
+          }
+        ]
+      },
+      "quiz": {
+        "id": "lg_common_langgraph_mistakes_quiz",
+        "questions": [
+          {
+            "question": "What is described as the single most common early LangGraph bug?",
+            "options": [
+              "Using too many nodes in a graph",
+              "Missing or wrong reducers on accumulating fields, causing a cyclic graph to silently lose history each loop iteration",
+              "Streaming output too frequently",
+              "Using subgraphs unnecessarily"
+            ],
+            "correctAnswer": 1,
+            "explanation": "A missing or incorrect reducer on a field meant to accumulate (like message history) silently causes overwrite instead of append, which is flagged as the most common early mistake.",
+            "id": "q1"
+          },
+          {
+            "question": "Why is relying only on internal routing logic to stop a loop, with no external step-limit, a mistake?",
+            "options": [
+              "Internal routing logic is always sufficient and external limits are never needed",
+              "It mirrors the same stopping-condition gap the Agents course warned against for hand-rolled loops — a stuck pattern could run without a safeguard catching it",
+              "External step limits are not supported in LangGraph",
+              "This is not actually a real risk in graph-based agents"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Just as the Agents course emphasized an external safeguard beyond the model's own judgment, relying solely on internal routing without a graph-level limit leaves the same stuck-loop risk unaddressed.",
+            "id": "q2"
+          },
+          {
+            "question": "What does the pre-deployment checklist in this lesson recommend checking regarding state schema design?",
+            "options": [
+              "That the state schema includes every possible local variable from every node",
+              "That the state schema contains only genuinely shared data, not incidental local computation",
+              "That the state schema has no reducers defined at all",
+              "That the state schema is left completely undocumented"
+            ],
+            "correctAnswer": 1,
+            "explanation": "Keeping the schema focused on genuinely shared, cross-node data (rather than incidental local computation) is one of the concrete pre-deployment checks recommended to avoid unnecessary complexity.",
+            "id": "q3"
+          },
+          {
+            "question": "In this lesson's code example, what does assert all(field_has_reducer(f) for f in accumulating_fields) check?",
+            "options": [
+              "That every field meant to accumulate has an explicit reducer defined, heading off the most common early bug",
+              "That every field in the entire schema, accumulating or not, must have a reducer",
+              "That the graph has at least one accumulating field",
+              "That reducers are disabled for all fields in production"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example directly encodes the reducers check from the checklist: every accumulating field should have its reducer explicitly verified before shipping.",
+            "id": "q4"
+          },
+          {
+            "question": "In this lesson's code example, what does assert checkpointer_is_durable(app) # not MemorySaver, in production check for?",
+            "options": [
+              "That the deployed application isn't still using the in-memory checkpointer meant for development",
+              "That the graph has no checkpointer configured at all",
+              "That every node in the graph uses the same LLM provider",
+              "That the graph's state schema has exactly one field"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's code example's comment makes this explicit: this assertion is meant to catch exactly the mistake of shipping with in-memory checkpointing still in place.",
+            "id": "q5"
+          },
+          {
+            "question": "Why does this lesson say LangGraph's explicit structure 'turns implicit, hard-to-spot agent bugs into specific, nameable, checkable things'?",
+            "options": [
+              "Because each common mistake maps to a specific, checkable aspect of the graph — a field's reducer, an edge's routing logic, a node's prepared context, a configuration choice — rather than a vague, hard-to-pin-down bug",
+              "Because LangGraph makes debugging impossible without extensive external tooling",
+              "Because explicit structure has no actual bearing on how easy a bug is to find",
+              "Because every bug in a LangGraph application is automatically fixed without developer intervention"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson explains that the graph's explicit nature (typed state, explicit reducers, explicit edges) is precisely what turns each common mistake into something specific and checkable, rather than a diffuse, hard-to-locate problem.",
+            "id": "q6"
+          },
+          {
+            "question": "Why does this lesson warn against placing an interrupt with no useful context prepared beforehand?",
+            "options": [
+              "Because this leaves a reviewer with nothing meaningful to actually approve or reject, echoing the approval-gates lesson's emphasis on preparing context first",
+              "Because interrupts are technically incapable of being placed without prepared context",
+              "Because prepared context is only relevant for peer-to-peer graphs, never for interrupts",
+              "Because this mistake has no real consequence for an approval workflow"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake directly echoes the earlier approval-gates lesson's Step 1 guidance: a reviewer needs concrete context to make a meaningful decision.",
+            "id": "q7"
+          },
+          {
+            "question": "Why does this lesson caution against putting purely local, node-specific computation into shared state unnecessarily?",
+            "options": [
+              "Because this makes the state schema harder to reason about as the graph grows, echoing the shared-vs-per-node-state lesson's guidance",
+              "Because local computation is technically forbidden inside any LangGraph node function",
+              "Because shared state automatically rejects any local, node-specific values",
+              "Because this mistake only affects graphs with no conditional edges"
+            ],
+            "correctAnswer": 0,
+            "explanation": "The lesson's stated common mistake directly revisits the shared-vs-per-node-state lesson's core guidance: only genuinely cross-node data belongs in the shared schema.",
+            "id": "q8"
+          }
+        ]
+      }
+    }
+  ]
+}
