@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -339,13 +340,37 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
                 label: done ? 'Completed' : 'Complete  +${lesson.xpReward} XP',
                 onPressed: done
                     ? null
-                    : () => ref
-                          .read(userControllerProvider.notifier)
-                          .completeLesson(
-                            lesson.id,
-                            lesson.xpReward,
-                            lesson.readTimeMinutes,
-                          ),
+                    : () {
+                        final messenger = ScaffoldMessenger.of(context);
+                        ref
+                            .read(userControllerProvider.notifier)
+                            .completeLesson(
+                              lesson.id,
+                              lesson.xpReward,
+                              lesson.readTimeMinutes,
+                            );
+                        messenger
+                          ..clearSnackBars()
+                          ..showSnackBar(
+                            SnackBar(
+                              content: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(
+                                    Icons.check_circle_rounded,
+                                    color: Colors.greenAccent,
+                                  ).animate().scale(
+                                    duration: 300.ms,
+                                    curve: Curves.elasticOut,
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Text('Lesson complete — +${lesson.xpReward} XP'),
+                                ],
+                              ).animate().fadeIn(duration: 200.ms),
+                              duration: const Duration(seconds: 2),
+                            ),
+                          );
+                      },
               ),
               if (index >= 0 && index < lessons.length - 1)
                 AppButton(

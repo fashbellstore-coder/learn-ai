@@ -23,7 +23,7 @@ final userProfileProvider = Provider<UserProfile>((ref) {
   return ref.watch(userControllerProvider).profile;
 });
 
-/// Loaded once at app start (see main.dart) from assets/content/<folder>/
+/// Loaded once at app start (see main.dart) from `assets/content/<folder>/`
 /// module_*.json for every course that has moved to the JSON pipeline, and
 /// overridden here — keyed by track id. Empty until that override is set.
 final trackModuleOverridesProvider =

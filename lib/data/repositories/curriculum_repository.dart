@@ -28,12 +28,12 @@ abstract class CatalogRepository {
 class SeedCurriculumRepository implements CurriculumRepository {
   SeedCurriculumRepository({
     this._seed = const CurriculumSeed(),
-    Map<String, List<LearningModule>> trackOverrides = const {},
-  }) : _trackOverrides = trackOverrides;
+    this._trackOverrides = const {},
+  });
 
   final CurriculumSeed _seed;
 
-  /// Loaded asynchronously from assets/content/<folder>/ at app start
+  /// Loaded asynchronously from `assets/content/<folder>/` at app start
   /// (see main.dart), keyed by track id. Any track present here has its
   /// seeded modules replaced while keeping the track's own metadata
   /// (title, icon, color, tagline, ...).
