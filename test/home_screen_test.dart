@@ -6,7 +6,6 @@ import 'package:learn_ai/core/routing/app_router.dart';
 import 'package:learn_ai/core/theme/app_theme.dart';
 import 'package:learn_ai/features/home/home_screen.dart';
 import 'package:learn_ai/features/lessons/lesson_screen.dart';
-import 'package:learn_ai/features/learn/learn_screens.dart';
 import 'package:learn_ai/shared/models/enums.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 

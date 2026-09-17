@@ -499,7 +499,7 @@ class _ExpandableNode extends StatelessWidget {
                   ],
                 ),
               ),
-              if (trailingAction != null) trailingAction!,
+              ?trailingAction,
               Icon(
                 expanded
                     ? Icons.keyboard_arrow_up_rounded
