@@ -21,26 +21,47 @@ class InterviewScreen extends ConsumerWidget {
         body: ListView(
           padding: pageInsets(context),
           children: [
-            const Text(
+            Text(
               'Practice your next interview',
-              style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
+              style: Theme.of(context).textTheme.headlineSmall,
             ),
             const SizedBox(height: 8),
             const Text(
               'Curated questions, reference answers and fixed follow-ups. Everything runs locally. No LLM or API calls.',
             ),
-            const SizedBox(height: 20),
-            for (final c in courses)
-              Card(
-                child: ListTile(
-                  title: Text(c.title),
-                  subtitle: const Text(
-                    'Practice · Interview · Rapid Fire · Scenarios · Mock',
-                  ),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => context.push('/interview/${c.id}'),
+            const SizedBox(height: 16),
+            for (final c in courses) ...[
+              AppCard(
+                onTap: () => context.push('/interview/${c.id}'),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            c.title,
+                            style: Theme.of(context).textTheme.titleLarge,
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            'Practice · Interview · Rapid Fire · Scenarios · Mock',
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Icon(
+                      Icons.chevron_right,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ],
                 ),
               ),
+              const SizedBox(height: 12),
+            ],
           ],
         ),
       );
@@ -282,34 +303,71 @@ class _InterviewExperienceState extends ConsumerState<_InterviewExperience> {
           const Text(
             'Pick a format and practice at your own pace. Objective questions use fixed answer keys. Typed answers are never automatically graded.',
           ),
-          const SizedBox(height: 12),
-          for (final mode in InterviewMode.values)
-            Card(
-              child: ListTile(
-                title: Text(mode.label),
-                subtitle: Text(
-                  '${mode.description}\n${widget.bank.session(mode).length} questions',
-                ),
-                isThreeLine: true,
-                trailing: const Icon(Icons.play_arrow),
-                onTap: () => _start(mode),
+          const SizedBox(height: 16),
+          for (final mode in InterviewMode.values) ...[
+            AppCard(
+              onTap: () => _start(mode),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          mode.label,
+                          style: Theme.of(context).textTheme.titleLarge,
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          mode.description,
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          '${widget.bank.session(mode).length} questions',
+                          style: Theme.of(context).textTheme.labelMedium,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Icon(
+                    Icons.play_arrow,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                ],
               ),
             ),
+            const SizedBox(height: 12),
+          ],
           if (_history.isNotEmpty) ...[
             const SizedBox(height: 16),
             Text(
               'Recent local sessions',
               style: Theme.of(context).textTheme.titleLarge,
             ),
-            for (final h in _history.take(3))
-              ListTile(
-                title: Text(
-                  '${h['modeLabel'] ?? h['mode']} · ${h['completed']}/${h['total']} reviewed',
-                ),
-                subtitle: Text(
-                  'Objective: ${h['correct']}/${h['attempted']} · self-reported points: ${h['covered']}/${h['possible']}',
+            const SizedBox(height: 10),
+            for (final h in _history.take(3)) ...[
+              AppCard(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${h['modeLabel'] ?? h['mode']} · ${h['completed']}/${h['total']} reviewed',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Objective: ${h['correct']}/${h['attempted']} · self-reported points: ${h['covered']}/${h['possible']}',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  ],
                 ),
               ),
+              const SizedBox(height: 10),
+            ],
           ],
         ]),
       );
