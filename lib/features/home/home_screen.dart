@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/providers.dart';
+import '../../core/theme/app_spacing.dart';
 import '../../core/theme/theme_extras.dart';
 import '../../core/utils/learning_math.dart';
+import '../../core/utils/track_color.dart';
 import '../../shared/models/content_models.dart';
 import '../../shared/widgets/app_primitives.dart';
 
@@ -228,50 +230,78 @@ class _CourseRow extends StatelessWidget {
     final palette = context.palette;
     final type = Theme.of(context).textTheme;
     final total = track.lessons.length;
-    return AppCard(
-      padding: const EdgeInsets.all(14),
-      onTap: () => context.push('/course/${track.id}'),
-      child: Row(
-        children: [
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: done ? palette.success : palette.elevated,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(
-              done ? Icons.check_rounded : Icons.menu_book_outlined,
-              size: 17,
-              color: done ? palette.onAccent : palette.textSecondary,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  track.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: type.titleMedium,
-                ),
-                if (done) ...[
-                  const SizedBox(height: 2),
+    final accent = trackAccentColor(track);
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: palette.card,
+          borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+          border: Border.all(color: accent.withValues(alpha: 0.4)),
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () => context.push('/course/${track.id}'),
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Row(
+                children: [
+                  Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      color: done
+                          ? palette.success
+                          : accent.withValues(alpha: 0.18),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      done ? Icons.check_rounded : Icons.menu_book_outlined,
+                      size: 17,
+                      color: done ? palette.onAccent : accent,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Container(
+                    width: 2,
+                    height: 22,
+                    color: accent.withValues(alpha: 0.5),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          track.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: type.titleMedium,
+                        ),
+                        if (done) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            'COMPLETE',
+                            style: type.labelSmall?.copyWith(
+                              color: palette.success,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
                   Text(
-                    'COMPLETE',
-                    style: type.labelSmall?.copyWith(color: palette.success),
+                    '$completedCount/$total',
+                    style: type.labelMedium?.copyWith(
+                      color: palette.textMuted,
+                    ),
                   ),
                 ],
-              ],
+              ),
             ),
           ),
-          Text(
-            '$completedCount/$total',
-            style: type.labelMedium?.copyWith(color: palette.textMuted),
-          ),
-        ],
+        ),
       ),
     );
   }

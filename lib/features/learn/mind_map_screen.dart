@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/providers.dart';
+import '../../core/utils/track_color.dart';
 import '../../data/content/learning_paths.dart';
 import '../../core/theme/theme_extras.dart';
 import '../../shared/models/content_models.dart';
@@ -233,7 +234,7 @@ class _CourseBranch extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = _trackColor(track);
+    final accent = trackAccentColor(track);
     final done = track.lessons.where((lesson) => completed.contains(lesson.id));
     return _TreeBranch(
       lineColor: accent,
@@ -566,10 +567,4 @@ class _BranchPainter extends CustomPainter {
   bool shouldRepaint(covariant _BranchPainter oldDelegate) {
     return color != oldDelegate.color || isLast != oldDelegate.isLast;
   }
-}
-
-Color _trackColor(RoadmapTrack track) {
-  final hex = track.colorHex.replaceFirst('#', '');
-  final value = int.tryParse(hex, radix: 16);
-  return value == null ? const Color(0xFF2979FF) : Color(0xFF000000 | value);
 }
