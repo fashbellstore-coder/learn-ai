@@ -783,16 +783,6 @@ class CourseDetailScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 10),
                     Text(
-                      module.title,
-                      style: Theme.of(context).textTheme.headlineSmall,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      module.description,
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
                       '${module.lessons.length} lessons · ${module.lessons.fold<int>(0, (s, l) => s + l.readTimeMinutes)} min',
                       style: Theme.of(context).textTheme.labelSmall,
                     ),
